@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
@@ -116,6 +116,24 @@ function PublicOnboardRedirect() {
   return <Navigate to={`/onboarding/${clientId}`} replace />;
 }
 
+// App-shell chrome (upload progress, out-of-credits, companion bubble). Hidden
+// on the client-facing onboarding form so a client filling it out sees a clean
+// page — admins keep the chrome there for companion-assisted fill.
+function GlobalChrome() {
+  const location = useLocation();
+  const { isAdmin } = useAuth();
+  const onOnboardingSurface =
+    location.pathname.startsWith("/onboarding") || location.pathname.startsWith("/public/onboard");
+  if (onOnboardingSurface && !isAdmin) return null;
+  return (
+    <>
+      <FloatingUploadProgress />
+      <OutOfCreditsModal />
+      <CompanionBubble />
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -127,9 +145,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <FloatingUploadProgress />
-          <OutOfCreditsModal />
-          <CompanionBubble />
+          <GlobalChrome />
           {/* NamingModal is first-run app-shell setup — rendered inside
               DashboardLayout so it never appears on public/standalone routes
               (e.g. the login-gated onboarding link). */}
