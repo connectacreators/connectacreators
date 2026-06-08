@@ -130,7 +130,7 @@ serve(async (req) => {
   // 4. Load all non-deleted scripts whose folder_id is in the subtree.
   const { data: scripts } = await admin
     .from("scripts")
-    .select("id, title, idea_ganadora, target, formato, folder_id, created_at, updated_at")
+    .select("id, title, idea_ganadora, target, formato, format_reference_url, inspiration_url, inspiration_urls, caption, folder_id, created_at, updated_at")
     .in("folder_id", allFolderIds)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });

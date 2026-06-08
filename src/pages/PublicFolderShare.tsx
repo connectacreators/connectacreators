@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard,
+  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard, Eye,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
 import { defaultSectionLabel } from "@/lib/scriptBlocks";
@@ -24,6 +26,10 @@ type ScriptStub = {
   idea_ganadora: string | null;
   target: string | null;
   formato: string | null;
+  format_reference_url: string | null;
+  inspiration_url: string | null;
+  inspiration_urls: string[] | null;
+  caption: string | null;
   folder_id: string;
   created_at: string;
   updated_at: string;
@@ -87,7 +93,7 @@ function ReaderLine({ line }: { line: ScriptLine }) {
   return (
     <div className="flex items-stretch gap-3 py-1.5">
       <div className={`w-[2px] rounded-full shrink-0 ${TYPE_BAR_CLASS[line.line_type]}`} />
-      <div className={`flex-1 min-w-0 text-sm leading-relaxed ${TYPE_TEXT_CLASS[line.line_type]}`}>
+      <div className={`flex-1 min-w-0 text-sm leading-relaxed break-words ${TYPE_TEXT_CLASS[line.line_type]}`}>
         {line.text}
       </div>
     </div>
@@ -117,6 +123,8 @@ export default function PublicFolderShare() {
   // Client-side navigation within the shared subtree
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [openScriptId, setOpenScriptId] = useState<string | null>(null);
+  // URL shown in the inspiration / format-reference preview dialog.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -202,6 +210,10 @@ export default function PublicFolderShare() {
     }
     const presetFormat = SCRIPT_FORMATS.find((f) => f.label === openScript.formato);
     const FormatIcon = presetFormat?.icon;
+    const inspirationUrls =
+      openScript.inspiration_urls && openScript.inspiration_urls.length
+        ? openScript.inspiration_urls
+        : (openScript.inspiration_url ? [openScript.inspiration_url] : []);
 
     return (
       <div className="editorial-page-dark min-h-screen bg-background">
@@ -224,6 +236,7 @@ export default function PublicFolderShare() {
           {/* Winning Idea — flat editorial card (mirrors the editor chrome) */}
           <div className="editorial-card mb-4" style={{ padding: "20px 22px" }}>
             <h1
+              className="break-words"
               style={{
                 fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                 fontWeight: 500,
@@ -237,25 +250,62 @@ export default function PublicFolderShare() {
             </h1>
             {openScript.target && (
               <div className="mt-3 pt-3" style={{ borderTop: "1px solid hsl(var(--bone) / 0.10)" }}>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground">
-                  <span className="uppercase tracking-wider text-[9px] opacity-70">Target</span>
-                  {openScript.target}
+                <span className="inline-flex items-start gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground max-w-full">
+                  <span className="uppercase tracking-wider text-[9px] opacity-70 shrink-0 mt-0.5">Target</span>
+                  <span className="min-w-0 break-words">{openScript.target}</span>
                 </span>
               </div>
             )}
           </div>
 
-          {/* Format */}
-          {openScript.formato && (
+          {/* Format — chip + subtle eye button to preview the reference video */}
+          {(openScript.formato || openScript.format_reference_url) && (
             <div className="editorial-card p-5 mb-2">
               <div className="flex items-center gap-2 mb-3">
                 <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Format</span>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
-                {FormatIcon && <FormatIcon className="w-3.5 h-3.5 shrink-0" />}
-                {openScript.formato}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {openScript.formato && (
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary max-w-full break-words">
+                    {FormatIcon && <FormatIcon className="w-3.5 h-3.5 shrink-0" />}
+                    {openScript.formato}
+                  </span>
+                )}
+                {openScript.format_reference_url && (
+                  <button
+                    onClick={() => setPreviewUrl(openScript.format_reference_url)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    title="View format reference"
+                  >
+                    <Eye className="w-3.5 h-3.5 shrink-0" />
+                    Reference
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Inspiration — subtle eye buttons to preview each reference video */}
+          {inspirationUrls.length > 0 && (
+            <div className="editorial-card p-5 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Inspiration</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {inspirationUrls.map((url, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setPreviewUrl(url)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    title="Watch inspiration"
+                  >
+                    <Eye className="w-3.5 h-3.5 shrink-0" />
+                    {inspirationUrls.length > 1 ? `Reference ${idx + 1}` : "Watch"}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -275,6 +325,17 @@ export default function PublicFolderShare() {
             <p className="text-sm text-muted-foreground text-center py-8">This script has no content yet.</p>
           )}
         </main>
+
+        <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) setPreviewUrl(null); }}>
+          <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
+            <DialogHeader className="p-4 pb-0">
+              <DialogTitle className="text-sm">Preview</DialogTitle>
+            </DialogHeader>
+            <div className="p-4 pt-2">
+              {previewUrl && <InspirationVideoEmbed url={previewUrl} />}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -363,9 +424,9 @@ export default function PublicFolderShare() {
                       <FileText className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-serif font-semibold text-foreground text-base leading-snug">{s.title || "Untitled"}</h3>
+                      <h3 className="font-serif font-semibold text-foreground text-base leading-snug break-words">{s.title || "Untitled"}</h3>
                       {(s.idea_ganadora || s.formato) && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-muted-foreground mt-0.5 break-words">
                           {s.idea_ganadora && <span>{s.idea_ganadora}</span>}
                           {s.idea_ganadora && s.formato && <span className="mx-1.5">·</span>}
                           {s.formato && <span className="uppercase tracking-wider">{s.formato}</span>}
