@@ -36,6 +36,20 @@ function matchInstagram(u: URL): CanonicalVideo | null {
 function matchTiktok(u: URL): CanonicalVideo | null {
   const host = u.hostname.replace(/^www\./, "");
   if (host === "tiktok.com" || host === "m.tiktok.com") {
+    // Standard form: /@username/video/ID. Preserve the @username — TikTok
+    // redirects the username-less /video/ID form to a 404 page, which makes
+    // yt-dlp fail with "Unsupported URL" during download/transcription.
+    const withUser = u.pathname.match(/^\/@([\w.-]+)\/video\/(\d+)/);
+    if (withUser) {
+      return {
+        platform: "tiktok",
+        postId: withUser[2],
+        normalizedUrl: `https://www.tiktok.com/@${withUser[1]}/video/${withUser[2]}`,
+      };
+    }
+    // Bare /video/ID with no username in the source URL — keep as-is. postId
+    // is the canonical dedup key, so resolve still works; this form just isn't
+    // directly downloadable (the username can't be recovered from ID alone).
     const m = u.pathname.match(/\/video\/(\d+)/);
     if (m) {
       return {

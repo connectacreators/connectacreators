@@ -20,8 +20,23 @@ Deno.test("instagram /reels/ URL", () => {
   assertEquals(r?.postId, "XyZ789");
 });
 
-Deno.test("tiktok /video/ URL", () => {
+Deno.test("tiktok /@user/video/ URL preserves the @username (yt-dlp 404s without it)", () => {
   const r = canonicalizeVideoUrl("https://www.tiktok.com/@user/video/7123456789012345678");
+  assertEquals(r?.platform, "tiktok");
+  assertEquals(r?.postId, "7123456789012345678");
+  assertEquals(r?.normalizedUrl, "https://www.tiktok.com/@user/video/7123456789012345678");
+});
+
+Deno.test("tiktok URL keeps username while stripping tracking params", () => {
+  const r = canonicalizeVideoUrl(
+    "https://www.tiktok.com/@user.name/video/7123456789012345678?is_from_webapp=1&_t=abc&_r=1"
+  );
+  assertEquals(r?.postId, "7123456789012345678");
+  assertEquals(r?.normalizedUrl, "https://www.tiktok.com/@user.name/video/7123456789012345678");
+});
+
+Deno.test("tiktok bare /video/ URL (no username) still resolves postId for dedup", () => {
+  const r = canonicalizeVideoUrl("https://www.tiktok.com/video/7123456789012345678");
   assertEquals(r?.platform, "tiktok");
   assertEquals(r?.postId, "7123456789012345678");
 });
