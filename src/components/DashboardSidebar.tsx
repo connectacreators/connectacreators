@@ -8,7 +8,9 @@ import { readCache, writeCache } from "@/lib/sessionCache";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { t, tr } from "@/i18n/translations";
 import LanguageToggle from "@/components/LanguageToggle";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useClientProfilePics } from "@/hooks/useClientProfilePics";
+import { ClientAvatar } from "@/components/dashboard/ClientAvatar";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +70,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     return (isUser || isSubscriber) ? "me" : "master";
   });
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const clientPics = useClientProfilePics(useMemo(() => clients.map(c => c.id), [clients]));
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -700,9 +703,16 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = viewMode === client.id ? 'rgba(255,255,255,0.06)' : 'transparent'; }}
               >
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 text-muted-foreground" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                  {getInitials(client.name)}
-                </div>
+                <ClientAvatar
+                  picUrl={clientPics[client.id]}
+                  alt={client.name}
+                  size={24}
+                  fallback={
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 text-muted-foreground" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                      {getInitials(client.name)}
+                    </div>
+                  }
+                />
                 <span className="text-sm text-foreground/90 flex-1 truncate">{client.name}</span>
                 {viewMode === client.id && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
               </button>

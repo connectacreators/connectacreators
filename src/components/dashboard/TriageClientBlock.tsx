@@ -7,11 +7,14 @@
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { TriageRow } from "./TriageRow";
+import { ClientAvatar } from "./ClientAvatar";
 import type { TriageClient, TriageRow as TriageRowData } from "@/lib/triage/types";
 
 interface Props {
   client: TriageClient;
   rows: TriageRowData[];
+  /** Base64 Instagram profile picture; falls back to initials when absent. */
+  picUrl?: string | null;
 }
 
 // Deterministic monogram palette — picks one slot per client name hash.
@@ -38,7 +41,7 @@ function initials(name: string): string {
   return cleaned.slice(0, 2).toUpperCase();
 }
 
-export function TriageClientBlock({ client, rows }: Props) {
+export function TriageClientBlock({ client, rows, picUrl }: Props) {
   const mono = colorFor(client.name);
 
   return (
@@ -84,26 +87,34 @@ export function TriageClientBlock({ client, rows }: Props) {
         style={{ textDecoration: 'none' }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 999,
-              background: mono.bg,
-              color: mono.fg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-              fontSize: 16,
-              fontWeight: 500,
-              letterSpacing: '-0.02em',
-              flexShrink: 0,
-              boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.12)',
-            }}
-          >
-            {initials(client.name)}
-          </div>
+          <ClientAvatar
+            picUrl={picUrl}
+            alt={client.name}
+            size={38}
+            style={{ boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.12)' }}
+            fallback={
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 999,
+                  background: mono.bg,
+                  color: mono.fg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
+                  fontSize: 16,
+                  fontWeight: 500,
+                  letterSpacing: '-0.02em',
+                  flexShrink: 0,
+                  boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.12)',
+                }}
+              >
+                {initials(client.name)}
+              </div>
+            }
+          />
           <h2
             className="truncate"
             style={{

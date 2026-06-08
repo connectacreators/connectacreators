@@ -36,6 +36,7 @@ import { SingleBrandDashboard } from "@/components/dashboard/SingleBrandDashboar
 // Triage view
 import { useTriageClients } from "@/hooks/useTriageClients";
 import { useTriageRows } from "@/hooks/useTriageRows";
+import { useClientProfilePics } from "@/hooks/useClientProfilePics";
 import { TriageClientBlock } from "@/components/dashboard/TriageClientBlock";
 
 interface Client {
@@ -261,6 +262,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
   const { clients: triageClients, loading: clientsLoading } = useTriageClients();
   const clientIds = useMemo(() => triageClients.map((c) => c.id), [triageClients]);
   const { data: rowsByClient, loading: rowsLoading } = useTriageRows(clientIds);
+  const profilePics = useClientProfilePics(clientIds);
 
   const blocks = useMemo(() => {
     const list = triageClients
@@ -433,7 +435,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.18 + idx * 0.06 }}
               >
-                <TriageClientBlock client={b.client} rows={b.rows} />
+                <TriageClientBlock client={b.client} rows={b.rows} picUrl={profilePics[b.client.id]} />
               </motion.div>
             ))}
 
