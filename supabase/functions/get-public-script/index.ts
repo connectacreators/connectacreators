@@ -35,7 +35,7 @@ serve(async (req) => {
 
   const { data: script, error: scriptError } = await admin
     .from("scripts")
-    .select("title, idea_ganadora, target, formato, inspiration_url, inspiration_urls")
+    .select("title, idea_ganadora, target, formato, format_reference_url, inspiration_url, inspiration_urls, caption")
     .eq("id", scriptId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -56,14 +56,16 @@ serve(async (req) => {
 
   const { data: lines } = await admin
     .from("script_lines")
-    .select("line_type, text, section, line_number")
+    .select("line_type, text, rich_text, section, line_number, block_kind")
     .eq("script_id", scriptId)
     .order("line_number");
 
   return new Response(
     JSON.stringify({
       script,
-      lines: (lines ?? []).map(({ line_type, text, section }) => ({ line_type, text, section })),
+      lines: (lines ?? []).map(({ line_type, text, rich_text, section, line_number, block_kind }) => ({
+        line_type, text, rich_text, section, line_number, block_kind: block_kind ?? "line",
+      })),
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );

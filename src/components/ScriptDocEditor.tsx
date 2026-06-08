@@ -29,6 +29,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { ScriptLine } from "@/hooks/useScripts";
 import { stripHtml } from "@/utils/stripHtml";
 import { newBlockUid, defaultSectionLabel } from "@/lib/scriptBlocks";
+import { TYPE_TEXT_CLASS, TYPE_BAR_CLASS } from "@/lib/scriptLineTypes";
 
 type LineType = ScriptLine["line_type"];
 
@@ -40,20 +41,8 @@ const TYPE_OPTIONS: { type: LineType; color: string; label: string }[] = [
   { type: "text_on_screen", color: "hsl(var(--bone) / 0.55)",   label: "Text on Screen" },
 ];
 
-// Line text is colored by its type (matches the left bar) so the type is readable at a glance.
-const TYPE_TEXT_CLASS: Record<LineType, string> = {
-  filming:        "text-[#C2823F]",                 // orange
-  actor:          "text-[hsl(var(--aqua))]",        // aqua
-  editor:         "text-[#7FB58A]",                 // green
-  text_on_screen: "text-[hsl(var(--bone) / 0.62)]", // muted
-};
-
-const TYPE_BAR_CLASS: Record<LineType, string> = {
-  filming:        "bg-[#A85B1F]",
-  actor:          "bg-[hsl(var(--aqua))]",
-  editor:         "bg-[#7FB58A]",
-  text_on_screen: "bg-[hsl(var(--bone) / 0.40)]",
-};
+// TYPE_TEXT_CLASS / TYPE_BAR_CLASS are imported from "@/lib/scriptLineTypes"
+// (shared with the public read-only view so colors never drift).
 
 // ---------------------------------------------------------------------------
 // Slash menu — opens when a content line contains exactly "/". Lets the user
