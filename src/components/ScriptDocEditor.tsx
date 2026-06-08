@@ -231,7 +231,7 @@ function ScriptLineEditor({
     content: initialContent,
     editorProps: {
       attributes: {
-        class: "outline-none min-h-[1.6em] w-full text-[13px] leading-relaxed px-3 py-1.5 cursor-text",
+        class: "outline-none min-h-[1.6em] w-full text-[14px] leading-relaxed px-3 py-1.5 cursor-text caret-[hsl(var(--bone))] [caret-color:hsl(var(--bone))]",
       },
       handleKeyDown: (_view, event) => {
         // ---- Slash menu navigation (intercept while open) ----
@@ -955,7 +955,7 @@ export default function ScriptDocEditor({
 
       {/* Document page */}
       <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink))]">
-        <div className="editorial-card doc-print-area max-w-[660px] mx-auto px-10 py-10">
+        <div className="editorial-card doc-print-area w-full max-w-[1040px] mx-auto px-6 sm:px-10 py-10">
           {/* Title/meta header — hidden in embedded mode (the unified screen's
               Winning-Idea chrome already shows title + meta above the document). */}
           {!embedded && (

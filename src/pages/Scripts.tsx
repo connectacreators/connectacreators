@@ -1337,7 +1337,15 @@ export default function Scripts() {
       setLinkedVideoEdit(videoData ? { id: videoData.id, client_id: videoData.client_id, footage: videoData.footage, file_submission: videoData.file_submission, upload_source: videoData.upload_source, storage_path: videoData.storage_path, storage_url: videoData.storage_url, file_size_bytes: videoData.file_size_bytes } : null);
     } catch { setFileSubmission(null); setLinkedVideoEdit(null); }
     setView("view-script");
+    // Persist the open script in the URL so a refresh reopens THIS script (not the
+    // folder list). Cleared in goBack. The mount auto-open reads ?scriptId on load.
+    const sp = new URLSearchParams(searchParams);
+    sp.set("scriptId", script.id);
+    setSearchParams(sp, { replace: true });
   };
+
+  // Skip the auto-save triggered by the docBlocks change that (re)loading a script causes.
+  const skipNextAutoSaveRef = useRef(false);
 
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
@@ -1351,11 +1359,24 @@ export default function Scripts() {
       if (cancelled) return;
       const hasHeadings = all.some((b) => b.block_kind === "heading");
       const next = hasHeadings ? withUids(all) : synthesizeBlocksFromLines(all);
+      skipNextAutoSaveRef.current = true;
       setDocBlocks(next);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewingScriptId]);
+
+  // Auto-save: silently persist the block document ~900ms after the last edit, so new
+  // sections / renames / lines survive a refresh without needing the Save button. The
+  // load-induced change is skipped. saveScriptBlocks is serialized per-script in the data
+  // layer; we deliberately don't reset docBlocks here so typing/focus is never disrupted.
+  useEffect(() => {
+    if (!viewingScriptId || docBlocks.length === 0) return;
+    if (skipNextAutoSaveRef.current) { skipNextAutoSaveRef.current = false; return; }
+    const sid = viewingScriptId;
+    const t = setTimeout(() => { saveScriptBlocks(sid, docBlocks).catch(() => {}); }, 900);
+    return () => clearTimeout(t);
+  }, [docBlocks, viewingScriptId]);
 
   const refreshLinkedVideoEdit = async (scriptId: string) => {
     const { data } = await supabase.from("video_edits").select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", scriptId).maybeSingle();
@@ -1410,6 +1431,12 @@ export default function Scripts() {
 
   const goBack = () => {
     if (view === "view-script" || view === "new-script" || view === "edit-script") {
+      // Drop the ?scriptId from the URL so a refresh on the list stays on the list.
+      if (searchParams.has("scriptId")) {
+        const sp = new URLSearchParams(searchParams);
+        sp.delete("scriptId");
+        setSearchParams(sp, { replace: true });
+      }
       setView("client-detail");
       setParsedLines([]);
       setDocBlocks([]);
