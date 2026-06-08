@@ -1652,7 +1652,7 @@ export default function LandingPageNew() {
           </div>
 
           <p style={{ textAlign: "center", marginTop: 32, fontSize: 14, color: "var(--bone-3)" }}>
-            Plus <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> built for{" "}
+            Where it all started: before Connecta, our founder grew his own account{" "}
             <a
               href="https://www.tiktok.com/@elabogadojonathan"
               target="_blank"
@@ -1661,7 +1661,7 @@ export default function LandingPageNew() {
             >
               @elabogadojonathan
             </a>{" "}
-            — the account that started it all.
+            to <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> — the same playbook now runs for our clients.
           </p>
         </div>
       </section>
