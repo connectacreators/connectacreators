@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
@@ -65,7 +65,6 @@ const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const FacebookCallback = lazy(() => import("./pages/FacebookCallback"));
 const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
 const PublicContentCalendar = lazy(() => import("./pages/PublicContentCalendar"));
-const PublicOnboarding = lazy(() => import("./pages/PublicOnboarding"));
 const PublicEditingQueue = lazy(() => import("./pages/PublicEditingQueue"));
 const Trainings = lazy(() => import("./pages/Trainings"));
 const ViralToday = lazy(() => import("./pages/ViralToday"));
@@ -103,9 +102,19 @@ function RootRoute() {
 
 function LoginRoute() {
   const { user, loading, signInWithEmail } = useAuth();
+  const [params] = useSearchParams();
+  const redirect = params.get("redirect");
+  // Only honor in-app paths (avoid open-redirect to external URLs).
+  const safeRedirect = redirect && redirect.startsWith("/") ? redirect : "/dashboard";
   if (loading) return <PageLoader />;
-  if (user) return <Navigate to="/dashboard" replace />;
-  return <ScriptsLogin onSignIn={() => {}} signInWithEmail={signInWithEmail} />;
+  if (user) return <Navigate to={safeRedirect} replace />;
+  return <ScriptsLogin onSignIn={() => {}} signInWithEmail={signInWithEmail} redirectTo={safeRedirect} />;
+}
+
+// Old anonymous public onboarding link → new login-gated form route.
+function PublicOnboardRedirect() {
+  const { clientId } = useParams<{ clientId: string }>();
+  return <Navigate to={`/onboarding/${clientId}`} replace />;
 }
 
 const App = () => (
@@ -144,7 +153,7 @@ const App = () => (
             <Route path="/f/:token" element={<PublicFolderShare />} />
             <Route path="/book/:clientId" element={<PublicBooking />} />
             <Route path="/public/calendar/:clientId" element={<PublicContentCalendar />} />
-            <Route path="/public/onboard/:clientId" element={<PublicOnboarding />} />
+            <Route path="/public/onboard/:clientId" element={<PublicOnboardRedirect />} />
             <Route path="/public/edit-queue/:clientId" element={<PublicEditingQueue />} />
             <Route path="/public/review/:videoEditId" element={<PublicVideoReview />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

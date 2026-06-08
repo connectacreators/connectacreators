@@ -32,6 +32,7 @@ import { Node } from "@xyflow/react";
 import CanvasAIPanel from "./CanvasAIPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { stripHtml, profilesToText } from "@/lib/onboarding/richText";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -327,7 +328,9 @@ const NodeDetailSheet = memo(
 
         case "onboardingFormNode": {
           const od = d?.onboarding_data || {};
-          const sections = Object.entries(od).filter(([, v]) => v);
+          const sections = Object.entries(od)
+            .map(([key, val]) => [key, Array.isArray(val) ? profilesToText(val) : stripHtml(val)] as const)
+            .filter(([, v]) => v && v.trim());
           return sections.length > 0 ? (
             <div className="space-y-3">
               {sections.map(([key, val]) => (
@@ -338,8 +341,8 @@ const NodeDetailSheet = memo(
                   >
                     {key.replace(/_/g, " ")}
                   </p>
-                  <p className="text-sm" style={{ color: "hsl(var(--ink-on-cream))" }}>
-                    {String(val)}
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: "hsl(var(--ink-on-cream))" }}>
+                    {val}
                   </p>
                 </div>
               ))}

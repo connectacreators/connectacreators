@@ -17,6 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
+import { stripHtml, profilesToText } from "@/lib/onboarding/richText";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -1738,13 +1739,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           facebook: od.facebook || null,
           industry: od.industryOther || od.industry || null,
           package: od.package || null,
-          unique_offer: od.uniqueOffer || null,
-          unique_values: od.uniqueValues || null,
-          story: od.story || null,
-          competition: od.competition || null,
-          target_client: od.targetClient || null,
-          top_profiles: od.top3Profiles || null,
-          additional_notes: od.additionalNotes || null,
+          unique_offer: stripHtml(od.uniqueOffer) || null,
+          unique_values: stripHtml(od.uniqueValues) || null,
+          story: stripHtml(od.story) || null,
+          competition: stripHtml(od.competition) || null,
+          target_client: stripHtml(od.targetClient) || null,
+          top_profiles: profilesToText(od.top3Profiles) || null,
+          additional_notes: stripHtml(od.additionalNotes) || null,
         };
       })() : null,
     };

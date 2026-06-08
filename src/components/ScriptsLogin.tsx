@@ -12,9 +12,11 @@ import { AnimatePresence, motion } from "framer-motion";
 type Props = {
   onSignIn: () => void;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  /** Path to navigate to after a successful sign-in. Defaults to /dashboard. */
+  redirectTo?: string;
 };
 
-export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
+export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "/dashboard" }: Props) {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [wordIndex, setWordIndex] = useState(0);
@@ -62,7 +64,7 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail }: Props) {
       if (!email) { setLoading(false); return; }
       const { error } = await signInWithEmail(email, password);
       if (error) toast.error(error.message);
-      else { onSignIn(); navigate("/dashboard"); }
+      else { onSignIn(); navigate(redirectTo); }
     } catch {
       toast.error("Login failed");
     } finally {

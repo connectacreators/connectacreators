@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { NodeProps, Handle, Position } from "@xyflow/react";
 import { ClipboardList, X, ChevronDown, ChevronRight, RotateCcw, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { stripHtml, profilesToText } from "@/lib/onboarding/richText";
 
 interface OnboardingFormNodeData {
-  onboarding_data?: Record<string, string> | null;
+  onboarding_data?: Record<string, unknown> | null;
   status?: "idle" | "loading" | "done" | "error";
   errorMessage?: string | null;
   expandedSection?: number | null;
@@ -63,7 +64,7 @@ export default function OnboardingFormNode({ data }: NodeProps) {
   const d = data as OnboardingFormNodeData;
 
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(d.status ?? "idle");
-  const [onboardingData, setOnboardingData] = useState<Record<string, string> | null>(d.onboarding_data ?? null);
+  const [onboardingData, setOnboardingData] = useState<Record<string, unknown> | null>(d.onboarding_data ?? null);
   const [expandedSection, setExpandedSection] = useState<number | null>(d.expandedSection ?? 0);
 
   useEffect(() => {
@@ -80,7 +81,7 @@ export default function OnboardingFormNode({ data }: NodeProps) {
           d.onUpdate?.({ status: "error", errorMessage: "Failed to load onboarding data" });
           return;
         }
-        const od = (row.onboarding_data as Record<string, string>) ?? null;
+        const od = (row.onboarding_data as Record<string, unknown>) ?? null;
         setOnboardingData(od);
         setStatus("done");
         d.onUpdate?.({ onboarding_data: od, status: "done", errorMessage: null });
@@ -101,8 +102,13 @@ export default function OnboardingFormNode({ data }: NodeProps) {
   const getValue = (key: string): string => {
     if (!onboardingData) return "";
     // industryOther overrides industry
-    if (key === "industry") return onboardingData.industryOther || onboardingData.industry || "";
-    return onboardingData[key] || "";
+    if (key === "industry") {
+      return String(onboardingData.industryOther || onboardingData.industry || "");
+    }
+    // Profiles are now stored as a list.
+    if (key === "top3Profiles") return profilesToText(onboardingData[key]);
+    // Long answers are stored as rich-text HTML — show plain text in the node.
+    return stripHtml(onboardingData[key]);
   };
 
   return (

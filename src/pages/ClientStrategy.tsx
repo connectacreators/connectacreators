@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import PageTransition from "@/components/PageTransition";
 import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
 import { Loader2, Save } from "lucide-react";
+import { toProfilesArray } from "@/lib/onboarding/richText";
 
 interface ClientStrategy {
   id?: string;
@@ -518,7 +519,7 @@ export default function ClientStrategy() {
                 : "Agrega tu usuario de Instagram en el onboarding para activar el análisis."}
             </p>
           )}
-          {clientOnboarding.instagram && !clientOnboarding.top3Profiles && (
+          {clientOnboarding.instagram && toProfilesArray(clientOnboarding.top3Profiles).length === 0 && (
             <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg" style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)" }}>
               <span style={{ color: "#f59e0b", fontSize: 13, lineHeight: 1.2, marginTop: 1 }}>⚠</span>
               <p className="text-[11px] leading-relaxed" style={{ color: "#f59e0b" }}>
