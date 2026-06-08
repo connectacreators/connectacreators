@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Sparkles, ArrowDown, ArrowUp,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,8 +102,6 @@ const TRANSLATIONS = {
     channelsDesc: "Manage the channels you're monitoring for viral content",
     search: "Search for videos by topic or @channel",
     sort: "Sort",
-    sortDesc: "High → Low",
-    sortAsc: "Low → High",
     platforms: "Platform",
     allPlatforms: "All platforms",
     instagram: "Instagram",
@@ -157,8 +155,6 @@ const TRANSLATIONS = {
     channelsDesc: "Gestiona los canales que estás monitoreando para contenido viral",
     search: "Buscar videos por tema o @canal",
     sort: "Ordenar",
-    sortDesc: "Mayor → Menor",
-    sortAsc: "Menor → Mayor",
     platforms: "Plataforma",
     allPlatforms: "Todas las plataformas",
     instagram: "Instagram",
@@ -1129,7 +1125,6 @@ export default function ViralToday() {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
   const [filterSort, setFilterSort] = useState("recent");
-  const [filterSortDir, setFilterSortDir] = useState<"desc" | "asc">("desc");
   const [showOnlyFeatured, setShowOnlyFeatured] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -1916,9 +1911,7 @@ export default function ViralToday() {
       });
     }
 
-    // Sort. `dir` flips the comparator: -1 ascending, 1 descending (default).
-    // "foryou" is a relevance feed, so direction does not apply to it.
-    const dir = filterSortDir === "asc" ? -1 : 1;
+    // Sort
     switch (filterSort) {
       case "foryou": {
         const now = Date.now();
@@ -1930,13 +1923,13 @@ export default function ViralToday() {
         break;
       }
       case "outlier":
-        result.sort((a, b) => (b.outlier_score - a.outlier_score) * dir);
+        result.sort((a, b) => b.outlier_score - a.outlier_score);
         break;
       case "views":
-        result.sort((a, b) => (b.views_count - a.views_count) * dir);
+        result.sort((a, b) => b.views_count - a.views_count);
         break;
       case "engagement":
-        result.sort((a, b) => (b.engagement_rate - a.engagement_rate) * dir);
+        result.sort((a, b) => b.engagement_rate - a.engagement_rate);
         break;
       default: // recent
         // Sort by true post date. Videos with no known post date (e.g. a
@@ -1945,7 +1938,7 @@ export default function ViralToday() {
         result.sort((a, b) => {
           const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
           const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
-          return (tb - ta) * dir;
+          return tb - ta;
         });
     }
 
@@ -2227,26 +2220,6 @@ export default function ViralToday() {
                         onChange={setFilterSort}
                         isActive={filterSort !== "recent"}
                       />
-
-                      {/* Sort direction (n/a for the "for you" relevance feed) */}
-                      {filterSort !== "foryou" && (
-                        <button
-                          onClick={() => setFilterSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-                          title={filterSortDir === "desc" ? t.sortDesc : t.sortAsc}
-                          aria-label={filterSortDir === "desc" ? t.sortDesc : t.sortAsc}
-                          className={cn(
-                            "flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap",
-                            filterSortDir === "asc"
-                              ? "bg-primary/15 border-primary/50 text-primary"
-                              : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {filterSortDir === "desc"
-                            ? <ArrowDown className="w-3 h-3" />
-                            : <ArrowUp className="w-3 h-3" />}
-                          {filterSortDir === "desc" ? t.sortDesc : t.sortAsc}
-                        </button>
-                      )}
 
                       {/* Admin: Add framework toggle */}
                       {isAdmin && (
