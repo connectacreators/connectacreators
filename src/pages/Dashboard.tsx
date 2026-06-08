@@ -44,6 +44,31 @@ interface Client {
   name: string;
 }
 
+// ── Greeting cache ──────────────────────────────────────────────
+// The dashboard greeting ("Hi {brand}") needs the resolved client name, but
+// that name only arrives after an async Supabase round-trip — so on refresh
+// the greeting briefly flashes the firstName fallback ("Hi info") before
+// swapping to the brand. We cache the last-resolved roster/ownClient in
+// localStorage and hydrate React state from it synchronously on mount, so the
+// correct name paints on the first frame. The live fetch then refreshes it.
+const CACHE_KEY = "dashboard_client_cache";
+
+interface DashboardCache {
+  userId: string;
+  clients: Client[];
+  ownClient: Client | null;
+}
+
+function readDashboardCache(): DashboardCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? (JSON.parse(raw) as DashboardCache) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading, isAdmin, isConnectaPlus, isUser } = useAuth();
   const [searchParams] = useSearchParams();
@@ -55,14 +80,25 @@ export default function Dashboard() {
   // Single-brand role: doesn't manage other clients, just sees their own
   const isSingleBrand = isConnectaPlus || (isUser && !isAdmin);
 
-  const [clients, setClients] = useState<Client[]>([]);
+  // Hydrate from cache synchronously so the greeting paints the right name on
+  // the first frame instead of flashing the firstName fallback.
+  const cachedDashboard = readDashboardCache();
+  const [clients, setClients] = useState<Client[]>(cachedDashboard?.clients ?? []);
   const [, setClientsLoading] = useState(true);
-  const [ownClient, setOwnClient] = useState<Client | null>(null);
+  const [ownClient, setOwnClient] = useState<Client | null>(cachedDashboard?.ownClient ?? null);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     setClientsLoading(true);
+
+    // If the cache belongs to a different account (same device, switched login),
+    // drop it so the previous brand can't linger while the fresh fetch runs.
+    const cached = readDashboardCache();
+    if (cached && cached.userId !== user.id) {
+      setClients([]);
+      setOwnClient(null);
+    }
 
     // Single-brand users: fetch ONLY their own client (no roster)
     if (isSingleBrand) {
@@ -146,6 +182,20 @@ export default function Dashboard() {
       });
     return () => { cancelled = true; };
   }, [user, isSingleBrand]);
+
+  // Persist the resolved roster/ownClient so the next refresh hydrates instantly.
+  useEffect(() => {
+    if (!user) return;
+    if (clients.length === 0 && !ownClient) return;
+    try {
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ userId: user.id, clients, ownClient } satisfies DashboardCache),
+      );
+    } catch {
+      /* quota / private mode — non-fatal */
+    }
+  }, [user, clients, ownClient]);
 
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
   const { data: pendingByClient } = useDashboardPendingItems(clientIds);
