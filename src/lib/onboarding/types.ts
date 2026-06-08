@@ -24,6 +24,8 @@ export interface OnboardingData {
   uniqueOffer: string;
   uniqueValues: string;
   competition: string;
+  /** Contrarian beliefs vs other experts in their space. */
+  contrarianBeliefs: string;
   story: string;
   callLink: string;
   additionalNotes: string;
@@ -34,6 +36,7 @@ export const RICH_TEXT_FIELDS = [
   "uniqueOffer",
   "uniqueValues",
   "competition",
+  "contrarianBeliefs",
   "story",
   "targetClient",
   "additionalNotes",
@@ -60,6 +63,7 @@ export const EMPTY_ONBOARDING: OnboardingData = {
   uniqueOffer: "",
   uniqueValues: "",
   competition: "",
+  contrarianBeliefs: "",
   story: "",
   callLink: "",
   additionalNotes: "",

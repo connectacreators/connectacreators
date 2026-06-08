@@ -1743,6 +1743,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           unique_values: stripHtml(od.uniqueValues) || null,
           story: stripHtml(od.story) || null,
           competition: stripHtml(od.competition) || null,
+          contrarian_beliefs: stripHtml(od.contrarianBeliefs) || null,
           target_client: stripHtml(od.targetClient) || null,
           top_profiles: profilesToText(od.top3Profiles) || null,
           additional_notes: stripHtml(od.additionalNotes) || null,

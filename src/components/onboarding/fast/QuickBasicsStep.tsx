@@ -70,7 +70,7 @@ export default function QuickBasicsStep({ formData, onChange, onNext, onBack }: 
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="q-budget">Ad budget / mo</Label>
-            <Input id="q-budget" placeholder="$5,000" value={formData.adBudget} onChange={(e) => onChange("adBudget", e.target.value)} />
+            <Input id="q-budget" placeholder="$0" value={formData.adBudget} onChange={(e) => onChange("adBudget", e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="q-industry">Industry</Label>

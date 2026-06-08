@@ -20,9 +20,10 @@ type VoiceQ = { key: keyof OnboardingData; question: string; helper?: string; op
 
 const VOICE_QS: VoiceQ[] = [
   { key: "uniqueOffer", question: "What's your unique offer?", helper: "What do you do, and who is it for?" },
-  { key: "uniqueValues", question: "What can you genuinely teach?", helper: "The things you're truly an expert in." },
+  { key: "uniqueValues", question: "What are 5 things you can explain really well?", helper: "5 teachings or values you're great at breaking down." },
   { key: "competition", question: "What makes you different?", helper: "Why you, over a competitor?" },
-  { key: "story", question: "What's your story?", helper: "How did you get here?" },
+  { key: "contrarianBeliefs", question: "What are your contrarian beliefs?", helper: "Where do you disagree with other experts in your space?" },
+  { key: "story", question: "Tell us your story — take your time.", helper: "Where you started, the turning point, the struggles, the wins, and why you do this. The more detail, the better." },
   { key: "targetClient", question: "Who's your ideal client?", helper: "Describe the person you want to reach." },
   { key: "top3Profiles", question: "Which creators do you admire?", helper: "Say a few names — e.g. “Gary Vee, Alex Hormozi.”", isProfiles: true },
   { key: "additionalNotes", question: "Anything else we should know?", helper: "Optional — anything we missed.", optional: true },

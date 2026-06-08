@@ -44,8 +44,9 @@ const SECTIONS = [
     title: "Brand & Messaging",
     fields: [
       { key: "uniqueOffer", label: "Unique Offer" },
-      { key: "uniqueValues", label: "Values" },
+      { key: "uniqueValues", label: "Can Explain Well" },
       { key: "competition", label: "Competition" },
+      { key: "contrarianBeliefs", label: "Contrarian Beliefs" },
       { key: "story", label: "Story" },
     ],
   },

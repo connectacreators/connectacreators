@@ -133,7 +133,7 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
             <Label htmlFor="adBudget">Monthly Ad Budget</Label>
             <Input
               id="adBudget"
-              placeholder="$5,000"
+              placeholder="$0"
               value={formData.adBudget}
               onChange={(e) => onChange("adBudget", e.target.value)}
             />
@@ -196,12 +196,12 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="uniqueValues">Top 5 Unique Values {Subj} Can Teach</Label>
+            <Label htmlFor="uniqueValues">5 Teachings or Values {Subj}'re Really Good at Explaining</Label>
             <RichTextField
               id="uniqueValues"
               value={formData.uniqueValues}
               onChange={(html) => onChange("uniqueValues", html)}
-              placeholder={`List 5 things ${you} can confidently teach`}
+              placeholder={`List 5 things ${you} can explain really well`}
             />
           </div>
           <div className="space-y-2">
@@ -214,12 +214,23 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="contrarianBeliefs">
+              Contrarian beliefs {self ? "you" : "they"} hold vs other experts
+            </Label>
+            <RichTextField
+              id="contrarianBeliefs"
+              value={formData.contrarianBeliefs}
+              onChange={(html) => onChange("contrarianBeliefs", html)}
+              placeholder={`Where do ${you} disagree with others in ${your} space?`}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="story">{Your} Story</Label>
             <RichTextField
               id="story"
               value={formData.story}
               onChange={(html) => onChange("story", html)}
-              placeholder={`What's ${your} background and journey?`}
+              placeholder={`Go deep — where ${you} started, the turning point, the struggles, the wins, and why ${you} do this. The more detail, the better.`}
             />
           </div>
         </div>
