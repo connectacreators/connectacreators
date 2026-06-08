@@ -343,12 +343,25 @@ export default function MasterEditingQueue() {
 
   useEffect(() => {
     if (!user || authLoading) return;
-    supabase
-      .from("profiles")
-      .select("user_id, display_name")
-      .then(({ data }) => {
-        setTeamMembers((data || []).filter((p: any) => p.display_name));
-      });
+    // Assignees are Connecta team members only — admins, editors, videographers.
+    // Admins bypass profiles RLS and would otherwise see every signup (clients,
+    // Connecta Plus subscribers, sub-users), so filter by role explicitly.
+    (async () => {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["admin", "editor", "videographer"]);
+      // Always include the current user (e.g. an admin whose account is also
+      // tagged as a client), so they can assign work to themselves.
+      const ids = Array.from(
+        new Set([user.id, ...(roleRows || []).map((r: any) => r.user_id)])
+      );
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", ids);
+      setTeamMembers((data || []).filter((p: any) => p.display_name));
+    })();
   }, [user, authLoading]);
 
   useEffect(() => {
