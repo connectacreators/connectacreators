@@ -7,6 +7,9 @@ import {
 import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
 import { defaultSectionLabel } from "@/lib/scriptBlocks";
+import { applyBranding } from "@/lib/branding/apply";
+import { PALETTES, FONT_PAIRINGS } from "@/lib/branding/presets";
+import { EDITORIAL_DEFAULT, type PaletteId, type FontPairingId } from "@/lib/branding/types";
 
 type ScriptLine = {
   line_type: "filming" | "actor" | "editor" | "text_on_screen";
@@ -34,12 +37,42 @@ type FolderNode = {
   created_at: string;
 };
 
+type ShareBranding = {
+  palette: string;
+  font_pairing: string;
+  logo_url: string | null;
+  logo_alt: string | null;
+};
+
 type SharePayload = {
   permission: "viewer" | "editor";
   root: { id: string; name: string };
+  branding?: ShareBranding | null;
   folders: FolderNode[];
   scripts: ScriptStub[];
 };
+
+// Apply the sending account's selected palette + fonts to the public reader so
+// it matches their in-app theme. Unknown/missing values fall back to the
+// editorial default. The colors/fonts are validated against the known presets
+// before being applied (the payload is server-controlled but we never trust it
+// to be a valid preset id).
+function applyShareBranding(branding: ShareBranding | null | undefined): void {
+  const palette: PaletteId =
+    branding && branding.palette in PALETTES
+      ? (branding.palette as PaletteId)
+      : EDITORIAL_DEFAULT.palette;
+  const fontPairing: FontPairingId =
+    branding && branding.font_pairing in FONT_PAIRINGS
+      ? (branding.font_pairing as FontPairingId)
+      : EDITORIAL_DEFAULT.fontPairing;
+  applyBranding({
+    palette,
+    fontPairing,
+    logoUrl: branding?.logo_url ?? null,
+    logoAlt: branding?.logo_alt ?? null,
+  });
+}
 
 function previewFromLines(lines: ScriptLine[]): string {
   const actor = lines.filter((l) => l.line_type === "actor");
@@ -98,7 +131,9 @@ export default function PublicFolderShare() {
         setLoading(false);
         return;
       }
-      setData(resp as SharePayload);
+      const payload = resp as SharePayload;
+      applyShareBranding(payload.branding);
+      setData(payload);
       setLoading(false);
     })();
     return () => { cancelled = true; };

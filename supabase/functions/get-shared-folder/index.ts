@@ -64,6 +64,31 @@ serve(async (req) => {
     });
   }
 
+  // 2b. Resolve the owning account's branding (palette + fonts + logo) so the
+  //     public reader matches the theme the sender selected in-app. The chain is
+  //     folder.client_id → clients.user_id → user_branding. user_branding is
+  //     RLS-protected, so only this service-role function can read it for an
+  //     unauthenticated viewer. Missing at any step → null (reader falls back to
+  //     the editorial default).
+  let branding:
+    | { palette: string; font_pairing: string; logo_url: string | null; logo_alt: string | null }
+    | null = null;
+  if (rootFolder.client_id) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("user_id")
+      .eq("id", rootFolder.client_id)
+      .maybeSingle();
+    if (client?.user_id) {
+      const { data: ub } = await admin
+        .from("user_branding")
+        .select("palette, font_pairing, logo_url, logo_alt")
+        .eq("user_id", client.user_id)
+        .maybeSingle();
+      if (ub) branding = ub;
+    }
+  }
+
   // 3. Walk the subtree (BFS). script_folders has `parent_id` so we
   //    iteratively fetch children levels until there are no more.
   const folders: Array<{
@@ -142,6 +167,7 @@ serve(async (req) => {
     JSON.stringify({
       permission: share.permission as "viewer" | "editor",
       root: { id: rootFolder.id, name: rootFolder.name },
+      branding,                     // owning account's palette/fonts/logo (or null)
       folders,                      // includes the root (with parent_id = null)
       scripts: (scripts ?? []).map((s) => ({
         ...s,
