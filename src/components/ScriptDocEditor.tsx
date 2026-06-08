@@ -156,7 +156,7 @@ interface LineEditorProps {
   dragAttributes?: React.HTMLAttributes<HTMLElement>;
   onFocus: (uid: string) => void;
   onBlur: (uid: string, html: string) => void;
-  onEnter: (uid: string, after: string) => void;
+  onEnter: (uid: string, before: string, after: string) => void;
   onBackspaceEmpty: (uid: string) => void;
   onBarClick: (e: React.MouseEvent, uid: string) => void;
   onTypeChange: (uid: string, type: LineType) => void;
@@ -244,21 +244,19 @@ function ScriptLineEditor({
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          // Split at the caret: text before the caret stays on this line, text
+          // Split at the caret: text before the caret stays on this line, the text
           // after the caret moves to a new line below. Caret at end → new empty line.
+          // We only READ positions here (dispatching a transaction synchronously
+          // inside handleKeyDown is unreliable); the parent applies the split to the
+          // block model and forces the editor content so it can't desync on blur.
           const sel = _view.state.selection;
+          const lineStart = sel.$from.start();
           const lineEnd = sel.$from.end();
-          const afterText = sel.from < lineEnd
+          const before = _view.state.doc.textBetween(lineStart, sel.from, "\n", "\n");
+          const after = sel.from < lineEnd
             ? _view.state.doc.textBetween(sel.from, lineEnd, "\n", "\n")
             : "";
-          if (afterText.trim().length > 0) {
-            // Trim the trailing text off THIS line (its blur persists `before`
-            // with formatting); the trailing text becomes the new line.
-            _view.dispatch(_view.state.tr.delete(sel.from, lineEnd));
-            onEnterRef.current(uid, afterText);
-          } else {
-            onEnterRef.current(uid, "");
-          }
+          onEnterRef.current(uid, before, after);
           return true;
         }
         if (event.key === "Backspace" || event.key === "Delete") {
@@ -536,12 +534,14 @@ export default function ScriptDocEditor({
     );
   }, [onBlocksChange]);
 
-  // Enter inside a content line. With trailing text (`after`), it's a split: the
-  // trailing text becomes a new line right below (the current line already had its
-  // trailing text trimmed in the editor, so its blur persists the `before` half).
-  // With no trailing text (caret at end) it's a fresh empty line. Functional update
-  // so it composes with the focused line's pending blur without clobbering it.
-  const handleEnter = useCallback((uid: string, after: string) => {
+  // Enter inside a content line.
+  //  - SPLIT (text after the caret): the current line becomes `before`, a new line
+  //    below gets `after`. The block model is updated authoritatively here (so it is
+  //    correct regardless of editor focus/blur timing), and the current editor is
+  //    force-set to `before` so its eventual blur can't restore the full text.
+  //  - NO trailing text (caret at end): just a fresh empty line below.
+  // Functional update so it composes with any pending blur without clobbering it.
+  const handleEnter = useCallback((uid: string, before: string, after: string) => {
     const trailing = after ?? "";
     const splitting = trailing.trim().length > 0;
     const newUid = newBlockUid();
@@ -560,8 +560,22 @@ export default function ScriptDocEditor({
         block_kind: "line",
         uid: newUid,
       };
+      if (splitting) {
+        // Replace current with its `before` half, then insert the new line.
+        const updatedCur: ScriptLine = { ...cur, text: before, rich_text: "" };
+        return [...prev.slice(0, idx), updatedCur, newBlock, ...prev.slice(idx + 1)];
+      }
       return [...prev.slice(0, idx + 1), newBlock, ...prev.slice(idx + 1)];
     });
+    if (splitting) {
+      // Force the focused current editor to its `before` half immediately (it
+      // already exists) so any blur — even an early one — persists `before`, never
+      // the full text. Done synchronously to avoid a clobber window.
+      const curEditor = editorMap.current.get(uid);
+      if (curEditor && !curEditor.isDestroyed) {
+        curEditor.commands.setContent(before || "", false);
+      }
+    }
     setTimeout(() => {
       const newEditor = editorMap.current.get(newUid);
       if (newEditor) {
