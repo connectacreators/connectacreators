@@ -2948,7 +2948,7 @@ export default function Scripts() {
                           className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
                         >
                           <Icon className="w-3.5 h-3.5 shrink-0" />
-                          {f.label}
+                          {f.display ?? f.label}
                         </button>
                       );
                     })}
@@ -2988,54 +2988,61 @@ export default function Scripts() {
                 );
               })()}
 
-              {/* Row 2 — single format-reference link (mirrors inspiration row) */}
-              <div className="mt-3">
-                {editingFormatReference || !viewingFormatReferenceUrl ? (
-                  <Input
-                    autoFocus={editingFormatReference}
-                    value={editingFormatReference ? formatReferenceDraft : undefined}
-                    onChange={editingFormatReference ? (e) => setFormatReferenceDraft(e.target.value) : undefined}
-                    placeholder={tr({ en: "Paste format reference URL...", es: "Pega URL de referencia de formato..." }, language)}
-                    className="text-sm h-8"
-                    onKeyDown={async (e) => {
-                      if (e.key === "Enter") {
-                        const v = editingFormatReference ? formatReferenceDraft.trim() : (e.target as HTMLInputElement).value.trim();
-                        setEditingFormatReference(false);
-                        if (v) await persistFormatReference(v);
-                      }
-                      if (e.key === "Escape") setEditingFormatReference(false);
-                    }}
-                    onBlur={async (e) => {
-                      const v = editingFormatReference ? formatReferenceDraft.trim() : (e.target as HTMLInputElement).value.trim();
-                      setEditingFormatReference(false);
-                      if (v) await persistFormatReference(v);
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <button
-                      onClick={() => setFormatReferenceVideoUrl(viewingFormatReferenceUrl)}
-                      className="group flex items-center gap-2 min-w-0 flex-1 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-left transition-colors"
-                      title={tr({ en: "View format reference", es: "Ver referencia de formato" }, language)}
-                    >
-                      <Play className="w-3.5 h-3.5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <span className="text-xs text-muted-foreground truncate">{viewingFormatReferenceUrl.replace(/^https?:\/\//, "")}</span>
-                    </button>
-                    <button
-                      onClick={() => { setEditingFormatReference(true); setFormatReferenceDraft(viewingFormatReferenceUrl); }}
-                      className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors shrink-0 p-1"
-                      title={tr({ en: "Edit URL", es: "Editar URL" }, language)}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => persistFormatReference(null)}
-                      className="inline-flex items-center text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1"
-                      title={tr({ en: "Remove reference", es: "Quitar referencia" }, language)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+              {/* Row 2 — format reference: a compact view-icon that opens a bubble to paste/edit the URL */}
+              <div className="relative mt-3 inline-block">
+                <button
+                  onClick={() => { setFormatReferenceDraft(viewingFormatReferenceUrl ?? ""); setEditingFormatReference((v) => !v); }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors"
+                  title={tr({ en: "Format reference", es: "Referencia de formato" }, language)}
+                >
+                  <Eye className="w-3.5 h-3.5 shrink-0" />
+                  {viewingFormatReferenceUrl
+                    ? tr({ en: "Format reference", es: "Referencia de formato" }, language)
+                    : tr({ en: "Add format reference", es: "Agregar referencia de formato" }, language)}
+                  {viewingFormatReferenceUrl && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                </button>
+                {editingFormatReference && (
+                  <>
+                    {/* click-away backdrop */}
+                    <div className="fixed inset-0 z-30" onClick={() => setEditingFormatReference(false)} />
+                    <div className="absolute left-0 top-full mt-1.5 z-40 w-[340px] max-w-[80vw] rounded-lg border border-border bg-[hsl(var(--graphite))] p-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+                      <Input
+                        autoFocus
+                        value={formatReferenceDraft}
+                        onChange={(e) => setFormatReferenceDraft(e.target.value)}
+                        placeholder={tr({ en: "Paste format reference URL...", es: "Pega URL de referencia de formato..." }, language)}
+                        className="text-sm h-8"
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") { const v = formatReferenceDraft.trim(); setEditingFormatReference(false); await persistFormatReference(v || null); }
+                          if (e.key === "Escape") setEditingFormatReference(false);
+                        }}
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={async () => { const v = formatReferenceDraft.trim(); setEditingFormatReference(false); await persistFormatReference(v || null); }}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary/15 text-primary px-2.5 py-1 text-xs font-medium hover:bg-primary/25 transition-colors"
+                        >
+                          <Save className="w-3 h-3" /> {tr({ en: "Save", es: "Guardar" }, language)}
+                        </button>
+                        {viewingFormatReferenceUrl && (
+                          <button
+                            onClick={() => { setEditingFormatReference(false); setFormatReferenceVideoUrl(viewingFormatReferenceUrl); }}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-primary hover:bg-muted/40 transition-colors"
+                          >
+                            <Play className="w-3 h-3" /> {tr({ en: "View", es: "Ver" }, language)}
+                          </button>
+                        )}
+                        {viewingFormatReferenceUrl && (
+                          <button
+                            onClick={async () => { setEditingFormatReference(false); await persistFormatReference(null); }}
+                            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:text-destructive transition-colors ml-auto"
+                          >
+                            <Trash2 className="w-3 h-3" /> {tr({ en: "Remove", es: "Quitar" }, language)}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 

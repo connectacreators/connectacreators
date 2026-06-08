@@ -8,6 +8,8 @@ export type ScriptFormat = {
   id: string;
   icon: LucideIcon;
   label: string;
+  /** English UI label shown on the pill; falls back to `label`. `label` stays the persisted value. */
+  display?: string;
   description: { en: string; es: string };
   color: string;
   activeColor: string;
@@ -37,6 +39,7 @@ export const SCRIPT_FORMATS: ScriptFormat[] = [
     id: "entrevista",
     icon: Users,
     label: "ENTREVISTA",
+    display: "INTERVIEW",
     description: { en: "Interview / Q&A format", es: "Formato de entrevista / Q&A" },
     color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
     activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
@@ -46,6 +49,7 @@ export const SCRIPT_FORMATS: ScriptFormat[] = [
     id: "variado",
     icon: Grid3X3,
     label: "VARIADO",
+    display: "MIXED",
     description: { en: "Mixed format & transitions", es: "Formato mixto con transiciones" },
     color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
     activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
