@@ -3363,6 +3363,8 @@ export default function Scripts() {
               };
               const isGDrive = (url: string | null) => !!url && url.includes('drive.google.com');
               const baseName = (path: string | null) => path ? path.split('/').pop() ?? path : '';
+              const IMAGE_EXTS = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.avif', '.heic', '.heif', '.bmp', '.svg'];
+              const isImageName = (name: string) => { const l = name.toLowerCase(); return IMAGE_EXTS.some(ext => l.endsWith(ext)); };
 
               const createVideoEdit = async (_subfolder: 'footage' | 'submission') => {
                 if (!selectedClient || !viewingScriptId) return;
@@ -3398,19 +3400,21 @@ export default function Scripts() {
                 setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
               };
 
-              const FootageCard = ({ url, isVideo, fileName, fileSize, accentColor, onView, onRemove }: { url: string; isVideo: boolean; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => (
+              const FootageCard = ({ url, kind, fileName, fileSize, accentColor, onView, onRemove }: { url: string; kind: 'video' | 'image' | 'link'; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => (
                 <div
                   className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2.5 cursor-pointer hover:border-border/80 transition-colors group"
-                  onClick={() => { if (!isVideo && url.startsWith('http')) { window.open(url, '_blank', 'noopener,noreferrer'); } else { onView(); } }}
+                  onClick={() => { if (kind === 'link' && url.startsWith('http')) { window.open(url, '_blank', 'noopener,noreferrer'); } else { onView(); } }}
                 >
                   <div className="w-16 h-11 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                    {isVideo ? (
+                    {kind === 'video' ? (
                       <>
                         <video src={url} muted preload="metadata" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                           <Play className="w-4 h-4 text-white drop-shadow" />
                         </div>
                       </>
+                    ) : kind === 'image' ? (
+                      <img src={url} alt={fileName} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <Link2 className="w-4 h-4 text-blue-400/70" />
                     )}
@@ -3418,14 +3422,14 @@ export default function Scripts() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${isVideo ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 text-primary'}`}>
-                        {isVideo ? 'Video' : 'Link'}
+                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${kind === 'video' ? 'bg-green-500/15 text-green-400' : kind === 'image' ? 'bg-sky-500/15 text-sky-400' : 'bg-primary/15 text-primary'}`}>
+                        {kind === 'video' ? 'Video' : kind === 'image' ? 'Image' : 'Link'}
                       </span>
                       {fileSize && <span className="text-[10px] text-muted-foreground">{fileSize}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!isVideo && (
+                    {kind === 'link' && (
                       <a
                         href={url}
                         target="_blank"
@@ -3461,7 +3465,7 @@ export default function Scripts() {
                       <FootageCard
                         key={f.path}
                         url={f.signedUrl}
-                        isVideo={true}
+                        kind={isImageName(f.name) ? 'image' : 'video'}
                         fileName={f.name}
                         fileSize=""
                         accentColor="green"
@@ -3485,7 +3489,7 @@ export default function Scripts() {
                   <div className="mb-2">
                     <FootageCard
                       url={linkedVideoEdit.footage}
-                      isVideo={false}
+                      kind="link"
                       fileName={linkedVideoEdit.footage}
                       fileSize=""
                       accentColor="green"
@@ -3524,7 +3528,7 @@ export default function Scripts() {
                       <FootageCard
                         key={f.path}
                         url={f.signedUrl}
-                        isVideo={true}
+                        kind={isImageName(f.name) ? 'image' : 'video'}
                         fileName={f.name}
                         fileSize=""
                         accentColor="cyan"
@@ -3563,7 +3567,7 @@ export default function Scripts() {
                   <div className="mb-2">
                     <FootageCard
                       url={fileSubmission}
-                      isVideo={false}
+                      kind="link"
                       fileName={fileSubmission}
                       fileSize=""
                       accentColor="cyan"
