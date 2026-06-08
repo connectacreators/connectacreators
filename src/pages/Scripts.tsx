@@ -2925,65 +2925,56 @@ export default function Scripts() {
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr({ en: "Format", es: "Formato" }, language)}</span>
               </div>
 
-              {/* Row 1 — format chips (presets + one-off custom) */}
+              {/* Two chips: format-name dropdown + format reference */}
               {(() => {
                 const current = viewingMetadata?.formato?.trim() || "";
                 const presetLabels = SCRIPT_FORMATS.map((f) => f.label);
                 const isCustomActive = !!current && !presetLabels.includes(current);
                 return (
                   <div className="flex flex-wrap items-center gap-2">
-                    {SCRIPT_FORMATS.map((f) => {
-                      const Icon = f.icon;
-                      const active = current === f.label;
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => { setEditingCustomFormat(false); handleSelectFormat(f.label); }}
-                          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          {f.display ?? f.label}
-                        </button>
-                      );
-                    })}
-
+                    {/* Chip 1 — format name dropdown (all presets + Custom) */}
                     {editingCustomFormat ? (
                       <input
                         autoFocus
                         value={customFormatDraft}
                         onChange={(e) => setCustomFormatDraft(e.target.value)}
                         placeholder={tr({ en: "Custom format…", es: "Formato personalizado…" }, language)}
-                        className="h-[30px] rounded-md border border-primary bg-muted/30 px-2.5 text-xs text-foreground focus:outline-none"
+                        className="h-[34px] rounded-md border border-primary bg-muted/30 px-2.5 text-xs text-foreground focus:outline-none"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") { const v = customFormatDraft.trim(); if (v) handleSelectFormat(v); setEditingCustomFormat(false); }
                           if (e.key === "Escape") setEditingCustomFormat(false);
                         }}
                         onBlur={() => { const v = customFormatDraft.trim(); if (v) handleSelectFormat(v); setEditingCustomFormat(false); }}
                       />
-                    ) : isCustomActive ? (
-                      <button
-                        onClick={() => { setCustomFormatDraft(current); setEditingCustomFormat(true); }}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors max-w-[220px]"
-                        title={current}
-                      >
-                        <Pencil className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{current}</span>
-                      </button>
                     ) : (
-                      <button
-                        onClick={() => { setCustomFormatDraft(""); setEditingCustomFormat(true); }}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                      <Select
+                        value={current || undefined}
+                        onValueChange={(v) => {
+                          if (v === "__custom__") { setCustomFormatDraft(isCustomActive ? current : ""); setEditingCustomFormat(true); return; }
+                          handleSelectFormat(v);
+                        }}
                       >
-                        <Plus className="w-3.5 h-3.5 shrink-0" />
-                        {tr({ en: "Custom", es: "Personalizado" }, language)}
-                      </button>
+                        <SelectTrigger className="h-[34px] w-fit min-w-[150px] gap-1.5 rounded-md border-border bg-muted/30 px-2.5 py-1.5 text-xs font-medium">
+                          <SelectValue placeholder={tr({ en: "Select format", es: "Selecciona formato" }, language)} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] z-50">
+                          {SCRIPT_FORMATS.map((f) => (
+                            <SelectItem key={f.id} value={f.label} className="text-xs">
+                              {f.display ?? f.label}
+                            </SelectItem>
+                          ))}
+                          {isCustomActive && (
+                            <SelectItem value={current} className="text-xs">{current}</SelectItem>
+                          )}
+                          <SelectItem value="__custom__" className="text-xs">
+                            {tr({ en: "Custom…", es: "Personalizado…" }, language)}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     )}
-                  </div>
-                );
-              })()}
 
-              {/* Row 2 — format reference: a compact view-icon that opens a bubble to paste/edit the URL */}
-              <div className="relative mt-3 inline-block">
+                    {/* Chip 2 — format reference: view-icon that opens a bubble to paste/edit the URL */}
+                    <div className="relative inline-block">
                 <button
                   onClick={() => { setFormatReferenceDraft(viewingFormatReferenceUrl ?? ""); setEditingFormatReference((v) => !v); }}
                   className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors"
@@ -3038,7 +3029,10 @@ export default function Scripts() {
                     </div>
                   </>
                 )}
-              </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <Dialog open={!!formatReferenceVideoUrl} onOpenChange={(open) => { if (!open) setFormatReferenceVideoUrl(null); }}>
                 <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
