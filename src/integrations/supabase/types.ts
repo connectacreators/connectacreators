@@ -2264,6 +2264,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           folder_id: string | null
+          format_reference_url: string | null
           formato: string | null
           google_drive_link: string | null
           grabado: boolean
@@ -2286,6 +2287,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           folder_id?: string | null
+          format_reference_url?: string | null
           formato?: string | null
           google_drive_link?: string | null
           grabado?: boolean
@@ -2308,6 +2310,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           folder_id?: string | null
+          format_reference_url?: string | null
           formato?: string | null
           google_drive_link?: string | null
           grabado?: boolean

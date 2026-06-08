@@ -50,16 +50,112 @@ serve(async (req) => {
   }
 
   try {
-    const { rawScript } = await req.json();
+    const body = await req.json();
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+
+    // ── Recolor mode: re-classify EXISTING lines without re-splitting. ──
+    // Input: { mode: "recolor", lines: string[] }
+    // Output: { types: ("filming"|"actor"|"editor"|"text_on_screen")[] } index-aligned.
+    if (body?.mode === "recolor") {
+      const lines = body.lines;
+      if (!Array.isArray(lines) || lines.length === 0 || !lines.every((l: unknown) => typeof l === "string")) {
+        return new Response(JSON.stringify({ error: "lines (string[]) is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const recolorSystem = `You are a script line classifier for short-form video production. You will receive the script's content lines as a numbered list. Classify EACH line into exactly one of four types:
+- "filming": on-set camera/filming instructions (angles, lighting, camera movement, locations, what to physically shoot)
+- "actor": dialogue or voiceover — the actual words the talent speaks on camera or in voiceover
+- "editor": post-production instructions (music, sound effects, B-roll inserts, transitions/effects added in editing, notes to the editor)
+- "text_on_screen": on-screen caption/overlay text shown to the viewer but NOT spoken — short punchy words or phrases meant to appear as text on the video
+
+Rules:
+- Return an array "types" with EXACTLY one entry per input line, in the SAME ORDER and the SAME COUNT as the input.
+- Do NOT add, merge, split, reorder, or skip any line.
+- If a line is spoken aloud by the talent, it is "actor" even if it is short.
+- Only use "text_on_screen" for text that appears on screen and is not spoken.`;
+
+      const numbered = lines.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n");
+
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4096,
+          system: recolorSystem,
+          messages: [
+            {
+              role: "user",
+              content: `Classify each of these ${lines.length} script lines. Return exactly ${lines.length} types in order:\n\n${numbered}`,
+            },
+          ],
+          tools: [
+            {
+              name: "recolor_lines",
+              description: "Return one line type per input line, index-aligned.",
+              input_schema: {
+                type: "object",
+                properties: {
+                  types: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                      enum: ["filming", "actor", "editor", "text_on_screen"],
+                    },
+                    description: `Exactly ${lines.length} entries, one per input line, in order.`,
+                  },
+                },
+                required: ["types"],
+                additionalProperties: false,
+              },
+            },
+          ],
+          tool_choice: { type: "tool", name: "recolor_lines" },
+        }),
+      });
+
+      if (!resp.ok) {
+        if (resp.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again shortly." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (resp.status === 402) {
+          return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const t = await resp.text();
+        console.error("AI error (recolor):", resp.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const rdata = await resp.json();
+      const rtool = (rdata.content || []).find((b: any) => b.type === "tool_use");
+      if (!rtool?.input?.types || !Array.isArray(rtool.input.types)) {
+        console.error("No recolor tool use:", JSON.stringify(rdata));
+        throw new Error("AI did not return structured data");
+      }
+
+      return new Response(JSON.stringify({ types: rtool.input.types }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Default: first-creation full analysis from raw script text. ──
+    const { rawScript } = body;
     if (!rawScript || typeof rawScript !== "string") {
       return new Response(JSON.stringify({ error: "rawScript is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const systemPrompt = `You are a script analysis assistant for video production. Given a raw script, you must:
 

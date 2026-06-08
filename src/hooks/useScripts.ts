@@ -27,6 +27,7 @@ export type Script = {
   idea_ganadora: string | null;
   target: string | null;
   formato: string | null;
+  format_reference_url: string | null;
   google_drive_link: string | null;
   grabado: boolean;
   created_at: string;

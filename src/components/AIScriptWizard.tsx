@@ -8,7 +8,7 @@ import {
   Loader2, Sparkles, Wand2, RotateCcw, Search, Zap, BookOpen,
   Shuffle, Crown, GitCompare, MessageSquare, Check, ArrowRight,
   Languages, Send, Copy, ChevronDown, ChevronUp, Film, Mic, Scissors,
-  X, RefreshCw, AlignLeft, Video, Users, Grid3X3, Archive, MonitorPlay,
+  X, RefreshCw, AlignLeft, Video, Archive, MonitorPlay,
   Music, Rows3, LayoutList, Eye, ArrowLeftRight, ShieldX, BookText, Camera, List,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import type { Client } from "@/hooks/useClients";
 import type { ScriptLine } from "@/hooks/useScripts";
 import { VIRAL_HOOK_FORMULAS, HOOK_CATEGORY_META, type HookFormula, type HookCategory } from "@/data/viralHookFormulas";
+import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 
 // ==================== VAULT TEMPLATE TYPE ====================
 type VaultTemplate = {
@@ -56,46 +57,6 @@ type RemixVideo = {
 const HOOK_ICON_MAP: Record<string, any> = {
   BookOpen, ArrowLeftRight, ShieldX, BookText, Shuffle, Crown, Camera,
 };
-
-// ==================== SCRIPT FORMATS ====================
-const SCRIPT_FORMATS = [
-  {
-    id: "talking_head",
-    icon: Mic,
-    label: "TALKING HEAD",
-    description: { en: "Direct-to-camera monologue", es: "Monólogo directo a cámara" },
-    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
-    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
-    iconColor: "text-[hsl(var(--aqua))]",
-  },
-  {
-    id: "broll_caption",
-    icon: Video,
-    label: "B-ROLL CAPTION",
-    description: { en: "Voiceover with B-roll footage", es: "Voz en off con imágenes de apoyo" },
-    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
-    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
-    iconColor: "text-[hsl(var(--aqua))]",
-  },
-  {
-    id: "entrevista",
-    icon: Users,
-    label: "ENTREVISTA",
-    description: { en: "Interview / Q&A format", es: "Formato de entrevista / Q&A" },
-    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
-    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
-    iconColor: "text-[hsl(var(--aqua))]",
-  },
-  {
-    id: "variado",
-    icon: Grid3X3,
-    label: "VARIADO",
-    description: { en: "Mixed format & transitions", es: "Formato mixto con transiciones" },
-    color: "from-[hsl(var(--aqua) / 0.12)] to-[hsl(var(--aqua) / 0.06)] border-[hsl(var(--aqua) / 0.35)]",
-    activeColor: "from-[hsl(var(--aqua) / 0.30)] to-[hsl(var(--aqua) / 0.20)] border-[hsl(var(--aqua) / 0.60)]",
-    iconColor: "text-[hsl(var(--aqua))]",
-  },
-];
 
 // ==================== TYPES ====================
 type Fact = { fact: string; impact_score: number };

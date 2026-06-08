@@ -7,7 +7,7 @@ import {
   Film, Mic, Scissors, Sparkles, ArrowLeft, Plus, User, FileText,
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
-  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2,
+  Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -43,6 +43,7 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { synthesizeBlocksFromLines, withUids } from "@/lib/scriptBlocks";
+import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -456,6 +457,14 @@ export default function Scripts() {
   const [editingInspirationIdx, setEditingInspirationIdx] = useState<number | null>(null);
   const [inspirationDraft, setInspirationDraft] = useState("");
   const [addingInspiration, setAddingInspiration] = useState(false);
+  // Format reference link (single, mirrors inspiration) + custom-format draft + re-categorize
+  const [viewingFormatReferenceUrl, setViewingFormatReferenceUrl] = useState<string | null>(null);
+  const [editingFormatReference, setEditingFormatReference] = useState(false);
+  const [formatReferenceDraft, setFormatReferenceDraft] = useState("");
+  const [formatReferenceVideoUrl, setFormatReferenceVideoUrl] = useState<string | null>(null);
+  const [editingCustomFormat, setEditingCustomFormat] = useState(false);
+  const [customFormatDraft, setCustomFormatDraft] = useState("");
+  const [recategorizing, setRecategorizing] = useState(false);
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
@@ -1330,6 +1339,72 @@ export default function Scripts() {
     );
   };
 
+  // Persist the single format-reference link (mirrors persistInspirations).
+  const persistFormatReference = async (url: string | null) => {
+    if (!viewingScriptId) return;
+    const clean = url?.trim() || null;
+    setViewingFormatReferenceUrl(clean);
+    await supabase.from("scripts").update({ format_reference_url: clean }).eq("id", viewingScriptId);
+    setScripts((prev) => prev.map((s) => s.id === viewingScriptId ? { ...s, format_reference_url: clean } : s));
+  };
+
+  // Select a format (preset label or custom free text) from the FORMAT card.
+  const handleSelectFormat = async (value: string) => {
+    if (!viewingScriptId) return;
+    await supabase.from("scripts").update({ formato: value }).eq("id", viewingScriptId);
+    setViewingMetadata((prev) => prev ? { ...prev, formato: value } : prev);
+    setScripts((prev) => prev.map((s) => s.id === viewingScriptId ? { ...s, formato: value } : s));
+  };
+
+  // Re-run AI categorization on the CURRENT lines and recolor each in place —
+  // never re-splits, never touches headings/text/title/format. Gated to Connecta+.
+  const handleRecategorize = async () => {
+    if (!viewingScriptId || recategorizing) return;
+    if (!(isAdmin || isConnectaPlus)) {
+      toast.error(tr({ en: "AI categorization is available on Connecta+ only.", es: "La categorización con IA está disponible solo en Connecta+." }, language));
+      return;
+    }
+    // Index map: position in docBlocks -> AI type, for non-empty content lines only.
+    const lineIdxs: number[] = [];
+    docBlocks.forEach((b, idx) => {
+      if (b.block_kind !== "heading" && (b.text || "").trim()) lineIdxs.push(idx);
+    });
+    if (lineIdxs.length === 0) {
+      toast.error(tr({ en: "Nothing to categorize yet.", es: "No hay nada que categorizar todavía." }, language));
+      return;
+    }
+    setRecategorizing(true);
+    try {
+      const lines = lineIdxs.map((idx) => (docBlocks[idx].text || "").trim());
+      const { data, error } = await supabase.functions.invoke("categorize-script", {
+        body: { mode: "recolor", lines },
+      });
+      if (error) throw error;
+      const types: string[] | undefined = (data as any)?.types;
+      if (!Array.isArray(types) || types.length !== lines.length) {
+        throw new Error("mismatch");
+      }
+      const typeByIdx = new Map<number, string>();
+      lineIdxs.forEach((idx, pos) => typeByIdx.set(idx, types[pos]));
+      const merged = docBlocks.map((b, idx) =>
+        typeByIdx.has(idx) ? { ...b, line_type: typeByIdx.get(idx) as ScriptLine["line_type"] } : b
+      );
+      skipNextAutoSaveRef.current = true;
+      setDocBlocks(merged);
+      await saveScriptBlocks(viewingScriptId, merged);
+      const fresh = await getScriptLines(viewingScriptId);
+      setParsedLines(fresh);
+      toast.success(tr({ en: "Lines re-categorized", es: "Líneas recategorizadas" }, language));
+    } catch (e: any) {
+      const msg = e?.message === "mismatch"
+        ? tr({ en: "Couldn't align the result — nothing changed.", es: "No se pudo alinear el resultado — no se cambió nada." }, language)
+        : tr({ en: "Re-categorize failed", es: "Falló la recategorización" }, language);
+      toast.error(msg);
+    } finally {
+      setRecategorizing(false);
+    }
+  };
+
   const handleViewScript = async (script: Script) => {
     // If draft script, open Super Planning Canvas instead
     if ((script as any).status === "draft") {
@@ -1344,6 +1419,11 @@ export default function Scripts() {
         : (script.inspiration_url ? [script.inspiration_url] : [])
     );
     setViewingCaption(script.caption ?? "");
+    setViewingFormatReferenceUrl(script.format_reference_url ?? null);
+    setEditingFormatReference(false);
+    setFormatReferenceDraft("");
+    setEditingCustomFormat(false);
+    setCustomFormatDraft("");
     setViewingMetadata({
       idea_ganadora: script.idea_ganadora || script.title,
       target: script.target,
@@ -2766,41 +2846,6 @@ export default function Scripts() {
             {/* Winning Idea block — flat editorial card, no glow */}
             {viewingMetadata && (viewingMetadata.idea_ganadora || viewingMetadata.target || viewingMetadata.formato) && (
               <div className="editorial-card mb-4" style={{ padding: "20px 22px" }}>
-                {/* Label — doubles as the format editor */}
-                <Select
-                  value={viewingMetadata.formato || ""}
-                  onValueChange={async (val) => {
-                    if (viewingScriptId) {
-                      await supabase.from("scripts").update({ formato: val }).eq("id", viewingScriptId);
-                      setViewingMetadata((prev) => prev ? { ...prev, formato: val } : prev);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    className="h-auto w-auto border-0 p-0 bg-transparent shadow-none focus:ring-0 focus:ring-offset-0 hover:opacity-80 transition-opacity gap-1 mb-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:opacity-50"
-                    style={{
-                      fontSize: 9.5,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.20em",
-                      color: "hsl(var(--bone) / 0.45)",
-                      fontWeight: 600,
-                      fontFamily: "var(--font-body, Figtree), sans-serif",
-                    }}
-                  >
-                    <SelectValue placeholder={tr(t.scripts.selectPlaceholder, language)}>
-                      {viewingMetadata.idea_ganadora
-                        ? (viewingMetadata.formato?.trim().toUpperCase() || "SCRIPT")
-                        : "SCRIPT"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TALKING HEAD">TALKING HEAD</SelectItem>
-                    <SelectItem value="B-ROLL CAPTION">B-ROLL CAPTION</SelectItem>
-                    <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
-                    <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 {/* Idea — primary headline, inline-editable */}
                 {renamingScriptId === viewingScriptId ? (
                   <input
@@ -2878,6 +2923,133 @@ export default function Scripts() {
                 )}
               </div>
             )}
+
+            {/* FORMAT — selectable chips + single reference link */}
+            <div className="editorial-card p-5 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr({ en: "Format", es: "Formato" }, language)}</span>
+              </div>
+
+              {/* Row 1 — format chips (presets + one-off custom) */}
+              {(() => {
+                const current = viewingMetadata?.formato?.trim() || "";
+                const presetLabels = SCRIPT_FORMATS.map((f) => f.label);
+                const isCustomActive = !!current && !presetLabels.includes(current);
+                return (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {SCRIPT_FORMATS.map((f) => {
+                      const Icon = f.icon;
+                      const active = current === f.label;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => { setEditingCustomFormat(false); handleSelectFormat(f.label); }}
+                          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          {f.label}
+                        </button>
+                      );
+                    })}
+
+                    {editingCustomFormat ? (
+                      <input
+                        autoFocus
+                        value={customFormatDraft}
+                        onChange={(e) => setCustomFormatDraft(e.target.value)}
+                        placeholder={tr({ en: "Custom format…", es: "Formato personalizado…" }, language)}
+                        className="h-[30px] rounded-md border border-primary bg-muted/30 px-2.5 text-xs text-foreground focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { const v = customFormatDraft.trim(); if (v) handleSelectFormat(v); setEditingCustomFormat(false); }
+                          if (e.key === "Escape") setEditingCustomFormat(false);
+                        }}
+                        onBlur={() => { const v = customFormatDraft.trim(); if (v) handleSelectFormat(v); setEditingCustomFormat(false); }}
+                      />
+                    ) : isCustomActive ? (
+                      <button
+                        onClick={() => { setCustomFormatDraft(current); setEditingCustomFormat(true); }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors max-w-[220px]"
+                        title={current}
+                      >
+                        <Pencil className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{current}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setCustomFormatDraft(""); setEditingCustomFormat(true); }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border bg-transparent px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5 shrink-0" />
+                        {tr({ en: "Custom", es: "Personalizado" }, language)}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Row 2 — single format-reference link (mirrors inspiration row) */}
+              <div className="mt-3">
+                {editingFormatReference || !viewingFormatReferenceUrl ? (
+                  <Input
+                    autoFocus={editingFormatReference}
+                    value={editingFormatReference ? formatReferenceDraft : undefined}
+                    onChange={editingFormatReference ? (e) => setFormatReferenceDraft(e.target.value) : undefined}
+                    placeholder={tr({ en: "Paste format reference URL...", es: "Pega URL de referencia de formato..." }, language)}
+                    className="text-sm h-8"
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        const v = editingFormatReference ? formatReferenceDraft.trim() : (e.target as HTMLInputElement).value.trim();
+                        setEditingFormatReference(false);
+                        if (v) await persistFormatReference(v);
+                      }
+                      if (e.key === "Escape") setEditingFormatReference(false);
+                    }}
+                    onBlur={async (e) => {
+                      const v = editingFormatReference ? formatReferenceDraft.trim() : (e.target as HTMLInputElement).value.trim();
+                      setEditingFormatReference(false);
+                      if (v) await persistFormatReference(v);
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <button
+                      onClick={() => setFormatReferenceVideoUrl(viewingFormatReferenceUrl)}
+                      className="group flex items-center gap-2 min-w-0 flex-1 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-left transition-colors"
+                      title={tr({ en: "View format reference", es: "Ver referencia de formato" }, language)}
+                    >
+                      <Play className="w-3.5 h-3.5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <span className="text-xs text-muted-foreground truncate">{viewingFormatReferenceUrl.replace(/^https?:\/\//, "")}</span>
+                    </button>
+                    <button
+                      onClick={() => { setEditingFormatReference(true); setFormatReferenceDraft(viewingFormatReferenceUrl); }}
+                      className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors shrink-0 p-1"
+                      title={tr({ en: "Edit URL", es: "Editar URL" }, language)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => persistFormatReference(null)}
+                      className="inline-flex items-center text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1"
+                      title={tr({ en: "Remove reference", es: "Quitar referencia" }, language)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <Dialog open={!!formatReferenceVideoUrl} onOpenChange={(open) => { if (!open) setFormatReferenceVideoUrl(null); }}>
+                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
+                  <DialogHeader className="p-4 pb-0">
+                    <DialogTitle className="text-sm">{tr({ en: "Format Reference", es: "Referencia de Formato" }, language)}</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-4 pt-2">
+                    {formatReferenceVideoUrl && <InspirationVideoEmbed url={formatReferenceVideoUrl} />}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
 
             <div className="editorial-card p-5 mb-2">
               <div className="flex items-center gap-2 mb-3">
@@ -3076,6 +3248,19 @@ export default function Scripts() {
                   {savingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                   <span className="hidden sm:inline">{tr({ en: "Save", es: "Guardar" }, language)}</span>
                 </Button>
+                {(isAdmin || isConnectaPlus) && (
+                  <Button
+                    onClick={handleRecategorize}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs sm:text-sm"
+                    disabled={recategorizing}
+                    title={tr({ en: "Re-categorize each line with AI (filming / voiceover / editing / text-on-screen)", es: "Recategorizar cada línea con IA (grabación / voz en off / edición / texto en pantalla)" }, language)}
+                  >
+                    {recategorizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                    <span className="hidden sm:inline">{tr({ en: "Re-categorize", es: "Recategorizar" }, language)}</span>
+                  </Button>
+                )}
                 <Button
                   onClick={() => {
                     fetchVersions();
