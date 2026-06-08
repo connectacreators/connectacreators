@@ -70,7 +70,10 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     return (isUser || isSubscriber) ? "me" : "master";
   });
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-  const clientPics = useClientProfilePics(useMemo(() => clients.map(c => c.id), [clients]));
+  const clientPics = useClientProfilePics(useMemo(
+    () => Array.from(new Set([...clients.map(c => c.id), ownClientId].filter(Boolean) as string[])),
+    [clients, ownClientId]
+  ));
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -518,7 +521,17 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
             }}
           >
-            <Users className="w-4 h-4 text-[#888888] flex-shrink-0" />
+            {(() => {
+              const triggerClientId = viewMode === "me" ? ownClientId : viewMode === "master" ? null : viewMode;
+              return (
+                <ClientAvatar
+                  picUrl={triggerClientId ? clientPics[triggerClientId] : null}
+                  alt={selectedClientName}
+                  size={20}
+                  fallback={<Users className="w-4 h-4 text-[#888888] flex-shrink-0" />}
+                />
+              );
+            })()}
             <span className="flex-1 text-left truncate text-[#cccccc]">{selectedClientName}</span>
             {isUser && (
               <span style={{ fontSize: 10, color: '#888', marginRight: 4 }}>
@@ -679,9 +692,16 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = viewMode === "me" ? 'rgba(99,102,241,0.08)' : 'transparent'; }}
             >
-              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 8px rgba(99,102,241,0.12)' }}>
-                <UserCircle className="w-3.5 h-3.5 text-indigo-400" />
-              </div>
+              <ClientAvatar
+                picUrl={ownClientId ? clientPics[ownClientId] : null}
+                alt={ownClientName || "My Brand"}
+                size={24}
+                fallback={
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 8px rgba(99,102,241,0.12)' }}>
+                    <UserCircle className="w-3.5 h-3.5 text-indigo-400" />
+                  </div>
+                }
+              />
               <span className="text-sm font-medium text-foreground flex-1">{ownClientName || (isUser ? "My Brand" : "Me")}</span>
               {viewMode === "me" && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
