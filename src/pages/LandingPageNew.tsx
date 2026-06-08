@@ -1548,7 +1548,7 @@ export default function LandingPageNew() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gap: 22 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 22, maxWidth: 1080, margin: "0 auto", alignItems: "start" }}>
             {(() => {
               const WORK = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/work";
               return [
@@ -1589,8 +1589,6 @@ export default function LandingPageNew() {
                   alignItems: "center",
                   textAlign: "center",
                   gap: 20,
-                  maxWidth: 640,
-                  margin: "0 auto",
                   width: "100%",
                   padding: 24,
                   borderRadius: 22,
