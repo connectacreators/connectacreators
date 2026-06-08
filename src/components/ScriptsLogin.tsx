@@ -73,9 +73,13 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
   };
 
   const handleGoogle = async () => {
+    // Honor the post-login redirect target (defaults to /dashboard) so Google
+    // sign-in lands in the same place as email sign-in — e.g. the in-app editor
+    // a viewer was sent to from a read-only share link.
+    const dest = redirectTo.startsWith("/") ? redirectTo : "/dashboard";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}${dest}` },
     });
     if (error) toast.error(error.message);
   };

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard, Eye,
+  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard, Eye, Pencil, LogIn,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
@@ -52,7 +53,7 @@ type ShareBranding = {
 
 type SharePayload = {
   permission: "viewer" | "editor";
-  root: { id: string; name: string };
+  root: { id: string; name: string; client_id?: string | null };
   branding?: ShareBranding | null;
   folders: FolderNode[];
   scripts: ScriptStub[];
@@ -116,6 +117,8 @@ function SectionHeading({ label }: { label: string }) {
 
 export default function PublicFolderShare() {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState<SharePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -178,6 +181,31 @@ export default function PublicFolderShare() {
     return trail;
   }, [data, currentFolderId]);
 
+  // "Log in to edit": send the viewer into the real authenticated in-app editor.
+  // The public /f/ page stays read-only; editing happens in /clients/:id/scripts
+  // where RLS decides who may actually edit. Already-logged-in users go straight
+  // there; everyone else bounces through /login?redirect=… (email login honors
+  // it; /login also auto-forwards an already-authenticated user). Opening a
+  // specific script deep-links via ?scriptId so they land right on it.
+  const editClientId = data?.root?.client_id ?? null;
+  const goEdit = (scriptId?: string) => {
+    if (!editClientId) return;
+    const target = `/clients/${editClientId}/scripts${scriptId ? `?scriptId=${scriptId}` : ""}`;
+    navigate(user ? target : `/login?redirect=${encodeURIComponent(target)}`);
+  };
+  const editButton = (scriptId?: string) =>
+    editClientId ? (
+      <button
+        onClick={() => goEdit(scriptId)}
+        data-active="true"
+        className="editorial-pill inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium shrink-0"
+        title={user ? "Open this in the editor" : "Log in to edit"}
+      >
+        {user ? <Pencil className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
+        {user ? "Open in editor" : "Log in to edit"}
+      </button>
+    ) : null;
+
   if (loading) {
     return (
       <div className="editorial-page-dark min-h-screen bg-background flex items-center justify-center">
@@ -225,9 +253,12 @@ export default function PublicFolderShare() {
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
-            <div className="ml-auto flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-              <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Read-only</span>
+            <div className="ml-auto flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Read-only</span>
+              </div>
+              {editButton(openScript.id)}
             </div>
           </div>
         </header>
@@ -345,9 +376,12 @@ export default function PublicFolderShare() {
     <div className="editorial-page-dark min-h-screen bg-background">
       <header className="border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 max-w-3xl">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-            <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Shared scripts · Read-only</span>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+              <span className="editorial-eyebrow truncate" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Shared scripts · Read-only</span>
+            </div>
+            {editButton()}
           </div>
           <h1 className="font-serif font-medium text-xl text-foreground flex items-center gap-2">
             <FolderOpen className="w-5 h-5" style={{ color: "hsl(var(--aqua))" }} />

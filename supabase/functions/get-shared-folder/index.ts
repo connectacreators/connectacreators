@@ -166,7 +166,7 @@ serve(async (req) => {
   return new Response(
     JSON.stringify({
       permission: share.permission as "viewer" | "editor",
-      root: { id: rootFolder.id, name: rootFolder.name },
+      root: { id: rootFolder.id, name: rootFolder.name, client_id: rootFolder.client_id ?? null },
       branding,                     // owning account's palette/fonts/logo (or null)
       folders,                      // includes the root (with parent_id = null)
       scripts: (scripts ?? []).map((s) => ({
