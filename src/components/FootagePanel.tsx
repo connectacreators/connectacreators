@@ -12,6 +12,14 @@ import { toast } from 'sonner';
 const BUCKET = 'footage';
 const MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024; // 50 GB
 
+const IMAGE_EXTS = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.avif', '.heic', '.heif', '.bmp', '.svg'];
+
+/** Detect images by extension — storage `list` only gives us the filename, not a MIME type. */
+function isImageName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return IMAGE_EXTS.some(ext => lower.endsWith(ext));
+}
+
 function parseFootageLinks(footage: string | null | undefined): string[] {
   if (!footage) return [];
   const trimmed = footage.trim();
@@ -65,6 +73,10 @@ export default function FootagePanel({
   const prefix = subfolder
     ? `${clientId}/${videoEditId}/${subfolder}/`
     : `${clientId}/${videoEditId}/`;
+
+  // Footage accepts images too (e.g. reference stills, screenshots).
+  // The final video submission stays video-only.
+  const allowImages = subfolder !== 'submission';
 
   // Subscribe to upload store
   useEffect(() => {
@@ -201,8 +213,10 @@ export default function FootagePanel({
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     Array.from(fileList).forEach(f => {
-      if (!f.type.startsWith('video/')) {
-        toast.error(`${f.name}: Not a video file`);
+      const isVideo = f.type.startsWith('video/');
+      const isImage = f.type.startsWith('image/');
+      if (!isVideo && !(allowImages && isImage)) {
+        toast.error(`${f.name}: ${allowImages ? 'Not a video or image file' : 'Not a video file'}`);
         return;
       }
       startUpload(f);
@@ -246,7 +260,7 @@ export default function FootagePanel({
         <input
           ref={fileInputRef}
           type="file"
-          accept="video/*"
+          accept={allowImages ? 'video/*,image/*' : 'video/*'}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -280,7 +294,7 @@ export default function FootagePanel({
           >
             <span className="text-2xl mb-1">☁</span>
             <span>
-              Drop videos here or{' '}
+              Drop {allowImages ? 'videos or images' : 'videos'} here or{' '}
               <strong className="text-primary">click to browse</strong>{' '}
               — multiple files OK
             </span>
@@ -329,15 +343,26 @@ export default function FootagePanel({
                 >
                   {/* Thumbnail */}
                   <div className="w-[52px] h-[34px] rounded-md bg-black border border-border/50 flex-shrink-0 overflow-hidden relative">
-                    <video
-                      src={f.signedUrl}
-                      preload="none"
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span className="text-[10px] text-white/70">▶</span>
-                    </div>
+                    {isImageName(f.name) ? (
+                      <img
+                        src={f.signedUrl}
+                        alt={f.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <video
+                          src={f.signedUrl}
+                          preload="none"
+                          muted
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <span className="text-[10px] text-white/70">▶</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-foreground truncate">{f.name}</div>
@@ -380,7 +405,13 @@ export default function FootagePanel({
                 {/* Inline player */}
                 {activeFile?.name === f.name && (
                   <div className="rounded-b-lg overflow-hidden border border-t-0 border-primary/25 bg-black">
-                    {videoErrors.has(f.name) ? (
+                    {isImageName(f.name) ? (
+                      <img
+                        src={f.signedUrl}
+                        alt={f.name}
+                        className="mx-auto block max-h-[400px] w-auto object-contain"
+                      />
+                    ) : videoErrors.has(f.name) ? (
                       <div className="flex flex-col items-center gap-2 py-6 px-4 text-center">
                         <Film className="w-8 h-8 text-muted-foreground/40" />
                         <p className="text-xs text-muted-foreground">
