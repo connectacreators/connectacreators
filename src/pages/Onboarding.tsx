@@ -265,6 +265,14 @@ const Onboarding = () => {
             .
           </span>
         </p>
+
+        {/* Back to dashboard */}
+        <div className="mt-6 flex justify-center">
+          <Button variant="outline" onClick={() => navigate("/dashboard")} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Go back to main
+          </Button>
+        </div>
       </div>
     </div>
   );
