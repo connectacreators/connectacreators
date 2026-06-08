@@ -358,6 +358,10 @@ function DemoVideoPlayer() {
       <video
         ref={videoRef}
         src={DEMO_VIDEO_URL}
+        // poster shows instantly (no black box); preload="metadata" keeps the
+        // initial payload light while still letting playback start fast.
+        poster="/demo-poster.jpg"
+        preload="metadata"
         muted
         playsInline
         onTimeUpdate={handleTimeUpdate}
@@ -369,6 +373,10 @@ function DemoVideoPlayer() {
         style={{
           width: "100%",
           display: "block",
+          // Reserve the 16:9 box up front. Without this the <video> renders
+          // collapsed until loadedmetadata fires, then jumps open (layout shift).
+          aspectRatio: fullscreen ? "auto" : "16 / 9",
+          objectFit: "cover",
           maxHeight: fullscreen ? "100vh" : "none",
         }}
       />

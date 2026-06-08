@@ -53,7 +53,12 @@ export default function ViralWall({
                 key={i}
                 src={src}
                 className="viral-wall-thumb"
-                loading="lazy"
+                /* Eager, NOT lazy: the row is ~3,800px wide and most thumbs sit
+                   off-screen, moved into view only by the CSS translateX marquee.
+                   Lazy-load doesn't fire for images revealed by a transform, so on
+                   narrow (mobile) viewports all but the first few stayed blank.
+                   Only 21 unique ~50KB JPEGs (the duplicate set is cache hits). */
+                loading="eager"
                 decoding="async"
                 draggable={false}
                 alt=""
