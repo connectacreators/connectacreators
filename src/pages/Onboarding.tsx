@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Sparkles, Loader2, Lock } from "lucide-react";
-import { useNavigate, useParams, Navigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams, Navigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -249,6 +249,22 @@ const Onboarding = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Privacy reassurance */}
+        <p className="mx-auto mt-5 flex max-w-md items-center justify-center gap-1.5 text-center text-xs leading-relaxed text-muted-foreground">
+          <Lock className="h-3 w-3 shrink-0" />
+          <span>
+            Your information stays private and secure — we never sell or share it. See our{" "}
+            <Link to="/privacy-policy" target="_blank" className="underline underline-offset-2 hover:text-foreground">
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link to="/terms-and-conditions" target="_blank" className="underline underline-offset-2 hover:text-foreground">
+              Terms &amp; Conditions
+            </Link>
+            .
+          </span>
+        </p>
       </div>
     </div>
   );
