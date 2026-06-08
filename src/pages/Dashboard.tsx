@@ -25,6 +25,7 @@ import { useCompanion } from "@/contexts/CompanionContext";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Loader2 } from "lucide-react";
 
+import { useViewMode } from "@/hooks/useViewMode";
 import { useDashboardPendingItems } from "@/hooks/useDashboardPendingItems";
 import { ActiveClientBreadcrumb } from "@/components/dashboard/ActiveClientBreadcrumb";
 import { RobbyInsightRow } from "@/components/dashboard/RobbyInsightRow";
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const { setIsOpen: setDrawerOpen } = useCompanion();
 
   const activeClientId = searchParams.get("client");
+  const viewMode = useViewMode();
 
   // Single-brand role: doesn't manage other clients, just sees their own
   const isSingleBrand = isConnectaPlus || (isUser && !isAdmin);
@@ -113,6 +115,37 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, [user, isSingleBrand]);
 
+  // Admin "Me" mode: resolve the admin's own client so the dropdown's "Me"
+  // selection can mirror their own brand dashboard. (Single-brand users
+  // already get ownClient from the effect above.)
+  useEffect(() => {
+    if (!user || isSingleBrand) return;
+    let cancelled = false;
+    supabase
+      .from("subscriber_clients")
+      .select("client_id, clients(id, name)")
+      .eq("subscriber_user_id", user.id)
+      .eq("is_primary", true)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const c = (data as any)?.clients ?? null;
+        if (c) {
+          setOwnClient({ id: c.id, name: c.name });
+          return;
+        }
+        supabase
+          .from("clients")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .maybeSingle()
+          .then(({ data: fb }) => {
+            if (!cancelled && fb) setOwnClient(fb as Client);
+          });
+      });
+    return () => { cancelled = true; };
+  }, [user, isSingleBrand]);
+
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
   const { data: pendingByClient } = useDashboardPendingItems(clientIds);
 
@@ -120,6 +153,20 @@ export default function Dashboard() {
     () => clients.find((c) => c.id === activeClientId) ?? null,
     [clients, activeClientId],
   );
+
+  // The client the sidebar dropdown currently points at:
+  //   "master" → null (agency roster), "me" → admin's own client,
+  //   else a specific client UUID. Used to mirror that client's dashboard.
+  const selectedClientId =
+    viewMode === "master" ? null
+    : viewMode === "me" ? (ownClient?.id ?? null)
+    : viewMode;
+
+  const selectedClient = useMemo(() => {
+    if (!selectedClientId) return null;
+    if (ownClient?.id === selectedClientId) return ownClient;
+    return clients.find((c) => c.id === selectedClientId) ?? null;
+  }, [selectedClientId, clients, ownClient]);
 
   const onInsightClick = (insightPrompt: string) => {
     (window as any).__companionPendingPrompt = insightPrompt;
@@ -183,6 +230,20 @@ export default function Dashboard() {
         ))}
         <ToolFolders activeClientId={activeClient.id} />
       </div>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // ADMIN ACTING AS A SELECTED CLIENT — mirror their 3-card dashboard
+  // (dropdown set to "Me" or a specific client). Only "Master" shows triage.
+  // ───────────────────────────────────────────────────────────────
+  if (selectedClient) {
+    return (
+      <SingleBrandDashboard
+        firstName={firstName}
+        brandName={selectedClient.name}
+        clientId={selectedClient.id}
+      />
     );
   }
 
