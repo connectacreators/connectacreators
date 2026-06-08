@@ -493,7 +493,11 @@ export default function EditingQueue() {
         .from("user_roles")
         .select("user_id")
         .in("role", ["admin", "editor", "videographer"]);
-      const ids = Array.from(new Set((roleRows || []).map((r: any) => r.user_id)));
+      // Always include the current user (e.g. an admin whose account is also
+      // tagged as a client), so they can assign work to themselves.
+      const ids = Array.from(
+        new Set([user.id, ...(roleRows || []).map((r: any) => r.user_id)])
+      );
       if (!ids.length) {
         setTeamMembers([]);
         return;
