@@ -1342,6 +1342,26 @@ export default function Scripts() {
     setView("view-script");
   };
 
+  // TEMPORARY diagnostic: surface any uncaught error/rejection on screen so we can
+  // capture the unified-editor open failure from the real page. Remove after fixing.
+  useEffect(() => {
+    const fmt = (msg: string, stack?: string) =>
+      "⚠️ SCRIPT EDITOR ERROR\n\n" + msg + "\n\n" + (stack || "").split("\n").slice(0, 6).join("\n");
+    const onErr = (e: ErrorEvent) => {
+      try { window.alert(fmt(e.message, e.error?.stack)); } catch { /* noop */ }
+    };
+    const onRej = (e: PromiseRejectionEvent) => {
+      const r: any = e.reason;
+      try { window.alert(fmt(r?.message || String(r), r?.stack)); } catch { /* noop */ }
+    };
+    window.addEventListener("error", onErr);
+    window.addEventListener("unhandledrejection", onRej);
+    return () => {
+      window.removeEventListener("error", onErr);
+      window.removeEventListener("unhandledrejection", onRej);
+    };
+  }, []);
+
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
   // Lazy backfill: if no heading rows exist, synthesize headings in memory from the
