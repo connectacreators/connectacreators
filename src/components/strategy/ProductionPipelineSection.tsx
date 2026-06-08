@@ -12,7 +12,6 @@
 //      Escape cancels. ads_active flips on double-click.
 
 import { useEffect, useRef, useState } from "react";
-import { relativeDate, type RelativeBucket } from "@/lib/triage/relativeDate";
 
 export interface PipelineFields {
   onboarding_call_at: string | null;
@@ -43,15 +42,60 @@ const ROWS: Array<{ field: keyof PipelineFields; labelEn: string; labelEs: strin
   { field: 'posting_at',         labelEn: 'Posting',         labelEs: 'Publicación',            withTime: false },
 ];
 
-const BUCKET_COLOR: Record<RelativeBucket, string> = {
-  overdue:   '#ef4444',
-  soon:      '#f59e0b',
-  today:     '#f59e0b',
-  tomorrow:  '#f59e0b',
-  thisweek:  'rgba(255,255,255,0.55)',
-  twoweeks:  'rgba(255,255,255,0.45)',
-  farfuture: 'rgba(255,255,255,0.40)',
+// Traffic-light coloring for pipeline dates, by how far away the date is:
+//   red    → overdue (date already passed)
+//   yellow → due within the next 7 days
+//   green  → 7+ days away
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+type PipelineBucket = 'overdue' | 'soon' | 'far';
+
+const PIPELINE_BUCKET_COLOR: Record<PipelineBucket, string> = {
+  overdue: '#ef4444', // red
+  soon:    '#f59e0b', // amber/yellow
+  far:     '#22c55e', // green
 };
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** red = overdue, yellow = within 7 days, green = further out. Date-only
+ *  fields compare at calendar-day granularity so "due today" isn't overdue. */
+function pipelineBucket(iso: string, withTime: boolean, now: Date = new Date()): PipelineBucket {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'far';
+  if (withTime) {
+    if (d.getTime() < now.getTime()) return 'overdue';
+    const days = (d.getTime() - now.getTime()) / 86_400_000;
+    return days <= 7 ? 'soon' : 'far';
+  }
+  const dDay = startOfDay(d).getTime();
+  const today = startOfDay(now).getTime();
+  if (dDay < today) return 'overdue';
+  const days = Math.round((dDay - today) / 86_400_000);
+  return days <= 7 ? 'soon' : 'far';
+}
+
+function formatTime(d: Date): string {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12 = ((h + 11) % 12) + 1;
+  const mm = m === 0 ? '' : `:${m.toString().padStart(2, '0')}`;
+  return `${h12}${mm}${period}`;
+}
+
+/** Absolute date label, e.g. "Mon Jun 14" — adds time for timed fields
+ *  that carry a non-midnight time, e.g. "Mon Jun 14, 5:17pm". */
+function formatAbsolute(iso: string, withTime: boolean): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const base = `${WEEKDAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+  return withTime && hasTime ? `${base}, ${formatTime(d)}` : base;
+}
 
 /** Convert a `timestamptz` string to the `<input type="datetime-local">` / `date` value. */
 function toInputValue(iso: string | null, withTime: boolean): string {
@@ -143,7 +187,7 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-4">
         {ROWS.map((row) => {
           const value = s[row.field] as string | null;
-          const rel = value ? relativeDate(value) : null;
+          const bucket = value ? pipelineBucket(value, row.withTime) : null;
           const inputType = row.withTime ? 'datetime-local' : 'date';
           const isInline = inline?.field === row.field;
           const showInput = editing || isInline;
@@ -169,13 +213,13 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
                 <span
                   className={canInline ? editableSpanClass : undefined}
                   style={{
-                    color: rel ? BUCKET_COLOR[rel.bucket] : 'rgba(255,255,255,0.35)',
+                    color: bucket ? PIPELINE_BUCKET_COLOR[bucket] : 'rgba(255,255,255,0.35)',
                     fontSize: 12,
                   }}
                   title={canInline ? inlineTitle : undefined}
                   onDoubleClick={canInline ? () => setInline({ field: row.field, value: toInputValue(value, row.withTime) }) : undefined}
                 >
-                  {rel ? rel.label : '—'}
+                  {value ? formatAbsolute(value, row.withTime) : '—'}
                 </span>
               )}
               {editing && value && (
@@ -186,11 +230,6 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
                 >
                   {en ? 'Clear' : 'Borrar'}
                 </button>
-              )}
-              {!showInput && rel && (
-                <span className="text-[11px]" style={{ color: BUCKET_COLOR[rel.bucket] }}>
-                  ({rel.label})
-                </span>
               )}
             </div>
           );
