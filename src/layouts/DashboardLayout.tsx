@@ -5,6 +5,7 @@ import DashboardTopBar from "@/components/DashboardTopBar";
 import AnimatedDots from "@/components/ui/AnimatedDots";
 import FloatingCredits from "@/components/FloatingCredits";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import NamingModal from "@/components/NamingModal";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardLayout() {
@@ -47,6 +48,7 @@ export default function DashboardLayout() {
       </div>
       {showChrome && <FloatingCredits />}
       {showChrome && <MobileBottomNav />}
+      <NamingModal />
     </div>
   );
 }

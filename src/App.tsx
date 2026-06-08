@@ -11,7 +11,6 @@ import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
 import OutOfCreditsModal from "@/components/OutOfCreditsModal";
 import { CompanionProvider } from "@/contexts/CompanionContext";
 import CompanionBubble from "@/components/CompanionBubble";
-import NamingModal from "@/components/NamingModal";
 import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
@@ -131,7 +130,9 @@ const App = () => (
           <FloatingUploadProgress />
           <OutOfCreditsModal />
           <CompanionBubble />
-          <NamingModal />
+          {/* NamingModal is first-run app-shell setup — rendered inside
+              DashboardLayout so it never appears on public/standalone routes
+              (e.g. the login-gated onboarding link). */}
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public / unauthenticated routes */}
