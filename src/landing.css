@@ -714,6 +714,20 @@ html, body, #root { margin: 0; padding: 0; }
     stroke-dashoffset: 0 !important;
     clip-path: none !important;
   }
+
+  /* The viral wall reveals its thumbnails ONLY by scrolling the marquee.
+     Freezing it at frame 0 (above) leaves every thumb past the first ~4
+     stranded off-screen — so reduced-motion users (e.g. iOS Reduce Motion)
+     saw "only a couple" and missed most of the wall. Turn each frozen row
+     into a swipeable horizontal strip so all thumbnails stay reachable. */
+  .landing-editorial .viral-wall { pointer-events: auto; }
+  .landing-editorial .viral-wall-row {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .landing-editorial .viral-wall-row::-webkit-scrollbar { display: none; }
 }
 
 /* =============================================================================
