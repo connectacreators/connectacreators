@@ -485,12 +485,25 @@ export default function EditingQueue() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("user_id, display_name")
-      .then(({ data }) => {
-        setTeamMembers((data || []).filter((p: any) => p.display_name));
-      });
+    // Assignees are Connecta team members only — admins, editors, videographers.
+    // Admins bypass profiles RLS and would otherwise see every signup (clients,
+    // Connecta Plus subscribers, sub-users), so filter by role explicitly.
+    (async () => {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["admin", "editor", "videographer"]);
+      const ids = Array.from(new Set((roleRows || []).map((r: any) => r.user_id)));
+      if (!ids.length) {
+        setTeamMembers([]);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", ids);
+      setTeamMembers((data || []).filter((p: any) => p.display_name));
+    })();
   }, [user]);
 
   useEffect(() => {
