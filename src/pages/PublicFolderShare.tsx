@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight,
-  Film, Mic, Scissors, MonitorPlay,
+  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard,
 } from "lucide-react";
+import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
+import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
+import { defaultSectionLabel } from "@/lib/scriptBlocks";
 
 type ScriptLine = {
   line_type: "filming" | "actor" | "editor" | "text_on_screen";
@@ -39,17 +41,38 @@ type SharePayload = {
   scripts: ScriptStub[];
 };
 
-const typeConfig = {
-  filming:        { label: "Filming",         icon: Film,        color: "text-orange-400",     bg: "bg-gradient-to-br from-orange-500/10 to-orange-900/5", border: "border-orange-500/25" },
-  actor:          { label: "Voiceover",       icon: Mic,         color: "text-[#8FD0D5]",       bg: "bg-gradient-to-br from-[rgba(8,145,178,0.1)] to-[rgba(8,145,178,0.02)]", border: "border-[rgba(8,145,178,0.25)]" },
-  editor:         { label: "Editing",         icon: Scissors,    color: "text-[#F0BC7D]",       bg: "bg-gradient-to-br from-[rgba(132,204,22,0.08)] to-[rgba(132,204,22,0.02)]", border: "border-[rgba(132,204,22,0.2)]" },
-  text_on_screen: { label: "On-screen text",  icon: MonitorPlay, color: "text-[#94a3b8]",       bg: "bg-gradient-to-br from-[rgba(148,163,184,0.06)] to-[rgba(148,163,184,0.02)]", border: "border-[rgba(148,163,184,0.15)]" },
-};
-
 function previewFromLines(lines: ScriptLine[]): string {
   const actor = lines.filter((l) => l.line_type === "actor");
   const source = actor.length > 0 ? actor : lines;
   return source.slice(0, 3).map((l) => l.text).join(" ").slice(0, 220);
+}
+
+// Read-only line: thin type-colored bar + type-colored text (mirrors the editor
+// and the /s/ public view). Colors come from the shared scriptLineTypes maps so
+// they never drift from the editor.
+function ReaderLine({ line }: { line: ScriptLine }) {
+  return (
+    <div className="flex items-stretch gap-3 py-1.5">
+      <div className={`w-[2px] rounded-full shrink-0 ${TYPE_BAR_CLASS[line.line_type]}`} />
+      <div className={`flex-1 min-w-0 text-sm leading-relaxed ${TYPE_TEXT_CLASS[line.line_type]}`}>
+        {line.text}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2.5 mt-6 mb-2 first:mt-0">
+      <span
+        className="font-serif font-bold text-foreground text-[15px]"
+        style={{ letterSpacing: "0.06em" }}
+      >
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-[hsl(var(--bone)_/_0.14)]" />
+    </div>
+  );
 }
 
 export default function PublicFolderShare() {
@@ -114,7 +137,7 @@ export default function PublicFolderShare() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="editorial-page-dark min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -122,10 +145,10 @@ export default function PublicFolderShare() {
 
   if (notFound || !data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+      <div className="editorial-page-dark min-h-screen bg-background flex items-center justify-center px-6">
         <div className="text-center space-y-2 max-w-sm">
           <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
-          <h1 className="text-xl font-bold text-foreground">Link not found</h1>
+          <h1 className="font-serif font-medium text-xl text-foreground">Link not found</h1>
           <p className="text-muted-foreground text-sm">
             This share link doesn't exist or has been revoked.
           </p>
@@ -136,9 +159,17 @@ export default function PublicFolderShare() {
 
   // ── Script detail view ────────────────────────────────────────────────────
   if (openScript) {
-    const sectionLabels = { hook: "Hook", body: "Body", cta: "CTA" } as const;
+    // Render the script as a block document: section heading + colored lines,
+    // grouped by section role in hook → body → cta order (matches the editor).
+    const sectionOrder: ScriptLine["section"][] = [];
+    for (const l of openScript.lines) {
+      if (!sectionOrder.includes(l.section)) sectionOrder.push(l.section);
+    }
+    const presetFormat = SCRIPT_FORMATS.find((f) => f.label === openScript.formato);
+    const FormatIcon = presetFormat?.icon;
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background" style={{ fontFamily: "Arial, sans-serif" }}>
+      <div className="editorial-page-dark min-h-screen bg-background">
         <header className="sticky top-0 z-20 border-b border-border/50 bg-background/90 backdrop-blur-xl">
           <div className="container mx-auto px-4 py-3 max-w-3xl flex items-center gap-2">
             <button
@@ -147,61 +178,65 @@ export default function PublicFolderShare() {
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
-            <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-              <FileText className="w-3.5 h-3.5 text-primary" />
-              <span className="uppercase tracking-wider">Read-only</span>
+            <div className="ml-auto flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+              <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Read-only</span>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-6 max-w-3xl">
-          <h1 className="text-2xl font-bold text-foreground mb-3">{openScript.title}</h1>
+        <main className="container mx-auto px-4 py-8 max-w-3xl">
+          {/* Winning Idea — flat editorial card (mirrors the editor chrome) */}
+          <div className="editorial-card mb-4" style={{ padding: "20px 22px" }}>
+            <h1
+              style={{
+                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
+                fontWeight: 500,
+                fontSize: 22,
+                letterSpacing: "-0.01em",
+                lineHeight: 1.3,
+                color: "hsl(var(--cream))",
+              }}
+            >
+              {openScript.idea_ganadora || openScript.title || "Untitled"}
+            </h1>
+            {openScript.target && (
+              <div className="mt-3 pt-3" style={{ borderTop: "1px solid hsl(var(--bone) / 0.10)" }}>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground">
+                  <span className="uppercase tracking-wider text-[9px] opacity-70">Target</span>
+                  {openScript.target}
+                </span>
+              </div>
+            )}
+          </div>
 
-          {(openScript.idea_ganadora || openScript.target || openScript.formato) && (
-            <div className="mb-6 space-y-1 p-4 rounded-2xl bg-gradient-to-br from-card via-card to-muted/30 border border-border">
-              {openScript.idea_ganadora && (
-                <p className="text-sm text-foreground"><span className="font-semibold text-[#8FD0D5]">Winning Idea:</span> {openScript.idea_ganadora}</p>
-              )}
-              {openScript.target && (
-                <p className="text-sm text-foreground"><span className="font-semibold text-orange-400">Target:</span> {openScript.target}</p>
-              )}
-              {openScript.formato && (
-                <p className="text-sm text-foreground"><span className="font-semibold text-[#8FD0D5]">Format:</span> {openScript.formato}</p>
-              )}
+          {/* Format */}
+          {openScript.formato && (
+            <div className="editorial-card p-5 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Format</span>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
+                {FormatIcon && <FormatIcon className="w-3.5 h-3.5 shrink-0" />}
+                {openScript.formato}
+              </span>
             </div>
           )}
 
-          {(["hook", "body", "cta"] as const).map((section) => {
-            const sectionLines = openScript.lines.filter((l) => l.section === section);
-            if (sectionLines.length === 0) return null;
-            return (
-              <div key={section} className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-bold text-foreground uppercase tracking-wider">{sectionLabels[section]}</span>
-                  <div className="flex-1 h-px bg-border" />
+          {/* Script document */}
+          {openScript.lines.length > 0 ? (
+            <div className="editorial-card p-5 mt-2">
+              {sectionOrder.map((section) => (
+                <div key={section}>
+                  <SectionHeading label={defaultSectionLabel(section)} />
+                  {openScript.lines
+                    .filter((l) => l.section === section)
+                    .map((line, i) => <ReaderLine key={`${section}-${i}`} line={line} />)}
                 </div>
-                <div className="space-y-3">
-                  {sectionLines.map((line, i) => {
-                    const cfg = typeConfig[line.line_type];
-                    const Icon = cfg.icon;
-                    return (
-                      <div key={i} className={`flex items-start gap-3 p-4 rounded-2xl border ${cfg.bg} ${cfg.border}`}>
-                        <div className={`mt-0.5 p-1.5 rounded-xl ${cfg.bg}`}>
-                          <Icon className={`w-4 h-4 ${cfg.color}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
-                          <p className="mt-1 text-base leading-relaxed text-foreground">{line.text}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {openScript.lines.length === 0 && (
+              ))}
+            </div>
+          ) : (
             <p className="text-sm text-muted-foreground text-center py-8">This script has no content yet.</p>
           )}
         </main>
@@ -211,15 +246,15 @@ export default function PublicFolderShare() {
 
   // ── Folder feed view ──────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card/50 to-background">
+    <div className="editorial-page-dark min-h-screen bg-background">
       <header className="border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 max-w-3xl">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary mb-1">
-            <FileText className="w-3.5 h-3.5" />
-            Shared scripts · Read-only
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+            <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Shared scripts · Read-only</span>
           </div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <FolderOpen className="w-5 h-5 text-primary" />
+          <h1 className="font-serif font-medium text-xl text-foreground flex items-center gap-2">
+            <FolderOpen className="w-5 h-5" style={{ color: "hsl(var(--aqua))" }} />
             {breadcrumbs[breadcrumbs.length - 1]?.name ?? data.root.name}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -260,9 +295,9 @@ export default function PublicFolderShare() {
                 <button
                   key={f.id}
                   onClick={() => setViewingFolderId(f.id)}
-                  className="flex flex-col items-start gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-left"
+                  className="editorial-card flex flex-col items-start gap-2 p-4 text-left"
                 >
-                  <Folder className="w-6 h-6 text-primary/80" />
+                  <Folder className="w-6 h-6" style={{ color: "hsl(var(--aqua) / 0.8)" }} />
                   <div className="min-w-0 w-full">
                     <p className="font-semibold text-foreground text-sm truncate">{f.name}</p>
                     <p className="text-xs text-muted-foreground">{count} script{count !== 1 ? "s" : ""}</p>
@@ -286,14 +321,14 @@ export default function PublicFolderShare() {
                 <button
                   key={s.id}
                   onClick={() => setOpenScriptId(s.id)}
-                  className="w-full flex flex-col gap-2 p-4 rounded-2xl border border-border bg-card hover:bg-card/80 hover:border-primary/40 transition-all text-left group"
+                  className="editorial-card w-full flex flex-col gap-2 p-4 text-left group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 p-1.5 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
                       <FileText className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground text-base leading-snug">{s.title || "Untitled"}</h3>
+                      <h3 className="font-serif font-semibold text-foreground text-base leading-snug">{s.title || "Untitled"}</h3>
                       {(s.idea_ganadora || s.formato) && (
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           {s.idea_ganadora && <span>{s.idea_ganadora}</span>}
@@ -307,7 +342,7 @@ export default function PublicFolderShare() {
                         </p>
                       )}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0 mt-1" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0 mt-1" />
                   </div>
                 </button>
               );
