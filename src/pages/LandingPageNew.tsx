@@ -25,6 +25,10 @@ import brainDoodle from "@/assets/brain-doodle.png";
 import yuppiesBubble from "@/assets/yuppies-bubble.png";
 import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import drCalvin78k from "@/assets/dr-calvin-78k.png";
+import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
+import zigufitBefore from "@/assets/zigufit-before.png";
+import zigufitAfterNew from "@/assets/zigufit-after-new.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
 import PromptStream, { PromptStreamMobile } from "@/components/landing/PromptStream";
@@ -1070,9 +1074,9 @@ export default function LandingPageNew() {
           <strong style={{ fontWeight: 700 }}>Viral Today is live.</strong>
         </span>
         Spot trends before your feed catches on.{" "}
-        <Link to="/scripts" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
-          Try it →
-        </Link>
+        <a href="#viral" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
+          See it →
+        </a>
       </div>
 
       {/* ===== Floating nav — wisprflow style: bone pill, centered, compact width ===== */}
@@ -1142,7 +1146,7 @@ export default function LandingPageNew() {
 
           <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Link
-              to="/scripts"
+              to="/login"
               style={{
                 fontSize: 14,
                 color: "rgba(10,14,18,0.72)",
@@ -1150,10 +1154,10 @@ export default function LandingPageNew() {
                 fontWeight: 500,
               }}
             >
-              Sign in
+              Client login
             </Link>
-            <Link to="/scripts" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
-              Get started
+            <Link to="/1mguarantee" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
+              Work with us
             </Link>
           </div>
 
@@ -1192,8 +1196,11 @@ export default function LandingPageNew() {
             <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
             <a href="#viral" onClick={() => setMobileOpen(false)}>Viral Today</a>
             <a href="#pipeline" onClick={() => setMobileOpen(false)}>Pipeline</a>
-            <Link to="/scripts" className="btn btn-aqua" style={{ marginTop: 8, alignSelf: "flex-start" }}>
-              Get started
+            <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
+              Client login
+            </Link>
+            <Link to="/1mguarantee" className="btn btn-aqua" style={{ marginTop: 4, alignSelf: "flex-start" }}>
+              Work with us
             </Link>
           </div>
         )}
@@ -1255,7 +1262,7 @@ export default function LandingPageNew() {
           }}
         >
           <div data-reveal="1" style={{ marginBottom: 26 }}>
-            <span className="eyebrow">The AI strategist for creators</span>
+            <span className="eyebrow">Personal branding experts · English &amp; Spanish</span>
           </div>
 
           <h1
@@ -1344,7 +1351,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <ProxText>Connecta plans your next 30 days of content before you open the app. Hooks that land, posts that book — strategy, scripts, and schedule done for you.</ProxText>
+            <ProxText>We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew Intermountain Immigration past 650K followers, now running for you.</ProxText>
           </div>
 
           <div
@@ -1356,8 +1363,11 @@ export default function LandingPageNew() {
               flexWrap: "wrap",
             }}
           >
-            <Link to="/scripts" className="btn btn-aqua btn-large">
-              Get started <ArrowRight size={16} />
+            <Link to="/1mguarantee" className="btn btn-aqua btn-large">
+              Work with us <ArrowRight size={16} />
+            </Link>
+            <Link to="/login" className="btn btn-ghost btn-large">
+              Client login
             </Link>
           </div>
 
@@ -1370,7 +1380,7 @@ export default function LandingPageNew() {
               letterSpacing: "0.02em",
             }}
           >
-            Free to try · No credit card · Cancel anytime
+            1,000,000 views in 90 days — guaranteed, or your money back.
           </div>
         </div>
 
@@ -1522,6 +1532,91 @@ export default function LandingPageNew() {
         </div>
       </section>
 
+      {/* ===== Case studies — real client before/afters ===== */}
+      <section style={{ padding: "90px 0", position: "relative" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
+          <div style={{ textAlign: "center", marginBottom: 44 }}>
+            <span className="eyebrow">Proof, not promises</span>
+            <h2
+              className="serif"
+              style={{ fontSize: "clamp(28px, 4vw, 44px)", color: "var(--bone)", margin: "14px 0 0", letterSpacing: "-0.02em", fontWeight: 500 }}
+            >
+              Brands we&apos;ve built
+            </h2>
+            <p style={{ fontSize: 16, color: "var(--bone-2)", maxWidth: 540, margin: "14px auto 0", lineHeight: 1.55 }}>
+              Real accounts, real numbers — what the Connecta engine did for clients who handed us the keys.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gap: 22 }}>
+            {[
+              {
+                label: "Case study · Chiropractor",
+                name: "Dr. Calvin's Clinic",
+                imgs: [drCalvin78k, drCalvinTiktok],
+                stats: [
+                  { n: "100K+", l: "followers generated", c: "var(--aqua)" },
+                  { n: "$50K+", l: "revenue generated", c: "var(--honey)" },
+                ],
+              },
+              {
+                label: "Case study · Fitness",
+                name: "Zigufit",
+                imgs: [zigufitBefore, zigufitAfterNew],
+                stats: [
+                  { n: "500", l: "followers before", c: "var(--bone-2)" },
+                  { n: "17.6K", l: "followers after", c: "var(--aqua)" },
+                ],
+              },
+            ].map((cs) => (
+              <div
+                key={cs.name}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1fr",
+                  gap: 28,
+                  alignItems: "center",
+                  padding: 22,
+                  borderRadius: 22,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {cs.imgs.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`${cs.name} ${i === 0 ? "before" : "after"}`}
+                      loading="lazy"
+                      style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", display: "block" }}
+                    />
+                  ))}
+                </div>
+                <div>
+                  <span className="eyebrow">{cs.label}</span>
+                  <h3 className="serif" style={{ fontSize: 26, color: "var(--bone)", margin: "10px 0 18px", fontWeight: 600 }}>
+                    {cs.name}
+                  </h3>
+                  <div style={{ display: "flex", gap: 32 }}>
+                    {cs.stats.map((s) => (
+                      <div key={s.l}>
+                        <div className="serif" style={{ fontSize: 32, color: s.c, fontWeight: 600, lineHeight: 1 }}>{s.n}</div>
+                        <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 6 }}>{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ textAlign: "center", marginTop: 32, fontSize: 14, color: "var(--bone-3)" }}>
+            Plus <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> built for Intermountain Immigration — the account that started it all.
+          </p>
+        </div>
+      </section>
+
       {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
       <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative", overflow: "visible" }}>
         {/* Running brain doodle — sits at the bottom of this section,
@@ -1566,7 +1661,7 @@ export default function LandingPageNew() {
                 </span>
               </ScrollFloat>
               <div className="section-lede" style={{ marginBottom: 28, position: "relative" }}>
-                <ProxText>Super Canvas studies your brand voice, your audience, what's spiking on the feed, and what your last 50 posts taught it. Then it lays out the next 30 days — visually, editably, in one place.</ProxText>
+                <ProxText>Super Canvas is the engine behind every brand we build. It learns your voice, your audience, what's spiking on the feed, and what your last 50 posts taught it, then maps out your next 30 days of content. The strategy you'd hire a team for, running on your account.</ProxText>
               </div>
 
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1595,8 +1690,8 @@ export default function LandingPageNew() {
               </ul>
 
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link to="/scripts" className="btn btn-aqua">
-                  Open Super Canvas <ArrowRight size={15} />
+                <Link to="/1mguarantee" className="btn btn-aqua">
+                  Work with us <ArrowRight size={15} />
                 </Link>
                 <a href="#viral" className="btn btn-ghost">See trends</a>
               </div>
@@ -1743,8 +1838,8 @@ export default function LandingPageNew() {
                 ))}
               </div>
 
-              <Link to="/scripts" className="btn btn-honey">
-                Open Viral Today <ArrowRight size={15} />
+              <Link to="/1mguarantee" className="btn btn-honey">
+                Work with us <ArrowRight size={15} />
               </Link>
             </div>
           </div>
@@ -2104,13 +2199,13 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <ProxText>No credit card. Bring your existing chaos — Connecta will fold it neatly into a 30-day plan within five minutes.</ProxText>
+            <ProxText>Hand us your account and we build the brand — scripted, filmed, edited, and posted in English and Spanish. You show up; we handle the rest.</ProxText>
           </div>
-          <Link to="/scripts" className="btn btn-honey btn-large">
-            Get started <ArrowRight size={16} />
+          <Link to="/1mguarantee" className="btn btn-honey btn-large">
+            Work with us <ArrowRight size={16} />
           </Link>
           <div style={{ marginTop: 18, fontSize: 12.5, color: "rgba(10,14,18,0.45)" }}>
-            Free to try · cancel anytime
+            1,000,000 views in 90 days, or your money back.
           </div>
         </div>
       </section>
@@ -2151,7 +2246,7 @@ export default function LandingPageNew() {
                 </span>
               </Link>
               <div style={{ fontSize: 13.5, color: "var(--bone-3)", maxWidth: 280, margin: 0, lineHeight: 1.6, position: "relative" }}>
-                <ProxText>The AI strategist for creators and the brands they work with.</ProxText>
+                <ProxText>Personal branding experts. We build bilingual brands in English and Spanish.</ProxText>
               </div>
             </div>
             {[
