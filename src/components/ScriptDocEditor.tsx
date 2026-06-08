@@ -40,11 +40,12 @@ const TYPE_OPTIONS: { type: LineType; color: string; label: string }[] = [
   { type: "text_on_screen", color: "hsl(var(--bone) / 0.55)",   label: "Text on Screen" },
 ];
 
+// Line text is colored by its type (matches the left bar) so the type is readable at a glance.
 const TYPE_TEXT_CLASS: Record<LineType, string> = {
-  filming:        "text-[hsl(var(--bone) / 0.82)]",
-  actor:          "text-[hsl(var(--bone) / 0.82)]",
-  editor:         "text-[hsl(var(--bone) / 0.82)]",
-  text_on_screen: "text-[hsl(var(--bone) / 0.62)]",
+  filming:        "text-[#C2823F]",                 // orange
+  actor:          "text-[hsl(var(--aqua))]",        // aqua
+  editor:         "text-[#7FB58A]",                 // green
+  text_on_screen: "text-[hsl(var(--bone) / 0.62)]", // muted
 };
 
 const TYPE_BAR_CLASS: Record<LineType, string> = {
@@ -425,7 +426,6 @@ function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onR
       >
         <GripVertical className="w-3.5 h-3.5" />
       </button>
-      <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
       {editing ? (
         <input
           ref={inputRef}
@@ -436,12 +436,12 @@ function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onR
             if (e.key === "Enter") { e.preventDefault(); commit(); }
             if (e.key === "Escape") { setDraft(block.text || defaultSectionLabel(block.section)); setEditing(false); }
           }}
-          className="font-serif font-bold text-foreground text-center bg-transparent outline-none border-b border-[hsl(var(--bone) / 0.30)] text-[15px] px-1 max-w-[260px]"
+          className="font-serif font-bold text-foreground text-left bg-transparent outline-none border-b border-[hsl(var(--bone) / 0.30)] text-[15px] px-1 max-w-[340px]"
           style={{ letterSpacing: "0.04em" }}
         />
       ) : (
         <span
-          className="font-serif font-bold text-foreground cursor-text select-none text-[15px]"
+          className="font-serif font-bold text-foreground cursor-text select-none text-[15px] text-left"
           style={{ letterSpacing: "0.06em" }}
           title="Double-click to rename section"
           onDoubleClick={() => { setDraft(block.text || defaultSectionLabel(block.section)); setEditing(true); }}
@@ -449,6 +449,8 @@ function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onR
           {block.text || defaultSectionLabel(block.section)}
         </span>
       )}
+      {/* Rule fills the rest to the right — left-aligned section header (not centered). */}
+      <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
       <button
         type="button"
         className="opacity-0 group-hover/heading:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.40)] hover:text-destructive p-0.5"
@@ -457,7 +459,6 @@ function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onR
       >
         <Trash2 className="w-3 h-3" />
       </button>
-      <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
     </div>
   );
 }

@@ -395,7 +395,7 @@ export default function Scripts() {
 
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isConnectaPlus, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
@@ -1206,33 +1206,9 @@ export default function Scripts() {
   };
 
   const handleCategorize = async () => {
-    console.log("[scripts:handleCategorize] fired. scriptTitle state =", JSON.stringify(scriptTitle), "trimmed =", JSON.stringify(scriptTitle.trim()));
     if (!scriptInput.trim() || !selectedClient) return;
 
-    // Parse script input — assign sections positionally (first=hook, last=cta, middle=body)
-    const rawLines = scriptInput.trim().split('\n').filter(l => l.trim());
-    const n = rawLines.length;
-    const scriptLines: ScriptLine[] = rawLines.map((line, i) => {
-      let section: 'hook' | 'body' | 'cta' = 'body';
-      if (n >= 3) {
-        if (i === 0) section = 'hook';
-        else if (i === n - 1) section = 'cta';
-      } else if (n === 2) {
-        section = i === 0 ? 'hook' : 'body';
-      }
-      return {
-        line_type: 'actor' as const,
-        section,
-        text: line.trim(),
-      };
-    });
-
-    if (scriptLines.length === 0) {
-      toast.error(tr({ en: "Please enter a script with at least one line", es: "Por favor ingresa un script con al menos una línea" }, language));
-      return;
-    }
-
-    // Check plan limit before saving (admins and videographers are unlimited)
+    // Plan limit (admins and videographers are unlimited).
     if (!isAdmin && !isVideographer) {
       const limitCheck = await checkResourceLimit(selectedClient.id, "scripts");
       if (!limitCheck.allowed) {
@@ -1247,7 +1223,54 @@ export default function Scripts() {
     }
 
     const ideaGanadoraToSave = scriptTitle.trim() || "Sin título";
-    console.log("[scripts:handleCategorize] sending to directSave: ideaGanadora =", JSON.stringify(ideaGanadoraToSave), "raw scriptTitle =", JSON.stringify(scriptTitle));
+    const persistUrl = (sid: string) => {
+      const sp = new URLSearchParams(searchParams);
+      sp.set("scriptId", sid);
+      setSearchParams(sp, { replace: true });
+    };
+
+    // AI line/section categorization (Haiku) is gated to admin + Connecta+ to control
+    // Anthropic spend. Everyone else gets positional sectioning + a default line type.
+    if (isAdmin || isConnectaPlus) {
+      const aiResult = await categorizeAndSave(
+        selectedClient.id,
+        ideaGanadoraToSave,
+        scriptInput.trim(),
+        inspirationUrl.trim() || undefined,
+        formato || undefined,
+        googleDriveLink.trim() || undefined,
+      );
+      if (aiResult) {
+        const fresh = await getScriptLines(aiResult.scriptId);
+        setParsedLines(fresh);
+        setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
+        setViewingMetadata(aiResult.metadata);
+        setViewingScriptId(aiResult.scriptId);
+        persistUrl(aiResult.scriptId);
+        setView("view-script");
+        toast.success(tr({ en: "Script analyzed and saved!", es: "¡Script analizado y guardado!" }, language));
+      }
+      // categorizeAndSave surfaces its own error toast on failure.
+      return;
+    }
+
+    // Fallback (no AI): positional sections (first=hook, last=cta, middle=body), default type.
+    const rawLines = scriptInput.trim().split('\n').filter(l => l.trim());
+    const n = rawLines.length;
+    const scriptLines: ScriptLine[] = rawLines.map((line, i) => {
+      let section: 'hook' | 'body' | 'cta' = 'body';
+      if (n >= 3) {
+        if (i === 0) section = 'hook';
+        else if (i === n - 1) section = 'cta';
+      } else if (n === 2) {
+        section = i === 0 ? 'hook' : 'body';
+      }
+      return { line_type: 'actor' as const, section, text: line.trim() };
+    });
+    if (scriptLines.length === 0) {
+      toast.error(tr({ en: "Please enter a script with at least one line", es: "Por favor ingresa un script con al menos una línea" }, language));
+      return;
+    }
     const result = await directSave({
       clientId: selectedClient.id,
       lines: scriptLines,
@@ -1257,13 +1280,13 @@ export default function Scripts() {
       inspirationUrl: inspirationUrl.trim() || undefined,
       googleDriveLink: googleDriveLink.trim() || undefined,
     });
-
     if (result) {
       const fresh = await getScriptLines(result.scriptId);
       setParsedLines(fresh);
       setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
+      persistUrl(result.scriptId);
       setView("view-script");
       toast.success(tr({ en: "Script saved successfully!", es: "¡Script guardado exitosamente!" }, language));
     }

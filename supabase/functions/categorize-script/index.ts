@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +33,20 @@ serve(async (req) => {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Gate AI categorization (Anthropic spend) to admin + Connecta+ callers only.
+  const { data: roleRows } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+  const allowedRoles = new Set(["admin", "connecta_plus"]);
+  const isAllowed = (roleRows ?? []).some((r: { role: string }) => allowedRoles.has(r.role));
+  if (!isAllowed) {
+    return new Response(
+      JSON.stringify({ error: "AI categorization is available on Connecta+ only." }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -72,7 +85,7 @@ Rules:
 - If a line has a tag like [filming], [actor], [editor] etc., use it as a hint but still validate
 - Lines without tags: use context to determine the type
 - Dialogue/voiceover lines are "actor"
-- Camera angles, lighting, movement = "filming"  
+- Camera angles, lighting, movement = "filming"
 - Text overlays, music, effects, B-roll = "editor"
 - When in doubt between filming and editor: if it happens during the shoot → filming, if it happens in post → editor`;
 
@@ -166,10 +179,6 @@ Rules:
     }
 
     const data = await response.json();
-    if (data?.usage) logAnthropicUsage(supabase, {
-      functionName: "categorize-script", model: "claude-haiku-4-5-20251001",
-      usage: data.usage, userId: null,
-    });
     const messageContent = data.content || [];
     let parsed;
 
