@@ -1549,7 +1549,9 @@ export default function LandingPageNew() {
           </div>
 
           <div style={{ display: "grid", gap: 22 }}>
-            {[
+            {(() => {
+              const WORK = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/work";
+              return [
               {
                 label: "Case study · Chiropractor",
                 name: "Dr. Calvin's Clinic",
@@ -1557,6 +1559,11 @@ export default function LandingPageNew() {
                 stats: [
                   { n: "100K+", l: "followers generated", c: "var(--aqua)" },
                   { n: "$50K+", l: "revenue generated", c: "var(--honey)" },
+                ],
+                videos: [
+                  { src: `${WORK}/calvin-fb1.mp4`, views: "751K" },
+                  { src: `${WORK}/calvin-fb2.mp4`, views: "1.3M" },
+                  { src: `${WORK}/calvin-tt.mp4`, views: "872K" },
                 ],
               },
               {
@@ -1567,8 +1574,13 @@ export default function LandingPageNew() {
                   { n: "500", l: "followers before", c: "var(--bone-2)" },
                   { n: "17.6K", l: "followers after", c: "var(--aqua)" },
                 ],
+                videos: [
+                  { src: `${WORK}/sofia-tt1.mp4`, views: "2.8M" },
+                  { src: `${WORK}/sofia-ig.mp4`, views: "3M" },
+                  { src: `${WORK}/sofia-tt2.mp4`, views: "1M" },
+                ],
               },
-            ].map((cs) => (
+            ]; })().map((cs) => (
               <div
                 key={cs.name}
                 style={{
@@ -1577,7 +1589,7 @@ export default function LandingPageNew() {
                   alignItems: "center",
                   textAlign: "center",
                   gap: 20,
-                  maxWidth: 560,
+                  maxWidth: 640,
                   margin: "0 auto",
                   width: "100%",
                   padding: 24,
@@ -1610,6 +1622,37 @@ export default function LandingPageNew() {
                       <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 6 }}>{s.l}</div>
                     </div>
                   ))}
+                </div>
+
+                {/* Our work — playable reels with view counts */}
+                <div style={{ width: "100%", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18 }}>
+                  <p className="eyebrow" style={{ marginBottom: 12 }}>Our work</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {cs.videos.map((v) => (
+                      <div
+                        key={v.src}
+                        style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#000", border: "1px solid rgba(255,255,255,0.08)" }}
+                      >
+                        <video
+                          src={`${v.src}#t=0.5`}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          style={{ width: "100%", aspectRatio: "9 / 16", objectFit: "cover", display: "block" }}
+                        />
+                        <span
+                          style={{
+                            position: "absolute", top: 7, left: 7,
+                            background: "rgba(0,0,0,0.72)", color: "#fff",
+                            fontSize: 10.5, fontWeight: 700, padding: "2px 7px",
+                            borderRadius: 999, backdropFilter: "blur(4px)", pointerEvents: "none",
+                          }}
+                        >
+                          {v.views} views
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
