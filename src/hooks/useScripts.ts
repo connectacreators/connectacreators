@@ -491,6 +491,15 @@ export function useScripts() {
   // Both the Doc Editor and Card View converge on this so no save ever wipes headings.
   const saveScriptBlocks = async (scriptId: string, blocks: ScriptLine[]): Promise<ScriptLine[]> => {
     const normalized = normalizeBlocks(blocks);
+    // SAFETY: never let an empty document wipe a script. An empty `blocks` is
+    // almost always a half-loaded / glitched editor state, not an intentional
+    // clear — and replaceAllLines would delete every row and report success.
+    // If the in-memory document has no content lines, skip the destructive
+    // replace and return what's currently persisted untouched.
+    const hasContentLine = normalized.some((b) => (b.block_kind ?? "line") === "line");
+    if (!hasContentLine) {
+      return getScriptBlocks(scriptId);
+    }
     const ok = await replaceAllLines(
       scriptId,
       normalized.map((b) => ({

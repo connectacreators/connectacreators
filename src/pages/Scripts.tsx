@@ -2827,19 +2827,13 @@ export default function Scripts() {
           </>
         )}
 
-        {/* ===== VIEW SCRIPT RESULT — empty state when all lines deleted ===== */}
-        {view === "view-script" && parsedLines.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <FileText className="w-10 h-10 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">This script has no lines yet.</p>
-            <Button variant="outline" size="sm" onClick={() => setView("edit-script")}>
-              Add lines
-            </Button>
-          </div>
-        )}
-
-        {/* ===== VIEW SCRIPT RESULT ===== */}
-        {view === "view-script" && parsedLines.length > 0 && (
+        {/* ===== VIEW SCRIPT RESULT =====
+            Renders for any open script — including empty ones. The chrome
+            (Winning Idea / Format / Inspiration / Caption) plus the block
+            document always show; ScriptDocEditor provides its own "Add section"
+            / "Click to add a line" affordances when the document is empty, so a
+            zero-line script is editable in place (no dead-end empty state). */}
+        {view === "view-script" && (
           <div className="space-y-4 animate-fade-in">
             {/* Unified editor: chrome (Winning Idea / Inspiration / Caption / actions)
                 always renders, followed by the block document. No tabs. */}
