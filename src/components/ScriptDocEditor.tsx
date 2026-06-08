@@ -156,7 +156,7 @@ interface LineEditorProps {
   dragAttributes?: React.HTMLAttributes<HTMLElement>;
   onFocus: (uid: string) => void;
   onBlur: (uid: string, html: string) => void;
-  onEnter: (uid: string) => void;
+  onEnter: (uid: string, after: string) => void;
   onBackspaceEmpty: (uid: string) => void;
   onBarClick: (e: React.MouseEvent, uid: string) => void;
   onTypeChange: (uid: string, type: LineType) => void;
@@ -244,7 +244,21 @@ function ScriptLineEditor({
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          onEnterRef.current(uid);
+          // Split at the caret: text before the caret stays on this line, text
+          // after the caret moves to a new line below. Caret at end → new empty line.
+          const sel = _view.state.selection;
+          const lineEnd = sel.$from.end();
+          const afterText = sel.from < lineEnd
+            ? _view.state.doc.textBetween(sel.from, lineEnd, "\n", "\n")
+            : "";
+          if (afterText.trim().length > 0) {
+            // Trim the trailing text off THIS line (its blur persists `before`
+            // with formatting); the trailing text becomes the new line.
+            _view.dispatch(_view.state.tr.delete(sel.from, lineEnd));
+            onEnterRef.current(uid, afterText);
+          } else {
+            onEnterRef.current(uid, "");
+          }
           return true;
         }
         if (event.key === "Backspace" || event.key === "Delete") {
@@ -522,26 +536,32 @@ export default function ScriptDocEditor({
     );
   }, [onBlocksChange]);
 
-  // Enter inside a content line → insert a new empty content line right after it,
-  // inheriting the same section. Focus follows by uid.
-  const handleEnter = useCallback((uid: string) => {
-    const idx = blocks.findIndex((b) => b.uid === uid);
-    if (idx === -1) return;
+  // Enter inside a content line. With trailing text (`after`), it's a split: the
+  // trailing text becomes a new line right below (the current line already had its
+  // trailing text trimmed in the editor, so its blur persists the `before` half).
+  // With no trailing text (caret at end) it's a fresh empty line. Functional update
+  // so it composes with the focused line's pending blur without clobbering it.
+  const handleEnter = useCallback((uid: string, after: string) => {
+    const trailing = after ?? "";
+    const splitting = trailing.trim().length > 0;
     const newUid = newBlockUid();
-    const newBlock: ScriptLine = {
-      line_number: 0,
-      line_type: "text_on_screen",
-      section: blocks[idx]?.section ?? "body",
-      text: "",
-      rich_text: "",
-      block_kind: "line",
-      uid: newUid,
-    };
-    onBlocksChange([
-      ...blocks.slice(0, idx + 1),
-      newBlock,
-      ...blocks.slice(idx + 1),
-    ]);
+    onBlocksChange((prev) => {
+      const idx = prev.findIndex((b) => b.uid === uid);
+      if (idx === -1) return prev;
+      const cur = prev[idx];
+      const newBlock: ScriptLine = {
+        line_number: 0,
+        // A split keeps the same line type (it's a continuation); a fresh line
+        // defaults to text_on_screen.
+        line_type: splitting ? cur.line_type : "text_on_screen",
+        section: cur.section ?? "body",
+        text: trailing,
+        rich_text: "",
+        block_kind: "line",
+        uid: newUid,
+      };
+      return [...prev.slice(0, idx + 1), newBlock, ...prev.slice(idx + 1)];
+    });
     setTimeout(() => {
       const newEditor = editorMap.current.get(newUid);
       if (newEditor) {
@@ -549,7 +569,7 @@ export default function ScriptDocEditor({
         setActiveUid(newUid);
       }
     }, 80);
-  }, [blocks, onBlocksChange]);
+  }, [onBlocksChange]);
 
   // Backspace at start of empty content line → delete it, focus the previous content line.
   const handleBackspaceEmpty = useCallback((uid: string) => {
