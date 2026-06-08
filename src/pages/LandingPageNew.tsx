@@ -1350,7 +1350,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew @elabogadojonathan past 650K followers, now running for you.
+            Imagine millions of people watching what you do. What would that mean for your business? We build personal brands for experts and business owners — scripting, filming, editing, and posting, all done for you.
           </div>
 
           <div
