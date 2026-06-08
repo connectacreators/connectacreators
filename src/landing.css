@@ -754,6 +754,11 @@ html, body, #root { margin: 0; padding: 0; }
     font-size: clamp(34px, 9vw, 44px) !important;
     line-height: 1.08 !important;
     letter-spacing: -0.025em !important;
+    /* Override the desktop inline white-space:nowrap so the headline wraps
+       instead of bleeding past the right margin on narrow screens. Safe:
+       LetterRise renders plain text on mobile and the coloured words are
+       inline-block units, so wrapping only happens at word boundaries. */
+    white-space: normal !important;
   }
 
   /* Section H2 — smaller, tighter on phones. */
