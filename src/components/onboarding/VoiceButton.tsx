@@ -113,8 +113,7 @@ export default function VoiceButton({ onTranscript, className, disabled }: Voice
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-        "min-h-[32px] disabled:opacity-50",
+        "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-50",
         status === "recording"
           ? "bg-destructive/15 text-destructive hover:bg-destructive/25"
           : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
@@ -122,15 +121,12 @@ export default function VoiceButton({ onTranscript, className, disabled }: Voice
       )}
     >
       {status === "transcribing" ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        <Loader2 className="w-4 h-4 animate-spin" />
       ) : status === "recording" ? (
-        <Square className="w-3.5 h-3.5 fill-current" />
+        <Square className="w-4 h-4 fill-current" />
       ) : (
-        <Mic className="w-3.5 h-3.5" />
+        <Mic className="w-4 h-4" />
       )}
-      <span className="hidden sm:inline">
-        {status === "recording" ? "Stop" : status === "transcribing" ? "…" : "Speak"}
-      </span>
     </button>
   );
 }
