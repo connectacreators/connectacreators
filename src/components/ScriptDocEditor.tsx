@@ -31,6 +31,14 @@ import { stripHtml } from "@/utils/stripHtml";
 import { newBlockUid, defaultSectionLabel } from "@/lib/scriptBlocks";
 import { TYPE_TEXT_CLASS, TYPE_BAR_CLASS } from "@/lib/scriptLineTypes";
 
+// Plain text → safe HTML, preserving newlines as <br> (used when splitting/merging
+// blocks so multi-line content keeps its line breaks).
+function plainToHtml(s: string): string {
+  if (!s) return "";
+  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc.replace(/\r?\n/g, "<br>");
+}
+
 type LineType = ScriptLine["line_type"];
 
 // Editorial-dark line types — colors match Scripts.tsx card-view config.
@@ -158,6 +166,7 @@ interface LineEditorProps {
   onBlur: (uid: string, html: string) => void;
   onEnter: (uid: string, before: string, after: string) => void;
   onBackspaceEmpty: (uid: string) => void;
+  onMergeUp: (uid: string, text: string) => void;
   onBarClick: (e: React.MouseEvent, uid: string) => void;
   onTypeChange: (uid: string, type: LineType) => void;
   onTextUpdate: (uid: string, text: string) => void;
@@ -173,7 +182,7 @@ interface LineEditorProps {
 function ScriptLineEditor({
   block, uid, isActive, pickerOpen, slashOpen, slashActive,
   dragListeners, dragAttributes,
-  onFocus, onBlur, onEnter, onBackspaceEmpty,
+  onFocus, onBlur, onEnter, onBackspaceEmpty, onMergeUp,
   onBarClick, onTypeChange, onTextUpdate,
   onSlashNav, onSlashConfirm, onSlashClose, onHashSpace, onSlashChoose, onSlashHover,
   registerEditor,
@@ -183,6 +192,8 @@ function ScriptLineEditor({
   useEffect(() => { onEnterRef.current = onEnter; }, [onEnter]);
   const onBackspaceEmptyRef = useRef(onBackspaceEmpty);
   useEffect(() => { onBackspaceEmptyRef.current = onBackspaceEmpty; }, [onBackspaceEmpty]);
+  const onMergeUpRef = useRef(onMergeUp);
+  useEffect(() => { onMergeUpRef.current = onMergeUp; }, [onMergeUp]);
   const onBlurRef = useRef(onBlur);
   useEffect(() => { onBlurRef.current = onBlur; }, [onBlur]);
   const onTextUpdateRef = useRef(onTextUpdate);
@@ -244,28 +255,38 @@ function ScriptLineEditor({
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          // Split at the caret: text before the caret stays on this line, the text
-          // after the caret moves to a new line below. Caret at end → new empty line.
-          // We only READ positions here (dispatching a transaction synchronously
-          // inside handleKeyDown is unreliable); the parent applies the split to the
-          // block model and forces the editor content so it can't desync on blur.
+          // Split at the caret across the WHOLE block (not just the current
+          // paragraph): everything before the caret stays here, everything after
+          // moves to a new line below. Using the full doc range handles blocks that
+          // hold several internal lines. We only READ here (dispatching a tx inside
+          // handleKeyDown is unreliable); the parent applies the split to the block
+          // model and force-sets the editor content so it can't desync on blur.
           const sel = _view.state.selection;
-          const lineStart = sel.$from.start();
-          const lineEnd = sel.$from.end();
-          const before = _view.state.doc.textBetween(lineStart, sel.from, "\n", "\n");
-          const after = sel.from < lineEnd
-            ? _view.state.doc.textBetween(sel.from, lineEnd, "\n", "\n")
+          const size = _view.state.doc.content.size;
+          const before = _view.state.doc.textBetween(0, sel.from, "\n", "\n");
+          const after = sel.from < size
+            ? _view.state.doc.textBetween(sel.from, size, "\n", "\n")
             : "";
           onEnterRef.current(uid, before, after);
           return true;
         }
-        if (event.key === "Backspace" || event.key === "Delete") {
+        if (event.key === "Backspace") {
+          // Caret at the very start of the block (collapsed) → merge this block's
+          // text up into the end of the previous content line (Google-Docs style).
           const { empty, from } = _view.state.selection;
+          if (empty && from <= 1) {
+            event.preventDefault();
+            const size = _view.state.doc.content.size;
+            const text = _view.state.doc.textBetween(0, size, "\n", "\n");
+            onMergeUpRef.current(uid, text);
+            return true;
+          }
+        }
+        if (event.key === "Delete") {
+          // Forward-delete on a fully empty block removes it.
+          const { empty } = _view.state.selection;
           const docIsEmpty = !_view.state.doc.textContent.trim();
-          const shouldDeleteLine =
-            docIsEmpty &&
-            (event.key === "Delete" || (event.key === "Backspace" && from <= 1));
-          if (empty && shouldDeleteLine) {
+          if (empty && docIsEmpty) {
             event.preventDefault();
             onBackspaceEmptyRef.current(uid);
             return true;
@@ -556,13 +577,13 @@ export default function ScriptDocEditor({
         line_type: splitting ? cur.line_type : "text_on_screen",
         section: cur.section ?? "body",
         text: trailing,
-        rich_text: "",
+        rich_text: plainToHtml(trailing),
         block_kind: "line",
         uid: newUid,
       };
       if (splitting) {
         // Replace current with its `before` half, then insert the new line.
-        const updatedCur: ScriptLine = { ...cur, text: before, rich_text: "" };
+        const updatedCur: ScriptLine = { ...cur, text: before, rich_text: plainToHtml(before) };
         return [...prev.slice(0, idx), updatedCur, newBlock, ...prev.slice(idx + 1)];
       }
       return [...prev.slice(0, idx + 1), newBlock, ...prev.slice(idx + 1)];
@@ -573,7 +594,7 @@ export default function ScriptDocEditor({
       // the full text. Done synchronously to avoid a clobber window.
       const curEditor = editorMap.current.get(uid);
       if (curEditor && !curEditor.isDestroyed) {
-        curEditor.commands.setContent(before || "", false);
+        curEditor.commands.setContent(plainToHtml(before) || "", false);
       }
     }
     setTimeout(() => {
@@ -607,6 +628,43 @@ export default function ScriptDocEditor({
         }
       }
     }, 80);
+  }, [blocks, onBlocksChange]);
+
+  // Backspace at the very start of a line → merge it up into the previous content
+  // line (Google-Docs style). `text` is the current line's full text.
+  const handleMergeUp = useCallback((uid: string, text: string) => {
+    const idx = blocks.findIndex((b) => b.uid === uid);
+    if (idx === -1) return;
+    // Find the nearest previous CONTENT line (skip headings). If none, this is the
+    // first line — nothing to merge into.
+    let prevIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (blocks[i].block_kind !== "heading") { prevIdx = i; break; }
+    }
+    if (prevIdx === -1) return;
+    const prevUid = blocks[prevIdx].uid as string;
+    const prevEditor = editorMap.current.get(prevUid);
+    const prevText = prevEditor && !prevEditor.isDestroyed
+      ? prevEditor.getText()
+      : (blocks[prevIdx].text || "");
+    const merged = prevText + (text || "");
+    // Update model: prev gets merged text, current line removed. Functional update.
+    onBlocksChange((prev) =>
+      prev
+        .map((b) => (b.uid === prevUid ? { ...b, text: merged, rich_text: plainToHtml(merged) } : b))
+        .filter((b) => b.uid !== uid)
+    );
+    // Force prev editor to merged content and place the caret at the join point.
+    setTimeout(() => {
+      const ed = editorMap.current.get(prevUid);
+      if (ed && !ed.isDestroyed) {
+        ed.commands.setContent(plainToHtml(merged) || "", false);
+        ed.commands.focus();
+        // +1: ProseMirror text offset → document position (paragraph opens at 1).
+        ed.commands.setTextSelection(Math.max(1, prevText.length + 1));
+        setActiveUid(prevUid);
+      }
+    }, 30);
   }, [blocks, onBlocksChange]);
 
   const handleBarClick = useCallback((e: React.MouseEvent, uid: string) => {
@@ -1034,6 +1092,7 @@ export default function ScriptDocEditor({
                           onBlur={handleBlur}
                           onEnter={handleEnter}
                           onBackspaceEmpty={handleBackspaceEmpty}
+                          onMergeUp={handleMergeUp}
                           onBarClick={handleBarClick}
                           onTypeChange={handleTypeChange}
                           onTextUpdate={handleTextUpdate}
