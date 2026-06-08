@@ -105,6 +105,90 @@ html, body, #root { margin: 0; padding: 0; }
   to   { transform: translateX(-50%); }
 }
 
+/* =============================================================================
+   ViralWall — scrolling wall of real viral thumbnails.
+   Component: src/components/landing/ViralWall.tsx
+   Two variants: .viral-wall--band (foreground strip, full colour) and
+   .viral-wall--background (dimmed layer behind hero content).
+   ============================================================================= */
+.landing-editorial .viral-wall {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.landing-editorial .viral-wall-row {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  flex: none;
+  will-change: transform;
+  animation: le-marquee linear infinite;
+}
+.landing-editorial .viral-wall-row.rev {
+  animation-direction: reverse;
+}
+.landing-editorial .viral-wall-thumb {
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 9px;
+  flex: none;
+  display: block;
+  user-select: none;
+}
+
+/* --- Band: full-width foreground strip in its own section --------------- */
+.landing-editorial .viral-wall--band {
+  width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+}
+.landing-editorial .viral-wall--band .viral-wall-thumb { width: 104px; }
+
+/* --- Background: dimmed layer behind hero content ----------------------- */
+.landing-editorial .viral-wall--background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  justify-content: flex-start;
+  filter: grayscale(0.32) brightness(0.78) contrast(1.02);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 50%, transparent 80%);
+          mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 50%, transparent 80%);
+}
+.landing-editorial .viral-wall--background .viral-wall-thumb { width: 92px; }
+.landing-editorial .viral-wall-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 78% 72% at 50% 38%,
+    rgba(20, 20, 20, 0.55) 0%,
+    rgba(20, 20, 20, 0.86) 55%,
+    rgba(20, 20, 20, 0.97) 100%
+  );
+}
+
+@media (max-width: 768px) {
+  .landing-editorial .viral-wall { gap: 9px; }
+  .landing-editorial .viral-wall-row { gap: 9px; }
+  .landing-editorial .viral-wall--band .viral-wall-thumb { width: 82px; }
+  .landing-editorial .viral-wall--background .viral-wall-thumb { width: 70px; }
+}
+
+/* "Our work" case-study reels — kept as a 3-up grid via a class (not inline
+   styles) so the mobile "force every inline grid to one column" rule below
+   doesn't blow these small video thumbnails up to full width. */
+.landing-editorial .our-work-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 768px) {
+  .landing-editorial .our-work-grid { gap: 8px; }
+}
+
 .landing-editorial [data-reveal] {
   /* Bouncy entrance — translate + scale only, no opacity fade. */
   animation: le-rise 0.95s cubic-bezier(0.34, 1.36, 0.64, 1) backwards;
@@ -623,6 +707,7 @@ html, body, #root { margin: 0; padding: 0; }
   .landing-editorial .sc-canvas-line,
   .landing-editorial .letter-rise,
   .landing-editorial .word-rise,
+  .landing-editorial .viral-wall-row,
   .landing-editorial .scribble-under.draw::after {
     animation: none !important;
     transform: none !important;

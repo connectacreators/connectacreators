@@ -6,7 +6,6 @@ import {
   Calendar,
   Film,
   Flame,
-  Send,
   Menu,
   X,
   Play,
@@ -31,7 +30,7 @@ import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfterNew from "@/assets/zigufit-after-new.png";
 import CurvedLoop from "@/components/landing/CurvedLoop";
 import ScrollFloat from "@/components/landing/ScrollFloat";
-import PromptStream, { PromptStreamMobile } from "@/components/landing/PromptStream";
+import ViralWall from "@/components/landing/ViralWall";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /* =============================================================================
@@ -1351,7 +1350,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <ProxText>We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew @elabogadojonathan past 650K followers, now running for you.</ProxText>
+            We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew @elabogadojonathan past 650K followers, now running for you.
           </div>
 
           <div
@@ -1384,22 +1383,18 @@ export default function LandingPageNew() {
           </div>
         </div>
 
-        {/* PromptStream — prompt → AI pill → output banner.
-            Desktop: full-viewport-width left/right CurvedLoop composition.
-            Mobile: centered vertical trio (no SVG curves, no marquee). */}
-        <div
-          data-reveal="6"
-          style={{
-            position: "relative",
-            zIndex: 1,
-            width: isMobile ? "auto" : "100vw",
-            marginLeft: isMobile ? 0 : "calc(50% - 50vw)",
-            marginRight: isMobile ? 0 : "calc(50% - 50vw)",
-            marginTop: isMobile ? 8 : 24,
-          }}
-        >
-          {isMobile ? <PromptStreamMobile /> : <PromptStream />}
+        {/* PromptStream (text → soundwave → output banner) removed 2026-06-07.
+            Component preserved at src/components/landing/PromptStream.tsx;
+            restore steps in docs/superpowers/archived-promptstream-hero.md. */}
+      </section>
+
+      {/* ===== Viral wall — its own slim band of real million-view thumbnails,
+              scrolling full-width. Foreground, full colour, view counts on show. */}
+      <section className="bg-ink" style={{ paddingTop: 18, paddingBottom: 28, overflow: "hidden" }}>
+        <div data-reveal="1" style={{ textAlign: "center", marginBottom: 18, padding: "0 24px" }}>
+          <span className="eyebrow">Backed by hundreds of millions of real views</span>
         </div>
+        <ViralWall variant="band" rows={2} />
       </section>
 
       {/* ===== Real track record — bone panel ===== */}
@@ -1625,7 +1620,7 @@ export default function LandingPageNew() {
                 {/* Our work — playable reels with view counts */}
                 <div style={{ width: "100%", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18 }}>
                   <p className="eyebrow" style={{ marginBottom: 12 }}>Our work</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div className="our-work-grid">
                     {cs.videos.map((v) => (
                       <div
                         key={v.src}
@@ -1992,91 +1987,6 @@ export default function LandingPageNew() {
                 </div>
               </div>
             </PipelineCard>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== Section 4 — PUBLISHING teaser ===== */}
-      <section className="panel-bone" style={{ padding: "100px 0", marginTop: 24, position: "relative" }}>
-        <div className="scroll-rise" style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 60,
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <span className="pill pill-honey" style={{ marginBottom: 18 }}>
-                <span className="pill-dot" /> Coming late 2026
-              </span>
-              <ScrollFloat
-                containerClassName="section-h2 section-h2--smaller"
-                stagger={0.025}
-              >
-                Soon, <em className="honey">the last mile.</em>
-              </ScrollFloat>
-              <div className="section-lede" style={{ marginBottom: 24, position: "relative" }}>
-                <ProxText>Strategy → production → publish. We're closing the loop. Hit one button and your week ships to Instagram, TikTok, YouTube Shorts, and Reels — at the slots Companion suggested.</ProxText>
-              </div>
-              <a
-                href="#"
-                className="btn btn-ghost"
-                style={{ fontSize: 13 }}
-              >
-                Get notified at launch
-              </a>
-            </div>
-
-            <div
-              className="card"
-              style={{
-                padding: 24,
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backdropFilter: "blur(6px)",
-                  background: "rgba(10,14,18,0.45)",
-                  zIndex: 2,
-                  pointerEvents: "none",
-                }}
-              />
-              <div style={{ position: "absolute", top: 20, right: 24, zIndex: 3 }}>
-                <span className="pill pill-honey" style={{ fontSize: 10 }}>
-                  <Send size={10} /> Preview
-                </span>
-              </div>
-
-              <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingBottom: 12,
-                    borderBottom: "1px solid var(--line)",
-                  }}
-                >
-                  <span className="eyebrow">Publish queue · Wed</span>
-                  <span className="pill pill-aqua">5 of 5 ready</span>
-                </div>
-                {["IG · Spring lookbook reel", "TikTok · Soft launch chaos", "Shorts · Skincare routine v3", "Reels · Behind the shoot", "IG Story · Friday recap"].map((row, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
-                    <span className="serif" style={{ color: "var(--bone-2)" }}>{row}</span>
-                    <span className="pill pill-aqua" style={{ fontSize: 10 }}>
-                      <span className="pill-dot" /> queued
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </section>

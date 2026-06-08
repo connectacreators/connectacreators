@@ -35,13 +35,27 @@ interface ScrollFloatProps {
 function splitToChars(node: React.ReactNode, keyBase = "0"): React.ReactNode {
   if (node == null || typeof node === "boolean") return null;
   if (typeof node === "string") {
-    return Array.from(node).map((ch, i) => (
-      <span className="char" key={`${keyBase}-${i}`}>
-        {/* Inner .prox-letter so proximity tracker animates the title
-            character; GSAP animates the outer .char's transform. */}
-        <span className="prox-letter">{ch === " " ? " " : ch}</span>
-      </span>
-    ));
+    // Split into words and the whitespace between them. Each word's letters
+    // live inside a single .word box (display:inline-block; white-space:nowrap
+    // in CSS) so the per-letter inline-block split can never break a word
+    // across lines — line breaks only happen at the real spaces between words.
+    return node.split(/(\s+)/).map((part, pi) => {
+      if (part === "") return null;
+      if (/^\s+$/.test(part)) {
+        return <Fragment key={`${keyBase}-s${pi}`}> </Fragment>;
+      }
+      return (
+        <span className="word" key={`${keyBase}-w${pi}`}>
+          {Array.from(part).map((ch, i) => (
+            <span className="char" key={`${keyBase}-w${pi}-${i}`}>
+              {/* Inner .prox-letter so proximity tracker animates the title
+                  character; GSAP animates the outer .char's transform. */}
+              <span className="prox-letter">{ch}</span>
+            </span>
+          ))}
+        </span>
+      );
+    });
   }
   if (typeof node === "number") {
     return splitToChars(String(node), keyBase);
@@ -64,9 +78,9 @@ export default function ScrollFloat({
   scrollContainerRef,
   containerClassName = "",
   textClassName = "",
-  animationDuration = 1,
-  ease = "back.inOut(2)",
-  scrollStart = "center bottom+=50%",
+  animationDuration = 0.8,
+  ease = "back.out(1.7)",
+  scrollStart = "top 85%",
   scrollEnd = "bottom bottom-=40%",
   stagger = 0.03,
 }: ScrollFloatProps) {
@@ -83,30 +97,26 @@ export default function ScrollFloat({
 
     const charElements = el.querySelectorAll<HTMLElement>(".char");
 
+    // One-shot character rise on enter. No scrub and no scaleX/scaleY
+    // distortion — those tied the letters to scroll position and left them
+    // half-stretched mid-scroll, which read as glitching. Letters simply
+    // fade + rise into place once, then keep their natural styling.
     const tween = gsap.fromTo(
       charElements,
-      {
-        willChange: "opacity, transform",
-        opacity: 0,
-        yPercent: 120,
-        scaleY: 2.3,
-        scaleX: 0.7,
-        transformOrigin: "50% 0%",
-      },
+      { willChange: "opacity, transform", opacity: 0, yPercent: 100 },
       {
         duration: animationDuration,
         ease,
         opacity: 1,
         yPercent: 0,
-        scaleY: 1,
-        scaleX: 1,
         stagger,
+        clearProps: "willChange,transform,opacity",
         scrollTrigger: {
           trigger: el,
           scroller,
           start: scrollStart,
-          end: scrollEnd,
-          scrub: true,
+          toggleActions: "play none none none",
+          once: true,
         },
       }
     );

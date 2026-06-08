@@ -18,6 +18,13 @@
   color: inherit;
 }
 
+/* Keep each word's per-letter spans together so wide letter-spacing never
+   breaks a word mid-way across a line. Breaks happen only at real spaces. */
+.scroll-float .word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .scroll-float .char {
   font-size: inherit;
   font-family: inherit;
