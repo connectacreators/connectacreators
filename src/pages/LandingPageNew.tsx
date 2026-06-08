@@ -1262,7 +1262,7 @@ export default function LandingPageNew() {
           }}
         >
           <div data-reveal="1" style={{ marginBottom: 26 }}>
-            <span className="eyebrow">Personal branding experts · English &amp; Spanish</span>
+            <span className="eyebrow">Personal branding experts · Utah Based</span>
           </div>
 
           <h1
@@ -1351,7 +1351,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <ProxText>We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew Intermountain Immigration past 650K followers, now running for you.</ProxText>
+            <ProxText>We build personal brands for experts and business owners — scripting, filming, editing, and posting in English and Spanish. The same system that grew @elabogadojonathan past 650K followers, now running for you.</ProxText>
           </div>
 
           <div
@@ -1572,17 +1572,27 @@ export default function LandingPageNew() {
               <div
                 key={cs.name}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1fr",
-                  gap: 28,
+                  display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  padding: 22,
+                  textAlign: "center",
+                  gap: 20,
+                  maxWidth: 560,
+                  margin: "0 auto",
+                  width: "100%",
+                  padding: 24,
                   borderRadius: 22,
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.08)",
                 }}
               >
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <span className="eyebrow">{cs.label}</span>
+                  <h3 className="serif" style={{ fontSize: 26, color: "var(--bone)", margin: "10px 0 0", fontWeight: 600 }}>
+                    {cs.name}
+                  </h3>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%" }}>
                   {cs.imgs.map((src, i) => (
                     <img
                       key={i}
@@ -1593,26 +1603,29 @@ export default function LandingPageNew() {
                     />
                   ))}
                 </div>
-                <div>
-                  <span className="eyebrow">{cs.label}</span>
-                  <h3 className="serif" style={{ fontSize: 26, color: "var(--bone)", margin: "10px 0 18px", fontWeight: 600 }}>
-                    {cs.name}
-                  </h3>
-                  <div style={{ display: "flex", gap: 32 }}>
-                    {cs.stats.map((s) => (
-                      <div key={s.l}>
-                        <div className="serif" style={{ fontSize: 32, color: s.c, fontWeight: 600, lineHeight: 1 }}>{s.n}</div>
-                        <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 6 }}>{s.l}</div>
-                      </div>
-                    ))}
-                  </div>
+                <div style={{ display: "flex", gap: 40, justifyContent: "center" }}>
+                  {cs.stats.map((s) => (
+                    <div key={s.l}>
+                      <div className="serif" style={{ fontSize: 32, color: s.c, fontWeight: 600, lineHeight: 1 }}>{s.n}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 6 }}>{s.l}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
 
           <p style={{ textAlign: "center", marginTop: 32, fontSize: 14, color: "var(--bone-3)" }}>
-            Plus <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> built for Intermountain Immigration — the account that started it all.
+            Plus <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> built for{" "}
+            <a
+              href="https://www.tiktok.com/@elabogadojonathan"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--aqua)", fontWeight: 600, textDecoration: "none" }}
+            >
+              @elabogadojonathan
+            </a>{" "}
+            — the account that started it all.
           </p>
         </div>
       </section>
