@@ -138,7 +138,7 @@ export default function OnboardingSharePanel({
             AI live coaching
           </p>
           <p className="text-xs text-muted-foreground">
-            In voice mode, suggests follow-up questions as they speak. Uses AI credits — off by default.
+            In voice mode, suggests follow-up questions as they speak.
           </p>
         </div>
         <div className="flex items-center gap-2">
