@@ -25,6 +25,7 @@ const Onboarding = () => {
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [perspective, setPerspective] = useState<"self" | "thirdParty">("self");
   const [accessOpen, setAccessOpen] = useState(false);
+  const [aiCoach, setAiCoach] = useState(false);
   const [clientEmail, setClientEmail] = useState("");
   const [clientName, setClientName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,7 +49,7 @@ const Onboarding = () => {
         }
         const { data } = await supabase
           .from("clients")
-          .select("id, name, email, user_id, onboarding_access_open, onboarding_data")
+          .select("id, name, email, user_id, onboarding_access_open, onboarding_ai_coach, onboarding_data")
           .eq("id", paramClientId)
           .maybeSingle();
 
@@ -71,6 +72,7 @@ const Onboarding = () => {
         setResolvedClientId(data.id);
         setPerspective(isAdmin ? "thirdParty" : "self");
         setAccessOpen(!!data.onboarding_access_open);
+        setAiCoach(!!data.onboarding_ai_coach);
         setClientEmail(data.email || "");
         setClientName(data.name || "");
         const merged = normalizeOnboarding(data.onboarding_data as Record<string, unknown>);
@@ -90,7 +92,7 @@ const Onboarding = () => {
       }
       const { data } = await supabase
         .from("clients")
-        .select("id, name, email, onboarding_data")
+        .select("id, name, email, onboarding_ai_coach, onboarding_data")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!data) {
@@ -99,6 +101,7 @@ const Onboarding = () => {
       }
       setResolvedClientId(data.id);
       setPerspective("self");
+      setAiCoach(!!data.onboarding_ai_coach);
       setClientName(data.name || "");
       setClientEmail(data.email || "");
       const merged = normalizeOnboarding(data.onboarding_data as Record<string, unknown>);
@@ -218,6 +221,7 @@ const Onboarding = () => {
           onSubmit={() => persist(false)}
           saving={saving}
           onSwitchToStandard={() => setUiMode("standard")}
+          aiCoach={aiCoach}
         />
       </div>
     );
@@ -249,14 +253,12 @@ const Onboarding = () => {
           <p className="text-muted-foreground">
             {self ? "Fill out your brand information below" : "Complete this form with your client's information"}
           </p>
-          {self && (
-            <button
-              onClick={() => setUiMode("fast")}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
-            >
-              🎙️ Prefer talking? Switch to voice mode
-            </button>
-          )}
+          <button
+            onClick={() => setUiMode("fast")}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+          >
+            🎙️ {isAdmin ? "Preview voice mode" : "Prefer talking? Switch to voice mode"}
+          </button>
         </div>
 
         {showShare && resolvedClientId && (
@@ -267,6 +269,8 @@ const Onboarding = () => {
               defaultName={clientName}
               accessOpen={accessOpen}
               onAccessChange={setAccessOpen}
+              aiCoach={aiCoach}
+              onAiCoachChange={setAiCoach}
             />
           </div>
         )}

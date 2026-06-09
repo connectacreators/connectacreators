@@ -759,6 +759,7 @@ export type Database = {
           notion_leads_database_id: string | null
           onboarding_data: Json | null
           onboarding_access_open: boolean
+          onboarding_ai_coach: boolean
           owner_user_id: string | null
           parent_subscriber_id: string | null
           pending_plan_effective_date: string | null
@@ -792,6 +793,7 @@ export type Database = {
           notion_leads_database_id?: string | null
           onboarding_data?: Json | null
           onboarding_access_open?: boolean
+          onboarding_ai_coach?: boolean
           owner_user_id?: string | null
           parent_subscriber_id?: string | null
           pending_plan_effective_date?: string | null
@@ -825,6 +827,7 @@ export type Database = {
           notion_leads_database_id?: string | null
           onboarding_data?: Json | null
           onboarding_access_open?: boolean
+          onboarding_ai_coach?: boolean
           owner_user_id?: string | null
           parent_subscriber_id?: string | null
           pending_plan_effective_date?: string | null

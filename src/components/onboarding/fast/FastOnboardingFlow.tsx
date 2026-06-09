@@ -14,17 +14,19 @@ interface FastOnboardingFlowProps {
   onSubmit: () => Promise<boolean>;
   saving: boolean;
   onSwitchToStandard: () => void;
+  /** Live AI follow-up questions while recording (admin-gated). */
+  aiCoach?: boolean;
 }
 
-type VoiceQ = { key: keyof OnboardingData; question: string; helper?: string; optional?: boolean; isProfiles?: boolean };
+type VoiceQ = { key: keyof OnboardingData; question: string; helper?: string; optional?: boolean; isProfiles?: boolean; coach?: boolean };
 
 const VOICE_QS: VoiceQ[] = [
-  { key: "uniqueOffer", question: "What's your unique offer?", helper: "What do you do, and who is it for?" },
-  { key: "uniqueValues", question: "What are 5 things you can explain really well?", helper: "5 teachings or values you're great at breaking down." },
-  { key: "competition", question: "What makes you different?", helper: "Why you, over a competitor?" },
-  { key: "contrarianBeliefs", question: "What are your contrarian beliefs?", helper: "Where do you disagree with other experts in your space?" },
-  { key: "story", question: "Tell us your story — take your time.", helper: "Where you started, the turning point, the struggles, the wins, and why you do this. The more detail, the better." },
-  { key: "targetClient", question: "Who's your ideal client?", helper: "Describe the person you want to reach." },
+  { key: "uniqueOffer", question: "What's your unique offer?", helper: "What do you do, and who is it for?", coach: true },
+  { key: "uniqueValues", question: "What are 5 things you can explain really well?", helper: "5 teachings or values you're great at breaking down.", coach: true },
+  { key: "competition", question: "What makes you different?", helper: "Why you, over a competitor?", coach: true },
+  { key: "contrarianBeliefs", question: "What are your contrarian beliefs?", helper: "Where do you disagree with other experts in your space?", coach: true },
+  { key: "story", question: "Tell us your story — take your time.", helper: "Where you started, the turning point, the struggles, the wins, and why you do this. The more detail, the better.", coach: true },
+  { key: "targetClient", question: "Who's your ideal client?", helper: "Describe the person you want to reach.", coach: true },
   { key: "top3Profiles", question: "Which creators do you admire?", helper: "Say a few names — e.g. “Gary Vee, Alex Hormozi.”", isProfiles: true },
   { key: "additionalNotes", question: "Anything else we should know?", helper: "Optional — anything we missed.", optional: true },
 ];
@@ -41,6 +43,7 @@ export default function FastOnboardingFlow({
   onSubmit,
   saving,
   onSwitchToStandard,
+  aiCoach,
 }: FastOnboardingFlowProps) {
   const [pos, setPos] = useState(0);
   const [dir, setDir] = useState(1);
@@ -131,6 +134,7 @@ export default function FastOnboardingFlow({
           optional={q.optional}
           onSkip={() => go(pos + 1)}
           isLast={pos === N - 1}
+          coachEnabled={!!aiCoach && !!q.coach}
         />
       );
     }

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Share2, Copy, Check, Loader2, UserPlus, KeyRound } from "lucide-react";
+import { Share2, Copy, Check, Loader2, UserPlus, KeyRound, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -13,6 +13,8 @@ interface OnboardingSharePanelProps {
   defaultName?: string;
   accessOpen: boolean;
   onAccessChange: (open: boolean) => void;
+  aiCoach: boolean;
+  onAiCoachChange: (on: boolean) => void;
 }
 
 /**
@@ -26,10 +28,13 @@ export default function OnboardingSharePanel({
   defaultName,
   accessOpen,
   onAccessChange,
+  aiCoach,
+  onAiCoachChange,
 }: OnboardingSharePanelProps) {
   const link = `${window.location.origin}/onboarding/${clientId}`;
   const [copied, setCopied] = useState(false);
   const [togglingAccess, setTogglingAccess] = useState(false);
+  const [togglingCoach, setTogglingCoach] = useState(false);
 
   const [email, setEmail] = useState(defaultEmail || "");
   const [name, setName] = useState(defaultName || "");
@@ -56,6 +61,21 @@ export default function OnboardingSharePanel({
     }
     onAccessChange(open);
     toast.success(open ? "Form is now open" : "Form is now closed");
+  };
+
+  const toggleCoach = async (on: boolean) => {
+    setTogglingCoach(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ onboarding_ai_coach: on })
+      .eq("id", clientId);
+    setTogglingCoach(false);
+    if (error) {
+      toast.error("Couldn't update AI coaching");
+      return;
+    }
+    onAiCoachChange(on);
+    toast.success(on ? "AI coaching on" : "AI coaching off");
   };
 
   const grantAccess = async () => {
@@ -107,6 +127,23 @@ export default function OnboardingSharePanel({
         <div className="flex items-center gap-2">
           {togglingAccess && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           <Switch checked={accessOpen} onCheckedChange={toggleAccess} disabled={togglingAccess} />
+        </div>
+      </div>
+
+      {/* AI live coaching (voice mode) */}
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            AI live coaching
+          </p>
+          <p className="text-xs text-muted-foreground">
+            In voice mode, suggests follow-up questions as they speak. Uses AI credits — off by default.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {togglingCoach && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <Switch checked={aiCoach} onCheckedChange={toggleCoach} disabled={togglingCoach} />
         </div>
       </div>
 

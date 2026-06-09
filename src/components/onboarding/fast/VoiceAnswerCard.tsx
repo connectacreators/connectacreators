@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { Mic, Square, Loader2, RotateCcw, ArrowLeft, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Mic, Square, Loader2, RotateCcw, ArrowLeft, ArrowRight, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
+import { supabase } from "@/integrations/supabase/client";
+import { useVoiceRecorder, MAX_RECORDING_MS } from "../hooks/useVoiceRecorder";
 
 interface VoiceAnswerCardProps {
   question: string;
@@ -14,6 +15,8 @@ interface VoiceAnswerCardProps {
   optional?: boolean;
   onSkip?: () => void;
   isLast?: boolean;
+  /** Enable live AI follow-up questions while recording (admin-gated). */
+  coachEnabled?: boolean;
 }
 
 function fmt(seconds: number) {
@@ -22,10 +25,24 @@ function fmt(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+const MAX_SECONDS = Math.floor(MAX_RECORDING_MS / 1000);
+
 /**
- * One full-screen voice question. Tap the mic to start, tap to stop; the
- * transcript appears in an editable box (re-record appends more). Bottom nav is
- * within thumb reach. Swipe between cards is handled by the parent flow.
+ * One full-screen voice question. Tap the mic to start, tap to stop. When
+ * coachEnabled, the cumulative audio is snapshotted every ~25s and live
+ * follow-up questions appear to draw out specifics. Auto-stops at 15 min.
  */
 export default function VoiceAnswerCard({
   question,
@@ -38,16 +55,51 @@ export default function VoiceAnswerCard({
   optional,
   onSkip,
   isLast,
+  coachEnabled,
 }: VoiceAnswerCardProps) {
   const [elapsed, setElapsed] = useState(0);
+  const [liveQuestions, setLiveQuestions] = useState<string[]>([]);
+  const coachInFlight = useRef(false);
+  const askedRef = useRef<string[]>([]);
+
+  const handleCoachChunk = useCallback(
+    async (blob: Blob) => {
+      if (coachInFlight.current || blob.size === 0) return;
+      coachInFlight.current = true;
+      try {
+        const audioBase64 = await blobToBase64(blob);
+        const { data } = await supabase.functions.invoke("onboarding-live-coach", {
+          body: { audioBase64, mimeType: blob.type || "audio/webm", question, alreadyAsked: askedRef.current },
+        });
+        const qs: string[] = data?.questions || [];
+        if (qs.length) {
+          setLiveQuestions(qs);
+          askedRef.current = [...askedRef.current, ...qs].slice(-12);
+        }
+      } catch {
+        /* soft-fail — coaching never blocks recording */
+      } finally {
+        coachInFlight.current = false;
+      }
+    },
+    [question],
+  );
+
   const { status, toggle } = useVoiceRecorder({
     onResult: (text) => onChange(value ? `${value.trim()} ${text}` : text),
+    coaching: coachEnabled
+      ? { intervalMs: 25000, maxCycles: 7, onChunk: handleCoachChunk }
+      : undefined,
   });
 
-  // Recording timer.
+  // Recording timer; reset coaching state when a recording ends.
   useEffect(() => {
     if (status !== "recording") {
       setElapsed(0);
+      if (status === "idle") {
+        setLiveQuestions([]);
+        askedRef.current = [];
+      }
       return;
     }
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -57,6 +109,7 @@ export default function VoiceAnswerCard({
   const recording = status === "recording";
   const transcribing = status === "transcribing";
   const hasAnswer = value.trim().length > 0;
+  const remaining = MAX_SECONDS - elapsed;
 
   return (
     <div className="flex min-h-[100svh] flex-col px-5 pt-6">
@@ -76,14 +129,10 @@ export default function VoiceAnswerCard({
           aria-label={recording ? "Stop recording" : "Start recording"}
           className={cn(
             "relative flex h-[88px] w-[88px] items-center justify-center rounded-full transition-colors disabled:opacity-60",
-            recording
-              ? "bg-destructive text-white"
-              : "bg-primary/15 text-primary hover:bg-primary/25",
+            recording ? "bg-destructive text-white" : "bg-primary/15 text-primary hover:bg-primary/25",
           )}
         >
-          {recording && (
-            <span className="absolute inset-0 animate-ping rounded-full bg-destructive/40" />
-          )}
+          {recording && <span className="absolute inset-0 animate-ping rounded-full bg-destructive/40" />}
           {transcribing ? (
             <Loader2 className="h-8 w-8 animate-spin" />
           ) : recording ? (
@@ -93,8 +142,32 @@ export default function VoiceAnswerCard({
           )}
         </button>
         <p className="text-sm text-muted-foreground">
-          {recording ? `Recording… ${fmt(elapsed)} — tap to stop` : transcribing ? "Transcribing…" : hasAnswer ? "Tap to add more" : "Tap to speak"}
+          {recording
+            ? `Recording… ${fmt(elapsed)} — tap to stop`
+            : transcribing
+            ? "Transcribing…"
+            : hasAnswer
+            ? "Tap to add more"
+            : "Tap to speak"}
         </p>
+        {recording && remaining <= 60 && (
+          <p className="text-xs font-medium text-destructive">{remaining}s left (15 min max)</p>
+        )}
+
+        {/* Live AI follow-up prompts */}
+        {recording && liveQuestions.length > 0 && (
+          <div className="w-full rounded-xl border border-primary/25 bg-primary/[0.06] p-3.5">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <Lightbulb className="h-3.5 w-3.5" />
+              Try answering…
+            </p>
+            <ul className="space-y-1">
+              {liveQuestions.map((q, i) => (
+                <li key={i} className="text-sm text-foreground">• {q}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Transcript (editable) */}
         {hasAnswer && (
@@ -132,11 +205,7 @@ export default function VoiceAnswerCard({
           Back
         </button>
         {optional && !hasAnswer && onSkip && (
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
+          <button type="button" onClick={onSkip} className="text-sm font-medium text-muted-foreground hover:text-foreground">
             Skip
           </button>
         )}

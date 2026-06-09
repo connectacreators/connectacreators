@@ -4,9 +4,25 @@ import { toast } from "sonner";
 
 export type RecorderStatus = "idle" | "recording" | "transcribing";
 
+/** Hard cap on a single recording. */
+export const MAX_RECORDING_MS = 15 * 60 * 1000;
+
+interface CoachingOptions {
+  /** Snapshot the cumulative audio this often while recording. */
+  intervalMs: number;
+  /** Stop snapshotting after this many cycles (bounds AI cost/bandwidth). */
+  maxCycles: number;
+  /** Receives the cumulative audio-so-far blob each cycle. */
+  onChunk: (blob: Blob) => void;
+}
+
 interface UseVoiceRecorderOptions {
   /** Called with the transcribed text once a recording finishes processing. */
   onResult: (text: string) => void;
+  /** Auto-stop after this many ms (default 15 min). */
+  maxDurationMs?: number;
+  /** Optional live-coaching snapshots while recording. */
+  coaching?: CoachingOptions;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -23,16 +39,24 @@ function blobToBase64(blob: Blob): Promise<string> {
 
 /**
  * Shared mic-record → Whisper-transcribe pipeline for the onboarding form.
- * Used by both the inline VoiceButton and the full-screen VoiceAnswerCard so
- * there is one place to maintain the MediaRecorder + transcribe-onboarding call.
- *
- * Tap-to-start / tap-to-stop: call `toggle()` (or `start()`/`stop()`).
+ * Tap-to-start / tap-to-stop via `toggle()`. Auto-stops at maxDurationMs.
+ * When `coaching` is provided, periodically hands the cumulative audio blob to
+ * `coaching.onChunk` (used by FAST mode for live AI follow-up questions).
  */
-export function useVoiceRecorder({ onResult }: UseVoiceRecorderOptions) {
+export function useVoiceRecorder({ onResult, maxDurationMs = MAX_RECORDING_MS, coaching }: UseVoiceRecorderOptions) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coachTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearTimers = () => {
+    if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+    if (coachTimerRef.current) clearInterval(coachTimerRef.current);
+    maxTimerRef.current = null;
+    coachTimerRef.current = null;
+  };
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -63,6 +87,12 @@ export function useVoiceRecorder({ onResult }: UseVoiceRecorderOptions) {
     [onResult],
   );
 
+  const stop = useCallback(() => {
+    clearTimers();
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+  }, []);
+
   const start = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -73,25 +103,41 @@ export function useVoiceRecorder({ onResult }: UseVoiceRecorderOptions) {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
+        clearTimers();
         stopStream();
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         if (blob.size > 0) transcribe(blob);
         else setStatus("idle");
       };
-      recorder.start();
+      // With coaching we need periodic chunks so the cumulative blob stays current.
+      recorder.start(coaching ? 2000 : undefined);
       recorderRef.current = recorder;
       setStatus("recording");
+
+      // Hard auto-stop.
+      maxTimerRef.current = setTimeout(() => stop(), maxDurationMs);
+
+      // Live-coaching snapshots.
+      if (coaching) {
+        let cycle = 0;
+        coachTimerRef.current = setInterval(() => {
+          cycle += 1;
+          if (cycle > coaching.maxCycles) {
+            if (coachTimerRef.current) clearInterval(coachTimerRef.current);
+            coachTimerRef.current = null;
+            return;
+          }
+          if (chunksRef.current.length === 0) return;
+          const snapshot = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+          coaching.onChunk(snapshot);
+        }, coaching.intervalMs);
+      }
     } catch (e) {
       console.error("Mic access error:", e);
       toast.error("Microphone access was blocked. Enable it in your browser to use voice.");
       setStatus("idle");
     }
-  }, [transcribe]);
-
-  const stop = useCallback(() => {
-    recorderRef.current?.stop();
-    recorderRef.current = null;
-  }, []);
+  }, [transcribe, maxDurationMs, coaching, stop]);
 
   const toggle = useCallback(() => {
     if (status === "idle") start();
