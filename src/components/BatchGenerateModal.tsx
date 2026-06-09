@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BatchResult {
   customId: string;
@@ -66,8 +67,12 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
     .slice(0, 10);
 
   const { credits } = useCredits();
+  const { isAdmin, isVideographer, isEditor, isConnectaPlus } = useAuth();
+  // Mirrors the backend bypass in batch-generate-scripts / _shared/credits.ts:
+  // these roles skip credit deduction entirely, so don't gate the UI on balance.
+  const creditsBypassed = isAdmin || isVideographer || isEditor || isConnectaPlus;
   const totalCost = topics.length * 50;
-  const hasEnoughCredits = (credits?.credits_balance ?? 0) >= totalCost;
+  const hasEnoughCredits = creditsBypassed || (credits?.credits_balance ?? 0) >= totalCost;
 
   // Poll for batch completion
   useEffect(() => {
@@ -311,11 +316,20 @@ export default function BatchGenerateModal({ clientId, clientName, onClose, onSa
               <div className="flex-1 flex flex-col gap-1">
                 {topics.length > 0 && (
                   <div className="text-xs text-muted-foreground mb-1">
-                    {topics.length} script{topics.length !== 1 ? "s" : ""} × 50 credits = <span className="font-medium">{totalCost} credits</span>
-                    {credits && (
-                      <span className={hasEnoughCredits ? " text-primary" : " text-red-400"}>
-                        {" "}(balance: {credits.credits_balance})
-                      </span>
+                    {creditsBypassed ? (
+                      <>
+                        {topics.length} script{topics.length !== 1 ? "s" : ""}
+                        <span className="text-primary"> · free (no credits charged)</span>
+                      </>
+                    ) : (
+                      <>
+                        {topics.length} script{topics.length !== 1 ? "s" : ""} × 50 credits = <span className="font-medium">{totalCost} credits</span>
+                        {credits && (
+                          <span className={hasEnoughCredits ? " text-primary" : " text-red-400"}>
+                            {" "}(balance: {credits.credits_balance})
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
