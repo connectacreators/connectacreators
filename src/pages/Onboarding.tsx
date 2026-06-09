@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Sparkles, Loader2, Lock, FileDown } from "lucide-react";
@@ -37,9 +37,15 @@ const Onboarding = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Resolve access + load data once auth has settled.
+  // Resolve access + load data once auth has settled. Guarded so it only runs
+  // ONCE per (client, user, role) target — switching tabs fires auth events
+  // that must NOT re-fetch and clobber the in-progress form.
+  const loadedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (authLoading) return;
+    const key = `${paramClientId || ""}|${user?.id || ""}|${isAdmin}`;
+    if (loadedKeyRef.current === key) return;
+    loadedKeyRef.current = key;
 
     const run = async () => {
       // ── Admin or client filling a SPECIFIC client's form ──
@@ -174,6 +180,21 @@ const Onboarding = () => {
       toast.error("Allow pop-ups to export the PDF.");
     }
   };
+
+  // Standard-mode autosave: debounce-persist edits so nothing is lost on tab
+  // switch / refocus. (FAST mode handles its own autosave.)
+  const didMountAutosave = useRef(false);
+  useEffect(() => {
+    if (gate !== "ok" || uiMode !== "standard" || !resolvedClientId) return;
+    // Skip the first run right after data loads (no edits yet).
+    if (!didMountAutosave.current) {
+      didMountAutosave.current = true;
+      return;
+    }
+    const t = setTimeout(() => { persist(true); }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, gate, uiMode, resolvedClientId]);
 
   // ── Gate states ──
   if (authLoading || gate === "loading") {
