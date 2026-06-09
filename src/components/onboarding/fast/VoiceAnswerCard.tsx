@@ -38,6 +38,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 const MAX_SECONDS = Math.floor(MAX_RECORDING_MS / 1000);
+const THINKING_PHRASES = ["Listening…", "Picking out the details…", "Coming up with questions…"];
 
 /**
  * One full-screen voice question. Tap the mic to start, tap to stop. When
@@ -59,6 +60,8 @@ export default function VoiceAnswerCard({
 }: VoiceAnswerCardProps) {
   const [elapsed, setElapsed] = useState(0);
   const [liveQuestions, setLiveQuestions] = useState<string[]>([]);
+  const [coachThinking, setCoachThinking] = useState(false);
+  const [phraseIdx, setPhraseIdx] = useState(0);
   const coachInFlight = useRef(false);
   const askedRef = useRef<string[]>([]);
 
@@ -66,6 +69,7 @@ export default function VoiceAnswerCard({
     async (blob: Blob) => {
       if (coachInFlight.current || blob.size === 0) return;
       coachInFlight.current = true;
+      setCoachThinking(true);
       try {
         const audioBase64 = await blobToBase64(blob);
         const { data } = await supabase.functions.invoke("onboarding-live-coach", {
@@ -80,6 +84,7 @@ export default function VoiceAnswerCard({
         /* soft-fail — coaching never blocks recording */
       } finally {
         coachInFlight.current = false;
+        setCoachThinking(false);
       }
     },
     [question],
@@ -98,6 +103,7 @@ export default function VoiceAnswerCard({
       setElapsed(0);
       if (status === "idle") {
         setLiveQuestions([]);
+        setCoachThinking(false);
         askedRef.current = [];
       }
       return;
@@ -105,6 +111,16 @@ export default function VoiceAnswerCard({
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [status]);
+
+  // Cycle the "thinking" status copy while the coach is working.
+  useEffect(() => {
+    if (!coachThinking) {
+      setPhraseIdx(0);
+      return;
+    }
+    const id = setInterval(() => setPhraseIdx((i) => i + 1), 1300);
+    return () => clearInterval(id);
+  }, [coachThinking]);
 
   const recording = status === "recording";
   const transcribing = status === "transcribing";
@@ -154,18 +170,39 @@ export default function VoiceAnswerCard({
           <p className="text-xs font-medium text-destructive">{remaining}s left (15 min max)</p>
         )}
 
-        {/* Live AI follow-up prompts */}
-        {recording && liveQuestions.length > 0 && (
+        {/* Live AI coaching: animated status + follow-up prompts */}
+        {recording && coachEnabled && (
           <div className="w-full rounded-xl border border-primary/25 bg-primary/[0.06] p-3.5">
-            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
-              <Lightbulb className="h-3.5 w-3.5" />
-              Try answering…
+            <p className="flex items-center gap-2 text-xs font-semibold text-primary">
+              {coachThinking ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{THINKING_PHRASES[phraseIdx % THINKING_PHRASES.length]}</span>
+                </>
+              ) : (
+                <>
+                  <span className="flex items-end gap-0.5">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+                  </span>
+                  <span>Listening…</span>
+                </>
+              )}
             </p>
-            <ul className="space-y-1">
-              {liveQuestions.map((q, i) => (
-                <li key={i} className="text-sm text-foreground">• {q}</li>
-              ))}
-            </ul>
+            {liveQuestions.length > 0 && (
+              <>
+                <p className="mb-1 mt-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  Try answering…
+                </p>
+                <ul className="space-y-1">
+                  {liveQuestions.map((q, i) => (
+                    <li key={i} className="text-sm text-foreground">• {q}</li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
 
