@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import {
-  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard, Eye, Pencil, LogIn,
+  Folder, FolderOpen, FileText, Loader2, ChevronLeft, ChevronRight, Clapperboard, Eye, LogIn,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
+import ScriptDocEditor from "@/components/ScriptDocEditor";
+import { useScripts, type ScriptLine as DocBlock } from "@/hooks/useScripts";
 import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
-import { defaultSectionLabel } from "@/lib/scriptBlocks";
+import { defaultSectionLabel, withUids, synthesizeBlocksFromLines } from "@/lib/scriptBlocks";
 import { applyBranding } from "@/lib/branding/apply";
 import { PALETTES, FONT_PAIRINGS } from "@/lib/branding/presets";
 import { EDITORIAL_DEFAULT, type PaletteId, type FontPairingId } from "@/lib/branding/types";
@@ -181,28 +184,63 @@ export default function PublicFolderShare() {
     return trail;
   }, [data, currentFolderId]);
 
-  // "Log in to edit": send the viewer into the real authenticated in-app editor.
-  // The public /f/ page stays read-only; editing happens in /clients/:id/scripts
-  // where RLS decides who may actually edit. Already-logged-in users go straight
-  // there; everyone else bounces through /login?redirect=… (email login honors
-  // it; /login also auto-forwards an already-authenticated user). Opening a
-  // specific script deep-links via ?scriptId so they land right on it.
-  const editClientId = data?.root?.client_id ?? null;
-  const goEdit = (scriptId?: string) => {
-    if (!editClientId) return;
-    const target = `/clients/${editClientId}/scripts${scriptId ? `?scriptId=${scriptId}` : ""}`;
-    navigate(user ? target : `/login?redirect=${encodeURIComponent(target)}`);
+  // ── In-place editing ──────────────────────────────────────────────────────
+  // When the viewer is signed in AND authorized for this script (RLS), the read
+  // -only reader is replaced by the real block editor, saving through the
+  // authenticated client. Unauthenticated viewers get a "Log in to edit" button
+  // that returns to THIS /f/ link after login, where the page becomes editable.
+  const { getScriptBlocks, saveScriptBlocks } = useScripts();
+  const [docBlocks, setDocBlocks] = useState<DocBlock[]>([]);
+  // off = not signed in / no script open; loading = checking access + fetching;
+  // on = editable; denied = signed in but this account can't edit (RLS).
+  const [editMode, setEditMode] = useState<"off" | "loading" | "on" | "denied">("off");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!openScriptId || !user) { setEditMode("off"); setDocBlocks([]); return; }
+    let cancelled = false;
+    (async () => {
+      setEditMode("loading");
+      // Edit access == can the authed user read this script row under RLS?
+      const { data: row } = await supabase
+        .from("scripts").select("id").eq("id", openScriptId).maybeSingle();
+      if (cancelled) return;
+      if (!row) { setEditMode("denied"); return; }
+      const all = await getScriptBlocks(openScriptId);
+      if (cancelled) return;
+      const hasHeadings = all.some((b) => b.block_kind === "heading");
+      setDocBlocks(hasHeadings ? withUids(all) : synthesizeBlocksFromLines(all));
+      setEditMode("on");
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openScriptId, user?.id]);
+
+  const handleSaveDoc = async () => {
+    if (!openScriptId) return;
+    setSaving(true);
+    try {
+      const saved = await saveScriptBlocks(openScriptId, docBlocks);
+      setDocBlocks(withUids(saved));
+      toast.success("Saved");
+    } catch {
+      /* saveScriptBlocks already surfaces an error toast */
+    } finally {
+      setSaving(false);
+    }
   };
-  const editButton = (scriptId?: string) =>
-    editClientId ? (
+
+  // Unauthenticated viewers: a pill that logs in and returns to this same /f/
+  // link, where the page detects the session and turns editable in place.
+  const loginToEdit = () =>
+    !user ? (
       <button
-        onClick={() => goEdit(scriptId)}
+        onClick={() => navigate(`/login?redirect=${encodeURIComponent(`/f/${token}`)}`)}
         data-active="true"
         className="editorial-pill inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium shrink-0"
-        title={user ? "Open this in the editor" : "Log in to edit"}
+        title="Log in to edit"
       >
-        {user ? <Pencil className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
-        {user ? "Open in editor" : "Log in to edit"}
+        <LogIn className="w-3 h-3" /> Log in to edit
       </button>
     ) : null;
 
@@ -256,9 +294,21 @@ export default function PublicFolderShare() {
             <div className="ml-auto flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2">
                 <FileText className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Read-only</span>
+                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
+                  {editMode === "on" ? "Editing" : "Read-only"}
+                </span>
               </div>
-              {editButton(openScript.id)}
+              {loginToEdit()}
+              {editMode === "on" && (
+                <button
+                  onClick={handleSaveDoc}
+                  disabled={saving}
+                  data-active="true"
+                  className="editorial-pill inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium shrink-0 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -340,20 +390,55 @@ export default function PublicFolderShare() {
             </div>
           )}
 
-          {/* Script document */}
-          {openScript.lines.length > 0 ? (
-            <div className="editorial-card p-5 mt-2">
-              {sectionOrder.map((section) => (
-                <div key={section}>
-                  <SectionHeading label={defaultSectionLabel(section)} />
-                  {openScript.lines
-                    .filter((l) => l.section === section)
-                    .map((line, i) => <ReaderLine key={`${section}-${i}`} line={line} />)}
-                </div>
-              ))}
+          {/* Script document — editable for an authorized signed-in viewer,
+              otherwise the read-only reader. */}
+          {editMode === "loading" ? (
+            <div className="editorial-card p-8 mt-2 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : editMode === "on" ? (
+            <div className="mt-2">
+              <ScriptDocEditor
+                embedded
+                blocks={docBlocks}
+                onBlocksChange={setDocBlocks}
+                onExportPDF={() => window.print()}
+                onSave={handleSaveDoc}
+                saving={saving}
+              />
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={handleSaveDoc}
+                  disabled={saving}
+                  data-active="true"
+                  className="editorial-pill inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-medium disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">This script has no content yet.</p>
+            <>
+              {editMode === "denied" && (
+                <p className="text-[12px] text-muted-foreground mb-2">
+                  You're signed in, but this account doesn't have edit access to these scripts — showing the read-only view.
+                </p>
+              )}
+              {openScript.lines.length > 0 ? (
+                <div className="editorial-card p-5 mt-2">
+                  {sectionOrder.map((section) => (
+                    <div key={section}>
+                      <SectionHeading label={defaultSectionLabel(section)} />
+                      {openScript.lines
+                        .filter((l) => l.section === section)
+                        .map((line, i) => <ReaderLine key={`${section}-${i}`} line={line} />)}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">This script has no content yet.</p>
+              )}
+            </>
           )}
         </main>
 
@@ -379,9 +464,11 @@ export default function PublicFolderShare() {
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2 min-w-0">
               <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-              <span className="editorial-eyebrow truncate" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Shared scripts · Read-only</span>
+              <span className="editorial-eyebrow truncate" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
+                {user ? "Shared scripts · Tap a script to edit" : "Shared scripts · Read-only"}
+              </span>
             </div>
-            {editButton()}
+            {loginToEdit()}
           </div>
           <h1 className="font-serif font-medium text-xl text-foreground flex items-center gap-2">
             <FolderOpen className="w-5 h-5" style={{ color: "hsl(var(--aqua))" }} />
