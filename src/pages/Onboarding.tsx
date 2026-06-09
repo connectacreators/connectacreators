@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Sparkles, Loader2, Lock } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Lock, FileDown } from "lucide-react";
 import { useNavigate, useParams, Navigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import OnboardingFormBody from "@/components/onboarding/OnboardingFormBody";
 import OnboardingSharePanel from "@/components/onboarding/OnboardingSharePanel";
 import ArrivalChooser from "@/components/onboarding/fast/ArrivalChooser";
 import FastOnboardingFlow from "@/components/onboarding/fast/FastOnboardingFlow";
+import { exportOnboardingPdf } from "@/lib/onboarding/exportPdf";
 import { EMPTY_ONBOARDING, normalizeOnboarding, prepareForSave, type OnboardingData } from "@/lib/onboarding/types";
 
 type Gate = "loading" | "ok" | "closed" | "denied" | "needLogin" | "noClient";
@@ -165,6 +166,14 @@ const Onboarding = () => {
   };
 
   const handleSave = () => persist(false);
+
+  const handleExportPdf = () => {
+    try {
+      exportOnboardingPdf(formData, { name: clientName });
+    } catch {
+      toast.error("Allow pop-ups to export the PDF.");
+    }
+  };
 
   // ── Gate states ──
   if (authLoading || gate === "loading") {
@@ -323,8 +332,12 @@ const Onboarding = () => {
           </span>
         </p>
 
-        {/* Back to dashboard */}
-        <div className="mt-6 flex justify-center">
+        {/* Export + back to dashboard */}
+        <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Button variant="outline" onClick={handleExportPdf} className="gap-2">
+            <FileDown className="h-4 w-4" />
+            Export answers (PDF)
+          </Button>
           <Button variant="outline" onClick={() => navigate("/dashboard")} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Go back to main

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, Loader2, Lock, Pencil, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Pencil, CheckCircle2, FileDown } from "lucide-react";
 
 export interface ReviewItem {
   label: string;
@@ -12,10 +12,11 @@ interface ReviewStepProps {
   onBack: () => void;
   onSubmit: () => void;
   saving: boolean;
+  onExportPdf: () => void;
 }
 
 /** Final summary: every answer, each tappable to jump back and fix, then submit. */
-export default function ReviewStep({ items, onBack, onSubmit, saving }: ReviewStepProps) {
+export default function ReviewStep({ items, onBack, onSubmit, saving, onExportPdf }: ReviewStepProps) {
   return (
     <div className="mx-auto flex min-h-[100svh] max-w-md flex-col px-5 pt-6">
       <div className="mb-5 shrink-0">
@@ -60,6 +61,15 @@ export default function ReviewStep({ items, onBack, onSubmit, saving }: ReviewSt
             .
           </span>
         </p>
+
+        <button
+          type="button"
+          onClick={onExportPdf}
+          className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Export answers (PDF)
+        </button>
       </div>
 
       {/* Bottom nav */}

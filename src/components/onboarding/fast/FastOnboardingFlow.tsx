@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Keyboard } from "lucide-react";
+import { Keyboard, FileDown } from "lucide-react";
 import VoiceAnswerCard from "./VoiceAnswerCard";
 import QuickBasicsStep from "./QuickBasicsStep";
 import ReviewStep, { type ReviewItem } from "./ReviewStep";
 import { parseSpokenList, profilesToText, stripHtml } from "@/lib/onboarding/richText";
+import { exportOnboardingPdf } from "@/lib/onboarding/exportPdf";
+import { toast } from "sonner";
 import type { OnboardingData } from "@/lib/onboarding/types";
 
 interface FastOnboardingFlowProps {
@@ -100,6 +102,14 @@ export default function FastOnboardingFlow({
     if (ok) setSubmitted(true);
   };
 
+  const handleExportPdf = () => {
+    try {
+      exportOnboardingPdf(formData, { name: formData.clientName });
+    } catch {
+      toast.error("Allow pop-ups to export the PDF.");
+    }
+  };
+
   // Progress (hidden on the success screen).
   const progress = Math.round(((pos + 1) / TOTAL) * 100);
 
@@ -115,6 +125,14 @@ export default function FastOnboardingFlow({
         <p className="mt-2 text-sm text-muted-foreground">
           Your answers are saved. Our team will take it from here.
         </p>
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          className="mt-6 inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        >
+          <FileDown className="h-4 w-4" />
+          Export answers (PDF)
+        </button>
       </div>
     );
   }
@@ -148,7 +166,7 @@ export default function FastOnboardingFlow({
         />
       );
     }
-    return <ReviewStep items={reviewItems} onBack={() => go(BASICS)} onSubmit={handleSubmit} saving={saving} />;
+    return <ReviewStep items={reviewItems} onBack={() => go(BASICS)} onSubmit={handleSubmit} saving={saving} onExportPdf={handleExportPdf} />;
   };
 
   return (
