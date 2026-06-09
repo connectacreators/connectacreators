@@ -19,10 +19,11 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function renderHtml(title: string, description: string, url: string): string {
+function renderHtml(title: string, description: string, url: string, siteName: string): string {
   const t = escapeHtml(title);
   const d = escapeHtml(description);
   const u = escapeHtml(url);
+  const s = escapeHtml(siteName);
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -30,7 +31,7 @@ function renderHtml(title: string, description: string, url: string): string {
     <title>${t}</title>
     <meta name="description" content="${d}" />
 
-    <meta property="og:site_name" content="Connecta Creators" />
+    <meta property="og:site_name" content="${s}" />
     <meta property="og:title" content="${t}" />
     <meta property="og:description" content="${d}" />
     <meta property="og:type" content="website" />
@@ -59,9 +60,10 @@ serve(async (req) => {
   const token = url.searchParams.get("token") ?? "";
   const shareUrl = `https://connectacreators.com/f/${token}`;
 
-  // Default fallback — same as index.html.
-  let title = "Shared scripts · Connecta";
-  let description = "Someone shared a folder of scripts with you on Connecta.";
+  // Default fallback — generic, no CRM branding.
+  let title = "Shared scripts";
+  let description = "Someone shared a folder of scripts with you.";
+  let siteName = "Connecta Creators";
 
   if (TOKEN_RE.test(token)) {
     try {
@@ -80,13 +82,28 @@ serve(async (req) => {
       if (share?.folder_id) {
         const { data: folder } = await admin
           .from("script_folders")
-          .select("name")
+          .select("name, client_id")
           .eq("id", share.folder_id)
           .maybeSingle();
 
+        // Resolve the owning client's name so the preview reads as the client's
+        // scripts (e.g. "June Scripts — Pecan Health") rather than the CRM brand.
+        let clientName = "";
+        if (folder?.client_id) {
+          const { data: client } = await admin
+            .from("clients")
+            .select("name")
+            .eq("id", folder.client_id)
+            .maybeSingle();
+          clientName = (client?.name ?? "").trim();
+        }
+
         if (folder?.name) {
-          title = `${folder.name} · Connecta`;
-          description = `Shared folder "${folder.name}" — read-only scripts on Connecta.`;
+          title = clientName ? `${folder.name} · ${clientName}` : folder.name;
+          description = clientName
+            ? `${clientName} — shared scripts (read-only).`
+            : `Shared folder "${folder.name}" — read-only scripts.`;
+          if (clientName) siteName = clientName;
         }
       }
     } catch {
@@ -94,7 +111,7 @@ serve(async (req) => {
     }
   }
 
-  return new Response(renderHtml(title, description, shareUrl), {
+  return new Response(renderHtml(title, description, shareUrl, siteName), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=300",
