@@ -10,6 +10,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileBrandDashboard } from "./MobileBrandDashboard";
 import {
   Sparkles,
   BarChart3,
@@ -110,7 +112,14 @@ interface SingleBrandDashboardProps {
 
 export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleBrandDashboardProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [activeFolder, setActiveFolder] = useState<FolderKey | null>(null);
+
+  // Mobile gets a purpose-built, action-first screen; desktop keeps the
+  // 3-folder layout below.
+  if (isMobile) {
+    return <MobileBrandDashboard firstName={firstName} brandName={brandName} clientId={clientId} />;
+  }
 
   const folders = buildFolders(clientId);
   const folder = folders.find((f) => f.key === activeFolder) ?? null;

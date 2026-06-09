@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Home, Flame, Layers, Clapperboard, MoreHorizontal,
+  Home, Flame, FileText, Clapperboard, MoreHorizontal,
   Users, Archive, CalendarDays, UserCheck, GraduationCap,
   CreditCard, Settings, Globe, LogOut, X,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 const BOTTOM_TABS = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: Flame, label: "Viral", path: "/viral-today" },
-  { icon: Layers, label: "Canvas", path: "/scripts?view=canvas", hero: true as const },
+  { icon: FileText, label: "Scripts", path: "/scripts", hero: true as const },
   { icon: Clapperboard, label: "Queue", path: "/editing-queue" },
 ];
 
