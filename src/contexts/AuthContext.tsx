@@ -66,15 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const u = session?.user ?? null;
 
-        // TOKEN_REFRESHED fires every time the tab regains focus and Supabase
-        // re-validates the session. The new `u` is a fresh object reference
-        // for the same person — bumping `user` here invalidates every
-        // `[user, ...]` dependency in the app and causes pages to refetch
-        // (e.g. Editing Queue wiping scroll/sort state). Skip the update
-        // when the identity hasn't actually changed.
+        // TOKEN_REFRESHED *and* SIGNED_IN both re-fire every time the tab
+        // regains focus and Supabase re-validates the session. The new `u` is a
+        // fresh object reference for the same person — bumping `user` here
+        // invalidates every `[user, ...]` dependency in the app and causes
+        // pages to refetch (e.g. Onboarding reloading and wiping unsaved edits,
+        // Editing Queue losing scroll/sort). Skip the update for ANY event when
+        // the identity hasn't actually changed (still signed in, same id).
         let identityChanged = true;
         setUser(prev => {
-          if (event === "TOKEN_REFRESHED" && prev?.id === u?.id) {
+          if (prev && u && prev.id === u.id) {
             identityChanged = false;
             return prev;
           }

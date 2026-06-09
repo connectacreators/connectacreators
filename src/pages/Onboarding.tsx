@@ -16,6 +16,34 @@ import { EMPTY_ONBOARDING, normalizeOnboarding, prepareForSave, type OnboardingD
 type Gate = "loading" | "ok" | "closed" | "denied" | "needLogin" | "noClient";
 type UiMode = "choose" | "fast" | "standard";
 
+// Local draft persistence — survives reloads/remounts so unsaved edits are
+// never lost. Cleared on an explicit Save/Submit.
+const draftKey = (id: string) => `cac:onboarding-draft:${id}`;
+function readDraft(id: string): OnboardingData | null {
+  try {
+    const raw = localStorage.getItem(draftKey(id));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.data ? normalizeOnboarding(parsed.data) : null;
+  } catch {
+    return null;
+  }
+}
+function writeDraft(id: string, data: OnboardingData) {
+  try {
+    localStorage.setItem(draftKey(id), JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    /* ignore quota / privacy-mode errors */
+  }
+}
+function clearDraft(id: string) {
+  try {
+    localStorage.removeItem(draftKey(id));
+  } catch {
+    /* ignore */
+  }
+}
+
 const Onboarding = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,7 +113,8 @@ const Onboarding = () => {
         const merged = normalizeOnboarding(data.onboarding_data as Record<string, unknown>);
         if (!merged.clientName && data.name) merged.clientName = data.name;
         if (!merged.email && data.email) merged.email = data.email;
-        setFormData(merged);
+        // Prefer a local unsaved draft over the stored copy.
+        setFormData(readDraft(data.id) ?? merged);
         // Admins get the full form; clients pick voice/typed on arrival.
         setUiMode(isAdmin ? "standard" : "choose");
         setGate("ok");
@@ -114,7 +143,7 @@ const Onboarding = () => {
       const merged = normalizeOnboarding(data.onboarding_data as Record<string, unknown>);
       if (!merged.clientName && data.name) merged.clientName = data.name;
       if (!merged.email && data.email) merged.email = data.email;
-      setFormData(merged);
+      setFormData(readDraft(data.id) ?? merged);
       setUiMode(isAdmin ? "standard" : "choose");
       setGate("ok");
     };
@@ -164,6 +193,7 @@ const Onboarding = () => {
         toast.error("Error saving form");
         return false;
       }
+      clearDraft(resolvedClientId); // explicit save is now the source of truth
       toast.success(perspective === "self" ? "Thank you! Your information has been saved." : "Onboarding saved successfully!");
       return true;
     } finally {
@@ -195,6 +225,13 @@ const Onboarding = () => {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, gate, uiMode, resolvedClientId]);
+
+  // Persist a local draft synchronously on every edit (both modes) so a tab
+  // switch / reload before the debounced save never loses progress.
+  useEffect(() => {
+    if (gate !== "ok" || !resolvedClientId) return;
+    writeDraft(resolvedClientId, formData);
+  }, [formData, gate, resolvedClientId]);
 
   // ── Gate states ──
   if (authLoading || gate === "loading") {
