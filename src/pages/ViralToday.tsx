@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Sparkles,
+  Sparkles, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1092,6 +1092,38 @@ const getSortOpts = (t: any): DropdownOption[] => [
   { label: t.bestEngagement, value: "engagement" },
 ];
 
+// ── CSV export helpers ────────────────────────────────────────────────────────
+
+// Quote/escape a single CSV cell. Empty/missing analysis fields export as "None".
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined || value === "") return '"None"';
+  const s = Array.isArray(value) ? value.join(" | ") : String(value);
+  if (s.trim() === "") return '"None"';
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+// Plain-value cell (always-present metadata) — does NOT substitute "None".
+function csvNum(value: unknown): string {
+  if (value === null || value === undefined) return '""';
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+// Flatten framework_meta.visual_segments into a readable, single-cell breakdown.
+function visualBreakdownForCsv(meta: any): string {
+  const segments = (meta?.visual_segments ?? []) as Array<{
+    start?: number; end?: number; description?: string; text_on_screen?: string[];
+  }>;
+  if (!Array.isArray(segments) || segments.length === 0) return "";
+  return segments
+    .map((s) => {
+      const start = typeof s.start === "number" ? s.start.toFixed(1) : "?";
+      const end = typeof s.end === "number" ? s.end.toFixed(1) : "?";
+      const text = (s.text_on_screen ?? []).length ? ` | text: ${(s.text_on_screen ?? []).join(" / ")}` : "";
+      return `[${start}s–${end}s] ${s.description ?? ""}${text}`;
+    })
+    .join("\n");
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ViralToday() {
@@ -1205,6 +1237,9 @@ export default function ViralToday() {
   // selected or industry doesn't map to a known slug; in that case For You
   // falls back to top-performer ranking (outlier × views × recency).
   const [clientNiche, setClientNiche] = useState<string | null>(null);
+
+  // CSV export (admin)
+  const [exporting, setExporting] = useState(false);
 
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
@@ -2047,6 +2082,90 @@ export default function ViralToday() {
     (currentPage + 1) * videosPerPage
   );
 
+  // ── Export current filtered videos (up to 100) to CSV (admin only) ──────────
+  const handleExportCsv = async () => {
+    const rows = filteredVideos.slice(0, 100);
+    if (rows.length === 0) {
+      toast.error("No videos to export");
+      return;
+    }
+    setExporting(true);
+    try {
+      // Fetch analysis columns for the exported videos in one query and merge by id.
+      const ids = rows.map((v) => v.id);
+      const analysisById = new Map<string, any>();
+      const { data: analysisRows, error: analysisErr } = await supabase
+        .from("viral_videos")
+        .select("id, transcript, hook_text, cta_text, framework_meta, transcribed_at, analysis_status")
+        .in("id", ids);
+      if (analysisErr) {
+        toast.warning("Couldn't load analysis text — exporting metadata only");
+      } else {
+        for (const r of analysisRows ?? []) analysisById.set(r.id, r);
+      }
+
+      const headers = [
+        "channel_username", "platform", "posted_at", "video_url", "caption",
+        "views_count", "likes_count", "comments_count", "engagement_rate",
+        "outlier_score", "framework_score", "primary_niche", "content_format",
+        "niche_tags", "analysis_status", "hook_text", "cta_text", "transcript",
+        "visual_breakdown", "audience", "key_topics", "body_structure",
+        "hook_template", "scraped_at",
+      ];
+
+      const lines = [headers.map((h) => csvNum(h)).join(",")];
+      for (const v of rows) {
+        const a = analysisById.get(v.id) ?? {};
+        const fm = a.framework_meta ?? {};
+        lines.push([
+          csvNum(v.channel_username),
+          csvNum(v.platform),
+          csvNum(v.posted_at),
+          csvNum(v.video_url),
+          csvCell(v.caption),
+          csvNum(v.views_count),
+          csvNum(v.likes_count),
+          csvNum(v.comments_count),
+          csvNum(v.engagement_rate),
+          csvNum(v.outlier_score),
+          csvNum(v.framework_score),
+          csvCell(v.primary_niche),
+          csvCell(v.content_format),
+          csvCell(v.niche_tags),
+          csvCell(a.analysis_status ?? v.analysis_status),
+          csvCell(a.hook_text),
+          csvCell(a.cta_text),
+          csvCell(a.transcript),
+          csvCell(visualBreakdownForCsv(fm)),
+          csvCell(fm.audience),
+          csvCell(fm.key_topics),
+          csvCell(fm.body_structure),
+          csvCell(fm.hook_template),
+          csvNum(v.scraped_at),
+        ].join(","));
+      }
+
+      // UTF-8 BOM so Excel renders Spanish accents correctly.
+      const csv = "﻿" + lines.join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const today = new Date().toISOString().slice(0, 10);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `viral-today-export-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${rows.length} video${rows.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e.message || "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasActiveFilters =
     filterPlatform !== "all" ||
     filterDate !== "12months" ||
@@ -2157,6 +2276,17 @@ export default function ViralToday() {
 
               {/* Language toggle + View toggle */}
               <div className="flex items-center gap-2">
+                {isAdmin && view === "videos" && (
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={exporting || filteredVideos.length === 0}
+                    title={`Export the ${Math.min(filteredVideos.length, 100)} currently filtered video${filteredVideos.length === 1 ? "" : "s"} to CSV`}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-muted border border-border text-foreground hover:bg-muted/80 transition-all disabled:opacity-50"
+                  >
+                    {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Export CSV
+                  </button>
+                )}
                 <button
                   onClick={() => setLang(lang === "en" ? "es" : "en")}
                   className="px-2 py-1 rounded-md text-xs font-medium bg-muted border border-border text-foreground hover:bg-muted/80 transition-all"
