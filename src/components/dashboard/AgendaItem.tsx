@@ -46,7 +46,7 @@ function rowHoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
   e.currentTarget.style.boxShadow = 'none';
 }
 
-export function AgendaItem({ item }: { item: AgendaItemData }) {
+export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: string | null }) {
   const Icon = KIND_ICON[item.kind];
   const tint = BUCKET_TINT[item.bucket];
   const mono = colorFor(item.clientName);
@@ -94,7 +94,7 @@ export function AgendaItem({ item }: { item: AgendaItemData }) {
           style={{ fontSize: 12, color: 'hsl(var(--ink-on-cream) / 0.55)', fontFamily: 'var(--font-body, Figtree), sans-serif' }}
         >
           <ClientAvatar
-            picUrl={undefined}
+            picUrl={picUrl}
             alt={item.clientName}
             size={17}
             fallback={
