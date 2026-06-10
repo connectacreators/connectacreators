@@ -29,6 +29,10 @@ const FIELDS: FieldMap[] = [
   { field: 'posting_at',         milestone: 'posting' },
 ];
 
+// Filming + onboarding need lead time to prepare — surface them earlier.
+const PREP_WINDOW_DAYS = 10;
+const PREP_MILESTONES: ReadonlySet<PipelineMilestone> = new Set(['filming', 'onboarding_call']);
+
 export function buildPipelineRows(
   source: PipelineSource | null,
   options: { windowDays?: number; now?: Date } = {},
@@ -36,8 +40,10 @@ export function buildPipelineRows(
   if (!source) return [];
   const windowDays = options.windowDays ?? 7;
   const now = options.now ?? new Date();
-  const cutoff = now.getTime() + windowDays * 24 * 60 * 60 * 1000;
   const nowMs = now.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const cutoffFor = (m: PipelineMilestone) =>
+    nowMs + (PREP_MILESTONES.has(m) ? Math.max(windowDays, PREP_WINDOW_DAYS) : windowDays) * dayMs;
 
   const out: PipelineTriageRow[] = [];
 
@@ -45,7 +51,7 @@ export function buildPipelineRows(
     const raw = source[field];
     if (!raw || typeof raw !== 'string') continue;
     const t = new Date(raw).getTime();
-    if (Number.isNaN(t) || t < nowMs || t > cutoff) continue;
+    if (Number.isNaN(t) || t < nowMs || t > cutoffFor(milestone)) continue;
 
     let label: string | undefined;
     if (milestone === 'boosting' && typeof source.ads_budget === 'number' && source.ads_budget > 0) {
