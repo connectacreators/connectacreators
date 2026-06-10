@@ -107,10 +107,14 @@ export default function FootagePanel({
 
     // Fetch proxy status for every source path in this folder in one query.
     const sourcePaths = fileObjects.map(f => `${prefix}${f.name}`);
-    const { data: proxies } = await supabase
+    const { data: proxies, error: proxyErr } = await supabase
       .from('footage_proxies')
       .select('source_path, proxy_bucket, proxy_path, status')
       .in('source_path', sourcePaths);
+    // Degrades gracefully: on error (e.g. table not yet provisioned), proxies is
+    // null and every file falls back to its original signed URL. Log so the
+    // missing-table case is visible during rollout instead of silently no-op.
+    if (proxyErr) console.warn('[FootagePanel] footage_proxies query failed:', proxyErr.message);
     const proxyBySource = new Map(
       (proxies ?? []).map((p: any) => [p.source_path, p])
     );
