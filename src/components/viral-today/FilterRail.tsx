@@ -271,10 +271,33 @@ export function FilterRail(props: FilterRailProps) {
             <RailDropdown ariaLabel="Platform" value={draft.platform} onChange={(v) => setDraft({ ...draft, platform: v })} options={props.platformOptions} />
           </Field>
           <Field label="Outlier score">
-            <RailDropdown ariaLabel="Outlier score" value={draft.outlier} onChange={(v) => setDraft({ ...draft, outlier: v })} options={props.outlierOptions} />
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                inputMode="decimal"
+                aria-label="Minimum outlier score"
+                value={draft.outlier === "0" ? "" : draft.outlier}
+                onChange={(e) => setDraft({ ...draft, outlier: e.target.value === "" ? "0" : e.target.value })}
+                placeholder="Any — e.g. 5"
+                className={cn(selectClass, "pr-6")}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
+            </div>
           </Field>
-          <Field label="Views">
-            <RailDropdown ariaLabel="Views" value={draft.views} onChange={(v) => setDraft({ ...draft, views: v })} options={props.viewsOptions} />
+          <Field label="Views (minimum)">
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              inputMode="numeric"
+              aria-label="Minimum views"
+              value={draft.views === "0" ? "" : draft.views}
+              onChange={(e) => setDraft({ ...draft, views: e.target.value === "" ? "0" : e.target.value })}
+              placeholder="Any — e.g. 100000"
+              className={selectClass}
+            />
           </Field>
           <Field label="Engagement">
             <RailDropdown ariaLabel="Engagement" value={draft.engagement} onChange={(v) => setDraft({ ...draft, engagement: v })} options={props.engagementOptions} />
