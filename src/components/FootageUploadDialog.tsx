@@ -72,11 +72,8 @@ export default function FootageUploadDialog({
     e.stopPropagation();
     dropzoneRef.current?.classList.remove('border-primary', 'bg-primary/5');
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('video/')) {
-      setSelectedFile(file);
-    } else {
-      toast.error('Please drop a video file');
-    }
+    // Any file type is accepted — the footage bucket has no MIME restriction.
+    if (file) setSelectedFile(file);
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +217,7 @@ export default function FootageUploadDialog({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="video/*"
+                    accept="*"
                     className="hidden"
                     onChange={handleFileSelect}
                   />
@@ -233,7 +230,7 @@ export default function FootageUploadDialog({
                     onDrop={handleDrop}
                   >
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-sm font-medium">Drop video here or click to browse</p>
+                    <p className="text-sm font-medium">Drop any file here or click to browse</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Max 50 GB — files over 5 GB use resumable upload
                     </p>
