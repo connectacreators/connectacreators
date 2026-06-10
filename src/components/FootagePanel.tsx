@@ -34,7 +34,12 @@ function displayUrl(url: string, maxLen = 60): string {
   return url.slice(0, maxLen - 3) + '...';
 }
 
-interface StorageFile { name: string; signedUrl: string; }
+interface StorageFile {
+  name: string;
+  signedUrl: string;                 // ALWAYS the original — used for download/copy-link
+  previewUrl: string;                // proxy signed URL if ready, else the original
+  proxyStatus?: "queued" | "processing" | "done" | "error";
+}
 
 interface FootagePanelProps {
   open: boolean;
@@ -99,11 +104,36 @@ export default function FootagePanel({
     const { data, error } = await supabase.storage.from(BUCKET).list(prefix);
     if (error || !data?.length) { setFiles([]); setLoading(false); return; }
     const fileObjects = data.filter(f => f.name && !f.name.endsWith('/'));
+
+    // Fetch proxy status for every source path in this folder in one query.
+    const sourcePaths = fileObjects.map(f => `${prefix}${f.name}`);
+    const { data: proxies } = await supabase
+      .from('footage_proxies')
+      .select('source_path, proxy_bucket, proxy_path, status')
+      .in('source_path', sourcePaths);
+    const proxyBySource = new Map(
+      (proxies ?? []).map((p: any) => [p.source_path, p])
+    );
+
     const signed = await Promise.all(
       fileObjects.map(async (f) => {
-        const path = `${prefix}${f.name}`;
-        const { data: url } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
-        return url ? { name: f.name, signedUrl: url.signedUrl } : null;
+        const sourcePath = `${prefix}${f.name}`;
+        const { data: orig } = await supabase.storage.from(BUCKET).createSignedUrl(sourcePath, 3600);
+        if (!orig) return null;
+        const proxy = proxyBySource.get(sourcePath);
+        let previewUrl = orig.signedUrl;
+        if (proxy?.status === 'done' && proxy.proxy_path) {
+          const { data: purl } = await supabase.storage
+            .from(proxy.proxy_bucket || 'footage-proxies')
+            .createSignedUrl(proxy.proxy_path, 3600);
+          if (purl) previewUrl = purl.signedUrl;
+        }
+        return {
+          name: f.name,
+          signedUrl: orig.signedUrl,
+          previewUrl,
+          proxyStatus: proxy?.status as StorageFile['proxyStatus'],
+        };
       })
     );
     setFiles(signed.filter(Boolean) as StorageFile[]);
@@ -432,11 +462,16 @@ export default function FootagePanel({
                         style={{ maxWidth: aspect !== null && aspect < 1 ? `${Math.round(aspect * 560)}px` : '100%' }}
                       >
                         <ThemedVideoPlayer
-                          src={f.signedUrl}
+                          src={f.previewUrl}
                           maxHeight="400px"
                           onLoadedMetadata={(_dur, w, h) => { if (h > 0) setAspect(w / h); }}
                           onError={() => setVideoErrors(prev => new Set([...prev, f.name]))}
                         />
+                        {(f.proxyStatus === 'queued' || f.proxyStatus === 'processing') && (
+                          <div className="text-[11px] text-muted-foreground/70 mt-1 text-center">
+                            Optimizing for faster playback…
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="flex gap-2 px-3 py-2 border-t border-border/20">

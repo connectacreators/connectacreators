@@ -155,7 +155,7 @@ export default function ThemedVideoPlayer({
           onPause={() => { setPlaying(false); setBuffering(false); onPause?.(); }}
           onError={onError}
           autoPlay={autoPlay}
-          preload="none"
+          preload="metadata"
           playsInline
         />
 
