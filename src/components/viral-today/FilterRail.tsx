@@ -31,10 +31,14 @@ interface FilterRailProps {
   onChange: (next: FiltersPanelValue) => void;
   availableNiches: NicheOption[];
 
-  // Feed mode — global (all channels) vs the user's personal watchlist.
+  // Feed mode — global (all channels) vs one of the user's named watchlists.
   feedMode: "global" | "watchlist";
   onFeedModeChange: (m: "global" | "watchlist") => void;
-  watchlistCount: number;
+  watchlistCount: number; // channels in the active list selection
+  watchlists: { id: string; name: string; count: number }[];
+  activeWatchlistId: string; // "all" | listId
+  onActiveWatchlistChange: (id: string) => void;
+  onCreateList: (name: string) => Promise<string | null>;
   onManageChannels?: () => void;
 
   dateOptions: Opt[];
@@ -56,6 +60,8 @@ const selectClass =
 export function FilterRail(props: FilterRailProps) {
   const [draft, setDraft] = useState<FiltersPanelValue>(props.value);
   const [showAllNiches, setShowAllNiches] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [creatingList, setCreatingList] = useState(false);
   useEffect(() => { setDraft(props.value); }, [props.value]);
 
   const activeCount = (() => {
@@ -112,12 +118,58 @@ export function FilterRail(props: FilterRailProps) {
               </button>
             ))}
           </div>
-          {props.feedMode === "watchlist" && props.watchlistCount === 0 && (
-            <p className="text-[10px] text-muted-foreground mt-1.5 px-1 leading-snug">
-              Your watchlist is empty.{" "}
-              {props.onManageChannels && (
-                <button onClick={props.onManageChannels} className="text-primary hover:underline">Add channels</button>
+          {/* List selector — only in watchlist mode */}
+          {props.feedMode === "watchlist" && (
+            <div className="mt-1.5 space-y-1.5">
+              <select
+                value={props.activeWatchlistId}
+                onChange={(e) => props.onActiveWatchlistChange(e.target.value)}
+                className="w-full h-7 px-2 bg-input border border-border rounded-md text-[11px] font-medium text-foreground focus:outline-none focus:border-primary/50"
+              >
+                <option value="all">All watchlists{props.watchlistCount > 0 ? ` (${props.watchlistCount})` : ""}</option>
+                {props.watchlists.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name} ({w.count})</option>
+                ))}
+              </select>
+              {creatingList ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter" && newListName.trim()) {
+                        const id = await props.onCreateList(newListName);
+                        if (id) { props.onActiveWatchlistChange(id); setNewListName(""); setCreatingList(false); }
+                      }
+                      if (e.key === "Escape") { setCreatingList(false); setNewListName(""); }
+                    }}
+                    placeholder="List name…"
+                    className="flex-1 h-7 px-2 bg-input border border-border rounded-md text-[11px] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newListName.trim()) return;
+                      const id = await props.onCreateList(newListName);
+                      if (id) { props.onActiveWatchlistChange(id); setNewListName(""); setCreatingList(false); }
+                    }}
+                    className="text-[10px] px-2 h-7 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Add
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setCreatingList(true)} className="text-[10px] text-primary hover:underline px-1">＋ New list</button>
               )}
+            </div>
+          )}
+          {props.feedMode === "watchlist" && props.watchlists.length === 0 && !creatingList && (
+            <p className="text-[10px] text-muted-foreground mt-1.5 px-1 leading-snug">
+              No watchlists yet — create one above, then star channels{" "}
+              {props.onManageChannels && (
+                <button onClick={props.onManageChannels} className="text-primary hover:underline">in Channels</button>
+              )}
+              .
             </p>
           )}
           {props.onManageChannels && (props.feedMode === "global" || props.watchlistCount > 0) && (
