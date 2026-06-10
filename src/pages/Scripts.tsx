@@ -8,6 +8,7 @@ import {
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
+  Music, File,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -3364,7 +3365,20 @@ export default function Scripts() {
               const isGDrive = (url: string | null) => !!url && url.includes('drive.google.com');
               const baseName = (path: string | null) => path ? path.split('/').pop() ?? path : '';
               const IMAGE_EXTS = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.avif', '.heic', '.heif', '.bmp', '.svg'];
-              const isImageName = (name: string) => { const l = name.toLowerCase(); return IMAGE_EXTS.some(ext => l.endsWith(ext)); };
+              const AUDIO_EXTS = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.oga', '.opus', '.aiff', '.aif', '.wma'];
+              const VIDEO_EXTS = ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v', '.mpg', '.mpeg', '.wmv', '.flv', '.3gp', '.ts', '.mts', '.m2ts'];
+              const ARCHIVE_EXTS = ['.zip', '.rar', '.7z', '.tar', '.gz', '.tgz'];
+              const DOC_EXTS = ['.pdf', '.doc', '.docx', '.txt', '.rtf', '.pages', '.odt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.key', '.md', '.srt', '.vtt'];
+              // Classify an uploaded file by extension for its at-a-glance card.
+              const fileCardKind = (name: string): 'image' | 'audio' | 'video' | 'archive' | 'doc' | 'other' => {
+                const l = name.toLowerCase();
+                if (IMAGE_EXTS.some(ext => l.endsWith(ext))) return 'image';
+                if (AUDIO_EXTS.some(ext => l.endsWith(ext))) return 'audio';
+                if (VIDEO_EXTS.some(ext => l.endsWith(ext))) return 'video';
+                if (ARCHIVE_EXTS.some(ext => l.endsWith(ext))) return 'archive';
+                if (DOC_EXTS.some(ext => l.endsWith(ext))) return 'doc';
+                return 'other';
+              };
 
               const createVideoEdit = async (_subfolder: 'footage' | 'submission') => {
                 if (!selectedClient || !viewingScriptId) return;
@@ -3400,7 +3414,18 @@ export default function Scripts() {
                 setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
               };
 
-              const FootageCard = ({ url, kind, fileName, fileSize, accentColor, onView, onRemove }: { url: string; kind: 'video' | 'image' | 'link'; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => (
+              const FootageCard = ({ url, kind, fileName, fileSize, accentColor, onView, onRemove }: { url: string; kind: 'video' | 'image' | 'audio' | 'archive' | 'doc' | 'other' | 'link'; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => {
+                const KIND_LABEL: Record<string, string> = { video: 'Video', image: 'Image', audio: 'Audio', archive: 'Archive', doc: 'Document', other: 'File', link: 'Link' };
+                const KIND_BADGE: Record<string, string> = {
+                  video: 'bg-green-500/15 text-green-400',
+                  image: 'bg-sky-500/15 text-sky-400',
+                  audio: 'bg-purple-500/15 text-purple-400',
+                  archive: 'bg-amber-500/15 text-amber-400',
+                  doc: 'bg-orange-500/15 text-orange-400',
+                  other: 'bg-muted text-muted-foreground',
+                  link: 'bg-primary/15 text-primary',
+                };
+                return (
                 <div
                   className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2.5 cursor-pointer hover:border-border/80 transition-colors group"
                   onClick={() => { if (kind === 'link' && url.startsWith('http')) { window.open(url, '_blank', 'noopener,noreferrer'); } else { onView(); } }}
@@ -3415,6 +3440,14 @@ export default function Scripts() {
                       </>
                     ) : kind === 'image' ? (
                       <img src={url} alt={fileName} loading="lazy" className="w-full h-full object-cover" />
+                    ) : kind === 'audio' ? (
+                      <Music className="w-4 h-4 text-purple-400/80" />
+                    ) : kind === 'archive' ? (
+                      <Archive className="w-4 h-4 text-amber-400/80" />
+                    ) : kind === 'doc' ? (
+                      <FileText className="w-4 h-4 text-orange-400/80" />
+                    ) : kind === 'other' ? (
+                      <File className="w-4 h-4 text-muted-foreground/80" />
                     ) : (
                       <Link2 className="w-4 h-4 text-blue-400/70" />
                     )}
@@ -3422,8 +3455,8 @@ export default function Scripts() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${kind === 'video' ? 'bg-green-500/15 text-green-400' : kind === 'image' ? 'bg-sky-500/15 text-sky-400' : 'bg-primary/15 text-primary'}`}>
-                        {kind === 'video' ? 'Video' : kind === 'image' ? 'Image' : 'Link'}
+                      <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${KIND_BADGE[kind]}`}>
+                        {KIND_LABEL[kind]}
                       </span>
                       {fileSize && <span className="text-[10px] text-muted-foreground">{fileSize}</span>}
                     </div>
@@ -3450,7 +3483,8 @@ export default function Scripts() {
                     </button>
                   </div>
                 </div>
-              );
+                );
+              };
 
               return (<>
               <div className="mt-6 pt-4 border-t border-[hsl(var(--bone) / 0.14)] p-4 rounded-2xl bg-[hsl(var(--graphite))]">
@@ -3465,7 +3499,7 @@ export default function Scripts() {
                       <FootageCard
                         key={f.path}
                         url={f.signedUrl}
-                        kind={isImageName(f.name) ? 'image' : 'video'}
+                        kind={fileCardKind(f.name)}
                         fileName={f.name}
                         fileSize=""
                         accentColor="green"
@@ -3528,7 +3562,7 @@ export default function Scripts() {
                       <FootageCard
                         key={f.path}
                         url={f.signedUrl}
-                        kind={isImageName(f.name) ? 'image' : 'video'}
+                        kind={fileCardKind(f.name)}
                         fileName={f.name}
                         fileSize=""
                         accentColor="cyan"
