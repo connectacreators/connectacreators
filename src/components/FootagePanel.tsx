@@ -194,7 +194,7 @@ export default function FootagePanel({
       toast.error(`${file.name}: File too large (max 50 GB)`);
       return;
     }
-    const uploadId = `${videoEditId}-${Date.now()}`;
+    const uploadId = `${videoEditId}-${crypto.randomUUID()}`;
     uploadStore.add(uploadId, file.name, window.location.pathname);
     videoUploadService.uploadVideoFile(file, clientId, videoEditId,
       (pct) => uploadStore.update(uploadId, pct),

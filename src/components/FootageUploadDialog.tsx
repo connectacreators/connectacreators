@@ -92,7 +92,7 @@ export default function FootageUploadDialog({
       return;
     }
 
-    const uploadId = `${videoEditId}-${Date.now()}`;
+    const uploadId = `${videoEditId}-${crypto.randomUUID()}`;
     uploadStore.add(uploadId, selectedFile.name, window.location.pathname);
 
     // Close dialog immediately — upload continues in background
