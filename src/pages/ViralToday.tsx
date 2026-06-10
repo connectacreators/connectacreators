@@ -913,8 +913,9 @@ interface ChannelRowProps {
   scrapeDisabledReason?: string;
   inWatchlist?: boolean;
   onToggleWatchlist?: (id: string) => void;
+  isQueued?: boolean;
 }
-function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason, inWatchlist, onToggleWatchlist }: ChannelRowProps) {
+function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason, inWatchlist, onToggleWatchlist, isQueued }: ChannelRowProps) {
   const PlatformIcon = PLATFORM_ICON[channel.platform] ?? Instagram;
   const status = channel.scrape_status;
 
@@ -964,25 +965,31 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDis
 
       {/* Status */}
       <div className="flex items-center gap-1.5 w-20 justify-center">
+        {isQueued && status !== "running" && (
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            Queued…
+          </span>
+        )}
         {status === "running" && (
           <span className="flex items-center gap-1 text-[10px] text-amber-400">
             <Loader2 className="w-3 h-3 animate-spin" />
             Scraping…
           </span>
         )}
-        {status === "done" && (
+        {status === "done" && !isQueued && (
           <span className="flex items-center gap-1 text-[10px] text-emerald-400">
             <CheckCircle2 className="w-3 h-3" />
             Done
           </span>
         )}
-        {status === "error" && (
+        {status === "error" && !isQueued && (
           <span className="flex items-center gap-1 text-[10px] text-red-400" title={channel.scrape_error ?? ""}>
             <AlertCircle className="w-3 h-3" />
             Error
           </span>
         )}
-        {status === "idle" && (
+        {status === "idle" && !isQueued && (
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <Clock className="w-3 h-3" />
             Idle
@@ -1204,6 +1211,14 @@ export default function ViralToday() {
   const [addingChannel, setAddingChannel] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<"instagram" | "tiktok" | "youtube">("instagram");
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
+
+  // Sequential scrape queue — the VPS scrapes one profile at a time, so added
+  // channels are processed one-by-one in the background. The Add button frees up
+  // immediately after each insert; queued cards show "Queued…", the active one
+  // shows "Scraping…". scrapeQueueRef holds pending jobs; queuedIds drives the badge.
+  const scrapeQueueRef = useRef<{ channelId: string; username: string; platform: string }[]>([]);
+  const processingQueueRef = useRef(false);
+  const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set());
 
   // Batch selection
   const [selectedVideos, setSelectedVideos] = useState<Map<string, ViralVideo>>(new Map());
@@ -1603,6 +1618,90 @@ export default function ViralToday() {
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
+  // Drain the scrape queue one job at a time. The VPS only scrapes one profile
+  // at a time (concurrent calls return server_busy), so jobs run sequentially.
+  // On server_busy we wait and retry the SAME job rather than dropping it.
+  const processScrapeQueue = useCallback(async () => {
+    if (processingQueueRef.current) return;
+    processingQueueRef.current = true;
+    try {
+      while (scrapeQueueRef.current.length > 0) {
+        const job = scrapeQueueRef.current[0];
+
+        // Move this job from "Queued…" → "Scraping…"
+        setQueuedIds((prev) => { const next = new Set(prev); next.delete(job.channelId); return next; });
+        await supabase
+          .from("viral_channels")
+          .update({ scrape_status: "running", scrape_error: null })
+          .eq("id", job.channelId);
+        setChannels((prev) =>
+          prev.map((c) => (c.id === job.channelId ? { ...c, scrape_status: "running" } : c)),
+        );
+
+        // Run the scrape, auto-retrying while the VPS is busy.
+        let settled = false;
+        while (!settled) {
+          let result: any = null;
+          let invokeError: any = null;
+          try {
+            const resp = await supabase.functions.invoke("scrape-channel", {
+              body: { channelId: job.channelId, username: job.username, platform: job.platform },
+            });
+            result = resp.data;
+            invokeError = resp.error;
+          } catch (e) {
+            invokeError = e;
+          }
+
+          if (result?.server_busy) {
+            // VPS busy — keep the job queued and retry shortly.
+            await new Promise((r) => setTimeout(r, 8_000));
+            continue;
+          }
+
+          if (invokeError) {
+            toast.error(`@${job.username} scrape failed`);
+            await supabase
+              .from("viral_channels")
+              .update({ scrape_status: "error", scrape_error: invokeError.message ?? "scrape failed" })
+              .eq("id", job.channelId);
+          } else if (result?.status === "done") {
+            toast.success(`@${job.username} scraped — ${result.videosStored ?? 0} videos added`);
+          } else {
+            toast.info(`Scraping @${job.username}… check back in a moment`);
+          }
+
+          // Increment scrape usage for non-admin (admins/videographers exempt).
+          if (!invokeError && !isAdmin && !isVideographer && credits?.id) {
+            await supabase
+              .from("clients")
+              .update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 })
+              .eq("id", credits.id);
+            refetchCredits();
+          }
+          settled = true;
+        }
+
+        // Done with this job — drop it and refresh from the server.
+        scrapeQueueRef.current = scrapeQueueRef.current.slice(1);
+        await fetchChannels();
+        fetchVideos();
+      }
+    } finally {
+      processingQueueRef.current = false;
+    }
+  }, [isAdmin, isVideographer, credits, refetchCredits, fetchChannels, fetchVideos]);
+
+  // Add a channel to the scrape queue and kick off the processor (non-blocking).
+  const enqueueScrape = useCallback(
+    (job: { channelId: string; username: string; platform: string }) => {
+      scrapeQueueRef.current = [...scrapeQueueRef.current, job];
+      setQueuedIds((prev) => new Set(prev).add(job.channelId));
+      void processScrapeQueue();
+    },
+    [processScrapeQueue],
+  );
+
   const handleAddChannel = async () => {
     const detected = detectPlatformAndUsername(newUsername);
     const hasUrlPattern = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(newUsername.trim());
@@ -1619,7 +1718,10 @@ export default function ViralToday() {
       return;
     }
 
+    // Only block the button for the brief insert — NOT for the scrape itself,
+    // so users can queue up several channels in a row.
     setAddingChannel(true);
+    let channelId: string;
     try {
       // Create or fetch existing channel
       const { data: existing } = await supabase
@@ -1628,8 +1730,6 @@ export default function ViralToday() {
         .eq("platform", platform)
         .eq("username", username)
         .maybeSingle();
-
-      let channelId: string;
 
       if (existing) {
         channelId = existing.id;
@@ -1646,43 +1746,15 @@ export default function ViralToday() {
 
       setNewUsername("");
       await fetchChannels();
-
-      // Trigger scrape
-      const { data: scrapeResult, error: scrapeError } = await supabase.functions.invoke(
-        "scrape-channel",
-        { body: { channelId, username, platform } }
-      );
-
-      if (scrapeError) throw scrapeError;
-
-      if (scrapeResult?.server_busy) {
-        toast.warning("Server busy — please try again in ~30 seconds");
-        fetchChannels();
-        return;
-      }
-
-      if (scrapeResult?.status === "done") {
-        toast.success(`@${username} scraped — ${scrapeResult.videosStored ?? 0} videos added`);
-        fetchVideos();
-        fetchChannels();
-        // Increment scrape usage for non-admin
-        if (!isAdmin && !isVideographer && credits?.id) {
-          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
-          refetchCredits();
-        }
-      } else {
-        toast.info(`Scraping @${username}… check back in a moment`);
-        fetchChannels();
-        if (!isAdmin && !isVideographer && credits?.id) {
-          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
-          refetchCredits();
-        }
-      }
     } catch (e: any) {
       toast.error(e.message || "Error adding channel");
+      return;
     } finally {
       setAddingChannel(false);
     }
+
+    // Hand off to the sequential background queue; button is already free.
+    enqueueScrape({ channelId, username, platform });
   };
 
   const handleScrape = async (ch: ViralChannel) => {
@@ -2610,6 +2682,7 @@ export default function ViralToday() {
                                       scrapeDisabledReason={scrapeDisabledReason}
                                       inWatchlist={watchlistIds.includes(ch.id)}
                                       onToggleWatchlist={toggleWatchlist}
+                                      isQueued={queuedIds.has(ch.id)}
                                     />
                                   ))}
                                 </div>
