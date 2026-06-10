@@ -48,6 +48,11 @@ export async function reclaimOrphanedJobs(client: SupabaseClient, staleMs = 60_0
     .update({ status: "queued", claimed_at: null, progress: 0 })
     .eq("status", "running")
     .lt("claimed_at", cutoff);
+  await client
+    .from("footage_proxies")
+    .update({ status: "queued", claimed_at: null })
+    .eq("status", "processing")
+    .lt("claimed_at", cutoff);
 }
 
 // Claim the oldest queued job atomically. Returns null if nothing to do.
@@ -251,6 +256,62 @@ export async function markAudioImportError(client: SupabaseClient, id: string, m
     .update({
       status: "error",
       error_message: message.slice(0, 2000),
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+}
+
+// ---- Footage proxy jobs ----
+
+export type ProxyJobRow = {
+  id: string;
+  source_bucket: string;
+  source_path: string;
+  proxy_bucket: string;
+  status: "queued" | "processing" | "done" | "error";
+};
+
+export async function claimNextProxyJob(client: SupabaseClient): Promise<ProxyJobRow | null> {
+  const { data: candidate } = await client
+    .from("footage_proxies")
+    .select("id")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!candidate) return null;
+
+  const { data: claimed, error } = await client
+    .from("footage_proxies")
+    .update({ status: "processing", claimed_at: new Date().toISOString() })
+    .eq("id", candidate.id)
+    .eq("status", "queued")
+    .select("id, source_bucket, source_path, proxy_bucket, status")
+    .maybeSingle();
+  if (error) throw error;
+  return (claimed as ProxyJobRow | null) ?? null;
+}
+
+export async function markProxyDone(client: SupabaseClient, id: string, proxyPath: string) {
+  await client
+    .from("footage_proxies")
+    .update({ status: "done", proxy_path: proxyPath, finished_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+export async function markProxyError(client: SupabaseClient, id: string, message: string) {
+  const { data: row } = await client
+    .from("footage_proxies")
+    .select("attempts")
+    .eq("id", id)
+    .maybeSingle();
+  const attempts = ((row as { attempts: number } | null)?.attempts ?? 0) + 1;
+  await client
+    .from("footage_proxies")
+    .update({
+      status: "error",
+      error: message.slice(0, 2000),
+      attempts,
       finished_at: new Date().toISOString(),
     })
     .eq("id", id);
