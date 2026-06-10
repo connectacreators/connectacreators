@@ -334,9 +334,12 @@ export default function EditingQueue() {
 
       const mappedVideos: EditingQueueItem[] = (data || []).map((v: any) => ({
         id: v.id,
-        title: v.reel_title && v.reel_title !== "Sin titulo" && v.reel_title !== "Sin título"
-          ? v.reel_title
-          : (v.scripts?.idea_ganadora || v.scripts?.title || v.reel_title || "Untitled"),
+        // Prefer the live script title (matches the Scripts page) over the
+        // denormalized reel_title snapshot, which can drift. reel_title is only
+        // a fallback for rows with no linked script.
+        title: v.scripts?.idea_ganadora || v.scripts?.title
+          || (v.reel_title && v.reel_title !== "Sin titulo" && v.reel_title !== "Sin título" ? v.reel_title : null)
+          || "Untitled",
         status: v.status || "Not started",
         statusColor: "",
         fileSubmissionUrl: v.file_submission,
@@ -716,9 +719,15 @@ export default function EditingQueue() {
   const handleSaveTitle = async () => {
     if (!editingTitle) return;
     const newTitle = editingTitle.value.trim() || "Untitled";
+    const item = items.find((i) => i.id === editingTitle.itemId);
     try {
       const { error } = await supabase.from("video_edits").update({ reel_title: newTitle }).eq("id", editingTitle.itemId);
       if (error) throw error;
+      // Keep the linked script in sync so the Scripts page and editing queue
+      // always show the same title (mirrors MasterEditingQueue behavior).
+      if (item?.script_id) {
+        await supabase.from("scripts").update({ title: newTitle, idea_ganadora: newTitle }).eq("id", item.script_id);
+      }
       setItems((prev) => prev.map((i) => i.id === editingTitle.itemId ? { ...i, title: newTitle } : i));
       setEditingTitle(null);
     } catch {

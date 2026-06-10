@@ -281,7 +281,7 @@ export default function MasterEditingQueue() {
 
       const { data: dbVideos, error: dbErr } = await supabase
         .from("video_edits")
-        .select("id, reel_title, status, post_status, lifecycle_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, deadline, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name)")
+        .select("id, reel_title, status, post_status, lifecycle_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, deadline, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name), scripts(title, idea_ganadora)")
         .in("client_id", clientIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -290,7 +290,9 @@ export default function MasterEditingQueue() {
 
       const allItems: EditingQueueItem[] = (dbVideos || []).map((v: any) => ({
         id: v.id,
-        title: v.reel_title || "Untitled",
+        // Prefer the live script title (matches the Scripts page); reel_title is
+        // a denormalized snapshot that can drift, so use it only as a fallback.
+        title: v.scripts?.idea_ganadora || v.scripts?.title || v.reel_title || "Untitled",
         status: v.status || "Not started",
         statusColor: "",
         fileSubmissionUrl: v.file_submission,
