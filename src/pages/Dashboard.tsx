@@ -38,6 +38,9 @@ import { useTriageClients } from "@/hooks/useTriageClients";
 import { useTriageRows } from "@/hooks/useTriageRows";
 import { useClientProfilePics } from "@/hooks/useClientProfilePics";
 import { TriageClientBlock } from "@/components/dashboard/TriageClientBlock";
+import { buildAgenda } from "@/lib/triage/buildAgenda";
+import { AgendaLane } from "@/components/dashboard/AgendaLane";
+import { MasterViewToggle, useMasterView } from "@/components/dashboard/MasterViewToggle";
 
 interface Client {
   id: string;
@@ -313,6 +316,11 @@ function AdminTriageView({ firstName }: { firstName: string }) {
   const clientIds = useMemo(() => triageClients.map((c) => c.id), [triageClients]);
   const { data: rowsByClient, loading: rowsLoading } = useTriageRows(clientIds);
   const profilePics = useClientProfilePics(clientIds);
+  const [view, setView] = useMasterView();
+  const agenda = useMemo(
+    () => buildAgenda(triageClients, rowsByClient),
+    [triageClients, rowsByClient],
+  );
 
   const blocks = useMemo(() => {
     const list = triageClients
@@ -355,14 +363,18 @@ function AdminTriageView({ firstName }: { firstName: string }) {
 
   return (
     <div
-      className="min-h-screen relative"
+      className="relative"
       style={{
+        minHeight: "100%",
         background:
           "radial-gradient(1100px 600px at 50% -200px, rgba(197,136,47,0.12), hsl(var(--bone) / 0) 60%), hsl(var(--cream))",
         padding: "40px 28px 64px",
       }}
     >
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <MasterViewToggle view={view} onChange={setView} />
+        </div>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <motion.p
@@ -476,6 +488,12 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               Take a breath, or get ahead on next week's content.
             </p>
           </motion.div>
+        ) : view === "tasks" ? (
+          <div>
+            {agenda.map((lane) => (
+              <AgendaLane key={lane.key} lane={lane} picByClient={profilePics} />
+            ))}
+          </div>
         ) : (
           <div>
             {blocks.map((b, idx) => (
