@@ -12,6 +12,9 @@ import { promises as fs } from "node:fs";
 import {
   claimNextJob,
   claimNextTranscribeJob,
+  claimNextProxyJob,
+  markProxyDone,
+  markProxyError,
   getVideoEditStoragePath,
   makeClient,
   markDone,
@@ -25,12 +28,14 @@ import {
   updateTranscribeProgress,
   type RenderJobRow,
   type TranscribeJobRow,
+  type ProxyJobRow,
 } from "./db.js";
 // Audio-import jobs are now handled synchronously inside the
 // `import-audio-from-url` edge function via the VPS yt-dlp service —
 // the worker no longer participates in that flow.
 import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
+import { proxyPathFor, runProxy } from "./proxy.js";
 import { runRender, totalOutputDurationMs, type BRollInput } from "./render.js";
 import { detectSilences, extractAudio, transcribeWithWhisper } from "./transcribe.js";
 import { writeAssFile, type Caption, type TextOverlay } from "./captions.js";
@@ -39,6 +44,7 @@ const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 4000);
 const WORK_DIR = process.env.WORK_DIR ?? "/tmp/connecta-renders";
 const SOURCE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? "footage";
 const OUT_BUCKET = process.env.SUPABASE_OUTPUT_BUCKET ?? "footage";
+const PROXY_BUCKET = process.env.SUPABASE_PROXY_BUCKET ?? "footage-proxies";
 const SILENCE_NOISE_DB = Number(process.env.SILENCE_NOISE_DB ?? -30);
 const SILENCE_MIN_MS = Number(process.env.SILENCE_MIN_MS ?? 400);
 
@@ -158,6 +164,22 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
   await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
 }
 
+async function processProxyJob(client: ReturnType<typeof makeClient>, job: ProxyJobRow) {
+  const workDir = path.join(WORK_DIR, `proxy-${job.id}`);
+  const input = path.join(workDir, "input" + path.extname(job.source_path));
+  const output = path.join(workDir, "output.mp4");
+  await fs.mkdir(workDir, { recursive: true });
+  try {
+    await downloadToFile(client, job.source_bucket, job.source_path, input);
+    await runProxy(input, output);
+    const proxyPath = proxyPathFor(job.source_path);
+    await uploadFile(client, PROXY_BUCKET, proxyPath, output, "video/mp4");
+    await markProxyDone(client, job.id, proxyPath);
+  } finally {
+    await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function tick(client: ReturnType<typeof makeClient>) {
   await reclaimOrphanedJobs(client).catch((e) => {
     console.error("[render-worker] orphan reclaim failed", e);
@@ -185,6 +207,17 @@ async function tick(client: ReturnType<typeof makeClient>) {
       const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
       console.error(`[render-worker] transcribe ${tj.id} failed:`, msg);
       await markTranscribeError(client, tj.id, msg);
+    }
+  }
+
+  const pj = await claimNextProxyJob(client);
+  if (pj) {
+    try {
+      await processProxyJob(client, pj);
+    } catch (err) {
+      const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+      console.error(`[render-worker] proxy ${pj.id} failed:`, msg);
+      await markProxyError(client, pj.id, msg);
     }
   }
 }
