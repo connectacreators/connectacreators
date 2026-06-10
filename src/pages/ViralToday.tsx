@@ -1351,9 +1351,18 @@ function visualBreakdownForCsv(meta: any): string {
     .join("\n");
 }
 
+// Persisted filter state — restores the user's last-used filters across sessions
+// instead of resetting to hardcoded defaults each visit. Reset still clears to
+// FILTER_DEFAULTS.
+const VT_FILTERS_KEY = "vt_filters";
+function readSavedFilters(): Record<string, any> {
+  try { return JSON.parse(localStorage.getItem(VT_FILTERS_KEY) || "{}") || {}; } catch { return {}; }
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ViralToday() {
+  const savedFilters = readSavedFilters();
   const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
   const { credits, refetch: refetchCredits } = useCredits();
   const navigate = useNavigate();
@@ -1381,24 +1390,35 @@ export default function ViralToday() {
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
 
-  // Filters
+  // Filters — initialized from the user's last saved session (localStorage).
   const [search, setSearch] = useState("");
-  const [filterDate, setFilterDate] = useState("12months");
-  const [filterPlatform, setFilterPlatform] = useState("all");
-  const [filterOutlier, setFilterOutlier] = useState("5");
-  const [filterViews, setFilterViews] = useState("100000");
-  const [filterEngagement, setFilterEngagement] = useState("0");
+  const [filterDate, setFilterDate] = useState<string>(savedFilters.date ?? "12months");
+  const [filterPlatform, setFilterPlatform] = useState<string>(savedFilters.platform ?? "all");
+  const [filterOutlier, setFilterOutlier] = useState<string>(savedFilters.outlier ?? "5");
+  const [filterViews, setFilterViews] = useState<string>(savedFilters.views ?? "100000");
+  const [filterEngagement, setFilterEngagement] = useState<string>(savedFilters.engagement ?? "0");
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [filterSource, setFilterSource] = useState("all"); // "all" | "channels" | "discovered"
-  const [filterSort, setFilterSort] = useState("recent");
-  const [showOnlyFeatured, setShowOnlyFeatured] = useState(false);
+  const [filterSource, setFilterSource] = useState<string>(savedFilters.source ?? "all"); // "all" | "channels" | "discovered"
+  const [filterSort, setFilterSort] = useState<string>(savedFilters.sort ?? "recent");
+  const [showOnlyFeatured, setShowOnlyFeatured] = useState<boolean>(savedFilters.featuredOnly ?? false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const videosPerPage = 100;
 
   // Format tab + niche filters
-  const [activeFormat, setActiveFormat] = useState<ContentFormat | "all">("all");
-  const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+  const [activeFormat, setActiveFormat] = useState<ContentFormat | "all">(savedFilters.activeFormat ?? "all");
+  const [selectedNiches, setSelectedNiches] = useState<string[]>(savedFilters.niches ?? []);
+
+  // Persist filters so the next visit restores the user's last-used settings.
+  useEffect(() => {
+    try {
+      localStorage.setItem(VT_FILTERS_KEY, JSON.stringify({
+        date: filterDate, platform: filterPlatform, outlier: filterOutlier, views: filterViews,
+        engagement: filterEngagement, source: filterSource, sort: filterSort,
+        featuredOnly: showOnlyFeatured, activeFormat, niches: selectedNiches,
+      }));
+    } catch { /* ignore quota/availability errors */ }
+  }, [filterDate, filterPlatform, filterOutlier, filterViews, filterEngagement, filterSource, filterSort, showOnlyFeatured, activeFormat, selectedNiches]);
 
   // ── Watchlists — per-user NAMED lists of channels that can drive the feed ────
   // membersByList: listId -> channelIds. activeWatchlistId selects which list
