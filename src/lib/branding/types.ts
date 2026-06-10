@@ -29,7 +29,11 @@ export interface UserBranding {
 
 export const EDITORIAL_DEFAULT: UserBranding = {
   palette: 'editorial',
-  fontPairing: 'editorial',
+  // Default type is Modern Sans for every account (clients, editors, team
+  // members, Connecta Plus). The Editorial palette is still the default look;
+  // only the font pairing defaults to the cleaner all-Inter set. Users who
+  // have explicitly saved a font keep their choice (DB row overrides this).
+  fontPairing: 'modern',
   logoUrl: null,
   logoAlt: null,
 };
