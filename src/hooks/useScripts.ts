@@ -36,6 +36,7 @@ export type Script = {
   revision_notes?: string | null;
   caption?: string | null;
   folder_id?: string | null;
+  sort_order?: number;
 };
 
 export type ScriptMetadata = {
@@ -143,6 +144,9 @@ export function useScripts() {
       .eq("client_id", clientId)
       .is("deleted_at", null)
       .neq("status", "draft")
+      // Manual drag order first; created_at breaks ties and keeps new/unordered
+      // scripts (sort_order default 0) at the top.
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
     if (error) {
       console.error(error);
@@ -834,6 +838,38 @@ export function useScripts() {
     return true;
   };
 
+  // Persist a manual drag order for a *view* (the unfiled list, or one folder).
+  // `orderedViewIds` is the new order of the scripts visible in that view.
+  // Optimistically reorders only those scripts within the full array (other
+  // views untouched) and writes sort_order = index for each.
+  const persistScriptOrder = async (orderedViewIds: string[]) => {
+    if (orderedViewIds.length === 0) return true;
+    setScripts((prev) => {
+      const byId = new Map(prev.map((s) => [s.id, s]));
+      const viewSet = new Set(orderedViewIds);
+      let k = 0;
+      return prev.map((s) => {
+        if (!viewSet.has(s.id)) return s;
+        const id = orderedViewIds[k];
+        const moved = byId.get(id);
+        k += 1;
+        return moved ? { ...moved, sort_order: k - 1 } : s;
+      });
+    });
+    const results = await Promise.all(
+      orderedViewIds.map((id, i) =>
+        supabase.from("scripts").update({ sort_order: i }).eq("id", id)
+      )
+    );
+    const failed = results.find((r) => r.error);
+    if (failed?.error) {
+      console.error(failed.error);
+      toast.error("Couldn't save the new order");
+      return false;
+    }
+    return true;
+  };
+
   const bulkDelete = async (scriptIds: string[]) => {
     const now = new Date().toISOString();
     const { error } = await supabase.from("scripts").update({ deleted_at: now }).in("id", scriptIds);
@@ -862,6 +898,7 @@ export function useScripts() {
     toggleGrabado,
     bulkToggleGrabado,
     bulkDelete,
+    persistScriptOrder,
     updateScriptLine,
     deleteScriptLine,
     updateScriptLineType,

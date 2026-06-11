@@ -32,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, useDraggable, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
@@ -44,6 +44,7 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { synthesizeBlocksFromLines, withUids } from "@/lib/scriptBlocks";
+import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 
 // Droppable folder card for drag-to-folder
@@ -87,11 +88,19 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-// Draggable wrapper for script rows
-function DraggableScript({ id, children }: { id: string; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+// Sortable wrapper for script rows: makes each card both draggable (onto folders)
+// and a drop target for reordering within the current view. The live reorder
+// preview comes from SortableContext; the committed order is set on drag end.
+function SortableScript({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 180ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+    opacity: isDragging ? 0.4 : 1,
+    cursor: "grab",
+  };
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       {children}
     </div>
   );
@@ -402,7 +411,7 @@ export default function Scripts() {
   const {
     scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, directSave, getScriptLines, getScriptBlocks, saveScriptBlocks, deleteScript, restoreScript, permanentlyDeleteScript,
-    updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete,
+    updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete, persistScriptOrder,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
     updateReviewStatus,
   } = useScripts();
@@ -981,19 +990,42 @@ export default function Scripts() {
 
   const handleListDragEnd = useCallback(async (event: DragEndEvent) => {
     setDraggingScriptId(null);
-    const { over } = event;
+    const { active, over } = event;
     if (!over) return;
-    const folderId = String(over.id);
-    // Check it's a folder drop target (prefixed with folder-)
-    if (!folderId.startsWith("folder-")) return;
-    const actualFolderId = folderId.replace("folder-", "");
+    const overId = String(over.id);
     const ids = Array.from(selectedScriptIds);
     if (ids.length === 0) return;
-    await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: actualFolderId }).eq("id", id)));
-    if (selectedClient) fetchScriptsByClient(selectedClient.id);
-    toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} moved to folder`);
+
+    // ── Drop onto a folder chip → move into that folder (unchanged behavior) ──
+    if (overId.startsWith("folder-")) {
+      const actualFolderId = overId.replace("folder-", "");
+      await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: actualFolderId }).eq("id", id)));
+      if (selectedClient) fetchScriptsByClient(selectedClient.id);
+      toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} moved to folder`);
+      exitSelectMode();
+      return;
+    }
+
+    // ── Drop onto another script → reorder within the current view ──
+    if (overId === String(active.id)) return; // dropped in place
+    // Recompute the visible (filtered) order — same predicate as the render below.
+    const viewIds = scripts
+      .filter((s) => {
+        const inFolder = viewingFolderId !== null
+          ? s.folder_id === viewingFolderId
+          : (s.folder_id === null || s.folder_id === undefined);
+        if (!inFolder) return false;
+        if (grabadoFilter === "grabado" && !s.grabado) return false;
+        if (grabadoFilter === "no-grabado" && s.grabado) return false;
+        if (reviewFilter === "needs_review" && s.review_status === "approved") return false;
+        return true;
+      })
+      .map((s) => s.id);
+    if (!viewIds.includes(overId)) return; // dropped outside the reorderable list
+    const newOrder = computeReorder(viewIds, ids, overId);
+    await persistScriptOrder(newOrder);
     exitSelectMode();
-  }, [selectedScriptIds, selectedClient, exitSelectMode]);
+  }, [selectedScriptIds, selectedClient, exitSelectMode, scripts, viewingFolderId, grabadoFilter, reviewFilter, persistScriptOrder]);
 
   // Undo/Redo helper
   const pushUndo = useCallback(() => {
@@ -2414,7 +2446,7 @@ export default function Scripts() {
                     </div>
                   )}
 
-                  <DndContext sensors={listSensors} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
+                  <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
                   {/* ── Folder grid (shown at root and inside folders when subfolders exist) ── */}
                   {(childFolders.length > 0 || creatingFolder) && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
@@ -2507,9 +2539,11 @@ export default function Scripts() {
                       {viewingFolderId !== null ? "No scripts in this folder yet." : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
                     </p>
                   ) : (
-                    <div className="grid gap-3">
-                      {filtered.map((s) => <DraggableScript key={s.id} id={s.id}><ScriptCard s={s} /></DraggableScript>)}
-                    </div>
+                    <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
+                      <div className="grid gap-3">
+                        {filtered.map((s) => <SortableScript key={s.id} id={s.id}><ScriptCard s={s} /></SortableScript>)}
+                      </div>
+                    </SortableContext>
                   )}
 
                   {/* Drag overlay ghost */}
