@@ -11,6 +11,13 @@ interface InspirationVideoEmbedProps {
   url: string;
 }
 
+const VPS_API = "https://connectacreators.com/api";
+
+/** Cobalt-backed VPS proxy that streams the raw reel bytes (no permanent
+ *  download) — the same path Viral Today uses for un-cached videos. */
+const streamReelUrl = (originalUrl: string) =>
+  `${VPS_API}/stream-reel?url=${encodeURIComponent(originalUrl)}&nocache=1`;
+
 type LookupState =
   | { status: "loading" }
   | { status: "playable"; videoFileUrl: string }
@@ -114,32 +121,12 @@ function InspirationIframeFallback({ url, language }: { url: string; language: "
       </div>
     );
   }
-  const tiktokMatch = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
-  if (tiktokMatch) {
-    return (
-      <div className="flex justify-center">
-        <iframe
-          src={`https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`}
-          allow="encrypted-media"
-          allowFullScreen
-          style={{ width: "325px", height: "578px", border: "none" }}
-          title="Inspiration video"
-        />
-      </div>
-    );
-  }
-  const igMatch = url.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/);
-  if (igMatch) {
-    return (
-      <div className="flex justify-center">
-        <iframe
-          src={`https://www.instagram.com/p/${igMatch[1]}/embed`}
-          allowFullScreen
-          style={{ width: "400px", height: "500px", border: "none" }}
-          title="Inspiration video"
-        />
-      </div>
-    );
+  // TikTok / Instagram / Facebook: their embeds only render a dead preview
+  // whose play button deep-links out to the platform. Stream the real video
+  // inline through the VPS proxy instead — same UX as Viral Today, no download.
+  const isProxyable = /tiktok\.com\/@[^/]+\/video\/\d+|instagram\.com\/(?:reel|p)\/[\w-]+|(?:fb\.watch|facebook\.com)\//.test(url);
+  if (isProxyable) {
+    return <InspirationProxyPlayer url={url} language={language} />;
   }
   return (
     <div className="text-center py-8">
@@ -156,6 +143,26 @@ function InspirationIframeFallback({ url, language }: { url: string; language: "
       >
         <ExternalLink className="w-4 h-4" /> {tr({ en: "Open video", es: "Abrir video" }, language)}
       </Button>
+    </div>
+  );
+}
+
+/** Streams an un-cached reel through the VPS Cobalt proxy into the native
+ *  player. Shows an "Open original" escape hatch below for the rare case the
+ *  proxy can't resolve the source (private / age-gated). */
+function InspirationProxyPlayer({ url, language }: { url: string; language: "en" | "es" }) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <ViralVideoPlayer src={null} fallbackProxyUrl={streamReelUrl(url)} aspectRatio="auto" />
+      </div>
+      <button
+        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+      >
+        <ExternalLink className="w-3 h-3" />
+        {tr({ en: "Open original", es: "Abrir original" }, language)}
+      </button>
     </div>
   );
 }
