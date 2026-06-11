@@ -20,6 +20,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 import { FilterRail } from "@/components/viral-today/FilterRail";
+import BulkAnalyzeModal from "@/components/viral-today/BulkAnalyzeModal";
 import { type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
 import { type ContentFormat, nicheLabel } from "@/lib/video-taxonomy";
 import {
@@ -1566,6 +1567,9 @@ export default function ViralToday() {
   // CSV export (admin)
   const [exporting, setExporting] = useState(false);
 
+  // Bulk analyze (filtered view)
+  const [bulkOpen, setBulkOpen] = useState(false);
+
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
   const [addingChannel, setAddingChannel] = useState(false);
@@ -2407,6 +2411,16 @@ export default function ViralToday() {
     (currentPage + 1) * videosPerPage
   );
 
+  // ── Bulk analyze: eligible = not yet analyzed and not in flight ─────────────
+  const bulkEligibleCount = Math.min(
+    filteredVideos.filter(
+      (v) => v.analysis_status !== "analyzed" && v.analysis_status !== "analyzing",
+    ).length,
+    100,
+  );
+  const isFreeAnalyze = isAdmin || isVideographer;
+  const spendBalance = (credits?.credits_balance ?? 0) + (credits?.topup_credits_balance ?? 0);
+
   // ── Export current filtered videos (up to 100) to CSV (admin only) ──────────
   const handleExportCsv = async () => {
     const rows = filteredVideos.slice(0, 100);
@@ -2601,6 +2615,21 @@ export default function ViralToday() {
 
               {/* Language toggle + View toggle */}
               <div className="flex items-center gap-2">
+                {view === "videos" && (
+                  <button
+                    onClick={() => setBulkOpen(true)}
+                    disabled={bulkEligibleCount === 0}
+                    title={
+                      bulkEligibleCount === 0
+                        ? "All filtered videos are already analyzed"
+                        : `Analyze the ${bulkEligibleCount} un-analyzed video${bulkEligibleCount === 1 ? "" : "s"} in the current filtered view`
+                    }
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/90 border border-primary text-primary-foreground hover:bg-primary transition-all disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {bulkEligibleCount > 0 ? `Analyze ${bulkEligibleCount}` : "Analyze"}
+                  </button>
+                )}
                 {isAdmin && view === "videos" && (
                   <button
                     onClick={handleExportCsv}
@@ -3231,6 +3260,16 @@ export default function ViralToday() {
           />
         )}
       </Suspense>
+
+      {bulkOpen && (
+        <BulkAnalyzeModal
+          videos={filteredVideos}
+          isFree={isFreeAnalyze}
+          balance={spendBalance}
+          onClose={() => setBulkOpen(false)}
+          onDone={() => fetchVideos()}
+        />
+      )}
       </PageTransition>
   );
 }
