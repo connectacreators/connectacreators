@@ -226,6 +226,17 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
   for (const line of lines) {
     const trimmed = line.trim();
 
+    // Fenced code delimiter (``` or ```lang): the model sometimes wraps a whole
+    // script in a code fence. We have no block-code rendering, and the inner
+    // lines already render correctly as paragraphs — so drop the delimiter line
+    // instead of letting renderInline turn it into a stray honey inline-code
+    // border (the "yellow line" above/below answers).
+    if (/^`{3,}[\w-]*$/.test(trimmed)) {
+      flushBullets();
+      i++;
+      continue;
+    }
+
     // Heading: # or ##
     if (/^#{1,3}\s/.test(trimmed)) {
       flushBullets();
