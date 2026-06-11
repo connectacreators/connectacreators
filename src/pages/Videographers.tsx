@@ -85,6 +85,7 @@ export default function Videographers() {
     created_at: string;
   } | null>(null);
   const [lastTempPassword, setLastTempPassword] = useState<string | null>(null);
+  const [pendingRole, setPendingRole] = useState<MemberRole | null>(null);
 
   const fetchMembers = useCallback(async () => {
     if (!user || !isAdmin) return;
@@ -240,6 +241,7 @@ export default function Videographers() {
     setManageLoading(true);
     setManageUserData(null);
     setLastTempPassword(null);
+    setPendingRole(null);
     try {
       const session = (await supabase.auth.getSession()).data.session;
       const res = await fetch(
@@ -321,6 +323,32 @@ export default function Videographers() {
       toast.success("All sessions revoked");
     } catch (e: any) {
       toast.error(e.message || "Failed to force logout");
+    } finally {
+      setManageActionLoading(null);
+    }
+  };
+
+  const handleChangeRole = async () => {
+    if (!manageMemberId || !manageMember || !pendingRole || pendingRole === manageMember.role) return;
+    setManageActionLoading("change_role");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-videographer", {
+        body: { _action: "manage", action: "change_role", user_id: manageMemberId, new_role: pendingRole },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        language === "en"
+          ? `Account type changed to ${ROLE_LABELS[pendingRole]}`
+          : `Tipo de cuenta cambiado a ${ROLE_LABELS[pendingRole]}`
+      );
+     
+      setPendingRole(null);
+      await fetchMembers();
+      setManageMemberId(null);
+      setManageUserData(null);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to change account type");
     } finally {
       setManageActionLoading(null);
     }
@@ -602,7 +630,7 @@ export default function Videographers() {
       </Dialog>
 
       {/* Manage Credentials Modal */}
-      <Dialog open={!!manageMemberId} onOpenChange={(open) => { if (!open) { setManageMemberId(null); setManageUserData(null); } }}>
+      <Dialog open={!!manageMemberId} onOpenChange={(open) => { if (!open) { setManageMemberId(null); setManageUserData(null); setPendingRole(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -712,6 +740,70 @@ export default function Videographers() {
                   </p>
                 </div>
               )}
+
+              {/* Account Type */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {language === "en" ? "Account Type" : "Tipo de Cuenta"}
+                </h4>
+                <Select
+                  value={pendingRole ?? manageMember.role}
+                  onValueChange={(v) => { setPendingRole(v as MemberRole); }}
+                  disabled={manageActionLoading === "change_role"}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="videographer">{ROLE_LABELS.videographer}</SelectItem>
+                    <SelectItem value="editor">{ROLE_LABELS.editor}</SelectItem>
+                    <SelectItem value="connecta_plus">{ROLE_LABELS.connecta_plus}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {pendingRole && pendingRole !== manageMember.role && (
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {manageMember.role === "connecta_plus" ? (
+                        language === "en"
+                          ? `Change from Connecta+ to ${ROLE_LABELS[pendingRole]}. Their content is preserved and this is reversible by switching back to Connecta+.`
+                          : `Cambiar de Connecta+ a ${ROLE_LABELS[pendingRole]}. Su contenido se conserva y es reversible volviendo a Connecta+.`
+                      ) : pendingRole === "connecta_plus" ? (
+                        language === "en"
+                          ? `Promote to Connecta+. This gives them a full Connecta+ client account.`
+                          : `Promover a Connecta+. Esto les otorga una cuenta de cliente Connecta+ completa.`
+                      ) : (
+                        language === "en"
+                          ? `Change account type from ${ROLE_LABELS[manageMember.role]} to ${ROLE_LABELS[pendingRole]}.`
+                          : `Cambiar tipo de cuenta de ${ROLE_LABELS[manageMember.role]} a ${ROLE_LABELS[pendingRole]}.`
+                      )}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={handleChangeRole}
+                        disabled={manageActionLoading === "change_role"}
+                      >
+                        {manageActionLoading === "change_role" ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        {language === "en" ? "Confirm Change" : "Confirmar Cambio"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setPendingRole(null); }}
+                        disabled={manageActionLoading === "change_role"}
+                      >
+                        {language === "en" ? "Cancel" : "Cancelar"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Actions */}
               <div className="space-y-2">

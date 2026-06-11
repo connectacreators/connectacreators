@@ -112,6 +112,69 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      if (action === "change_role") {
+        const { new_role } = body;
+        const teamRoles = ["videographer", "editor", "connecta_plus"];
+        if (!teamRoles.includes(new_role)) {
+          return new Response(JSON.stringify({ error: "Invalid role. Must be: videographer, editor, or connecta_plus" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        // Determine current team role (admin/other roles are left untouched)
+        const { data: roleRows } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user_id)
+          .in("role", teamRoles);
+        const currentRole = roleRows?.[0]?.role ?? null;
+
+        if (currentRole === new_role) {
+          return new Response(JSON.stringify({ success: true, unchanged: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        // Swap the team role: remove existing team-role rows, insert the new one
+        await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id).in("role", teamRoles);
+        const { error: roleErr } = await supabaseAdmin.from("user_roles").insert({ user_id, role: new_role });
+        if (roleErr) return new Response(JSON.stringify({ error: roleErr.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        // Client record transition — NEVER delete (cascades destroy all content).
+        if (new_role === "connecta_plus") {
+          // Reactivate an existing (possibly deactivated) client row, or create one.
+          const { data: userData } = await supabaseAdmin.auth.admin.getUserById(user_id);
+          const email = userData?.user?.email ?? null;
+          const fullName = userData?.user?.user_metadata?.full_name ?? email;
+
+          const { data: existingClient } = await supabaseAdmin
+            .from("clients")
+            .select("id")
+            .eq("user_id", user_id)
+            .maybeSingle();
+
+          if (existingClient) {
+            await supabaseAdmin.from("clients").update({
+              plan_type: "enterprise",
+              subscription_status: "active",
+              full_name: fullName,
+            }).eq("user_id", user_id);
+          } else {
+            await supabaseAdmin.from("clients").insert({
+              user_id,
+              full_name: fullName,
+              email,
+              plan_type: "enterprise",
+              subscription_status: "active",
+            });
+          }
+        } else if (currentRole === "connecta_plus") {
+          // Leaving Connecta+: preserve & deactivate. Do NOT delete the client row.
+          await supabaseAdmin.from("clients")
+            .update({ subscription_status: "inactive" })
+            .eq("user_id", user_id);
+        }
+        // Videographer <-> Editor: no client changes.
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       // Legacy: password-only update (no action field)
       if (body.password) {
         const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password: body.password });
