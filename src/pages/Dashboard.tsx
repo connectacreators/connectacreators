@@ -259,7 +259,7 @@ export default function Dashboard() {
   // ───────────────────────────────────────────────────────────────
   if (activeClient) {
     return (
-      <div className="min-h-screen" style={{ background: "hsl(var(--cream))", padding: "22px 28px" }}>
+      <div className="min-h-screen" style={{ flexShrink: 0, background: "hsl(var(--cream))", padding: "22px 28px" }}>
         <ActiveClientBreadcrumb clientName={activeClient.name} />
         <h1
           style={{
@@ -365,6 +365,11 @@ function AdminTriageView({ firstName }: { firstName: string }) {
     <div
       className="relative"
       style={{
+        // flexShrink:0 stops the parent flex column (the DashboardLayout
+        // scroll container) from clamping this cream layer to one viewport.
+        // Without it, content taller than the viewport overflows below the
+        // background and the dark app-shell bg-background bleeds through.
+        flexShrink: 0,
         minHeight: "100%",
         background:
           "radial-gradient(1100px 600px at 50% -200px, rgba(197,136,47,0.12), hsl(var(--bone) / 0) 60%), hsl(var(--cream))",
