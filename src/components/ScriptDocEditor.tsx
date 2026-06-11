@@ -23,12 +23,11 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ScriptLine } from "@/hooks/useScripts";
 import { stripHtml } from "@/utils/stripHtml";
-import { newBlockUid, defaultSectionLabel } from "@/lib/scriptBlocks";
+import { newBlockUid, defaultSectionLabel, reorderBlocksOnDrag } from "@/lib/scriptBlocks";
 import { TYPE_TEXT_CLASS, TYPE_BAR_CLASS } from "@/lib/scriptLineTypes";
 import { UndoHistory } from "@/lib/undoHistory";
 
@@ -836,68 +835,24 @@ export default function ScriptDocEditor({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const activeId = String(active.id);
-    const overId = String(over.id);
 
-    const fromIdx = blocks.findIndex((b) => b.uid === activeId);
-    const overIdx = blocks.findIndex((b) => b.uid === overId);
-    if (fromIdx === -1 || overIdx === -1) return;
+    // Did the dragged row come to rest on the LOWER half of the target row?
+    // Compare the dragged element's final (translated) center against the target's
+    // center. This drives before/after placement for section (heading) moves so a
+    // section lands where it was dropped instead of snapping to the section top.
+    const activeRect = active.rect.current.translated;
+    const overRect = over.rect;
+    const dropIsBelow =
+      activeRect && overRect
+        ? activeRect.top + activeRect.height / 2 > overRect.top + overRect.height / 2
+        // Fallback (no rects): treat a later target index as "below".
+        : blocks.findIndex((b) => b.uid === String(active.id)) <
+          blocks.findIndex((b) => b.uid === String(over.id));
+
+    const next = reorderBlocksOnDrag(blocks, String(active.id), String(over.id), dropIsBelow);
+    if (!next) return;
     snapshot();
-
-    const dragged = blocks[fromIdx];
-
-    // --- Content-line move: simple arrayMove within the stream. ---
-    if (dragged.block_kind !== "heading") {
-      onBlocksChange(arrayMove(blocks, fromIdx, overIdx));
-      return;
-    }
-
-    // --- Heading (group) move: relocate the heading + its lines as a unit. ---
-    // Compute the dragged heading's slice [fromIdx, sliceEnd).
-    let sliceEnd = blocks.length;
-    for (let i = fromIdx + 1; i < blocks.length; i++) {
-      if (blocks[i].block_kind === "heading") { sliceEnd = i; break; }
-    }
-    const groupSize = sliceEnd - fromIdx;
-    const groupSlice = blocks.slice(fromIdx, sliceEnd);
-
-    // Remove the group, then find the drop target's GROUP BOUNDARY (the start of
-    // the section the drop landed in) so we never split a section's lines.
-    const remaining = [...blocks.slice(0, fromIdx), ...blocks.slice(sliceEnd)];
-
-    // Locate the drop target in `remaining`, then walk back to its heading.
-    const overUid = overId;
-    const targetIdx = remaining.findIndex((b) => b.uid === overUid);
-    if (targetIdx === -1) {
-      // Target was inside the moved group (shouldn't happen) — append at end.
-      onBlocksChange([...remaining, ...groupSlice]);
-      return;
-    }
-    // Snap to the start of the target's section (its nearest heading at/above).
-    let boundary = targetIdx;
-    for (let i = targetIdx; i >= 0; i--) {
-      if (remaining[i].block_kind === "heading") { boundary = i; break; }
-      if (i === 0) boundary = 0;
-    }
-    // If dragging downward past the original position, dropping onto a later
-    // section should place the group AFTER that whole section, matching the
-    // visual drop. Determine direction relative to original index.
-    let insertAt = boundary;
-    if (fromIdx < overIdx) {
-      // Moving down: insert after the target section (before its next heading).
-      let secEnd = remaining.length;
-      for (let i = boundary + 1; i < remaining.length; i++) {
-        if (remaining[i].block_kind === "heading") { secEnd = i; break; }
-      }
-      insertAt = secEnd;
-    }
-    const next = [
-      ...remaining.slice(0, insertAt),
-      ...groupSlice,
-      ...remaining.slice(insertAt),
-    ];
-    // Sanity: only commit if length preserved.
-    if (next.length === blocks.length && groupSize > 0) onBlocksChange(next);
+    onBlocksChange(next);
   }, [blocks, onBlocksChange, snapshot]);
 
   // -------------------------------------------------------------------------
