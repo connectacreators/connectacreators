@@ -26,7 +26,11 @@ async function cacheThumbnail(cdnUrl: string, key: string): Promise<string | nul
 
 function shouldCacheThumbnail(url: string | null): boolean {
   if (!url) return false;
-  return /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent|tiktokcdn\.com/.test(url);
+  // NOTE: TikTok serves thumbnails from regional hosts like `tiktokcdn-us.com`
+  // (and `-eu`, etc.) and `tiktokv.com`, not bare `tiktokcdn.com`. Match the
+  // `tiktokcdn` stem (any region) so signed TikTok URLs get self-hosted before
+  // their `x-expires` passes — otherwise the card goes black on expiry.
+  return /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent|tiktokcdn|tiktokv\.com/.test(url);
 }
 
 // ── YouTube view count parser (kept for safety — VPS returns numeric) ────────

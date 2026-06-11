@@ -41,11 +41,20 @@ function isTikTokExpired(url: string | null): boolean {
   return exp * 1000 < Date.now();
 }
 
+function isRawTikTok(url: string | null): boolean {
+  return !!url && /tiktokcdn|tiktokv\.com/i.test(url);
+}
+
+// A row "needs caching" if its thumbnail isn't already self-hosted and is
+// either a rotating IG/FB CDN URL, ANY raw TikTok URL (valid OR expired), or
+// null. Valid TikTok URLs are included on purpose: they still resolve right
+// now, so we can self-host them directly before x-expires kills them, instead
+// of waiting for them to break and hoping oEmbed can re-resolve them.
 function isStale(url: string | null): boolean {
   if (!url) return true;
   if (url.includes("connectacreators.com")) return false;
   if (/cdninstagram\.com|fbcdn\.net|scontent[-.]|instagram\.f[a-z]{3}/.test(url)) return true;
-  if (isTikTokExpired(url)) return true;
+  if (isRawTikTok(url)) return true;
   return false;
 }
 
@@ -114,6 +123,29 @@ serve(async (req) => {
   for (const row of targets) {
     if (dryRun) continue;
     try {
+      // Fast path — a still-valid raw TikTok URL resolves right now, so
+      // self-host it DIRECTLY without re-resolving via oEmbed (TikTok oEmbed
+      // is unreliable from server IPs). This is how the bulk of TikTok rows
+      // get fixed before they ever expire.
+      if (isRawTikTok(row.thumbnail_url) && !isTikTokExpired(row.thumbnail_url) && row.apify_video_id) {
+        const key = `${row.platform}_${row.apify_video_id}`;
+        const cached = await cacheToVPS(row.thumbnail_url!, key);
+        if (cached) {
+          const { error: updErr } = await admin
+            .from("viral_videos")
+            .update({ thumbnail_url: cached })
+            .eq("id", row.id);
+          if (updErr) {
+            failed++;
+            errors.push({ id: row.id, reason: `update ${updErr.message}` });
+          } else {
+            refreshed++;
+          }
+          continue;
+        }
+        // Direct cache failed (VPS hiccup) — fall through to re-resolve below.
+      }
+
       // Step 1 — re-resolve to a fresh CDN URL.
       const res = await fetch(`${supabaseUrl}/functions/v1/fetch-thumbnail`, {
         method: "POST",
