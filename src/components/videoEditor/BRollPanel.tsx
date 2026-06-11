@@ -1,10 +1,14 @@
 // src/components/videoEditor/BRollPanel.tsx
 // Right-panel "B-roll" tab. Upload a secondary video and place it on the
 // main timeline as either a full-screen cutaway or a picture-in-picture
-// box. The worker pulls the file at render time and composites it.
+// box. The worker pulls the file at render time and composites it. Images
+// are supported too — held as a still for IMAGE_DEFAULT_DURATION_MS.
 import { useRef, useState } from "react";
 import type { BRollClip } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
+
+// Default on-screen hold for a still-image b-roll (trimmable on the timeline).
+const IMAGE_DEFAULT_DURATION_MS = 5000;
 
 type Props = {
   brolls: BRollClip[];
@@ -44,7 +48,10 @@ export function BRollPanel(props: Props) {
     setError(null);
     setUploading(true);
     try {
-      const durationMs = await probeVideoDuration(file);
+      const isImage = file.type.startsWith("image/");
+      // Stills have no intrinsic duration — hold them for a default window the
+      // user can trim on the timeline. Videos are probed for real duration.
+      const durationMs = isImage ? IMAGE_DEFAULT_DURATION_MS : await probeVideoDuration(file);
       const safeName = file.name.replace(/[^\w.-]+/g, "-").slice(0, 80);
       const storagePath = `broll/${props.videoEditId}/${Date.now()}-${safeName}`;
       const { error: upErr } = await supabase.storage
@@ -53,6 +60,7 @@ export function BRollPanel(props: Props) {
       if (upErr) throw upErr;
       props.onAdd({
         id: crypto.randomUUID(),
+        kind: isImage ? "image" : "video",
         source_storage_path: storagePath,
         source_duration_ms: durationMs,
         trim_start_ms: 0,
@@ -82,7 +90,7 @@ export function BRollPanel(props: Props) {
           disabled={uploading}
           className="w-full px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white text-xs rounded disabled:opacity-50"
         >
-          {uploading ? "Uploading…" : "+ Add b-roll clip"}
+          {uploading ? "Uploading…" : "+ Add b-roll (video or image)"}
         </button>
         <p className="text-[9px] text-neutral-500">
           Drops at the current playhead. Fullscreen by default — switch to
@@ -95,7 +103,7 @@ export function BRollPanel(props: Props) {
       <input
         ref={fileRef}
         type="file"
-        accept="video/*"
+        accept="video/*,image/*"
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -106,7 +114,7 @@ export function BRollPanel(props: Props) {
 
       {sorted.length === 0 ? (
         <p className="text-center text-[11px] text-neutral-500 py-4">
-          No b-roll yet. Upload a video above.
+          No b-roll yet. Upload a video or image above.
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[calc(100vh-300px)] overflow-y-auto">

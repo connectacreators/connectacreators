@@ -65,17 +65,75 @@ export function BRollPreview({ brolls, playheadMs, playing, videoBox }: Props) {
 
   return (
     <>
-      {active.map((br) => (
-        <BRollVideo
-          key={br.id}
-          br={br}
-          src={urls[br.source_storage_path]}
-          playheadMs={playheadMs}
-          playing={playing}
-          videoBox={videoBox}
-        />
-      ))}
+      {active.map((br) =>
+        br.kind === "image" ? (
+          <BRollImage
+            key={br.id}
+            br={br}
+            src={urls[br.source_storage_path]}
+            videoBox={videoBox}
+          />
+        ) : (
+          <BRollVideo
+            key={br.id}
+            br={br}
+            src={urls[br.source_storage_path]}
+            playheadMs={playheadMs}
+            playing={playing}
+            videoBox={videoBox}
+          />
+        ),
+      )}
     </>
+  );
+}
+
+// Position of a b-roll clip within the picture box — shared by the video and
+// still-image renderers. Fullscreen covers the box; PIP is a smaller frame.
+function brollBoxStyle(br: BRollClip, videoBox: VideoBox): React.CSSProperties {
+  if (br.mode === "fullscreen") {
+    return {
+      left: videoBox.left,
+      top: videoBox.top,
+      width: videoBox.width,
+      height: videoBox.height,
+    };
+  }
+  const w = (br.position.width_pct / 100) * videoBox.width;
+  // Keep the aspect via auto height (we don't know the b-roll's natural dims
+  // at render time; let the element handle it via objectFit:contain).
+  const cx = videoBox.left + (br.position.x_pct / 100) * videoBox.width;
+  const cy = videoBox.top + (br.position.y_pct / 100) * videoBox.height;
+  return {
+    left: cx - w / 2,
+    top: cy - (w * 9 / 16) / 2, // approximate; libass-side picks real aspect
+    width: w,
+    height: "auto",
+  };
+}
+
+// Still image b-roll: no playhead sync, just held on screen for its window.
+function BRollImage({
+  br,
+  src,
+  videoBox,
+}: {
+  br: BRollClip;
+  src: string | undefined;
+  videoBox: VideoBox;
+}) {
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="absolute pointer-events-none object-cover"
+      style={{
+        ...brollBoxStyle(br, videoBox),
+        outline: br.mode === "pip" ? "1px solid rgba(255,255,255,0.4)" : undefined,
+        borderRadius: br.mode === "pip" ? 6 : 0,
+      }}
+    />
   );
 }
 
@@ -113,28 +171,7 @@ function BRollVideo({
 
   if (!src) return null;
 
-  // Fullscreen covers the picture box; PIP positions a smaller frame.
-  const style: React.CSSProperties = (() => {
-    if (br.mode === "fullscreen") {
-      return {
-        left: videoBox.left,
-        top: videoBox.top,
-        width: videoBox.width,
-        height: videoBox.height,
-      };
-    }
-    const w = (br.position.width_pct / 100) * videoBox.width;
-    // Keep the aspect via auto height (we don't know the b-roll's natural
-    // dims at render time; let the <video> handle it via objectFit:contain).
-    const cx = videoBox.left + (br.position.x_pct / 100) * videoBox.width;
-    const cy = videoBox.top + (br.position.y_pct / 100) * videoBox.height;
-    return {
-      left: cx - w / 2,
-      top: cy - (w * 9 / 16) / 2, // approximate; libass-side picks real aspect
-      width: w,
-      height: "auto",
-    };
-  })();
+  const style = brollBoxStyle(br, videoBox);
 
   return (
     <video

@@ -55,8 +55,12 @@ export type TextOverlay = {
 // Times are in OUTPUT time (after trim + reframe), not source time.
 export type BRollClip = {
   id: string;
+  // "video" (default) plays through its timeline; "image" is a still held for
+  // source_duration_ms. Absent = video, for backward compatibility with EDLs
+  // saved before image b-roll existed.
+  kind?: "video" | "image";
   source_storage_path: string;  // in the footage bucket
-  source_duration_ms: number;   // probed on upload so the worker can validate
+  source_duration_ms: number;   // probed on upload (video) or a fixed hold (image)
   trim_start_ms: number;        // start time within the b-roll source
   trim_end_ms: number;          // end time within the b-roll source
   output_start_ms: number;      // when in the main output the b-roll begins

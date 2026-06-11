@@ -27,6 +27,8 @@ export type AspectRatio = "source" | "9:16" | "1:1" | "16:9";
 // indexing — first b-roll is input #2 (if music exists it's #1).
 export type BRollInput = {
   id: string;
+  // "image" still inputs are looped for their window; absent/"video" stream.
+  kind?: "video" | "image";
   local_path: string;
   source_duration_ms: number;
   trim_start_ms: number;
@@ -129,11 +131,14 @@ export function buildTrimConcatArgs(
     const brollInputStart = hasMusic ? 2 : 1;
     brolls.forEach((br, i) => {
       const inputIdx = brollInputStart + i;
-      const trimSec = (br.trim_start_ms / 1000).toFixed(3);
-      const trimEnd = (br.trim_end_ms / 1000).toFixed(3);
+      const windowMs = br.trim_end_ms - br.trim_start_ms;
+      // Image inputs are looped to exactly `windowMs` (via -t below), so their
+      // stream spans 0..windowMs — trim from 0, not from the source trim_start.
+      const trimSec = (br.kind === "image" ? 0 : br.trim_start_ms / 1000).toFixed(3);
+      const trimEnd = (br.kind === "image" ? windowMs / 1000 : br.trim_end_ms / 1000).toFixed(3);
       const startSec = (br.output_start_ms / 1000).toFixed(3);
-      const durSec = ((br.trim_end_ms - br.trim_start_ms) / 1000).toFixed(3);
-      const endSec = ((br.output_start_ms + (br.trim_end_ms - br.trim_start_ms)) / 1000).toFixed(3);
+      const durSec = (windowMs / 1000).toFixed(3);
+      const endSec = ((br.output_start_ms + windowMs) / 1000).toFixed(3);
 
       // Trim + reset timestamps; shift PTS to the output start so overlay
       // can synchronize. For fullscreen, scale to target dims (covers full
@@ -202,10 +207,21 @@ export function buildTrimConcatArgs(
 
   const fc = `${trims};${concatFilter}${reframeFilter}${brollFilter}${captionFilter}${musicFilter}`;
 
-  // Inputs: source video first, optional music second, then b-rolls.
+  // Inputs: source video first, optional music second, then b-rolls. Each
+  // b-roll is still exactly one input (the index math above relies on that).
+  // Image b-rolls have no intrinsic duration, so we loop the still and cap it
+  // with -t to the clip's window, turning it into a finite video stream the
+  // overlay filter can composite just like a video b-roll.
   const inputArgs: string[] = ["-i", input];
   if (hasMusic) inputArgs.push("-i", options.musicPath as string);
-  for (const br of brolls) inputArgs.push("-i", br.local_path);
+  for (const br of brolls) {
+    if (br.kind === "image") {
+      const holdSec = ((br.trim_end_ms - br.trim_start_ms) / 1000).toFixed(3);
+      inputArgs.push("-loop", "1", "-t", holdSec, "-i", br.local_path);
+    } else {
+      inputArgs.push("-i", br.local_path);
+    }
+  }
 
   return [
     "-y",

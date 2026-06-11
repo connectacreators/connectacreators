@@ -84,6 +84,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   // Download each b-roll clip locally; the filter graph needs file paths.
   type BRollEdl = {
     id: string;
+    kind?: "video" | "image";
     source_storage_path: string;
     source_duration_ms: number;
     trim_start_ms: number;
@@ -101,6 +102,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     await downloadToFile(client, SOURCE_BUCKET, br.source_storage_path, localPath);
     brolls.push({
       id: br.id,
+      kind: br.kind,
       local_path: localPath,
       source_duration_ms: br.source_duration_ms,
       trim_start_ms: br.trim_start_ms,
