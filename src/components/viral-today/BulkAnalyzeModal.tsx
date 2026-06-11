@@ -143,15 +143,14 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
               {phase === "done" ? "Bulk analyze complete" : "Bulk analyze filtered videos"}
             </h2>
           </div>
-          {phase !== "running" && (
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close"
+            title={phase === "running" ? "Close — analyses keep running in the background" : "Close"}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="px-5 py-4">
@@ -276,11 +275,11 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Analyses run in the background — each card updates itself as it finishes. You can
-                stop dispatching new ones below.
+                You can close this window — analyses keep running in the background, and each card
+                updates itself as it finishes. Or stop dispatching any that haven't started yet.
               </p>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -288,7 +287,10 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                     cancelRef.current = true;
                   }}
                 >
-                  Stop
+                  Stop dispatching
+                </Button>
+                <Button size="sm" onClick={onClose}>
+                  Close — keep running
                 </Button>
               </div>
             </div>
