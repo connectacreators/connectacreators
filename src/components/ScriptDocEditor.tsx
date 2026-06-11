@@ -30,6 +30,7 @@ import type { ScriptLine } from "@/hooks/useScripts";
 import { stripHtml } from "@/utils/stripHtml";
 import { newBlockUid, defaultSectionLabel } from "@/lib/scriptBlocks";
 import { TYPE_TEXT_CLASS, TYPE_BAR_CLASS } from "@/lib/scriptLineTypes";
+import { UndoHistory } from "@/lib/undoHistory";
 
 // Plain text → safe HTML, preserving newlines as <br> (used when splitting/merging
 // blocks so multi-line content keeps its line breaks).
@@ -505,6 +506,65 @@ export default function ScriptDocEditor({
   const editorMap = useRef<Map<string, Editor>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // ---- Document-level undo/redo for STRUCTURAL changes -------------------
+  // TipTap gives each line its own per-line text undo, but it knows nothing
+  // about line-level operations (add / delete / merge / reorder / type & section
+  // edits). Those flow through onBlocksChange and were previously unrecoverable —
+  // Cmd+Z would only undo the focused line's last text edit, never the deleted
+  // lines. This layer records a whole-document snapshot before each structural
+  // change. Cmd+Z is routed: granular in-line text first (TipTap), then falls
+  // through to restore structure once the focused line has no text history left.
+  const history = useRef(new UndoHistory<ScriptLine[]>(50));
+  // Always-current mirror of `blocks` so snapshot()/undo capture the latest state
+  // without re-creating callbacks (and the window keydown handler) on every edit.
+  const blocksRef = useRef(blocks);
+  useEffect(() => { blocksRef.current = blocks; }, [blocks]);
+
+  // Snapshot the current document immediately BEFORE a structural mutation.
+  const snapshot = useCallback(() => {
+    history.current.record(blocksRef.current.map((b) => ({ ...b })));
+  }, []);
+
+  // Keydown handler (capture phase, on the editor container). Runs before
+  // ProseMirror so it can decide whether to hand the event to TipTap's per-line
+  // history or consume it for a document-level structural undo/redo.
+  const handleUndoRedoKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key.toLowerCase() !== "z") return;
+
+      // Leave native undo alone for plain inputs (e.g. the heading-rename field).
+      const tag = (document.activeElement as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+
+      // The TipTap editor (if any) the caret is currently in.
+      let focused: Editor | null = null;
+      for (const ed of editorMap.current.values()) {
+        if (ed.isFocused) { focused = ed; break; }
+      }
+
+      const isRedo = e.shiftKey;
+      if (isRedo) {
+        // Granular in-line redo first; fall through to document-level redo.
+        if (focused && !focused.isDestroyed && focused.can().redo()) return;
+        const next = history.current.redo(blocksRef.current.map((b) => ({ ...b })));
+        if (next === null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onBlocksChange(next);
+      } else {
+        // Granular in-line undo first; fall through to document-level undo.
+        if (focused && !focused.isDestroyed && focused.can().undo()) return;
+        const prev = history.current.undo(blocksRef.current.map((b) => ({ ...b })));
+        if (prev === null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onBlocksChange(prev);
+      }
+    },
+    [onBlocksChange]
+  );
+
   // Drag sensors — same config family as Scripts.tsx (pointer w/ small distance, touch w/ delay).
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } });
@@ -563,6 +623,7 @@ export default function ScriptDocEditor({
   //  - NO trailing text (caret at end): just a fresh empty line below.
   // Functional update so it composes with any pending blur without clobbering it.
   const handleEnter = useCallback((uid: string, before: string, after: string) => {
+    snapshot();
     const trailing = after ?? "";
     const splitting = trailing.trim().length > 0;
     const newUid = newBlockUid();
@@ -604,7 +665,7 @@ export default function ScriptDocEditor({
         setActiveUid(newUid);
       }
     }, 80);
-  }, [onBlocksChange]);
+  }, [onBlocksChange, snapshot]);
 
   // Backspace at start of empty content line → delete it, focus the previous content line.
   const handleBackspaceEmpty = useCallback((uid: string) => {
@@ -612,6 +673,7 @@ export default function ScriptDocEditor({
     if (idx === -1) return;
     const contentCount = blocks.filter((b) => b.block_kind !== "heading").length;
     if (contentCount <= 1) return;
+    snapshot();
     const next = blocks.filter((b) => b.uid !== uid);
     onBlocksChange(next);
     // Focus the nearest preceding content line in the new list.
@@ -628,7 +690,7 @@ export default function ScriptDocEditor({
         }
       }
     }, 80);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // Backspace at the very start of a line → merge it up into the previous content
   // line (Google-Docs style). `text` is the current line's full text.
@@ -642,6 +704,7 @@ export default function ScriptDocEditor({
       if (blocks[i].block_kind !== "heading") { prevIdx = i; break; }
     }
     if (prevIdx === -1) return;
+    snapshot();
     const prevUid = blocks[prevIdx].uid as string;
     const prevEditor = editorMap.current.get(prevUid);
     const prevText = prevEditor && !prevEditor.isDestroyed
@@ -665,7 +728,7 @@ export default function ScriptDocEditor({
         setActiveUid(prevUid);
       }
     }, 30);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   const handleBarClick = useCallback((e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
@@ -674,19 +737,22 @@ export default function ScriptDocEditor({
   }, [activeUid]);
 
   const handleTypeChange = useCallback((uid: string, type: LineType) => {
+    snapshot();
     onBlocksChange(blocks.map((b) => (b.uid === uid ? { ...b, line_type: type } : b)));
     setPickerOpen(false);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   const handleRenameHeading = useCallback((uid: string, label: string) => {
+    snapshot();
     onBlocksChange(blocks.map((b) => (b.uid === uid ? { ...b, text: label, rich_text: label } : b)));
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // Delete a heading: its content lines are absorbed into the previous section (or
   // become body if it was the first block). Content lines are NEVER silently deleted.
   const handleDeleteHeading = useCallback((uid: string) => {
     const idx = blocks.findIndex((b) => b.uid === uid);
     if (idx === -1) return;
+    snapshot();
     // Find the role of the previous heading (above idx); fallback to 'body'.
     let prevRole: ScriptLine["section"] = "body";
     for (let i = idx - 1; i >= 0; i--) {
@@ -708,12 +774,13 @@ export default function ScriptDocEditor({
       blocks.slice(idx + 1, nextHeadingIdx).filter((b) => b.block_kind !== "heading").map((b) => b.uid)
     );
     onBlocksChange(next.map((b) => (orphanUids.has(b.uid) ? { ...b, section: prevRole } : b)));
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // Add a new content line into a section, just before the next heading (end of section).
   const handleAddLineToSection = useCallback((headingUid: string) => {
     const idx = blocks.findIndex((b) => b.uid === headingUid);
     if (idx === -1) return;
+    snapshot();
     let insertAt = blocks.length;
     for (let i = idx + 1; i < blocks.length; i++) {
       if (blocks[i].block_kind === "heading") { insertAt = i; break; }
@@ -733,10 +800,11 @@ export default function ScriptDocEditor({
       const newEditor = editorMap.current.get(newUid);
       if (newEditor) { newEditor.commands.focus("start"); setActiveUid(newUid); }
     }, 80);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // Add a brand-new custom section heading at the very end.
   const handleAddSection = useCallback(() => {
+    snapshot();
     const newUid = newBlockUid();
     const headingBlock: ScriptLine = {
       line_number: 0,
@@ -758,7 +826,7 @@ export default function ScriptDocEditor({
       uid: lineUid,
     };
     onBlocksChange([...blocks, headingBlock, lineBlock]);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // -------------------------------------------------------------------------
   // Drag to reorder. Content lines move individually (section re-derives on
@@ -774,6 +842,7 @@ export default function ScriptDocEditor({
     const fromIdx = blocks.findIndex((b) => b.uid === activeId);
     const overIdx = blocks.findIndex((b) => b.uid === overId);
     if (fromIdx === -1 || overIdx === -1) return;
+    snapshot();
 
     const dragged = blocks[fromIdx];
 
@@ -829,7 +898,7 @@ export default function ScriptDocEditor({
     ];
     // Sanity: only commit if length preserved.
     if (next.length === blocks.length && groupSize > 0) onBlocksChange(next);
-  }, [blocks, onBlocksChange]);
+  }, [blocks, onBlocksChange, snapshot]);
 
   // -------------------------------------------------------------------------
   // Slash menu. Opening is driven by per-line text updates: a lone "/" opens it;
@@ -876,6 +945,7 @@ export default function ScriptDocEditor({
 
   // Apply a slash action to the host line, clearing the "/" first.
   const applySlashAction = useCallback((uid: string, action: SlashAction) => {
+    snapshot();
     setSlashUid(null);
     const ed = editorMap.current.get(uid);
     if (ed) ed.commands.clearContent(); // remove the "/"
@@ -897,7 +967,7 @@ export default function ScriptDocEditor({
       // new-section: convert this line into an empty heading, focused for rename.
       convertLineToHeading(uid);
     }
-  }, [blocks, onBlocksChange, convertLineToHeading]);
+  }, [blocks, onBlocksChange, convertLineToHeading, snapshot]);
 
   const handleSlashConfirm = useCallback((uid: string) => {
     applySlashAction(uid, SLASH_ACTIONS[slashActive]);
@@ -908,9 +978,10 @@ export default function ScriptDocEditor({
   const handleHashSpace = useCallback((uid: string) => {
     const b = blocks.find((x) => x.uid === uid);
     if (!b || b.block_kind === "heading") return false;
+    snapshot();
     convertLineToHeading(uid);
     return true;
-  }, [blocks, convertLineToHeading]);
+  }, [blocks, convertLineToHeading, snapshot]);
 
   const activeEditor = useCallback(
     () => (activeUid !== null ? editorMap.current.get(activeUid) ?? null : null),
@@ -937,7 +1008,7 @@ export default function ScriptDocEditor({
   }
 
   return (
-    <div ref={containerRef} className="flex flex-col">
+    <div ref={containerRef} className="flex flex-col" onKeyDownCapture={handleUndoRedoKey}>
       {/* Print stylesheet */}
       <style>{`
         @media print {
