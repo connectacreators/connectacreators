@@ -2627,7 +2627,7 @@ export default function ViralToday() {
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/90 border border-primary text-primary-foreground hover:bg-primary transition-all disabled:opacity-50"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    {bulkEligibleCount > 0 ? `Analyze ${bulkEligibleCount}` : "Analyze"}
+                    Bulk analyze
                   </button>
                 )}
                 {isAdmin && view === "videos" && (

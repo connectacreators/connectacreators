@@ -40,14 +40,33 @@ function isEligible(v: BulkVideo): boolean {
 
 export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onDone }: Props) {
   const eligibleAll = useMemo(() => videos.filter(isEligible), [videos]);
-  const toRun = useMemo(() => eligibleAll.slice(0, MAX_BATCH), [eligibleAll]);
 
   const skippedDone = videos.length - eligibleAll.length;
+  // Most we can run this round: eligible count, hard-capped at 100.
+  const maxRun = Math.min(eligibleAll.length, MAX_BATCH);
   const droppedByCap = Math.max(0, eligibleAll.length - MAX_BATCH);
-  const runCount = toRun.length;
-  const cost = runCount * CREDIT_COST;
   const affordableCount = Math.floor(balance / CREDIT_COST);
+
+  // How many to analyze — typed by the user (not a dropdown).
+  const [countInput, setCountInput] = useState("");
+  const parsed = parseInt(countInput, 10);
+  const hasInput = countInput.trim() !== "";
+  const validNumber = hasInput && Number.isInteger(parsed) && parsed >= 1;
+  // Clamp the requested count to what's actually available.
+  const runCount = validNumber ? Math.min(parsed, maxRun) : 0;
+  const toRun = eligibleAll.slice(0, runCount);
+
+  const cost = runCount * CREDIT_COST;
   const canAfford = isFree || cost <= balance;
+
+  const inputError = !hasInput
+    ? null
+    : !Number.isInteger(parsed) || parsed < 1
+      ? "Enter a whole number of 1 or more"
+      : parsed > maxRun
+        ? `Only ${maxRun} available right now — will analyze ${maxRun}`
+        : null;
+  const inputBlocks = hasInput && !validNumber; // typed something invalid
 
   const [phase, setPhase] = useState<Phase>("confirm");
   const [progress, setProgress] = useState({ done: 0, queued: 0, skipped: 0, failed: 0 });
@@ -139,19 +158,43 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
           {/* ── Confirm ── */}
           {phase === "confirm" && (
             <div className="space-y-4">
-              {runCount === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing to analyze — every filtered video is already analyzed or in progress.
-                </p>
+              {maxRun === 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Nothing to analyze — every filtered video is already analyzed or in progress.
+                  </p>
+                  <div className="flex justify-end pt-1">
+                    <Button variant="ghost" size="sm" onClick={onClose}>
+                      Close
+                    </Button>
+                  </div>
+                </>
               ) : (
                 <>
-                  <p className="text-sm text-foreground">
-                    Analyze the{" "}
-                    <span className="font-semibold">{runCount}</span> eligible video
-                    {runCount === 1 ? "" : "s"} in your current filtered view, in the order shown.
-                  </p>
+                  <div className="space-y-1.5">
+                    <label htmlFor="bulk-count" className="text-sm font-medium text-foreground">
+                      How many videos do you want to analyze?
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Runs from the top of your current filtered view, in the order shown.
+                    </p>
+                    <input
+                      id="bulk-count"
+                      type="text"
+                      inputMode="numeric"
+                      autoFocus
+                      value={countInput}
+                      onChange={(e) => setCountInput(e.target.value.replace(/[^\d]/g, ""))}
+                      placeholder={`Up to ${maxRun}`}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
 
                   <ul className="space-y-1.5 text-xs text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                      {maxRun} un-analyzed video{maxRun === 1 ? "" : "s"} available
+                    </li>
                     {skippedDone > 0 && (
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -161,45 +204,51 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                     {droppedByCap > 0 && (
                       <li className="flex items-center gap-2">
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        {droppedByCap} beyond the {MAX_BATCH}-per-run limit won't run this time
+                        {eligibleAll.length} eligible total · max {MAX_BATCH} per run
                       </li>
                     )}
-                    <li className="flex items-center gap-2">
-                      <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-                      {isFree ? (
-                        <span>Free — your role isn't charged credits</span>
-                      ) : (
-                        <span>
-                          ~<span className="font-semibold text-foreground">{cost.toLocaleString()}</span>{" "}
-                          credits · balance {balance.toLocaleString()}
-                        </span>
-                      )}
-                    </li>
+                    {runCount > 0 && (
+                      <li className="flex items-center gap-2">
+                        <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                        {isFree ? (
+                          <span>Free — your role isn't charged credits</span>
+                        ) : (
+                          <span>
+                            ~<span className="font-semibold text-foreground">{cost.toLocaleString()}</span>{" "}
+                            credits for {runCount} · balance {balance.toLocaleString()}
+                          </span>
+                        )}
+                      </li>
+                    )}
                   </ul>
 
-                  {!canAfford && (
+                  {inputError && (
+                    <p className="text-xs text-amber-600">{inputError}</p>
+                  )}
+
+                  {runCount > 0 && !canAfford && (
                     <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
                       Not enough credits for {runCount} videos. You can afford{" "}
-                      <span className="font-semibold">{affordableCount}</span>. Narrow your filters
-                      (e.g. raise the outlier or views minimum) or top up, then try again.
+                      <span className="font-semibold">{affordableCount}</span>. Enter a smaller
+                      number or top up, then try again.
                     </div>
                   )}
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button variant="ghost" size="sm" onClick={onClose}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={run}
+                      disabled={runCount === 0 || inputBlocks || !canAfford}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      Analyze{runCount > 0 ? ` ${runCount}` : ""}
+                    </Button>
+                  </div>
                 </>
               )}
-
-              <div className="flex justify-end gap-2 pt-1">
-                <Button variant="ghost" size="sm" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={run}
-                  disabled={runCount === 0 || !canAfford}
-                >
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                  Analyze {runCount > 0 ? runCount : ""}
-                </Button>
-              </div>
             </div>
           )}
 
