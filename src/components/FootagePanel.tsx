@@ -7,6 +7,7 @@ import ThemedVideoPlayer from './ThemedVideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadStore, UploadEntry } from '@/services/uploadStore';
 import { videoUploadService } from '@/services/videoUploadService';
+import { emptyFolderClearUpdate } from '@/lib/footageDelete';
 import { toast } from 'sonner';
 
 const BUCKET = 'footage';
@@ -222,9 +223,10 @@ export default function FootagePanel({
       setFiles(remaining);
       if (activeFile?.name === fileName) { setActiveFile(null); setAspect(null); }
       if (remaining.length === 0) {
-        await supabase.from('video_edits').update({
-          storage_path: null, storage_url: null, upload_source: null,
-        }).eq('id', videoEditId);
+        // Clear only THIS slot's columns — submission -> file_submission, footage -> storage_*.
+        await supabase.from('video_edits')
+          .update(emptyFolderClearUpdate(subfolder))
+          .eq('id', videoEditId);
       }
       toast.success('File deleted');
       if (remaining.length === 0 && links.length === 0) { onComplete(); onClose(); }

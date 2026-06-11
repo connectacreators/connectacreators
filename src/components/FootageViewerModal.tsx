@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import FootageUploadDialog from './FootageUploadDialog';
+import { emptyFolderClearUpdate } from '@/lib/footageDelete';
 import { toast } from 'sonner';
 
 const BUCKET = 'footage';
@@ -156,12 +157,11 @@ export default function FootageViewerModal({
       const remaining = files.filter(f => f.name !== fileName);
       setFiles(remaining);
       if (remaining.length === 0) {
-        // Only clear storage metadata — never touch link columns (file_submission / footage)
-        await supabase.from('video_edits').update({
-          storage_path: null,
-          storage_url: null,
-          upload_source: null,
-        }).eq('id', videoEditId);
+        // Clear only THIS slot's columns. Submission lives in file_submission;
+        // footage lives in storage_*. Never let one slot wipe the other's metadata.
+        await supabase.from('video_edits')
+          .update(emptyFolderClearUpdate(subfolder))
+          .eq('id', videoEditId);
       }
       toast.success('File deleted');
       if (remaining.length === 0 && links.length === 0) {
