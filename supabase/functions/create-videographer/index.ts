@@ -141,7 +141,8 @@ Deno.serve(async (req) => {
           // Reactivate an existing (possibly deactivated) client row, or create one.
           const { data: userData } = await supabaseAdmin.auth.admin.getUserById(user_id);
           const email = userData?.user?.email ?? null;
-          const fullName = userData?.user?.user_metadata?.full_name ?? email;
+          // clients.name is NOT NULL — always provide a non-empty value.
+          const name = userData?.user?.user_metadata?.full_name || email || "Connecta+ Member";
 
           const { data: existingClient } = await supabaseAdmin
             .from("clients")
@@ -150,15 +151,15 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existingClient) {
+            // Reactivate; don't overwrite an existing name with a fallback.
             await supabaseAdmin.from("clients").update({
               plan_type: "enterprise",
               subscription_status: "active",
-              full_name: fullName,
             }).eq("user_id", user_id);
           } else {
             await supabaseAdmin.from("clients").insert({
               user_id,
-              full_name: fullName,
+              name,
               email,
               plan_type: "enterprise",
               subscription_status: "active",
@@ -212,6 +213,8 @@ Deno.serve(async (req) => {
 
     if (role === "connecta_plus") {
       // Connecta Plus: ensure they have an active client record (no subscription needed)
+      // NOTE: clients.name is NOT NULL and there is no full_name column.
+      const clientName = full_name || email || "Connecta+ Member";
       const { data: existingClient } = await supabaseAdmin
         .from("clients")
         .select("id")
@@ -222,12 +225,12 @@ Deno.serve(async (req) => {
         await supabaseAdmin.from("clients").update({
           plan_type: "enterprise",
           subscription_status: "active",
-          full_name: full_name || email,
+          name: clientName,
         }).eq("user_id", userId);
       } else {
         await supabaseAdmin.from("clients").insert({
           user_id: userId,
-          full_name: full_name || email,
+          name: clientName,
           email: email,
           plan_type: "enterprise",
           subscription_status: "active",
