@@ -340,24 +340,33 @@ function ScriptLineEditor({
         type="button"
         {...(dragAttributes ?? {})}
         {...(dragListeners ?? {})}
-        className="absolute -left-6 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.35)] hover:text-[hsl(var(--bone) / 0.70)]"
+        className="absolute -left-6 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-grab active:cursor-grabbing touch-none opacity-30 group-hover:opacity-100 transition-opacity text-[hsl(var(--bone) / 0.35)] hover:text-[hsl(var(--bone) / 0.70)]"
         title="Drag to reorder"
         onMouseDown={(e) => e.preventDefault()}
       >
         <GripVertical className="w-3.5 h-3.5" />
       </button>
 
-      {/* Left color bar */}
+      {/* Left color bar — doubles as the line's drag handle. The paragraph text is
+          a contenteditable editor and can't be a drag handle, so this always-visible
+          bar is the grab target. dnd-kit's distance:5 activation separates a click
+          (change type) from a drag (reorder), so both behaviours coexist. */}
       <div
-        className={[
-          "line-bar w-1 flex-shrink-0 rounded-l-sm cursor-pointer transition-all",
-          "group-hover:w-1.5",
-          isActive ? "w-1.5" : "",
-          TYPE_BAR_CLASS[block.line_type],
-        ].join(" ")}
+        {...(dragAttributes ?? {})}
+        {...(dragListeners ?? {})}
+        className="flex-shrink-0 self-stretch flex items-stretch pr-2 cursor-grab active:cursor-grabbing touch-none"
         onClick={(e) => onBarClick(e, uid)}
-        title="Click to change line type"
-      />
+        onMouseDown={(e) => e.preventDefault()}
+        title="Drag to reorder · click to change type"
+      >
+        <div
+          className={[
+            "line-bar w-1 rounded-l-sm transition-all group-hover:w-1.5",
+            isActive ? "w-1.5" : "",
+            TYPE_BAR_CLASS[block.line_type],
+          ].join(" ")}
+        />
+      </div>
 
       {/* Editor — wrapper provides reactive text color; color is inherited by .ProseMirror content */}
       <div className={`flex-1 min-w-0 ${TYPE_TEXT_CLASS[block.line_type]}`}>
