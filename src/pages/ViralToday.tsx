@@ -1702,26 +1702,12 @@ export default function ViralToday() {
         page++;
       }
 
-      // Always include the current user's own submissions, regardless of
-      // outlier/views/engagement/date filters — they're inserted with
-      // views_count=0 and outlier_score=null which the default filters
-      // exclude. Users expect to see what they just pasted.
-      if (user) {
-        const { data: mineData } = await supabase
-          .from("viral_videos")
-          .select("*")
-          .eq("submitted_by", user.id)
-          .eq("user_submitted", true)
-          .order("scraped_at", { ascending: false })
-          .limit(200);
-        const mine = (mineData ?? []) as ViralVideo[];
-        if (mine.length > 0) {
-          const seen = new Set(allVideos.map((v) => v.id));
-          const additions = mine.filter((v) => !seen.has(v.id));
-          // Show user-submitted on top so they're easy to find right after pasting.
-          allVideos = [...additions, ...allVideos];
-        }
-      }
+      // Filters are authoritative for ALL videos, including the user's own
+      // submissions. A submitted video is fetched by the same filtered query
+      // above; if it doesn't meet the active outlier/views/engagement/date/
+      // platform filters it is correctly hidden, exactly like a scraped video.
+      // (Previously we re-fetched the user's submissions unconditionally and
+      // prepended them, which let them bypass every filter.)
 
       setVideos(allVideos);
       writeCache("viral_videos", allVideos);
