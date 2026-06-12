@@ -126,6 +126,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [user, roleLoading, loading]);
+
+  // Apply the account's default language (profiles.preferred_language) the first
+  // time the user lands on this device. We only seed when no language has been
+  // chosen here yet (localStorage key absent), so an explicit toggle to English
+  // always wins and persists — the account default just provides the starting
+  // point. localStorage "language" + the "language-changed" event are the same
+  // contract useLanguage() reads from.
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("language")) return; // user already chose here
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("preferred_language")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const pref = data?.preferred_language;
+        if (pref !== "en" && pref !== "es") return;
+        if (localStorage.getItem("language")) return; // re-check after async gap
+        localStorage.setItem("language", pref);
+        window.dispatchEvent(new Event("language-changed"));
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const signOut = useCallback(async () => {
     clearCachedBranding();
     await supabase.auth.signOut();
