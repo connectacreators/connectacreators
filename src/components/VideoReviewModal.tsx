@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { videoUploadService } from '@/services/videoUploadService';
@@ -90,6 +91,9 @@ export default function VideoReviewModal({
 }: VideoReviewModalProps) {
   const { user, isAdmin, isVideographer, isEditor } = useAuth();
   const canResolve = isAdmin || isVideographer || isEditor;
+  const isMobile = useIsMobile();
+  // On mobile the video and notes share a tabbed view (full-width each); desktop keeps both side-by-side.
+  const [mobileTab, setMobileTab] = useState<'video' | 'notes'>('video');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [comments, setComments] = useState<RevisionComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -146,6 +150,7 @@ export default function VideoReviewModal({
     setCurrentTime(0);
     setDuration(0);
     setIsPaused(true);
+    setMobileTab('video');
   }, [open, fileSubmissionUrl, storagePath]);
 
   // Load signed URL when active source is supabase
@@ -267,6 +272,7 @@ export default function VideoReviewModal({
       setNewComment('');
       setManualTimestamp('');
       setInternalOnly(false);
+      if (isMobile) setMobileTab('notes'); // surface the note that just landed
       await supabase.from('video_edits').update({ status: 'Needs Revision' }).eq('id', videoEditId);
       onStatusChanged?.('Needs Revision');
       onCommentsChanged?.();
@@ -361,7 +367,7 @@ export default function VideoReviewModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
+      <DialogContent className={`flex flex-col p-0 gap-0 [&>button:last-child]:hidden ${isMobile ? 'w-screen h-[100dvh] max-w-none rounded-none border-0' : 'max-w-6xl w-[95vw] h-[85vh]'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="text-lg font-semibold truncate">{title || 'Video Review'}</h2>
@@ -369,7 +375,7 @@ export default function VideoReviewModal({
             {activeSource && (
               <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleDownload} disabled={downloading}>
                 {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloading ? 'Downloading...' : 'Download'}
+                {!isMobile && (downloading ? 'Downloading...' : 'Download')}
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -379,9 +385,28 @@ export default function VideoReviewModal({
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className={`flex flex-1 overflow-hidden min-h-0 ${isMobile ? 'flex-col' : ''}`}>
+          {/* Mobile tab bar — Video / Notes */}
+          {isMobile && (
+            <div className="flex shrink-0 border-b">
+              <button
+                onClick={() => setMobileTab('video')}
+                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${mobileTab === 'video' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground'}`}
+              >
+                Video
+              </button>
+              <button
+                onClick={() => setMobileTab('notes')}
+                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${mobileTab === 'notes' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground'}`}
+              >
+                Notes · {visibleComments.length}
+                {resolvedCount > 0 && <span className="text-green-500"> ({resolvedCount}✓)</span>}
+              </button>
+            </div>
+          )}
+
           {/* Left: Video */}
-          <div className="flex-[3] flex flex-col p-4 border-r overflow-hidden">
+          <div className={`flex flex-col p-4 overflow-hidden ${isMobile ? (mobileTab === 'video' ? 'flex-1 w-full' : 'hidden') : 'flex-[3] border-r'}`}>
 
             {/* Source tabs — only when multiple sources */}
             {sources.length > 1 && (
@@ -492,7 +517,7 @@ export default function VideoReviewModal({
           </div>
 
           {/* Right: Comments */}
-          <div className="flex-[2] flex flex-col p-4 overflow-y-auto">
+          <div className={`flex flex-col p-4 overflow-y-auto ${isMobile ? (mobileTab === 'notes' ? 'flex-1 w-full' : 'hidden') : 'flex-[2]'}`}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-muted-foreground">
                 REVISION NOTES ({visibleComments.length})
@@ -522,7 +547,7 @@ export default function VideoReviewModal({
                     className={`rounded-lg p-3 border-l-[3px] ${c.resolved ? 'opacity-40 bg-muted/20' : c.internal_only ? 'bg-amber-500/5 border border-amber-500/20 shadow-sm' : 'bg-card border border-border/60 shadow-sm'}`}
                     style={{ borderLeftColor: c.resolved ? '#10b981' : c.internal_only ? '#f59e0b' : (ROLE_COLORS[c.author_role] || '#888') }}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap gap-y-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {c.internal_only && (
                           <span className="flex items-center gap-0.5 text-[9px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full whitespace-nowrap">
@@ -566,7 +591,7 @@ export default function VideoReviewModal({
                         <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingId(null)}>Cancel</Button>
                       </div>
                     ) : (
-                      <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-all"
+                      <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-words [overflow-wrap:anywhere]"
                         onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
                         title="Double-click to edit"
                       >
