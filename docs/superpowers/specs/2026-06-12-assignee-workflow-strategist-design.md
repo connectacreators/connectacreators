@@ -98,3 +98,27 @@ Verified live: simulated a `storage_path` upload on the Dr Calvin test row → a
 - Future automation: after the editor uploads the cut → auto-assign the client's strategist (admin
   fallback) for review. The per-client "assigned person, fallback" resolver should be centralized so
   these reuse it.
+
+---
+
+## Addendum 2 (same day) — resolve editor/strategist from the existing team table
+
+Correction: `videographer_clients` is the generic **team↔client** junction (videographers AND
+editors live there; Axel is Dr Calvin's editor via that table). The dedicated `clients.editor_user_id`
+I'd added was redundant. New design (migration `20260612b_strategist_team_resolution.sql`):
+
+- **Dropped** `clients.editor_user_id`, `clients.strategist_user_id`, `video_edits.editor_user_id`,
+  `video_edits.editor_name`. The editor/strategist are resolved from `videographer_clients` by role.
+- Trigger `video_edits_workflow_automation` now resolves:
+  - **(B) footage → editor**: `videographer_clients` member with role `editor`.
+  - **(C) editor cut → strategist** (NEW): on `file_submission` change, assign the
+    `videographer_clients` member with role `content_strategist`; **fallback = the sole admin**
+    (Roberto, resolved dynamically when exactly one admin exists). Sets Needs Revisions.
+  - **(A) scheduled → client**: unchanged (no editor-stashing needed — editor is per-client).
+- `public-review-post` resolves the editor the same way (two plain queries; no FK embed).
+- **Assignment UI**: extended the existing **Videographers/Team page** (`src/pages/Videographers.tsx`)
+  + `create-videographer` edge fn to support the `content_strategist` role — so strategists are
+  created and assigned to clients exactly like videographers/editors. No new page.
+
+Verified live on the Dr Calvin test row: (A) → client, (B) → Axel (editor), (C) → Roberto (admin
+fallback), and the client-revision reassign → Axel; all via `videographer_clients`. Data restored.

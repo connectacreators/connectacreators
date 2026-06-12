@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ScriptsLogin from "@/components/ScriptsLogin";
-import { Loader2, Search, Video, Plus, Trash2, Clapperboard, Star, UserPlus, Settings, KeyRound, ShieldOff, ShieldCheck, LogOut, Copy, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Search, Video, Plus, Trash2, Clapperboard, Star, UserPlus, Settings, KeyRound, ShieldOff, ShieldCheck, LogOut, Copy, CheckCircle2, XCircle, Compass } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -14,7 +14,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
-type MemberRole = "videographer" | "editor" | "connecta_plus";
+type MemberRole = "videographer" | "editor" | "connecta_plus" | "content_strategist";
 
 type TeamMember = {
   user_id: string;
@@ -27,18 +27,21 @@ const ROLE_LABELS: Record<MemberRole, string> = {
   videographer: "Videographer",
   editor: "Editor",
   connecta_plus: "Connecta+",
+  content_strategist: "Content Strategist",
 };
 
 const ROLE_COLORS: Record<MemberRole, string> = {
   videographer: "badge-cyan",
   editor: "badge-neutral",
   connecta_plus: "badge-amber",
+  content_strategist: "badge-cyan",
 };
 
 const ROLE_ICONS: Record<MemberRole, React.ElementType> = {
   videographer: Video,
   editor: Clapperboard,
   connecta_plus: Star,
+  content_strategist: Compass,
 };
 
 const fadeUp = {
@@ -91,11 +94,11 @@ export default function Videographers() {
     if (!user || !isAdmin) return;
     setLoadingList(true);
 
-    // Get all team members (videographer, editor, connecta_plus)
+    // Get all team members (videographer, editor, connecta_plus, content_strategist)
     const { data: roles } = await supabase
       .from("user_roles")
       .select("user_id, role")
-      .in("role", ["videographer", "editor", "connecta_plus"]);
+      .in("role", ["videographer", "editor", "connecta_plus", "content_strategist"]);
 
     if (roles && roles.length > 0) {
       const userIds = roles.map((r) => r.user_id);
@@ -545,6 +548,12 @@ export default function Videographers() {
                       <span className="text-xs text-muted-foreground">Admin-managed client, no subscription needed</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="content_strategist">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Content Strategist</span>
+                      <span className="text-xs text-muted-foreground">Runs the pipeline for assigned clients</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -758,6 +767,7 @@ export default function Videographers() {
                     <SelectItem value="videographer">{ROLE_LABELS.videographer}</SelectItem>
                     <SelectItem value="editor">{ROLE_LABELS.editor}</SelectItem>
                     <SelectItem value="connecta_plus">{ROLE_LABELS.connecta_plus}</SelectItem>
+                    <SelectItem value="content_strategist">{ROLE_LABELS.content_strategist}</SelectItem>
                   </SelectContent>
                 </Select>
 

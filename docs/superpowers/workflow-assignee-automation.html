@@ -120,15 +120,17 @@
   <!-- 6 -->
   <div class="stage"><div class="node"></div><div class="card">
     <div class="row"><p class="title">6 · Editor uploads the cut</p><span class="tag manual">Manual</span></div>
-    <p class="desc">Axel uploads the edit; status is set so it's ready for your review.</p>
+    <p class="desc">Axel uploads the edited submission.</p>
     <span class="who"><i class="dot d-ed"></i>Axel</span>
   </div></div>
 
-  <!-- 7 -->
-  <div class="stage"><div class="node"></div><div class="card">
-    <div class="row"><p class="title">7 · You review the cut</p><span class="tag manual">Manual</span></div>
-    <p class="desc">If it needs work, you leave revisions and assign Axel. If it's good, you schedule it (next step).</p>
-    <span class="who"><i class="dot d-ad"></i>You</span>
+  <!-- 7 AUTO -->
+  <div class="stage auto"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">7 · Hand off to the strategist for review</p><span class="tag auto">⚡ Automatic</span></div>
+    <p class="desc">The moment the cut lands, the system assigns the client's <b>Content Strategist</b> (and until
+      one is hired, falls back to you, the admin) so they know to review. Then they either approve &amp;
+      schedule, or leave revisions (→ back to Axel).</p>
+    <span class="who"><i class="dot d-ed"></i>Axel</span> &nbsp;→&nbsp; <span class="who"><i class="dot d-ad"></i>Strategist / you</span>
   </div></div>
 
   <!-- 8 -->
@@ -183,11 +185,14 @@
   </div></div>
 
   <div class="foot">
-    <b>What's being built (3 green automations + roles + assignability):</b><br>
-    ① Step 5 — when raw footage is uploaded, auto-set Needs Revisions + assign the client's editor (Axel).<br>
-    ② Step 9 — auto-assign the row to its client when it becomes Scheduled (and remember the editor).<br>
-    ③ Step 11 — when the client requests a revision, auto-set Needs Revisions + reassign the remembered editor + attach the timestamped notes.<br>
-    ④ Plus: a <b>Content Strategist</b> role (per client, admin fallback) and the row's own Connecta+ client selectable in the assignee dropdown.
+    <b>What's built (4 green automations + roles + assignability):</b><br>
+    ① Step 5 — raw footage uploaded → Needs Revisions + assign the client's <b>editor</b>.<br>
+    ② Step 7 — editor uploads the cut → assign the client's <b>strategist</b> (admin fallback) for review.<br>
+    ③ Step 9 — becomes Scheduled → assign the row to its <b>client</b>.<br>
+    ④ Step 11 — client requests a revision → Needs Revisions + reassign the <b>editor</b> + attach the timestamped notes.<br>
+    <br>
+    Editor &amp; strategist are resolved from each client's <b>team</b> (the Videographers/Team page → <code>videographer_clients</code>):
+    the team member whose role is <i>editor</i> / <i>content&nbsp;strategist</i>. The row's own Connecta+ client is also selectable in the assignee dropdown.
   </div>
 </div>
 </body>

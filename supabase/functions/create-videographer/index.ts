@@ -114,9 +114,9 @@ Deno.serve(async (req) => {
 
       if (action === "change_role") {
         const { new_role } = body;
-        const teamRoles = ["videographer", "editor", "connecta_plus"];
+        const teamRoles = ["videographer", "editor", "connecta_plus", "content_strategist"];
         if (!teamRoles.includes(new_role)) {
-          return new Response(JSON.stringify({ error: "Invalid role. Must be: videographer, editor, or connecta_plus" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          return new Response(JSON.stringify({ error: "Invalid role. Must be: videographer, editor, connecta_plus, or content_strategist" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
         // Determine current team role (admin/other roles are left untouched)
@@ -189,9 +189,9 @@ Deno.serve(async (req) => {
     // Create team member (default POST)
     const { email, password, username, full_name, role = "videographer" } = body;
 
-    const validRoles = ["videographer", "editor", "connecta_plus"];
+    const validRoles = ["videographer", "editor", "connecta_plus", "content_strategist"];
     if (!validRoles.includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role. Must be: videographer, editor, or connecta_plus" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Invalid role. Must be: videographer, editor, connecta_plus, or content_strategist" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({

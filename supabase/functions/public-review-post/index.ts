@@ -19,6 +19,26 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// The client's editor = the editor-role member assigned to the client in
+// videographer_clients (the team↔client junction table). Two plain queries
+// avoid relying on a PostgREST FK embed.
+// deno-lint-ignore no-explicit-any
+async function resolveClientEditor(service: any, clientId: string): Promise<string | null> {
+  const { data: team } = await service
+    .from("videographer_clients")
+    .select("videographer_user_id")
+    .eq("client_id", clientId);
+  const ids = (team ?? []).map((t: { videographer_user_id: string }) => t.videographer_user_id);
+  if (ids.length === 0) return null;
+  const { data: editors } = await service
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "editor")
+    .in("user_id", ids)
+    .limit(1);
+  return editors && editors.length > 0 ? editors[0].user_id : null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,7 +79,7 @@ serve(async (req) => {
     // Ownership gate: the post must exist AND belong to the supplied client.
     const { data: current, error: fetchErr } = await serviceSupabase
       .from("video_edits")
-      .select("id, client_id, status, revisions, editor_user_id, editor_name")
+      .select("id, client_id, status, revisions")
       .eq("id", postId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -93,12 +113,15 @@ serve(async (req) => {
       update.revisions = reviewerName?.trim()
         ? `${reviewerName.trim()}: ${note}`
         : note;
-      // Hand the row back to the editor who worked on it (remembered when the
-      // post was scheduled and reassigned to the client). If none is recorded,
-      // leave the assignee as-is for the admin to route.
-      if (current.editor_user_id) {
-        update.assignee_user_id = current.editor_user_id;
-        update.assignee = current.editor_name ?? null;
+      // Hand the row back to the client's editor — the editor-role member on
+      // videographer_clients for this client. If none, leave the assignee as-is
+      // for the admin to route.
+      const editorId = await resolveClientEditor(serviceSupabase, clientId);
+      if (editorId) {
+        const { data: prof } = await serviceSupabase
+          .from("profiles").select("display_name").eq("user_id", editorId).maybeSingle();
+        update.assignee_user_id = editorId;
+        update.assignee = (prof as { display_name?: string } | null)?.display_name ?? null;
       }
     }
 
