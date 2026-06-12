@@ -43,7 +43,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
-import { synthesizeBlocksFromLines, withUids } from "@/lib/scriptBlocks";
+import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
+import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
 
@@ -1389,17 +1390,38 @@ export default function Scripts() {
     setScripts((prev) => prev.map((s) => s.id === viewingScriptId ? { ...s, formato: value } : s));
   };
 
-  // Re-run AI categorization on the CURRENT lines and recolor each in place —
-  // never re-splits, never touches headings/text/title/format. Gated to Connecta+.
+  // Re-run AI categorization on the CURRENT lines. Long content blocks (multiple
+  // sentences) are first chopped into one line per sentence — deterministically,
+  // never rewriting or reordering text — then every resulting line is recolored.
+  // Headings/title/format are never touched. Gated to Connecta+.
   const handleRecategorize = async () => {
     if (!viewingScriptId || recategorizing) return;
     if (!(isAdmin || isConnectaPlus)) {
       toast.error(tr({ en: "AI categorization is available on Connecta+ only.", es: "La categorización con IA está disponible solo en Connecta+." }, language));
       return;
     }
-    // Index map: position in docBlocks -> AI type, for non-empty content lines only.
+    // Expand multi-sentence content blocks into one block per sentence. Headings
+    // and empty blocks pass through untouched; split sub-lines drop rich_text.
+    const expanded: ScriptLine[] = [];
+    docBlocks.forEach((b) => {
+      const text = (b.text || "").trim();
+      if (b.block_kind === "heading" || !text) {
+        expanded.push(b);
+        return;
+      }
+      const segments = splitSentences(text);
+      if (segments.length <= 1) {
+        expanded.push(b);
+        return;
+      }
+      segments.forEach((seg) => {
+        expanded.push({ ...b, text: seg, rich_text: undefined, block_kind: "line", uid: newBlockUid() });
+      });
+    });
+    const didSplit = expanded.length > docBlocks.length;
+    // Index map: position in `expanded` -> AI type, for non-empty content lines only.
     const lineIdxs: number[] = [];
-    docBlocks.forEach((b, idx) => {
+    expanded.forEach((b, idx) => {
       if (b.block_kind !== "heading" && (b.text || "").trim()) lineIdxs.push(idx);
     });
     if (lineIdxs.length === 0) {
@@ -1408,7 +1430,7 @@ export default function Scripts() {
     }
     setRecategorizing(true);
     try {
-      const lines = lineIdxs.map((idx) => (docBlocks[idx].text || "").trim());
+      const lines = lineIdxs.map((idx) => (expanded[idx].text || "").trim());
       const { data, error } = await supabase.functions.invoke("categorize-script", {
         body: { mode: "recolor", lines },
       });
@@ -1419,7 +1441,7 @@ export default function Scripts() {
       }
       const typeByIdx = new Map<number, string>();
       lineIdxs.forEach((idx, pos) => typeByIdx.set(idx, types[pos]));
-      const merged = docBlocks.map((b, idx) =>
+      const merged = expanded.map((b, idx) =>
         typeByIdx.has(idx) ? { ...b, line_type: typeByIdx.get(idx) as ScriptLine["line_type"] } : b
       );
       skipNextAutoSaveRef.current = true;
@@ -1427,7 +1449,9 @@ export default function Scripts() {
       await saveScriptBlocks(viewingScriptId, merged);
       const fresh = await getScriptLines(viewingScriptId);
       setParsedLines(fresh);
-      toast.success(tr({ en: "Lines re-categorized", es: "Líneas recategorizadas" }, language));
+      toast.success(didSplit
+        ? tr({ en: `Split & re-categorized into ${lineIdxs.length} lines`, es: `Dividido y recategorizado en ${lineIdxs.length} líneas` }, language)
+        : tr({ en: "Lines re-categorized", es: "Líneas recategorizadas" }, language));
     } catch (e: any) {
       const msg = e?.message === "mismatch"
         ? tr({ en: "Couldn't align the result — nothing changed.", es: "No se pudo alinear el resultado — no se cambió nada." }, language)
