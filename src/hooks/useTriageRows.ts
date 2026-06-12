@@ -64,6 +64,7 @@ export function useTriageRows(clientIds: string[]): Result {
         .from("video_edits")
         .select("id, client_id, lifecycle_status, updated_at")
         .in("client_id", clientIds)
+        .is("deleted_at", null)
         .eq("lifecycle_status", "Needs Revisions")
         .order("updated_at", { ascending: true }),
       supabase
