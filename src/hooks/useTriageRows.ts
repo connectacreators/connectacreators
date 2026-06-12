@@ -57,6 +57,10 @@ export function useTriageRows(clientIds: string[]): Result {
         .in("client_id", clientIds)
         .is("deleted_at", null)
         .eq("grabado", false)
+        // Exclude Super Canvas placeholder drafts ("Connecta AI — In Progress"),
+        // which carry review_status=null but aren't real scripts to review. The
+        // Scripts queue hides them the same way (useScripts.ts: .neq status draft).
+        .neq("status", "draft")
         .or("review_status.is.null,review_status.eq.needs_revision")
         .gte("created_at", scriptCutoffIso)
         .order("created_at", { ascending: true }),
