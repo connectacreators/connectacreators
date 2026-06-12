@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Loader2, ChevronLeft, ChevronRight, Download,
-  ExternalLink, Calendar, AlertCircle, Share2, Copy, CheckCircle, MessageSquare,
+  ExternalLink, Calendar, AlertCircle, Share2, CheckCircle, MessageSquare,
+  LogIn, Play, List, CalendarDays, FileText,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +44,35 @@ function getGoogleDriveDownloadUrl(fileId: string): string {
   return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
+// A non-Drive URL we can try to play inline (Supabase storage, direct mp4/mov/webm, etc.)
+function looksPlayable(url: string): boolean {
+  return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url) || /supabase\.co\/storage/i.test(url);
+}
+
+async function copyLink(link: string, onCopied: () => void) {
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(link);
+    copied = true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = link;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch {
+      copied = false;
+    }
+  }
+  if (copied) onCopied();
+  else toast.success(link, { duration: 8000 });
+}
+
 function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -64,44 +93,49 @@ function buildCalendarGrid(year: number, month: number): Date[] {
   return grid;
 }
 
-const STATUS_CONFIGS: Record<string, any> = {};
-function buildStatusConfig(s: string) {
-  const lower = s?.toLowerCase() || "";
-  if (lower === "approved" || lower === "done") return {
-    bg: "bg-emerald-500/20",
-    dot: "bg-emerald-400",
-    badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  };
-  if (lower === "needs revision") return {
-    bg: "bg-destructive/15",
-    dot: "bg-destructive",
-    badge: "bg-destructive/15 text-destructive border-destructive/30",
-  };
-  if (lower === "scheduled") return {
-    bg: "bg-primary/15",
-    dot: "bg-primary",
-    badge: "bg-primary/15 text-primary border-primary/30",
-  };
-  return {
-    bg: "bg-muted/40",
-    dot: "bg-muted-foreground",
-    badge: "bg-muted text-muted-foreground border-border/30",
-  };
-}
-
-function getStatusConfig(status: string) {
-  const key = status?.toLowerCase() || "";
-  if (!STATUS_CONFIGS[key]) STATUS_CONFIGS[key] = buildStatusConfig(status);
-  return STATUS_CONFIGS[key];
-}
-
 function formatAgendaDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" }).toUpperCase();
 }
 
+/** Portrait-friendly video block for vertical reels. */
+function VideoBlock({ url }: { url: string }) {
+  const driveId = extractGoogleDriveFileId(url);
+  if (driveId) {
+    return (
+      <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[65vh] rounded-xl overflow-hidden bg-black border border-border/30">
+        <iframe
+          src={`https://drive.google.com/file/d/${driveId}/preview`}
+          className="w-full h-full"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  if (looksPlayable(url)) {
+    return (
+      <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[65vh] rounded-xl overflow-hidden bg-black border border-border/30">
+        <video src={url} controls playsInline className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-center gap-2 h-12 rounded-xl border border-border/40 bg-card/40 text-sm text-primary hover:bg-card/60 transition-colors"
+    >
+      <ExternalLink className="w-4 h-4" />
+      Open video file
+    </a>
+  );
+}
+
 export default function PublicContentCalendar() {
   const { clientId } = useParams<{ clientId: string }>();
+  const [searchParams] = useSearchParams();
   const [clientName, setClientName] = useState("");
   const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [fetching, setFetching] = useState(true);
@@ -111,6 +145,8 @@ export default function PublicContentCalendar() {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionNotes, setRevisionNotes] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null); // null = still resolving
+  const [view, setView] = useState<"agenda" | "calendar">("agenda"); // mobile toggle; desktop shows both
 
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
@@ -140,14 +176,26 @@ export default function PublicContentCalendar() {
   const prevMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)), []);
   const nextMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)), []);
 
+  const loginHref = `/login?redirect=${encodeURIComponent(`/public/calendar/${clientId ?? ""}`)}`;
+
   const handleShareLink = useCallback(() => {
     if (!clientId) return;
     const publicLink = `${window.location.origin}/public/calendar/${clientId}`;
-    navigator.clipboard.writeText(publicLink);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-    toast.success("Public link copied!");
+    copyLink(publicLink, () => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast.success("Public link copied!");
+    });
   }, [clientId]);
+
+  // Track auth state so we know whether to show review actions or a login prompt.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setIsAuthed(!!session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setIsAuthed(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleApprove = useCallback(async () => {
     if (!selectedPost) return;
@@ -257,6 +305,14 @@ export default function PublicContentCalendar() {
     fetchPosts();
   }, [clientId]);
 
+  // Deep link: ?post=<id> auto-opens that post once loaded.
+  useEffect(() => {
+    const target = searchParams.get("post");
+    if (!target || posts.length === 0) return;
+    const match = posts.find((p) => p.id === target);
+    if (match) setSelectedPost(match);
+  }, [searchParams, posts]);
+
   if (fetching) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -265,49 +321,50 @@ export default function PublicContentCalendar() {
     );
   }
 
+  const hasVideo = (p: CalendarPost) => !!p.file_submission_url;
+  const isApproved = (p: CalendarPost) => p.lifecycle_status === "Published" || p.lifecycle_status === "Scheduled";
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground font-serif">{clientName || "Content Calendar"}</h1>
-            <p className="text-xs text-muted-foreground font-normal mt-0.5">Content Calendar</p>
+      {/* Sticky header */}
+      <header className="sticky top-0 z-20 bg-background/90 backdrop-blur-md border-b border-border/40">
+        <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground font-serif truncate">{clientName || "Content Calendar"}</h1>
+            <p className="text-[11px] sm:text-xs text-muted-foreground font-normal">Content Calendar</p>
           </div>
-          <Button
-            onClick={handleShareLink}
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-          >
-            {copiedLink ? (
-              <>
-                <CheckCircle className="w-3.5 h-3.5" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5" />
-                Share
-              </>
-            )}
+          <Button onClick={handleShareLink} variant="outline" size="sm" className="gap-1.5 text-xs flex-shrink-0">
+            {copiedLink ? <><CheckCircle className="w-3.5 h-3.5" />Copied!</> : <><Share2 className="w-3.5 h-3.5" />Share</>}
           </Button>
         </div>
 
+        {/* Mobile view toggle */}
+        {posts.length > 0 && (
+          <div className="md:hidden px-4 pb-3">
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/40 border border-border/40">
+              <button
+                onClick={() => setView("agenda")}
+                className={`flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-semibold transition-colors ${view === "agenda" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              >
+                <List className="w-3.5 h-3.5" /> Agenda
+              </button>
+              <button
+                onClick={() => setView("calendar")}
+                className={`flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-semibold transition-colors ${view === "calendar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" /> Calendar
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <div className="flex-1 px-4 sm:px-6 py-4 flex flex-col min-h-0">
         {/* Legend */}
         <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground flex-wrap">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            Scheduled
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Approved
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-            Needs Revision
-          </span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Scheduled</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Approved</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-destructive" />Needs Revision</span>
         </div>
 
         {error ? (
@@ -325,43 +382,42 @@ export default function PublicContentCalendar() {
             </div>
           </div>
         ) : (
-          /* Calendar + Agenda Layout */
           <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-            {/* Agenda - Left (shown below calendar on mobile) */}
-            <div className="w-full md:w-72 min-h-0 flex flex-col flex-shrink-0 rounded-xl border border-border/40 bg-card/20 backdrop-blur-sm overflow-hidden order-2 md:order-1">
-              <div className="flex-1 overflow-y-auto p-4 space-y-1">
+            {/* Agenda — full width on mobile (when selected), sidebar on desktop */}
+            <div className={`${view === "agenda" ? "flex" : "hidden"} md:flex w-full md:w-80 min-h-0 flex-col flex-shrink-0 rounded-xl border border-border/40 bg-card/20 backdrop-blur-sm overflow-hidden`}>
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 {sortedDates.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-center text-sm text-muted-foreground">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    No posts
-                  </div>
+                  <div className="flex items-center justify-center h-full text-center text-sm text-muted-foreground">No posts</div>
                 ) : (
                   sortedDates.map((dateStr) => {
                     const datePosts = postsByDate.get(dateStr) || [];
                     return (
                       <div key={dateStr}>
-                        <div className="sticky top-0 flex items-center gap-2 px-2 py-2 mt-2 first:mt-0 bg-background/80 backdrop-blur-sm z-10">
+                        <div className="sticky top-0 flex items-center gap-2 px-1 py-2 mt-2 first:mt-0 bg-background/85 backdrop-blur-sm z-10">
                           <div className="h-px flex-1 bg-border/30" />
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                            {formatAgendaDate(dateStr)}
-                          </span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">{formatAgendaDate(dateStr)}</span>
                           <div className="h-px flex-1 bg-border/30" />
                         </div>
-
-                        <div className="space-y-1 mt-1">
+                        <div className="space-y-1.5 mt-1">
                           {datePosts.map((post) => {
                             const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
                             return (
                               <button
                                 key={post.id}
                                 onClick={() => setSelectedPost(post)}
-                                className={`w-full text-left px-3 py-2 rounded text-[11px] font-medium transition-all truncate
-                                  ${lcStyle.bg} hover:opacity-80`}
+                                className="w-full text-left flex items-center gap-3 rounded-lg border border-border/40 bg-card/40 hover:bg-card/70 active:bg-card/80 transition-colors p-3 min-h-[56px]"
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lcStyle.text.replace("text-", "bg-")}`} />
-                                  <span className="truncate">{post.title}</span>
+                                <span className={`w-1.5 self-stretch rounded-full flex-shrink-0 ${lcStyle.text.replace("text-", "bg-")}`} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium text-foreground line-clamp-2 leading-snug">{post.title}</div>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>{lcStyle.label}</span>
+                                    {hasVideo(post) && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Play className="w-3 h-3" />Video</span>
+                                    )}
+                                  </div>
                                 </div>
+                                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                               </button>
                             );
                           })}
@@ -373,38 +429,21 @@ export default function PublicContentCalendar() {
               </div>
             </div>
 
-            {/* Calendar - Right (shown first on mobile) */}
-            <div className="w-full md:flex-1 rounded-xl border border-border/40 bg-card/20 backdrop-blur-sm p-4 flex flex-col order-1 md:order-2">
-              {/* Month Navigation */}
+            {/* Calendar — full width on mobile (when selected), main pane on desktop */}
+            <div className={`${view === "calendar" ? "flex" : "hidden"} md:flex w-full md:flex-1 rounded-xl border border-border/40 bg-card/20 backdrop-blur-sm p-3 sm:p-4 flex-col`}>
               <div className="flex items-center justify-between gap-2 mb-4">
-                <button
-                  onClick={prevMonth}
-                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-semibold text-foreground flex-1 text-center">
-                  {MONTH_NAMES[month]} {year}
-                </span>
-                <button
-                  onClick={nextMonth}
-                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <button onClick={prevMonth} className="p-2 rounded-md hover:bg-muted active:bg-muted/70 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <span className="text-sm font-semibold text-foreground flex-1 text-center">{MONTH_NAMES[month]} {year}</span>
+                <button onClick={nextMonth} className="p-2 rounded-md hover:bg-muted active:bg-muted/70 transition-colors"><ChevronRight className="w-5 h-5" /></button>
               </div>
 
-              {/* Day Headers */}
               <div className="grid grid-cols-7 gap-0 mb-2">
                 {DAY_NAMES_EN.map((d) => (
-                  <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider py-1">
-                    {d}
-                  </div>
+                  <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider py-1">{d}</div>
                 ))}
               </div>
 
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-0 flex-1">
+              <div className="grid grid-cols-7 gap-0 flex-1 auto-rows-fr">
                 {calendarGrid.map((day, idx) => {
                   const dayKey = toDateKey(day);
                   const isCurrentMonth = day.getMonth() === month;
@@ -412,39 +451,27 @@ export default function PublicContentCalendar() {
                   const dayPosts = postsByDate.get(dayKey);
                   const col = idx % 7;
                   const row = Math.floor(idx / 7);
-
                   return (
                     <button
                       key={dayKey}
-                      onClick={() => {
-                        if (dayPosts && dayPosts.length > 0) {
-                          setSelectedPost(dayPosts[0]);
-                        }
-                      }}
-                      className={`relative py-3 px-1 flex flex-col items-center justify-start text-center text-xs font-medium transition-colors border-r border-b border-border/30 cursor-pointer
-                        ${col === 6 ? "border-r-0" : ""}
-                        ${row === 5 ? "border-b-0" : ""}
-                        ${isCurrentMonth ? "hover:bg-muted/10" : "bg-background/20"}
-                        ${isToday ? "bg-primary/20" : ""}`}
+                      onClick={() => { if (dayPosts && dayPosts.length > 0) setSelectedPost(dayPosts[0]); }}
+                      className={`relative min-h-[52px] py-2 px-1 flex flex-col items-center justify-start text-center transition-colors border-r border-b border-border/30
+                        ${col === 6 ? "border-r-0" : ""} ${row === 5 ? "border-b-0" : ""}
+                        ${isCurrentMonth ? "hover:bg-muted/10 active:bg-muted/20" : "bg-background/20"}
+                        ${isToday ? "bg-primary/15" : ""}
+                        ${dayPosts && dayPosts.length > 0 ? "cursor-pointer" : "cursor-default"}`}
                     >
-                      <span className={`inline-block w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-semibold
-                        ${isToday ? "bg-primary text-primary-foreground"
-                          : isCurrentMonth ? "text-foreground"
-                          : "text-muted-foreground/40"}`}
-                      >
+                      <span className={`inline-flex w-7 h-7 items-center justify-center rounded-full text-xs font-semibold
+                        ${isToday ? "bg-primary text-primary-foreground" : isCurrentMonth ? "text-foreground" : "text-muted-foreground/40"}`}>
                         {day.getDate()}
                       </span>
                       {dayPosts && dayPosts.length > 0 && (
-                        <div className="flex flex-wrap justify-center gap-0.5 mt-1.5">
+                        <div className="flex flex-wrap justify-center gap-1 mt-1.5">
                           {dayPosts.slice(0, 4).map((post, i) => {
                             const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
-                            return (
-                              <div
-                                key={i}
-                                className={`w-1.5 h-1.5 rounded-full ${lcStyle.text.replace("text-", "bg-")}`}
-                              />
-                            );
+                            return <div key={i} className={`w-2 h-2 rounded-full ${lcStyle.text.replace("text-", "bg-")}`} />;
                           })}
+                          {dayPosts.length > 4 && <span className="text-[9px] text-muted-foreground leading-none">+{dayPosts.length - 4}</span>}
                         </div>
                       )}
                     </button>
@@ -458,7 +485,7 @@ export default function PublicContentCalendar() {
 
       {/* Revision Notes Modal */}
       <Dialog open={showRevisionModal} onOpenChange={(open) => { if (!open) setShowRevisionModal(false); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <MessageSquare className="w-4 h-4 text-destructive" />
@@ -474,20 +501,13 @@ export default function PublicContentCalendar() {
               onChange={(e) => setRevisionNotes(e.target.value)}
               placeholder="Describe what needs to be changed or fixed..."
               rows={4}
-              className="text-sm resize-none"
+              className="text-base resize-none"
               autoFocus
             />
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="ghost" size="sm" onClick={() => setShowRevisionModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleSubmitRevision}
-              className="gap-1.5"
-            >
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button variant="ghost" size="sm" className="h-11 sm:h-9" onClick={() => setShowRevisionModal(false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" className="h-11 sm:h-9 gap-1.5" onClick={handleSubmitRevision}>
               <MessageSquare className="w-3.5 h-3.5" />
               Send for Revision
             </Button>
@@ -497,124 +517,109 @@ export default function PublicContentCalendar() {
 
       {/* Post Detail Modal */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl">
           {selectedPost && (
             <>
               <DialogHeader>
-                <div className="flex items-center justify-between gap-2 flex-wrap w-full">
-                  <DialogTitle className="flex items-center gap-2 flex-wrap text-base">
-                    <span className="truncate max-w-[250px]">{selectedPost.title}</span>
-                    {(() => { const lcStyle = LIFECYCLE_STYLE[selectedPost.lifecycle_status]; return (
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>
-                        {lcStyle.label}
-                      </span>
-                    ); })()}
-                  </DialogTitle>
-                </div>
+                <DialogTitle className="flex items-start gap-2 flex-wrap text-base pr-6">
+                  <span className="break-words">{selectedPost.title}</span>
+                  {(() => { const lcStyle = LIFECYCLE_STYLE[selectedPost.lifecycle_status]; return (
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border self-center ${lcStyle.bg} ${lcStyle.text} ${lcStyle.border}`}>
+                      {lcStyle.label}
+                    </span>
+                  ); })()}
+                </DialogTitle>
               </DialogHeader>
 
               <div className="space-y-4">
                 {/* Scheduled date */}
                 {selectedPost.scheduled_date && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                     Scheduled for:{" "}
                     <span className="font-semibold text-foreground">
-                      {new Date(selectedPost.scheduled_date + "T00:00:00").toLocaleDateString(
-                        "en-US",
-                        { weekday: "long", year: "numeric", month: "long", day: "numeric" }
-                      )}
+                      {new Date(selectedPost.scheduled_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                     </span>
                   </div>
                 )}
 
                 {/* Video */}
                 {selectedPost.file_submission_url ? (
-                  (() => {
-                    const driveId = extractGoogleDriveFileId(selectedPost.file_submission_url);
-                    return driveId ? (
-                      <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border/30">
-                        <iframe
-                          src={`https://drive.google.com/file/d/${driveId}/preview`}
-                          className="w-full h-full"
-                          allow="autoplay"
-                          allowFullScreen
-                        />
-                      </div>
-                    ) : (
-                      <a href={selectedPost.file_submission_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Open video file
-                      </a>
-                    );
-                  })()
+                  <VideoBlock url={selectedPost.file_submission_url} />
                 ) : (
-                  <div className="aspect-video rounded-xl bg-muted/30 border border-border/30 flex items-center justify-center">
+                  <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[50vh] rounded-xl bg-muted/30 border border-border/30 flex items-center justify-center">
                     <span className="text-xs text-muted-foreground">No video attached</span>
                   </div>
                 )}
 
-                {/* All action buttons in one row: Download / Script / Approve / Revisions */}
-                <div className="flex items-center justify-between gap-2 text-xs pt-4 border-t border-border/40 flex-wrap">
-                  {/* Left: Download + Script */}
-                  <div className="flex items-center gap-4">
+                {/* Caption */}
+                {selectedPost.caption && (
+                  <div className="rounded-lg bg-muted/20 border border-border/30 p-3">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 font-semibold">Caption</div>
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">{selectedPost.caption}</p>
+                  </div>
+                )}
+
+                {/* Download / Script links */}
+                {(selectedPost.script_url || (selectedPost.file_submission_url && extractGoogleDriveFileId(selectedPost.file_submission_url))) && (
+                  <div className="flex items-center gap-4 text-sm flex-wrap">
                     {selectedPost.file_submission_url && extractGoogleDriveFileId(selectedPost.file_submission_url) && (
-                      <a href={getGoogleDriveDownloadUrl(extractGoogleDriveFileId(selectedPost.file_submission_url)!)}
-                        target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline">
-                        <Download className="w-3.5 h-3.5" />
-                        Download
+                      <a href={getGoogleDriveDownloadUrl(extractGoogleDriveFileId(selectedPost.file_submission_url)!)} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-primary hover:underline">
+                        <Download className="w-4 h-4" />Download
                       </a>
                     )}
                     {selectedPost.script_url && (
                       <a href={selectedPost.script_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline">
-                        <ExternalLink className="w-3 h-3" />
-                        View Script
+                        className="inline-flex items-center gap-1.5 text-primary hover:underline">
+                        <FileText className="w-4 h-4" />View Script
                       </a>
                     )}
                   </div>
+                )}
 
-                  {/* Right: Approve + Revisions */}
-                  <div className="flex items-center gap-2">
-                    {selectedPost.lifecycle_status !== "Published" && selectedPost.lifecycle_status !== "Scheduled" && (
+                {/* Review actions — login gated */}
+                <div className="pt-4 border-t border-border/40">
+                  {isApproved(selectedPost) ? (
+                    <div className="flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle className="w-4 h-4" />
+                      This post has been approved.
+                    </div>
+                  ) : isAuthed === false ? (
+                    <Button asChild className="w-full h-11 gap-2">
+                      <Link to={loginHref}>
+                        <LogIn className="w-4 h-4" />
+                        Sign in to approve or request revisions
+                      </Link>
+                    </Button>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button
-                        size="sm"
-                        className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
+                        className="flex-1 h-11 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
                         onClick={handleApprove}
-                        disabled={updatingStatus}
+                        disabled={updatingStatus || isAuthed === null}
                       >
-                        {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                        {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         Approve
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 text-xs h-8"
-                      onClick={handleRevisionClick}
-                      disabled={updatingStatus}
-                    >
-                      {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                      Revisions
-                    </Button>
-                  </div>
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-11 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10"
+                        onClick={handleRevisionClick}
+                        disabled={updatingStatus || isAuthed === null}
+                      >
+                        {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+                        Request Revisions
+                      </Button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Status message */}
-                {(selectedPost.lifecycle_status === "Published" || selectedPost.lifecycle_status === "Scheduled") && (
-                  <div className="pt-4 flex items-center gap-2 text-sm text-emerald-400">
-                    <CheckCircle className="w-4 h-4" />
-                    This post has been approved.
-                  </div>
-                )}
 
                 {/* Revision notes — shown when set */}
                 {selectedPost.revision_notes && (
                   <div className="pt-3 border-t border-border/40">
                     <div className="text-xs text-muted-foreground mb-1 font-medium">Revision notes</div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{selectedPost.revision_notes}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">{selectedPost.revision_notes}</p>
                   </div>
                 )}
               </div>

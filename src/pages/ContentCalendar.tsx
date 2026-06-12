@@ -243,15 +243,42 @@ export default function ContentCalendar() {
   const prevMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)), []);
   const nextMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)), []);
 
-  const handleSharePublicLink = useCallback(() => {
+  const handleSharePublicLink = useCallback(async () => {
     const shareId = clientId || (filterClientId && filterClientId !== "all" ? filterClientId : null);
-    if (!shareId) return;
+    if (!shareId) {
+      toast.error(language === "en" ? "Pick a client first" : "Elige un cliente primero");
+      return;
+    }
     const publicLink = `${window.location.origin}/public/calendar/${shareId}`;
-    navigator.clipboard.writeText(publicLink);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-    toast.success(language === "en" ? "Public link copied!" : "¡Enlace público copiado!");
-  }, [clientId, language]);
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      copied = true;
+    } catch {
+      // Clipboard API can be blocked (permissions, non-secure context) — fall back to a temp textarea
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = publicLink;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        copied = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        copied = false;
+      }
+    }
+    if (copied) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast.success(language === "en" ? "Public link copied!" : "¡Enlace público copiado!");
+    } else {
+      // Last resort: surface the link so it can still be sent
+      toast.success(publicLink, { duration: 8000 });
+    }
+  }, [clientId, filterClientId, language]);
 
   // Fetch client name
   useEffect(() => {
@@ -965,13 +992,36 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
   const isRevision = post.lifecycle_status === "Needs Revisions";
   const [copied, setCopied] = useState(false);
 
-  const handleShareLink = useCallback(() => {
-    const publicLink = `${window.location.origin}/public/calendar/${post.id}`;
-    navigator.clipboard.writeText(publicLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast.success(language === "en" ? "Link copied to clipboard" : "Enlace copiado al portapapeles");
-  }, [post.id, language]);
+  const handleShareLink = useCallback(async () => {
+    // Public route is client-scoped; deep-link to this specific post within the client calendar.
+    const publicLink = `${window.location.origin}/public/calendar/${post.client_id}?post=${post.id}`;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      copied = true;
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = publicLink;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        copied = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        copied = false;
+      }
+    }
+    if (copied) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success(language === "en" ? "Link copied to clipboard" : "Enlace copiado al portapapeles");
+    } else {
+      toast.success(publicLink, { duration: 8000 });
+    }
+  }, [post.id, post.client_id, language]);
 
   return (
     <>
