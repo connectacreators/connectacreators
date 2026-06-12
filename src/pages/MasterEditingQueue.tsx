@@ -157,6 +157,8 @@ export default function MasterEditingQueue() {
   const [unresolvedCounts, setUnresolvedCounts] = useState<Record<string, number>>({});
   const [totalCommentCounts, setTotalCommentCounts] = useState<Record<string, number>>({});
   const [teamMembers, setTeamMembers] = useState<{ user_id: string; display_name: string }[]>([]);
+  // clientId -> { user_id, name } for clients with a login (assignable as reviewer).
+  const [clientAssignees, setClientAssignees] = useState<Record<string, { user_id: string; name: string }>>({});
 
   const [captionEditItem, setCaptionEditItem] = useState<EditingQueueItem | null>(null);
   const [captionEditValue, setCaptionEditValue] = useState('');
@@ -363,6 +365,20 @@ export default function MasterEditingQueue() {
         .select("user_id, display_name")
         .in("user_id", ids);
       setTeamMembers((data || []).filter((p: any) => p.display_name));
+    })();
+  }, [user, authLoading]);
+
+  // Clients with a login can be assigned as the reviewer on their own rows.
+  useEffect(() => {
+    if (!user || authLoading) return;
+    (async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("id, user_id, name")
+        .not("user_id", "is", null);
+      const map: Record<string, { user_id: string; name: string }> = {};
+      (data || []).forEach((c: any) => { if (c.user_id) map[c.id] = { user_id: c.user_id, name: c.name }; });
+      setClientAssignees(map);
     })();
   }, [user, authLoading]);
 
@@ -582,7 +598,8 @@ export default function MasterEditingQueue() {
     setUpdatingAssignee(pageId);
     try {
       const member = teamMembers.find((m) => m.user_id === userId);
-      const displayName = userId ? (member?.display_name ?? "") : "";
+      const clientMatch = userId ? Object.values(clientAssignees).find((c) => c.user_id === userId) : null;
+      const displayName = userId ? (member?.display_name ?? clientMatch?.name ?? "") : "";
       const res = await supabase.functions.invoke("update-editing-status", {
         body: {
           id: pageId,
@@ -921,11 +938,23 @@ export default function MasterEditingQueue() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
-            {teamMembers.map((m) => (
-              <SelectItem key={m.user_id} value={m.user_id}>
-                {m.display_name}
-              </SelectItem>
-            ))}
+            {teamMembers
+              .filter((m) => m.user_id !== clientAssignees[item.clientId]?.user_id)
+              .map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {m.display_name}
+                </SelectItem>
+              ))}
+            {clientAssignees[item.clientId] && (
+              <>
+                <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {language === "en" ? "Client" : "Cliente"}
+                </div>
+                <SelectItem value={clientAssignees[item.clientId].user_id}>
+                  {clientAssignees[item.clientId].name}
+                </SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>

@@ -59,7 +59,7 @@ serve(async (req) => {
     // Ownership gate: the post must exist AND belong to the supplied client.
     const { data: current, error: fetchErr } = await serviceSupabase
       .from("video_edits")
-      .select("id, client_id, status, revisions")
+      .select("id, client_id, status, revisions, editor_user_id, editor_name")
       .eq("id", postId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -93,6 +93,13 @@ serve(async (req) => {
       update.revisions = reviewerName?.trim()
         ? `${reviewerName.trim()}: ${note}`
         : note;
+      // Hand the row back to the editor who worked on it (remembered when the
+      // post was scheduled and reassigned to the client). If none is recorded,
+      // leave the assignee as-is for the admin to route.
+      if (current.editor_user_id) {
+        update.assignee_user_id = current.editor_user_id;
+        update.assignee = current.editor_name ?? null;
+      }
     }
 
     update.post_status = postStatus;

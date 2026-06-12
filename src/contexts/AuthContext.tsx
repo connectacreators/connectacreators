@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { getCachedSupabaseUser, readCache, writeCache } from "@/lib/sessionCache";
 import { clearCachedBranding } from "@/lib/branding/storage";
 
-type UserRole = "admin" | "user" | "client" | "videographer" | "editor" | "connecta_plus";
+type UserRole = "admin" | "user" | "client" | "videographer" | "editor" | "connecta_plus" | "content_strategist";
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +15,7 @@ interface AuthContextType {
   isVideographer: boolean;
   isEditor: boolean;
   isConnectaPlus: boolean;
+  isContentStrategist: boolean;
   signOut: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
@@ -195,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isVideographer: role === "videographer",
         isEditor: role === "editor",
         isConnectaPlus: role === "connecta_plus",
+        isContentStrategist: role === "content_strategist",
         signOut,
         signInWithEmail,
         signUpWithEmail,

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Content pipeline — manual vs automatic</title>
+<style>
+  :root{
+    --ink:#1d1b18; --bone:#f7f4ee; --cream:#efe9df; --line:#d9d2c6;
+    --muted:#8a8275; --manual:#3f3a33; --auto:#1f7a5a; --auto-bg:#e3f3ec;
+    --client:#b4541f; --editor:#2f6db0; --admin:#7a4fb0; --videographer:#a8902a;
+    --shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bone);color:var(--ink);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;padding:40px 20px 80px}
+  .wrap{max-width:880px;margin:0 auto}
+  h1{font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:34px;
+    letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 26px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 32px}
+  .legend span{display:inline-flex;align-items:center;gap:7px;font-size:13px;
+    font-weight:600;padding:7px 13px;border-radius:999px;background:#fff;
+    border:1px solid var(--line)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .d-manual{background:var(--manual)} .d-auto{background:var(--auto)}
+  .d-vid{background:var(--videographer)} .d-ed{background:var(--editor)}
+  .d-ad{background:var(--admin)} .d-cl{background:var(--client)}
+
+  .stage{position:relative;padding-left:46px;margin:0}
+  .stage::before{content:"";position:absolute;left:17px;top:0;bottom:0;
+    width:2px;background:var(--line)}
+  .stage:last-child::before{bottom:auto;height:34px}
+  .node{position:absolute;left:8px;top:22px;width:20px;height:20px;border-radius:50%;
+    background:#fff;border:2px solid var(--manual);z-index:2}
+  .stage.auto .node{border-color:var(--auto);background:var(--auto)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;margin:0 0 14px;box-shadow:var(--shadow)}
+  .stage.auto .card{background:var(--auto-bg);border-color:#b9e0cf}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .title{font-weight:600;font-size:16px;margin:0}
+  .desc{color:#5a5247;font-size:13.5px;margin:6px 0 0}
+  .tag{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    padding:5px 10px;border-radius:8px;white-space:nowrap}
+  .tag.manual{background:#efe9df;color:var(--manual)}
+  .tag.auto{background:var(--auto);color:#fff}
+  .who{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+    padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;margin-top:10px}
+  .who .dot{width:8px;height:8px}
+  .auto .who{background:#fff}
+  .loop{margin:2px 0 14px 46px;border-left:2px dashed var(--client);padding:10px 0 10px 16px}
+  .loop .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+    color:var(--client);background:#fbeee5;border:1px solid #eccab0;border-radius:999px;padding:5px 12px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  @media(max-width:620px){.split{grid-template-columns:1fr}}
+  .mini{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:#fff}
+  .mini.auto{background:var(--auto-bg);border-color:#b9e0cf}
+  .mini h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .mini p{margin:0;font-size:12.5px;color:#5a5247}
+  .key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+    background:#f0ece4;border-radius:5px;padding:1px 6px;color:#3f3a33}
+  .foot{margin-top:30px;padding:16px 18px;border-radius:14px;background:#fff;
+    border:1px dashed var(--line);font-size:13px;color:#5a5247}
+  .foot b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Content pipeline — what's manual, what's automatic</h1>
+  <p class="sub">Connecta+ video lifecycle, from script to posted. Only the two green steps are new automation.
+    The purple "Strategist" steps are run by a <b>Content Strategist</b> per client — and until one is hired,
+    they fall back to <b>you (admin)</b>.</p>
+
+  <div class="legend">
+    <span><i class="dot d-manual"></i>Manual (you do it)</span>
+    <span><i class="dot d-auto"></i>Automatic (system does it)</span>
+    <span><i class="dot d-vid"></i>Videographer</span>
+    <span><i class="dot d-ed"></i>Editor · Axel</span>
+    <span><i class="dot d-ad"></i>Strategist → admin (you, for now)</span>
+    <span><i class="dot d-cl"></i>Client</span>
+  </div>
+
+  <!-- 1 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">1 · Script row created</p><span class="tag manual">Manual</span></div>
+    <p class="desc">A script line is added to the queue.</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 2 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">2 · Script approved</p><span class="tag manual">Manual</span></div>
+    <p class="desc">The script is reviewed and approved to film.</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 3 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">3 · Marked filmed</p><span class="tag manual">Manual</span></div>
+    <p class="desc">Marked as filmed — does <b>not</b> show on the editing queue yet.</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 4 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">4 · Raw footage uploaded</p><span class="tag manual">Manual</span></div>
+    <p class="desc">Videographer uploads the raw footage (the footage tab).</p>
+    <span class="who"><i class="dot d-vid"></i>Videographer</span>
+  </div></div>
+
+  <!-- 5 AUTO -->
+  <div class="stage auto"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">5 · Hand off to the editor</p><span class="tag auto">⚡ Automatic</span></div>
+    <p class="desc">The moment raw footage lands, the system sets the row to <b>Needs Revisions</b> and assigns
+      the client's editor (Axel) — so he knows to start editing. No manual assigning.</p>
+    <span class="who"><i class="dot d-vid"></i>Joshua</span> &nbsp;→&nbsp; <span class="who"><i class="dot d-ed"></i>Axel</span>
+  </div></div>
+
+  <!-- 6 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">6 · Editor uploads the cut</p><span class="tag manual">Manual</span></div>
+    <p class="desc">Axel uploads the edit; status is set so it's ready for your review.</p>
+    <span class="who"><i class="dot d-ed"></i>Axel</span>
+  </div></div>
+
+  <!-- 7 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">7 · You review the cut</p><span class="tag manual">Manual</span></div>
+    <p class="desc">If it needs work, you leave revisions and assign Axel. If it's good, you schedule it (next step).</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 8 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">8 · Approve &amp; send to calendar → <span class="key">Scheduled</span></p><span class="tag manual">Manual</span></div>
+    <p class="desc">You approve and schedule the post. This flip to <b>Scheduled</b> is what triggers the automation below.</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 9 AUTO -->
+  <div class="stage auto"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">9 · Hand off to the client</p><span class="tag auto">⚡ Automatic</span></div>
+    <p class="desc">The moment it's <b>Scheduled</b>, the system sets the <b>assignee → the client</b> and quietly remembers
+      who the editor was, so it can come back to them later.</p>
+    <span class="who"><i class="dot d-ad"></i>Axel</span> &nbsp;→&nbsp; <span class="who"><i class="dot d-cl"></i>Client</span>
+  </div></div>
+
+  <!-- 10 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">10 · Send the public calendar link</p><span class="tag manual">Manual</span></div>
+    <p class="desc">You share the public link so the client can watch and review on their phone.</p>
+    <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <!-- 11 client decides -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">11 · Client reviews on the public link</p></div>
+    <p class="desc">Two outcomes:</p>
+    <div class="split">
+      <div class="mini">
+        <h4><i class="dot d-cl"></i>Approves <span class="tag manual" style="margin-left:auto">Manual</span></h4>
+        <p>You post / mark Published.</p>
+      </div>
+      <div class="mini auto">
+        <h4><i class="dot d-cl"></i>Requests revision <span class="tag auto" style="margin-left:auto">⚡ Auto</span></h4>
+        <p>System flips to <b>Needs Revisions</b>, sends it <b>back to Axel</b>, and drops the client's
+          <b>timestamped notes</b> into the editing queue.</p>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- loop -->
+  <div class="loop">
+    <span class="pill">↺ Revision loop · Axel edits → you re-check → schedule → back to client → … until approved</span>
+  </div>
+
+  <!-- 12 -->
+  <div class="stage"><div class="node"></div><div class="card">
+    <div class="row"><p class="title">12 · Client approved → Post</p><span class="tag manual">Manual</span></div>
+    <p class="desc">Once the client approves, it's posted / Published.</p>
+    <span class="who"><i class="dot d-cl"></i>Client</span> &nbsp;→&nbsp; <span class="who"><i class="dot d-ad"></i>You</span>
+  </div></div>
+
+  <div class="foot">
+    <b>What's being built (3 green automations + roles + assignability):</b><br>
+    ① Step 5 — when raw footage is uploaded, auto-set Needs Revisions + assign the client's editor (Axel).<br>
+    ② Step 9 — auto-assign the row to its client when it becomes Scheduled (and remember the editor).<br>
+    ③ Step 11 — when the client requests a revision, auto-set Needs Revisions + reassign the remembered editor + attach the timestamped notes.<br>
+    ④ Plus: a <b>Content Strategist</b> role (per client, admin fallback) and the row's own Connecta+ client selectable in the assignee dropdown.
+  </div>
+</div>
+</body>
+</html>

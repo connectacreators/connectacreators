@@ -182,6 +182,7 @@ export default function EditingQueue() {
   const [viewerSubfolder, setViewerSubfolder] = useState<string | undefined>(undefined);
 
   const [teamMembers, setTeamMembers] = useState<{ user_id: string; display_name: string }[]>([]);
+  const [clientAssignee, setClientAssignee] = useState<{ user_id: string; name: string } | null>(null);
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -292,11 +293,15 @@ export default function EditingQueue() {
     if (!clientId || !user) return;
     supabase
       .from("clients")
-      .select("name")
+      .select("name, user_id")
       .eq("id", clientId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setClientName(data.name);
+        if (data) {
+          setClientName(data.name);
+          // The client can be assigned as the reviewer (only if they have a login).
+          setClientAssignee(data.user_id ? { user_id: data.user_id, name: data.name } : null);
+        }
       });
   }, [clientId, user]);
 
@@ -572,7 +577,8 @@ export default function EditingQueue() {
   const handleAssigneeUpdate = async (pageId: string, userId: string | null) => {
     try {
       const member = teamMembers.find((m) => m.user_id === userId);
-      const displayName = userId ? (member?.display_name ?? "") : "";
+      const clientName = userId && clientAssignee?.user_id === userId ? clientAssignee.name : null;
+      const displayName = userId ? (member?.display_name ?? clientName ?? "") : "";
       const res = await supabase.functions.invoke("update-editing-status", {
         body: {
           id: pageId,
@@ -803,11 +809,21 @@ export default function EditingQueue() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">{language === "en" ? "Unassigned" : "Sin asignar"}</SelectItem>
-            {teamMembers.map((m) => (
-              <SelectItem key={m.user_id} value={m.user_id}>
-                {m.display_name}
-              </SelectItem>
-            ))}
+            {teamMembers
+              .filter((m) => m.user_id !== clientAssignee?.user_id)
+              .map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {m.display_name}
+                </SelectItem>
+              ))}
+            {clientAssignee && (
+              <>
+                <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {language === "en" ? "Client" : "Cliente"}
+                </div>
+                <SelectItem value={clientAssignee.user_id}>{clientAssignee.name}</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
