@@ -5,6 +5,7 @@
 // deadline, and groups the result into urgency lanes (soonest first).
 
 import { relativeDate, type RelativeBucket } from "./relativeDate";
+import type { Language } from "@/hooks/useLanguage";
 import type {
   TriageClient,
   TriageRow,
@@ -50,6 +51,13 @@ const LANE_LABEL: Record<AgendaLaneKey, string> = {
   thisweek: "This week",
   later: "Later",
 };
+const LANE_LABEL_ES: Record<AgendaLaneKey, string> = {
+  overdue: "Atrasado",
+  today: "Hoy",
+  tomorrow: "Mañana",
+  thisweek: "Esta semana",
+  later: "Más tarde",
+};
 
 function laneFor(bucket: RelativeBucket): AgendaLaneKey {
   switch (bucket) {
@@ -84,7 +92,17 @@ function hrefFor(kind: AgendaKind, clientId: string): string {
   }
 }
 
-function pipelineVerb(m: PipelineMilestone): { verb: string; context?: string } {
+function pipelineVerb(m: PipelineMilestone, lang: Language = "en"): { verb: string; context?: string } {
+  if (lang === "es") {
+    switch (m) {
+      case "onboarding_call": return { verb: "Llamada de onboarding", context: "revisa el intake primero" };
+      case "script_due":      return { verb: "Escribe y envía el script" };
+      case "filming":         return { verb: "Prepara la grabación", context: "lista de tomas + confirma talento" };
+      case "editing_due":     return { verb: "Cierra la edición" };
+      case "boosting":        return { verb: "Configura el boost" };
+      case "posting":         return { verb: "Confirma la publicación" };
+    }
+  }
   switch (m) {
     case "onboarding_call": return { verb: "Onboarding call", context: "review intake first" };
     case "script_due":      return { verb: "Write & send script" };
@@ -95,7 +113,14 @@ function pipelineVerb(m: PipelineMilestone): { verb: string; context?: string } 
   }
 }
 
-function countMeta(kind: "scripts_review" | "videos_revision" | "posts_scheduled", count: number) {
+function countMeta(kind: "scripts_review" | "videos_revision" | "posts_scheduled", count: number, lang: Language = "en") {
+  if (lang === "es") {
+    switch (kind) {
+      case "scripts_review":  return { verb: "Revisar scripts",     countLabel: `${count} listos para revisar` };
+      case "videos_revision": return { verb: "Ediciones en revisión", countLabel: `${count} en revisión` };
+      case "posts_scheduled": return { verb: "Posts programados",    countLabel: `${count} programados` };
+    }
+  }
   switch (kind) {
     case "scripts_review":  return { verb: "Review scripts",   countLabel: `${count} ready for review` };
     case "videos_revision": return { verb: "Edits in revision", countLabel: `${count} in revision` };
@@ -111,6 +136,7 @@ export function buildAgenda(
   clients: TriageClient[],
   rowsByClient: TriageRowsByClient,
   now: Date = new Date(),
+  lang: Language = "en",
 ): AgendaLane[] {
   const nameById = new Map(clients.map((c) => [c.id, c.name]));
   const items: AgendaItem[] = [];
@@ -131,8 +157,8 @@ export function buildAgenda(
 
     // 1) Pipeline milestones → items (folding the matching count when present).
     for (const [milestone, row] of pipelineByMilestone) {
-      const { verb, context: baseContext } = pipelineVerb(milestone);
-      const rel = relativeDate(row.at, now);
+      const { verb, context: baseContext } = pipelineVerb(milestone, lang);
+      const rel = relativeDate(row.at, now, lang);
       const folded = (Object.keys(COUNT_FOLD) as Array<keyof typeof COUNT_FOLD>)
         .find((ct) => COUNT_FOLD[ct] === milestone);
       let count: number | undefined;
@@ -142,7 +168,7 @@ export function buildAgenda(
         if (cr) {
           consumedCountTypes.add(folded);
           count = cr.count;
-          countLabel = countMeta(folded, cr.count).countLabel;
+          countLabel = countMeta(folded, cr.count, lang).countLabel;
         }
       }
       items.push({
@@ -166,8 +192,8 @@ export function buildAgenda(
     for (const cr of countRows) {
       if (consumedCountTypes.has(cr.type)) continue;
       const date = countDate(cr);
-      const rel = relativeDate(date, now);
-      const { verb, countLabel } = countMeta(cr.type, cr.count);
+      const rel = relativeDate(date, now, lang);
+      const { verb, countLabel } = countMeta(cr.type, cr.count, lang);
       items.push({
         key: `${client.id}:${cr.type}`,
         clientId: client.id,
@@ -199,7 +225,7 @@ export function buildAgenda(
     const laneItems = byLane.get(key);
     if (!laneItems || laneItems.length === 0) continue;
     laneItems.sort((a, b) => new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime());
-    lanes.push({ key, label: LANE_LABEL[key], items: laneItems });
+    lanes.push({ key, label: (lang === "es" ? LANE_LABEL_ES : LANE_LABEL)[key], items: laneItems });
   }
   return lanes;
 }

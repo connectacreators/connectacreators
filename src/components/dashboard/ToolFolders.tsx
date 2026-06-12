@@ -8,6 +8,8 @@
 
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useLanguage, type Language } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 import {
   Layers,
   FileText,
@@ -38,43 +40,45 @@ interface Folder {
   tools: ToolLink[];
 }
 
-function buildFolders(clientId: string | null): Folder[] {
+function buildFolders(clientId: string | null, lang: Language): Folder[] {
   const c = clientId; // local alias for readability
+  const tl = t.dashboard.tools;
+  const tf = t.dashboard.folders;
   return [
     {
       key: "content",
-      label: "Content Creation",
+      label: tf.content.label[lang],
       tools: [
-        { label: "Super Canvas",     icon: Layers,       path: c ? `/clients/${c}/scripts?view=canvas` : "/scripts?view=canvas" },
-        { label: "Scripts",          icon: FileText,     path: c ? `/clients/${c}/scripts`              : "/scripts" },
-        { label: "Vault",            icon: Archive,      path: c ? `/clients/${c}/vault`                : "/vault" },
-        { label: "Editing Queue",    icon: Clapperboard, path: c ? `/clients/${c}/editing-queue`        : "/editing-queue" },
-        { label: "Content Calendar", icon: Calendar,     path: c ? `/clients/${c}/content-calendar`     : "/content-calendar" },
+        { label: tl.superCanvas.label[lang],     icon: Layers,       path: c ? `/clients/${c}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: tl.scripts.label[lang],         icon: FileText,     path: c ? `/clients/${c}/scripts`              : "/scripts" },
+        { label: tl.vault.label[lang],           icon: Archive,      path: c ? `/clients/${c}/vault`                : "/vault" },
+        { label: tl.editingQueue.label[lang],    icon: Clapperboard, path: c ? `/clients/${c}/editing-queue`        : "/editing-queue" },
+        { label: tl.contentCalendar.label[lang], icon: Calendar,     path: c ? `/clients/${c}/content-calendar`     : "/content-calendar" },
       ],
     },
     {
       key: "sales",
-      label: "Sales",
+      label: tf.sales.label[lang],
       tools: [
-        { label: "Lead Tracker",  icon: Target,       path: c ? `/clients/${c}/leads`         : "/leads" },
-        { label: "Lead Calendar", icon: CalendarDays, path: c ? `/clients/${c}/lead-calendar` : "/lead-calendar" },
+        { label: tl.leadTracker.label[lang],  icon: Target,       path: c ? `/clients/${c}/leads`         : "/leads" },
+        { label: tl.leadCalendar.label[lang], icon: CalendarDays, path: c ? `/clients/${c}/lead-calendar` : "/lead-calendar" },
       ],
     },
     {
       key: "setup",
-      label: "Client Set Up",
+      label: tf.setup.label[lang],
       // When no client is active, client-scoped tools land on /clients so the user
       // can pick one — instead of self-routing back to /dashboard (the old "looks
       // broken" behavior). Brand Setup keeps /onboarding (its agency-wide entry
       // point) and Database keeps /master-database (a real agency-level page).
       tools: [
-        { label: "Content Strategy", icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/clients" },
-        { label: "Brand Setup",      icon: Sparkles,   path: c ? `/onboarding/${c}`               : "/onboarding" },
-        { label: "Public Booking",   icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/clients" },
-        { label: "Landing Page",     icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/clients" },
-        { label: "Database",         icon: Database,   path: c ? `/clients/${c}/database`         : "/master-database" },
-        { label: "Contracts",        icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/clients" },
-        { label: "Social Accounts",  icon: Share2,     path: c ? `/clients/${c}/social-accounts`  : "/clients" },
+        { label: tl.contentStrategy.label[lang], icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/clients" },
+        { label: tl.brandSetup.label[lang],      icon: Sparkles,   path: c ? `/onboarding/${c}`               : "/onboarding" },
+        { label: tl.publicBooking.label[lang],   icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/clients" },
+        { label: tl.landingPage.label[lang],     icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/clients" },
+        { label: tl.database.label[lang],        icon: Database,   path: c ? `/clients/${c}/database`         : "/master-database" },
+        { label: tl.contracts.label[lang],       icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/clients" },
+        { label: tl.socialAccounts.label[lang],  icon: Share2,     path: c ? `/clients/${c}/social-accounts`  : "/clients" },
       ],
     },
   ];
@@ -85,7 +89,8 @@ interface ToolFoldersProps {
 }
 
 export function ToolFolders({ activeClientId }: ToolFoldersProps) {
-  const folders = buildFolders(activeClientId);
+  const { language } = useLanguage();
+  const folders = buildFolders(activeClientId, language);
 
   return (
     <motion.section
@@ -105,7 +110,7 @@ export function ToolFolders({ activeClientId }: ToolFoldersProps) {
           fontWeight: 600,
         }}
       >
-        Tools{activeClientId ? "" : " — agency view"}
+        {t.dashboard.toolsLabel[language]}{activeClientId ? "" : t.dashboard.agencyViewSuffix[language]}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {folders.map((folder, idx) => (

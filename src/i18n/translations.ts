@@ -12,6 +12,66 @@ export const t = {
     scriptDesc: { en: "Categorize and manage your video scripts.", es: "Categoriza y gestiona tus guiones de video." },
     leadTrackerDesc: { en: "View and manage your CRM leads.", es: "Visualiza y gestiona tus leads del CRM." },
     leadCalendarDesc: { en: "View scheduled appointments from your leads.", es: "Visualiza citas programadas de tus leads." },
+    // ── Agency triage view (Dashboard.tsx / AdminTriageView) ──
+    hey: { en: "Hey", es: "Hola" },
+    loadingEllipsis: { en: "Loading…", es: "Cargando…" },
+    noPlusClients: { en: "No Connecta Plus clients yet.", es: "Aún no tienes clientes Connecta Plus." },
+    nothingOnFire: { en: "Nothing on fire.", es: "Nada urgente." },
+    takeABreath: { en: "Take a breath, or get ahead on next week's content.", es: "Respira, o adelántate al contenido de la próxima semana." },
+    addFirstClient: { en: "Add your first client →", es: "Agrega tu primer cliente →" },
+    viewAllClients: { en: "View all clients", es: "Ver todos los clientes" },
+    robbyReadOn: { en: "Robby's read on", es: "La lectura de Robby sobre" },
+    agency: { en: "Agency", es: "Agencia" },
+    backToAgencyView: { en: "Back to agency view", es: "Volver a la vista de agencia" },
+    back: { en: "Back", es: "Atrás" },
+    // Master view toggle
+    clientsTab: { en: "Clients", es: "Clientes" },
+    tasksTab: { en: "Tasks", es: "Tareas" },
+    dashboardViewAria: { en: "Dashboard view", es: "Vista del panel" },
+    // Mobile single-brand dashboard
+    needsAttention: { en: "Needs your attention", es: "Requiere tu atención" },
+    allCaughtUp: { en: "You're all caught up", es: "Estás al día" },
+    leads: { en: "Leads", es: "Leads" },
+    tileScriptsSub: { en: "Write & review", es: "Escribe y revisa" },
+    tileEditingSub: { en: "Approve cuts", es: "Aprueba ediciones" },
+    tileCalendarSub: { en: "What's posting", es: "Qué se publica" },
+    tileLeadsSub: { en: "Sales pipeline", es: "Pipeline de ventas" },
+    // Tools section label
+    toolsLabel: { en: "Tools", es: "Herramientas" },
+    agencyViewSuffix: { en: " — agency view", es: " — vista de agencia" },
+    // Aging marker
+    agingTitle: { en: "Aging — pending more than 48 hours", es: "Antiguo — pendiente desde hace más de 48 horas" },
+    prep: { en: "PREP", es: "PREP" },
+    // Recent chats panel
+    newChat: { en: "New chat", es: "Nuevo chat" },
+    untitledChat: { en: "Untitled chat", es: "Chat sin título" },
+    chatToday: { en: "Today", es: "Hoy" },
+    chatYesterday: { en: "Yesterday", es: "Ayer" },
+    chatLastWeek: { en: "Last week", es: "Semana pasada" },
+    chatOlder: { en: "Older", es: "Anteriores" },
+    // Folder cards (shared by SingleBrandDashboard + ToolFolders)
+    folders: {
+      content: { label: { en: "Content Creation", es: "Creación de Contenido" }, desc: { en: "Scripts · Vault · Editing Queue · Content Calendar", es: "Scripts · Vault · Cola de Edición · Calendario de Contenido" } },
+      sales: { label: { en: "Sales", es: "Ventas" }, desc: { en: "Lead Tracker · Lead Calendar", es: "Lead Tracker · Lead Calendar" } },
+      setup: { label: { en: "Client Set Up", es: "Configuración del Cliente" }, desc: { en: "Onboarding · Booking · Landing Page · Database", es: "Onboarding · Reservas · Landing Page · Base de Datos" } },
+    },
+    // Tool sub-cards (shared by SingleBrandDashboard + ToolFolders)
+    tools: {
+      superCanvas: { label: { en: "Super Canvas", es: "Super Canvas" }, desc: { en: "AI-powered script planning canvas", es: "Lienzo de planificación de guiones con IA" } },
+      scripts: { label: { en: "Scripts", es: "Scripts" }, desc: { en: "View and manage scripts", es: "Ver y gestionar scripts" } },
+      vault: { label: { en: "Vault", es: "Vault" }, desc: { en: "Script templates from viral videos", es: "Plantillas de guiones de videos virales" } },
+      editingQueue: { label: { en: "Editing Queue", es: "Cola de Edición" }, desc: { en: "Track video production status", es: "Sigue el estado de producción de video" } },
+      contentCalendar: { label: { en: "Content Calendar", es: "Calendario de Contenido" }, desc: { en: "Schedule & approve posts", es: "Programa y aprueba publicaciones" } },
+      leadTracker: { label: { en: "Lead Tracker", es: "Lead Tracker" }, desc: { en: "Track incoming leads", es: "Rastrea leads entrantes" } },
+      leadCalendar: { label: { en: "Lead Calendar", es: "Lead Calendar" }, desc: { en: "Calendar view of leads", es: "Vista de calendario de leads" } },
+      contentStrategy: { label: { en: "Content Strategy", es: "Estrategia de Contenido" }, desc: { en: "Goals, mix, ManyChat & fulfillment score", es: "Objetivos, mezcla, ManyChat y puntaje de cumplimiento" } },
+      brandSetup: { label: { en: "Brand Setup", es: "Configuración de Marca" }, desc: { en: "Complete client onboarding form", es: "Completa el formulario de onboarding del cliente" } },
+      publicBooking: { label: { en: "Public Booking", es: "Reservas Públicas" }, desc: { en: "Calendly-style public calendar", es: "Calendario público estilo Calendly" } },
+      landingPage: { label: { en: "Landing Page", es: "Landing Page" }, desc: { en: "Build your custom landing page", es: "Crea tu landing page personalizada" } },
+      database: { label: { en: "Database", es: "Base de Datos" }, desc: { en: "Direct database access", es: "Acceso directo a la base de datos" } },
+      contracts: { label: { en: "Contracts", es: "Contratos" }, desc: { en: "Upload, sign & send contracts", es: "Sube, firma y envía contratos" } },
+      socialAccounts: { label: { en: "Social Accounts", es: "Cuentas Sociales" }, desc: { en: "Connect Facebook & Instagram for scheduling", es: "Conecta Facebook e Instagram para programar" } },
+    },
   },
   // Lead Tracker
   leadTracker: {

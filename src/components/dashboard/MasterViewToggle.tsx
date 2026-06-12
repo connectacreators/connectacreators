@@ -5,6 +5,8 @@
 
 import { useCallback, useState } from "react";
 import { LayoutGrid, ListChecks } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 
 export type MasterView = "clients" | "tasks";
 const STORAGE_KEY = "dashboard.masterView";
@@ -21,19 +23,21 @@ export function useMasterView(): [MasterView, (v: MasterView) => void] {
   return [view, set];
 }
 
-const OPTIONS: Array<{ value: MasterView; label: string; Icon: typeof LayoutGrid }> = [
-  { value: "clients", label: "Clients", Icon: LayoutGrid },
-  { value: "tasks",   label: "Tasks",   Icon: ListChecks },
+const OPTIONS: Array<{ value: MasterView; Icon: typeof LayoutGrid }> = [
+  { value: "clients", Icon: LayoutGrid },
+  { value: "tasks",   Icon: ListChecks },
 ];
 
 export function MasterViewToggle({ view, onChange }: { view: MasterView; onChange: (v: MasterView) => void }) {
+  const { language } = useLanguage();
+  const labelFor = (v: MasterView) => (v === "clients" ? t.dashboard.clientsTab : t.dashboard.tasksTab)[language];
   return (
     <div
       role="tablist"
-      aria-label="Dashboard view"
+      aria-label={t.dashboard.dashboardViewAria[language]}
       style={{ display: 'inline-flex', background: 'hsl(var(--ink-on-cream) / 0.06)', borderRadius: 999, padding: 3 }}
     >
-      {OPTIONS.map(({ value, label, Icon }) => {
+      {OPTIONS.map(({ value, Icon }) => {
         const on = view === value;
         return (
           <button
@@ -52,7 +56,7 @@ export function MasterViewToggle({ view, onChange }: { view: MasterView; onChang
             }}
           >
             <Icon size={14} strokeWidth={2} />
-            {label}
+            {labelFor(value)}
           </button>
         );
       })}

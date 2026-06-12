@@ -52,6 +52,8 @@ export interface TriageClient {
   name: string;
 }
 
+import type { Language } from "@/hooks/useLanguage";
+
 export const PIPELINE_MILESTONE_LABEL: Record<PipelineMilestone, string> = {
   onboarding_call: 'Onboarding call',
   script_due:      'Script due',
@@ -60,3 +62,16 @@ export const PIPELINE_MILESTONE_LABEL: Record<PipelineMilestone, string> = {
   boosting:        'Boosting',
   posting:         'Posting',
 };
+
+const PIPELINE_MILESTONE_LABEL_ES: Record<PipelineMilestone, string> = {
+  onboarding_call: 'Llamada de onboarding',
+  script_due:      'Script pendiente',
+  editing_due:     'Edición pendiente',
+  filming:         'Grabación',
+  boosting:        'Boosting',
+  posting:         'Publicación',
+};
+
+export function pipelineMilestoneLabel(m: PipelineMilestone, lang: Language = 'en'): string {
+  return (lang === 'es' ? PIPELINE_MILESTONE_LABEL_ES : PIPELINE_MILESTONE_LABEL)[m];
+}

@@ -11,7 +11,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { relativeDate, type RelativeBucket } from "@/lib/triage/relativeDate";
-import { PIPELINE_MILESTONE_LABEL, type TriageRow as TriageRowData, type PipelineMilestone } from "@/lib/triage/types";
+import { pipelineMilestoneLabel, type TriageRow as TriageRowData, type PipelineMilestone } from "@/lib/triage/types";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 
 interface Props {
   row: TriageRowData;
@@ -85,14 +87,16 @@ function rowHoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
 }
 
 export function TriageRow({ row, clientId }: Props) {
+  const { language } = useLanguage();
+  const es = language === 'es';
   const href = buildHref(row, clientId);
 
   // PIPELINE ROW — icon tile + milestone label + relative date chip + optional context
   if (row.type === 'pipeline') {
-    const rel = relativeDate(row.at);
+    const rel = relativeDate(row.at, new Date(), language);
     const tint = BUCKET_TINT[rel.bucket];
     const Icon = PIPELINE_ICON[row.milestone];
-    const baseLabel = PIPELINE_MILESTONE_LABEL[row.milestone];
+    const baseLabel = pipelineMilestoneLabel(row.milestone, language);
 
     return (
       <Link
@@ -138,18 +142,24 @@ export function TriageRow({ row, clientId }: Props) {
 
   if (row.type === 'scripts_review') {
     count = row.count;
-    label = `${pluralize(count, 'script')} ${pluralize(count, 'needs', 'need')} review`;
+    label = es
+      ? `${pluralize(count, 'script')} por revisar`
+      : `${pluralize(count, 'script')} ${pluralize(count, 'needs', 'need')} review`;
     detail = truncateList(row.sampleNames);
     aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
   } else if (row.type === 'videos_revision') {
     count = row.count;
-    label = `${pluralize(count, 'video')} ${pluralize(count, 'needs', 'need')} revisions`;
+    label = es
+      ? `${pluralize(count, 'video')} con revisiones`
+      : `${pluralize(count, 'video')} ${pluralize(count, 'needs', 'need')} revisions`;
     detail = truncateList(row.sampleNames);
     aging = (Date.now() - new Date(row.oldestPendingAt).getTime()) > AGING_THRESHOLD_MS;
   } else {
     count = row.count;
-    const rel = relativeDate(row.nextAt);
-    label = `${pluralize(count, 'post')} scheduled · ${rel.label}`;
+    const rel = relativeDate(row.nextAt, new Date(), language);
+    label = es
+      ? `${pluralize(count, 'post')} ${count === 1 ? 'programado' : 'programados'} · ${rel.label}`
+      : `${pluralize(count, 'post')} scheduled · ${rel.label}`;
     detail = truncateList(row.sampleNames);
     aging = rel.bucket === 'today';
   }
@@ -191,7 +201,7 @@ export function TriageRow({ row, clientId }: Props) {
         <span
           aria-hidden
           className="shrink-0"
-          title="Aging — pending more than 48 hours"
+          title={t.dashboard.agingTitle[language]}
           style={{
             width: 7,
             height: 7,

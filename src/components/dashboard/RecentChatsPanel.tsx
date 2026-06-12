@@ -9,6 +9,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveChat } from "@/hooks/useActiveChat";
+import { useLanguage, type Language } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 import { Plus } from "lucide-react";
 
 interface Thread {
@@ -23,31 +25,32 @@ interface ThreadGroup {
   threads: Thread[];
 }
 
-function groupByDate(threads: Thread[]): ThreadGroup[] {
+function groupByDate(threads: Thread[], lang: Language): ThreadGroup[] {
   const now = Date.now();
   const oneDay = 24 * 60 * 60 * 1000;
   const today: Thread[] = [];
   const yesterday: Thread[] = [];
   const lastWeek: Thread[] = [];
   const older: Thread[] = [];
-  for (const t of threads) {
-    const ts = new Date(t.last_message_at ?? t.updated_at).getTime();
+  for (const thread of threads) {
+    const ts = new Date(thread.last_message_at ?? thread.updated_at).getTime();
     const age = now - ts;
-    if (age < oneDay) today.push(t);
-    else if (age < 2 * oneDay) yesterday.push(t);
-    else if (age < 7 * oneDay) lastWeek.push(t);
-    else older.push(t);
+    if (age < oneDay) today.push(thread);
+    else if (age < 2 * oneDay) yesterday.push(thread);
+    else if (age < 7 * oneDay) lastWeek.push(thread);
+    else older.push(thread);
   }
   const groups: ThreadGroup[] = [];
-  if (today.length)     groups.push({ label: "Today",     threads: today });
-  if (yesterday.length) groups.push({ label: "Yesterday", threads: yesterday });
-  if (lastWeek.length)  groups.push({ label: "Last week", threads: lastWeek });
-  if (older.length)     groups.push({ label: "Older",     threads: older });
+  if (today.length)     groups.push({ label: t.dashboard.chatToday[lang],     threads: today });
+  if (yesterday.length) groups.push({ label: t.dashboard.chatYesterday[lang], threads: yesterday });
+  if (lastWeek.length)  groups.push({ label: t.dashboard.chatLastWeek[lang],  threads: lastWeek });
+  if (older.length)     groups.push({ label: t.dashboard.chatOlder[lang],     threads: older });
   return groups;
 }
 
 export function RecentChatsPanel() {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   // Use the shared useActiveChat hook (localStorage + cross-tab broadcast) so
@@ -73,7 +76,7 @@ export function RecentChatsPanel() {
     return () => { cancelled = true; };
   }, [user]);
 
-  const groups = groupByDate(threads);
+  const groups = groupByDate(threads, language);
 
   const onNewChat = () => {
     clearActiveChat();
@@ -94,7 +97,7 @@ export function RecentChatsPanel() {
         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#aaaaaa] hover:text-[#e8e8e8] transition-colors"
       >
         <Plus className="w-4 h-4 flex-shrink-0" strokeWidth={1.75} />
-        New chat
+        {t.dashboard.newChat[language]}
       </button>
 
       <div
@@ -109,13 +112,13 @@ export function RecentChatsPanel() {
             >
               {g.label}
             </div>
-            {g.threads.map((t) => {
-              const isActive = t.id === activeThreadId;
+            {g.threads.map((thread) => {
+              const isActive = thread.id === activeThreadId;
               return (
                 <button
-                  key={t.id}
+                  key={thread.id}
                   type="button"
-                  onClick={() => onChatClick(t.id)}
+                  onClick={() => onChatClick(thread.id)}
                   className="block w-full text-left truncate"
                   style={{
                     padding: "4px 12px",
@@ -132,7 +135,7 @@ export function RecentChatsPanel() {
                     if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                   }}
                 >
-                  {t.title ?? "Untitled chat"}
+                  {thread.title ?? t.dashboard.untitledChat[language]}
                 </button>
               );
             })}

@@ -5,6 +5,8 @@
 
 import { Link, useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 
 interface ActiveClientBreadcrumbProps {
   clientName: string;
@@ -20,12 +22,13 @@ function monogramOf(name: string): string {
 
 export function ActiveClientBreadcrumb({ clientName, avatarColor = "hsl(var(--aqua))" }: ActiveClientBreadcrumbProps) {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const unscope = () => navigate("/dashboard");
 
   return (
     <div className="flex items-center gap-2 mb-3" style={{ fontSize: 11, color: "hsl(var(--ink-on-cream) / 0.55)" }}>
       <Link to="/dashboard" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} className="hover:underline">
-        Agency
+        {t.dashboard.agency[language]}
       </Link>
       <span>/</span>
       <button
@@ -42,7 +45,7 @@ export function ActiveClientBreadcrumb({ clientName, avatarColor = "hsl(var(--aq
           color: "hsl(var(--ink-on-cream))",
           cursor: "pointer",
         }}
-        title="Back to agency view"
+        title={t.dashboard.backToAgencyView[language]}
       >
         <span
           className="flex items-center justify-center"

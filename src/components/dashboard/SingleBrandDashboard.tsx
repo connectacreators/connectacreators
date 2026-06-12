@@ -11,6 +11,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLanguage, type Language } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 import { MobileBrandDashboard } from "./MobileBrandDashboard";
 import {
   Sparkles,
@@ -49,45 +51,47 @@ interface Folder {
   subCards: SubCard[];
 }
 
-function buildFolders(clientId: string | null): Folder[] {
+function buildFolders(clientId: string | null, lang: Language): Folder[] {
   const c = clientId;
+  const tl = t.dashboard.tools;
+  const tf = t.dashboard.folders;
   return [
     {
       key: "content",
-      label: "Content Creation",
-      description: "Scripts · Vault · Editing Queue · Content Calendar",
+      label: tf.content.label[lang],
+      description: tf.content.desc[lang],
       icon: Sparkles,
       subCards: [
-        { label: "Super Canvas",     description: "AI-powered script planning canvas",   icon: Layers,       path: c ? `/clients/${c}/scripts?view=canvas` : "/scripts?view=canvas" },
-        { label: "Scripts",          description: "View and manage scripts",             icon: FileText,     path: c ? `/clients/${c}/scripts`              : "/scripts" },
-        { label: "Vault",            description: "Script templates from viral videos",  icon: Archive,      path: c ? `/clients/${c}/vault`                : "/vault" },
-        { label: "Editing Queue",    description: "Track video production status",       icon: Clapperboard, path: c ? `/clients/${c}/editing-queue`        : "/editing-queue" },
-        { label: "Content Calendar", description: "Schedule & approve posts",            icon: Calendar,     path: c ? `/clients/${c}/content-calendar`     : "/content-calendar" },
+        { label: tl.superCanvas.label[lang],     description: tl.superCanvas.desc[lang],     icon: Layers,       path: c ? `/clients/${c}/scripts?view=canvas` : "/scripts?view=canvas" },
+        { label: tl.scripts.label[lang],         description: tl.scripts.desc[lang],         icon: FileText,     path: c ? `/clients/${c}/scripts`              : "/scripts" },
+        { label: tl.vault.label[lang],           description: tl.vault.desc[lang],           icon: Archive,      path: c ? `/clients/${c}/vault`                : "/vault" },
+        { label: tl.editingQueue.label[lang],    description: tl.editingQueue.desc[lang],    icon: Clapperboard, path: c ? `/clients/${c}/editing-queue`        : "/editing-queue" },
+        { label: tl.contentCalendar.label[lang], description: tl.contentCalendar.desc[lang], icon: Calendar,     path: c ? `/clients/${c}/content-calendar`     : "/content-calendar" },
       ],
     },
     {
       key: "sales",
-      label: "Sales",
-      description: "Lead Tracker · Lead Calendar",
+      label: tf.sales.label[lang],
+      description: tf.sales.desc[lang],
       icon: BarChart3,
       subCards: [
-        { label: "Lead Tracker",  description: "Track incoming leads",  icon: Target,       path: c ? `/clients/${c}/leads`         : "/leads" },
-        { label: "Lead Calendar", description: "Calendar view of leads", icon: CalendarDays, path: c ? `/clients/${c}/lead-calendar` : "/lead-calendar" },
+        { label: tl.leadTracker.label[lang],  description: tl.leadTracker.desc[lang],  icon: Target,       path: c ? `/clients/${c}/leads`         : "/leads" },
+        { label: tl.leadCalendar.label[lang], description: tl.leadCalendar.desc[lang], icon: CalendarDays, path: c ? `/clients/${c}/lead-calendar` : "/lead-calendar" },
       ],
     },
     {
       key: "setup",
-      label: "Client Set Up",
-      description: "Onboarding · Booking · Landing Page · Database",
+      label: tf.setup.label[lang],
+      description: tf.setup.desc[lang],
       icon: Settings2,
       subCards: [
-        { label: "Content Strategy", description: "Goals, mix, ManyChat & fulfillment score", icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/dashboard" },
-        { label: "Brand Setup",      description: "Complete client onboarding form",          icon: Sparkles,   path: c ? `/onboarding/${c}`               : "/onboarding" },
-        { label: "Public Booking",   description: "Calendly-style public calendar",           icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/dashboard" },
-        { label: "Landing Page",     description: "Build your custom landing page",           icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/" },
-        { label: "Database",         description: "Direct database access",                   icon: Database,   path: c ? `/clients/${c}/database`         : "/dashboard" },
-        { label: "Contracts",        description: "Upload, sign & send contracts",            icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/dashboard" },
-        { label: "Social Accounts",  description: "Connect Facebook & Instagram for scheduling", icon: Share2,  path: c ? `/clients/${c}/social-accounts`  : "/dashboard" },
+        { label: tl.contentStrategy.label[lang], description: tl.contentStrategy.desc[lang], icon: BarChart3,  path: c ? `/clients/${c}/strategy`         : "/dashboard" },
+        { label: tl.brandSetup.label[lang],      description: tl.brandSetup.desc[lang],      icon: Sparkles,   path: c ? `/onboarding/${c}`               : "/onboarding" },
+        { label: tl.publicBooking.label[lang],   description: tl.publicBooking.desc[lang],   icon: Globe,      path: c ? `/clients/${c}/booking-settings` : "/dashboard" },
+        { label: tl.landingPage.label[lang],     description: tl.landingPage.desc[lang],     icon: Zap,        path: c ? `/clients/${c}/landing-page`     : "/" },
+        { label: tl.database.label[lang],        description: tl.database.desc[lang],        icon: Database,   path: c ? `/clients/${c}/database`         : "/dashboard" },
+        { label: tl.contracts.label[lang],       description: tl.contracts.desc[lang],       icon: ScrollText, path: c ? `/clients/${c}/contracts`        : "/dashboard" },
+        { label: tl.socialAccounts.label[lang],  description: tl.socialAccounts.desc[lang],  icon: Share2,     path: c ? `/clients/${c}/social-accounts`  : "/dashboard" },
       ],
     },
   ];
@@ -113,6 +117,7 @@ interface SingleBrandDashboardProps {
 export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleBrandDashboardProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { language } = useLanguage();
   const [activeFolder, setActiveFolder] = useState<FolderKey | null>(null);
 
   // Mobile gets a purpose-built, action-first screen; desktop keeps the
@@ -121,7 +126,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
     return <MobileBrandDashboard firstName={firstName} brandName={brandName} clientId={clientId} />;
   }
 
-  const folders = buildFolders(clientId);
+  const folders = buildFolders(clientId, language);
   const folder = folders.find((f) => f.key === activeFolder) ?? null;
 
   return (
@@ -145,7 +150,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
             letterSpacing: "0.02em",
           }}
         >
-          Hi {brandName ?? firstName}{" "}
+          {language === "es" ? "Hola" : "Hi"} {brandName ?? firstName}{" "}
           <motion.span
             style={{ display: "inline-block", transformOrigin: "70% 70%" }}
             animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
@@ -170,7 +175,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
             textAlign: "center",
           }}
         >
-          What do you want to do today?
+          {t.dashboard.question[language]}
         </motion.h1>
 
         {/* Both views inside one AnimatePresence with proper keys so they swap cleanly */}
@@ -285,7 +290,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                 }}
               >
                 <ChevronLeft size={13} strokeWidth={2} />
-                Back
+                {t.dashboard.back[language]}
               </button>
 
               <div

@@ -25,6 +25,8 @@ import { useCompanion } from "@/contexts/CompanionContext";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { Loader2 } from "lucide-react";
 
+import { useLanguage } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useDashboardPendingItems } from "@/hooks/useDashboardPendingItems";
 import { ActiveClientBreadcrumb } from "@/components/dashboard/ActiveClientBreadcrumb";
@@ -74,6 +76,7 @@ function readDashboardCache(): DashboardCache | null {
 
 export default function Dashboard() {
   const { user, loading: authLoading, isAdmin, isConnectaPlus, isUser } = useAuth();
+  const { language } = useLanguage();
   const [searchParams] = useSearchParams();
   const { setIsOpen: setDrawerOpen } = useCompanion();
 
@@ -271,9 +274,9 @@ export default function Dashboard() {
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
           }}
         >
-          Robby's read on {activeClient.name}
+          {t.dashboard.robbyReadOn[language]} {activeClient.name}
         </h1>
-        {getRobbyInsights(activeClient.name, pendingByClient[activeClient.id] ?? []).map((ins) => (
+        {getRobbyInsights(activeClient.name, pendingByClient[activeClient.id] ?? [], language).map((ins) => (
           <RobbyInsightRow
             key={ins.id}
             icon={ins.icon}
@@ -312,14 +315,15 @@ export default function Dashboard() {
 // ----------------------------------------------------------------
 
 function AdminTriageView({ firstName }: { firstName: string }) {
+  const { language } = useLanguage();
   const { clients: triageClients, loading: clientsLoading } = useTriageClients();
   const clientIds = useMemo(() => triageClients.map((c) => c.id), [triageClients]);
   const { data: rowsByClient, loading: rowsLoading } = useTriageRows(clientIds);
   const profilePics = useClientProfilePics(clientIds);
   const [view, setView] = useMasterView();
   const agenda = useMemo(
-    () => buildAgenda(triageClients, rowsByClient),
-    [triageClients, rowsByClient],
+    () => buildAgenda(triageClients, rowsByClient, new Date(), language),
+    [triageClients, rowsByClient, language],
   );
 
   const blocks = useMemo(() => {
@@ -359,7 +363,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
   const pendingCount = blocks.length;
   const loading = clientsLoading || rowsLoading;
 
-  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const today = new Date().toLocaleDateString(language === "es" ? "es-ES" : "en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
     <div
@@ -409,7 +413,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               fontFamily: "var(--font-body, Figtree), sans-serif",
             }}
           >
-            Hey {firstName}
+            {t.dashboard.hey[language]} {firstName}
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
@@ -425,7 +429,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               lineHeight: 1.1,
             }}
           >
-            What do you want to do today?
+            {t.dashboard.question[language]}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 6 }}
@@ -434,12 +438,16 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             style={{ fontSize: 13, color: "hsl(var(--ink-on-cream) / 0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}
           >
             {loading
-              ? "Loading…"
+              ? t.dashboard.loadingEllipsis[language]
               : totalClients === 0
-                ? "No Connecta Plus clients yet."
+                ? t.dashboard.noPlusClients[language]
                 : pendingCount === 0
-                  ? `All caught up across ${totalClients} Connecta Plus client${totalClients === 1 ? "" : "s"}.`
-                  : `${pendingCount} of ${totalClients} client${totalClients === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
+                  ? language === "es"
+                    ? `Todo al día con ${totalClients} cliente${totalClients === 1 ? "" : "s"} Connecta Plus.`
+                    : `All caught up across ${totalClients} Connecta Plus client${totalClients === 1 ? "" : "s"}.`
+                  : language === "es"
+                    ? `${pendingCount} de ${totalClients} cliente${totalClients === 1 ? "" : "s"} te ${pendingCount === 1 ? "necesita" : "necesitan"} hoy.`
+                    : `${pendingCount} of ${totalClients} client${totalClients === 1 ? "" : "s"} need${pendingCount === 1 ? "s" : ""} you today.`}
           </motion.p>
         </div>
 
@@ -487,10 +495,10 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                 letterSpacing: "-0.01em",
               }}
             >
-              Nothing on fire.
+              {t.dashboard.nothingOnFire[language]}
             </p>
             <p style={{ fontSize: 13, color: "hsl(var(--ink-on-cream) / 0.55)", fontFamily: "var(--font-body, Figtree), sans-serif" }}>
-              Take a breath, or get ahead on next week's content.
+              {t.dashboard.takeABreath[language]}
             </p>
           </motion.div>
         ) : view === "tasks" ? (
@@ -526,7 +534,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                 }}
               >
                 <p style={{ fontSize: 14, color: "hsl(var(--ink-on-cream) / 0.6)", fontFamily: "var(--font-body, Figtree), sans-serif", marginBottom: 8 }}>
-                  No Connecta Plus clients yet.
+                  {t.dashboard.noPlusClients[language]}
                 </p>
                 <a
                   href="/clients"
@@ -537,7 +545,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
                     fontFamily: "var(--font-body, Figtree), sans-serif",
                   }}
                 >
-                  Add your first client →
+                  {t.dashboard.addFirstClient[language]}
                 </a>
               </motion.div>
             )}
@@ -557,7 +565,7 @@ function AdminTriageView({ firstName }: { firstName: string }) {
               paddingBottom: 1,
             }}
           >
-            View all clients
+            {t.dashboard.viewAllClients[language]}
           </a>
         </div>
       </div>

@@ -10,6 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ClientAvatar } from "./ClientAvatar";
+import { useLanguage } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 import { colorFor, initials } from "@/lib/triage/clientMonogram";
 import type { RelativeBucket } from "@/lib/triage/relativeDate";
 import type { AgendaItem as AgendaItemData, AgendaKind } from "@/lib/triage/buildAgenda";
@@ -47,6 +49,7 @@ function rowHoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
 }
 
 export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: string | null }) {
+  const { language } = useLanguage();
   const Icon = KIND_ICON[item.kind];
   const tint = BUCKET_TINT[item.bucket];
   const mono = colorFor(item.clientName);
@@ -85,7 +88,7 @@ export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: st
                 background: 'rgba(197,136,47,0.18)', padding: '2px 7px', borderRadius: 999, flexShrink: 0,
               }}
             >
-              PREP
+              {t.dashboard.prep[language]}
             </span>
           )}
         </div>

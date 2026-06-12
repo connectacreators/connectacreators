@@ -314,7 +314,7 @@ export default function EditingQueue() {
     setSavingDeadline(true);
     const { error } = await supabase.from("video_edits").update({ deadline: value }).eq("id", item.id);
     setSavingDeadline(false);
-    if (error) { toast.error("Failed to save deadline"); return; }
+    if (error) { toast.error(language === "en" ? "Failed to save deadline" : "Error al guardar la fecha límite"); return; }
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, deadline: value } : i));
   }
 
@@ -710,7 +710,7 @@ export default function EditingQueue() {
       setItems((prev) => prev.map((i) => i.id === inlineEdit.itemId ? { ...i, caption: inlineEdit.value || null } : i));
       setInlineEdit(null);
     } catch {
-      toast.error("Failed to save");
+      toast.error(language === "en" ? "Failed to save" : "Error al guardar");
     } finally {
       setSavingInline(false);
     }
@@ -731,7 +731,7 @@ export default function EditingQueue() {
       setItems((prev) => prev.map((i) => i.id === editingTitle.itemId ? { ...i, title: newTitle } : i));
       setEditingTitle(null);
     } catch {
-      toast.error("Failed to save title");
+      toast.error(language === "en" ? "Failed to save title" : "Error al guardar el título");
     }
   };
 
@@ -742,9 +742,9 @@ export default function EditingQueue() {
       if (error) throw error;
       setItems(prev => prev.map(i => i.id === captionEditItem.id ? { ...i, caption: captionEditValue || null } : i));
       setCaptionEditItem(null);
-      toast.success("Caption saved");
+      toast.success(language === "en" ? "Caption saved" : "Caption guardado");
     } catch {
-      toast.error("Failed to save caption");
+      toast.error(language === "en" ? "Failed to save caption" : "Error al guardar el caption");
     }
   };
 
@@ -841,7 +841,7 @@ export default function EditingQueue() {
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
             >
               <Share2 className="w-3.5 h-3.5" />
-              Share
+              {language === "en" ? "Share" : "Compartir"}
             </button>
           </motion.div>
 
@@ -958,7 +958,7 @@ export default function EditingQueue() {
                                     type="button"
                                     onDoubleClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
                                     className="text-left flex-1 min-w-0 truncate hover:text-primary transition-colors cursor-text select-none"
-                                    title="Double-click to rename"
+                                    title={language === "en" ? "Double-click to rename" : "Doble clic para renombrar"}
                                   >
                                     {item.title}
                                   </button>
@@ -967,8 +967,8 @@ export default function EditingQueue() {
                                       type="button"
                                       onClick={() => navigate(`/clients/${clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
                                       className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                                      title="Open script"
-                                      aria-label="Open script"
+                                      title={language === "en" ? "Open script" : "Abrir script"}
+                                      aria-label={language === "en" ? "Open script" : "Abrir script"}
                                     >
                                       <ArrowUpRight className="w-3.5 h-3.5" />
                                     </button>
@@ -1049,7 +1049,7 @@ export default function EditingQueue() {
                                     <button className={`text-xs font-medium hover:opacity-70 transition-opacity whitespace-nowrap ${getDeadlineColor(item.deadline)}`}>
                                       {item.deadline
                                         ? new Date(item.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                                        : <span className="text-muted-foreground/50">+ Add deadline</span>}
+                                        : <span className="text-muted-foreground/50">{language === "en" ? "+ Add deadline" : "+ Agregar fecha límite"}</span>}
                                     </button>
                                   </PopoverTrigger>
                                   <PopoverContent className="w-auto p-0" align="start">
@@ -1065,7 +1065,7 @@ export default function EditingQueue() {
                                           className="text-xs text-destructive hover:underline"
                                           onClick={() => handleDeadlineSave(item, undefined)}
                                         >
-                                          Clear deadline
+                                          {language === "en" ? "Clear deadline" : "Quitar fecha límite"}
                                         </button>
                                       </div>
                                     )}
@@ -1084,9 +1084,9 @@ export default function EditingQueue() {
                                     <button
                                       onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
                                       className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-green-500/10 text-green-500 border border-green-500/25 hover:bg-green-500/20 transition-colors"
-                                      title="View footage"
+                                      title={language === "en" ? "View footage" : "Ver material"}
                                     >
-                                      <Play className="w-2.5 h-2.5" /> Footage
+                                      <Play className="w-2.5 h-2.5" /> {language === "en" ? "Footage" : "Material"}
                                     </button>
                                   ) : (
                                     <FootageUploadDialog
@@ -1102,9 +1102,9 @@ export default function EditingQueue() {
                                     <button
                                       onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
                                       className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 transition-colors"
-                                      title="View submitted edit"
+                                      title={language === "en" ? "View submitted edit" : "Ver edición enviada"}
                                     >
-                                      <Play className="w-2.5 h-2.5" /> Edit
+                                      <Play className="w-2.5 h-2.5" /> {language === "en" ? "Edit" : "Edición"}
                                     </button>
                                   ) : (
                                     <FootageUploadDialog
@@ -1134,12 +1134,12 @@ export default function EditingQueue() {
                                     {item.scriptUrl ? (
                                       <DropdownMenuItem asChild>
                                         <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs">
-                                          <ExternalLink className="w-3.5 h-3.5" /> View Script
+                                          <ExternalLink className="w-3.5 h-3.5" /> {language === "en" ? "View Script" : "Ver Script"}
                                         </a>
                                       </DropdownMenuItem>
                                     ) : (
                                       <DropdownMenuItem disabled className="text-xs text-muted-foreground/50">
-                                        <ExternalLink className="w-3.5 h-3.5 mr-2" /> No Script
+                                        <ExternalLink className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "No Script" : "Sin Script"}
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem
@@ -1154,28 +1154,30 @@ export default function EditingQueue() {
                                       className="text-xs"
                                     >
                                       <Calendar className="w-3.5 h-3.5 mr-2" />
-                                      {schedulerEnabled
-                                        ? (item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Schedule / Publish")
-                                        : (item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Add Schedule")}
+                                      {item.scheduledDate
+                                        ? (language === "en" ? `Scheduled: ${item.scheduledDate}` : `Programado: ${item.scheduledDate}`)
+                                        : schedulerEnabled
+                                          ? (language === "en" ? "Schedule / Publish" : "Programar / Publicar")
+                                          : (language === "en" ? "Add Schedule" : "Agregar Programación")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => { setCaptionEditItem(item); setCaptionEditValue(item.caption || ''); }}
                                       className="text-xs"
                                     >
                                       <Save className="w-3.5 h-3.5 mr-2" />
-                                      {item.caption ? "Edit Caption" : "Add Caption"}
+                                      {item.caption ? (language === "en" ? "Edit Caption" : "Editar Caption") : (language === "en" ? "Add Caption" : "Agregar Caption")}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     {IS_VIDEO_EDITOR_ENABLED && (
                                       <DropdownMenuItem onClick={() => navigate(`/editing/${item.id}/edit`)} className="text-xs">
-                                        Open editor
+                                        {language === "en" ? "Open editor" : "Abrir editor"}
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem
                                       onClick={() => setDeleteConfirmItem(item)}
                                       className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                                      <Trash2 className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "Delete" : "Eliminar"}
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1222,21 +1224,21 @@ export default function EditingQueue() {
       <Dialog open={!!captionEditItem} onOpenChange={(v) => !v && setCaptionEditItem(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">{captionEditItem?.caption ? "Edit Caption" : "Add Caption"}</DialogTitle>
+            <DialogTitle className="text-base">{captionEditItem?.caption ? (language === "en" ? "Edit Caption" : "Editar Caption") : (language === "en" ? "Add Caption" : "Agregar Caption")}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground truncate">{captionEditItem?.title}</DialogDescription>
           </DialogHeader>
           <Textarea
             value={captionEditValue}
             onChange={e => setCaptionEditValue(e.target.value)}
-            placeholder="Write the post caption..."
+            placeholder={language === "en" ? "Write the post caption..." : "Escribe el caption de la publicación..."}
             rows={5}
             className="resize-none text-sm"
             autoFocus
           />
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setCaptionEditItem(null)}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setCaptionEditItem(null)}>{language === "en" ? "Cancel" : "Cancelar"}</Button>
             <Button size="sm" onClick={handleSaveCaptionEdit} className="gap-1.5">
-              <Save className="w-3.5 h-3.5" /> Save Caption
+              <Save className="w-3.5 h-3.5" /> {language === "en" ? "Save Caption" : "Guardar Caption"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1355,7 +1357,7 @@ export default function EditingQueue() {
             )}
             {selectedItem?.caption && (
               <div className="mt-4 pt-3 border-t border-border/40">
-                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">Caption</p>
+                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">{language === "en" ? "Caption" : "Caption"}</p>
                 <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{selectedItem.caption}</p>
               </div>
             )}

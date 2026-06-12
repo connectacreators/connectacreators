@@ -22,7 +22,9 @@ import { useTriageRows } from "@/hooks/useTriageRows";
 import { useClientProfilePics } from "@/hooks/useClientProfilePics";
 import { ClientAvatar } from "./ClientAvatar";
 import { relativeDate } from "@/lib/triage/relativeDate";
-import { PIPELINE_MILESTONE_LABEL, type TriageRow, type PipelineMilestone } from "@/lib/triage/types";
+import { pipelineMilestoneLabel, type TriageRow, type PipelineMilestone } from "@/lib/triage/types";
+import { useLanguage, type Language } from "@/hooks/useLanguage";
+import { t } from "@/i18n/translations";
 
 // ─── Dark theme tokens (match SingleBrandDashboard) ───
 const BG = "hsl(var(--ink-on-cream))";
@@ -73,14 +75,17 @@ const ORDER: Record<TriageRow["type"], number> = {
   pipeline: 3,
 };
 
-function toView(row: TriageRow, c: string): RowView {
+function toView(row: TriageRow, c: string, lang: Language): RowView {
+  const es = lang === "es";
   switch (row.type) {
     case "scripts_review":
       return {
         key: "scripts",
         Icon: FileText,
         tint: HONEY,
-        title: `${row.count} ${plural(row.count, "script")} to review`,
+        title: es
+          ? `${row.count} ${plural(row.count, "script")} por revisar`
+          : `${row.count} ${plural(row.count, "script")} to review`,
         sub: joinNames(row.sampleNames),
         href: `/clients/${c}/scripts?filter=needs_review`,
       };
@@ -89,28 +94,32 @@ function toView(row: TriageRow, c: string): RowView {
         key: "videos",
         Icon: Film,
         tint: AQUA,
-        title: `${row.count} ${plural(row.count, "video")} to approve`,
+        title: es
+          ? `${row.count} ${plural(row.count, "video")} por aprobar`
+          : `${row.count} ${plural(row.count, "video")} to approve`,
         sub: joinNames(row.sampleNames),
         href: `/clients/${c}/editing-queue?status=Needs%20Revisions`,
       };
     case "posts_scheduled": {
-      const rel = relativeDate(row.nextAt);
+      const rel = relativeDate(row.nextAt, new Date(), lang);
       return {
         key: "posts",
         Icon: Send,
         tint: GREEN,
-        title: `${row.count} ${plural(row.count, "post")} scheduled`,
+        title: es
+          ? `${row.count} ${plural(row.count, "post")} ${row.count === 1 ? "programado" : "programados"}`
+          : `${row.count} ${plural(row.count, "post")} scheduled`,
         sub: [rel.label, joinNames(row.sampleNames, 28)].filter(Boolean).join(" · "),
         href: `/clients/${c}/content-calendar?window=upcoming`,
       };
     }
     case "pipeline": {
-      const rel = relativeDate(row.at);
+      const rel = relativeDate(row.at, new Date(), lang);
       return {
         key: `pipeline-${row.milestone}-${row.at}`,
         Icon: PIPELINE_ICON[row.milestone],
         tint: HONEY,
-        title: PIPELINE_MILESTONE_LABEL[row.milestone],
+        title: pipelineMilestoneLabel(row.milestone, lang),
         sub: [rel.label, row.label].filter(Boolean).join(" · "),
         href: `/clients/${c}/strategy#pipeline`,
       };
@@ -126,6 +135,7 @@ interface Props {
 
 export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) {
   const navigate = useNavigate();
+  const { language } = useLanguage();
 
   const ids = useMemo(() => (clientId ? [clientId] : []), [clientId]);
   const { data: rowsByClient, loading } = useTriageRows(ids);
@@ -137,16 +147,16 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
     const raw = rowsByClient[clientId] ?? [];
     return [...raw]
       .sort((a, b) => ORDER[a.type] - ORDER[b.type])
-      .map((r) => toView(r, clientId));
-  }, [rowsByClient, clientId]);
+      .map((r) => toView(r, clientId, language));
+  }, [rowsByClient, clientId, language]);
 
   const scoped = (p: string) => (clientId ? `/clients/${clientId}/${p}` : `/${p}`);
 
   const tiles: Array<{ label: string; sub: string; icon: LucideIcon; to: string }> = [
-    { label: "Scripts", sub: "Write & review", icon: FileText, to: scoped("scripts") },
-    { label: "Editing Queue", sub: "Approve cuts", icon: Clapperboard, to: scoped("editing-queue") },
-    { label: "Content Calendar", sub: "What's posting", icon: Calendar, to: scoped("content-calendar") },
-    { label: "Leads", sub: "Sales pipeline", icon: Target, to: scoped("leads") },
+    { label: t.dashboard.tools.scripts.label[language], sub: t.dashboard.tileScriptsSub[language], icon: FileText, to: scoped("scripts") },
+    { label: t.dashboard.tools.editingQueue.label[language], sub: t.dashboard.tileEditingSub[language], icon: Clapperboard, to: scoped("editing-queue") },
+    { label: t.dashboard.tools.contentCalendar.label[language], sub: t.dashboard.tileCalendarSub[language], icon: Calendar, to: scoped("content-calendar") },
+    { label: t.dashboard.leads[language], sub: t.dashboard.tileLeadsSub[language], icon: Target, to: scoped("leads") },
   ];
 
   const initials = (brandName ?? firstName).trim().slice(0, 2).toUpperCase();
@@ -197,7 +207,7 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
             fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
           }}
         >
-          Hi {firstName}{" "}
+          {language === "es" ? "Hola" : "Hi"} {firstName}{" "}
           <motion.span
             style={{ display: "inline-block", transformOrigin: "70% 70%" }}
             animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
@@ -215,7 +225,7 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
             fontFamily: "var(--font-body, Figtree), sans-serif",
           }}
         >
-          Needs your attention
+          {t.dashboard.needsAttention[language]}
         </div>
 
         {loading && rows.length === 0 ? (
@@ -240,7 +250,7 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
             }}
           >
             <Check size={16} color={GREEN.fg} strokeWidth={2.25} />
-            You're all caught up
+            {t.dashboard.allCaughtUp[language]}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
@@ -290,11 +300,11 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
 
         {/* Quick-access tiles */}
         <div className="grid grid-cols-2" style={{ gap: 10 }}>
-          {tiles.map((t, idx) => (
+          {tiles.map((tile, idx) => (
             <motion.button
-              key={t.label}
+              key={tile.label}
               type="button"
-              onClick={() => navigate(t.to)}
+              onClick={() => navigate(tile.to)}
               className="text-left"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -309,7 +319,7 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
                 className="flex items-center justify-center"
                 style={{ width: 26, height: 26, borderRadius: 8, background: AQUA.bg, marginBottom: 10 }}
               >
-                <t.icon size={15} color={AQUA.fg} strokeWidth={1.75} />
+                <tile.icon size={15} color={AQUA.fg} strokeWidth={1.75} />
               </div>
               <div
                 style={{
@@ -317,12 +327,12 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
                   fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
                 }}
               >
-                {t.label}
+                {tile.label}
               </div>
               <div
                 style={{ fontSize: 10.5, color: TEXT_SUBTLE, marginTop: 2, fontFamily: "var(--font-body, Figtree), sans-serif" }}
               >
-                {t.sub}
+                {tile.sub}
               </div>
             </motion.button>
           ))}

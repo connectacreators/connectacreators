@@ -200,9 +200,9 @@ export default function MasterEditingQueue() {
       if (error) throw error;
       setItems(prev => prev.map(i => i.id === captionEditItem.id ? { ...i, caption: captionEditValue || null } : i));
       setCaptionEditItem(null);
-      toast.success("Caption saved");
+      toast.success(language === "en" ? "Caption saved" : "Caption guardado");
     } catch {
-      toast.error("Failed to save caption");
+      toast.error(language === "en" ? "Failed to save caption" : "Error al guardar el caption");
     }
   };
 
@@ -214,7 +214,7 @@ export default function MasterEditingQueue() {
       if (error) throw error;
       setItems((prev) => prev.map((i) => i.id === inlineEdit.itemId ? { ...i, [stateField]: inlineEdit.value || null } : i));
       setInlineEdit(null);
-    } catch { toast.error("Failed to save"); }
+    } catch { toast.error(language === "en" ? "Failed to save" : "Error al guardar"); }
     finally { setSavingInline(false); }
   };
 
@@ -231,7 +231,7 @@ export default function MasterEditingQueue() {
       }
       setItems(prev => prev.map(i => i.id === editingTitle.itemId ? { ...i, title: newTitle } : i));
       setEditingTitle(null);
-    } catch { toast.error("Failed to save title"); setEditingTitle(null); }
+    } catch { toast.error(language === "en" ? "Failed to save title" : "Error al guardar el título"); setEditingTitle(null); }
   };
 
   // Trash
@@ -400,7 +400,7 @@ export default function MasterEditingQueue() {
     setSavingDeadline(true);
     const { error } = await supabase.from("video_edits").update({ deadline: value }).eq("id", itemId);
     setSavingDeadline(false);
-    if (error) { toast.error("Failed to save deadline"); return; }
+    if (error) { toast.error(language === "en" ? "Failed to save deadline" : "Error al guardar la fecha límite"); return; }
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, deadline: value } : i));
   }
   function getDeadlineColor(deadline: string | null | undefined) {
@@ -762,7 +762,7 @@ export default function MasterEditingQueue() {
         deleted_at: v.deleted_at,
       })));
     } catch (e: any) {
-      toast.error("Failed to fetch trash");
+      toast.error(language === "en" ? "Failed to fetch trash" : "Error al cargar la papelera");
     } finally {
       setFetchingTrash(false);
     }
@@ -986,12 +986,12 @@ export default function MasterEditingQueue() {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText("https://connectacreators.com/public/edit-queue/all");
-                  toast.success("Link copied to clipboard");
+                  toast.success(language === "en" ? "Link copied to clipboard" : "Enlace copiado al portapapeles");
                 }}
                 className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                Share
+                {language === "en" ? "Share" : "Compartir"}
               </button>
 
               {/* Help button */}
@@ -999,7 +999,7 @@ export default function MasterEditingQueue() {
                 <button
                   onClick={() => setHelpOpen((v) => !v)}
                   className="w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-sm bg-white/10 border border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20 transition-all"
-                  aria-label="Help"
+                  aria-label={language === "en" ? "Help" : "Ayuda"}
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
                 </button>
@@ -1009,7 +1009,9 @@ export default function MasterEditingQueue() {
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <HelpCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                       <p className="text-xs text-foreground/90 leading-relaxed flex-1">
-                        All scripts will appear in the edit queue. If you want to add a line, create a script and make sure all the columns are filled out first.
+                        {language === "en"
+                          ? "All scripts will appear in the edit queue. If you want to add a line, create a script and make sure all the columns are filled out first."
+                          : "Todos los scripts aparecerán en la cola de edición. Si quieres agregar una fila, crea un script y asegúrate de llenar todas las columnas primero."}
                       </p>
                       <button
                         onClick={() => setHelpOpen(false)}
@@ -1183,7 +1185,7 @@ export default function MasterEditingQueue() {
                               <button
                                 onDoubleClick={() => setEditingTitle({ itemId: item.id, value: item.title })}
                                 className="text-left flex-1 min-w-0 truncate hover:text-primary transition-colors cursor-text select-none"
-                                title="Double-click to edit title"
+                                title={language === "en" ? "Double-click to edit title" : "Doble clic para editar el título"}
                               >
                                 {item.title}
                               </button>
@@ -1191,8 +1193,8 @@ export default function MasterEditingQueue() {
                                 type="button"
                                 onClick={() => navigate(`/clients/${item.clientId}/scripts?scriptTitle=${encodeURIComponent(item.title)}`)}
                                 className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                                title="Open script"
-                                aria-label="Open script"
+                                title={language === "en" ? "Open script" : "Abrir script"}
+                                aria-label={language === "en" ? "Open script" : "Abrir script"}
                               >
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                               </button>
@@ -1261,7 +1263,7 @@ export default function MasterEditingQueue() {
                               <button className={`text-xs font-medium hover:opacity-70 transition-opacity whitespace-nowrap ${getDeadlineColor(item.deadline)}`}>
                                 {item.deadline
                                   ? new Date(item.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                                  : <span className="text-muted-foreground/50">+ Add deadline</span>}
+                                  : <span className="text-muted-foreground/50">{language === "en" ? "+ Add deadline" : "+ Agregar fecha límite"}</span>}
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -1277,7 +1279,7 @@ export default function MasterEditingQueue() {
                                     className="text-xs text-destructive hover:underline"
                                     onClick={() => handleDeadlineSave(item.id, undefined)}
                                   >
-                                    Clear deadline
+                                    {language === "en" ? "Clear deadline" : "Quitar fecha límite"}
                                   </button>
                                 </div>
                               )}
@@ -1294,7 +1296,7 @@ export default function MasterEditingQueue() {
                                   onClick={() => { setViewerSubfolder(undefined); setFootageViewerItem(item); }}
                                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-green-500/10 text-green-500 border border-green-500/25 hover:bg-green-500/20 transition-colors"
                                 >
-                                  <Play className="w-2.5 h-2.5" /> Footage
+                                  <Play className="w-2.5 h-2.5" /> {language === "en" ? "Footage" : "Material"}
                                 </button>
                                 {isAdmin && (
                                   <button onClick={() => handleDeleteFootage(item)} disabled={deletingFootage === item.id} className="w-4 h-4 flex items-center justify-center rounded text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors">
@@ -1311,7 +1313,7 @@ export default function MasterEditingQueue() {
                                   onClick={() => { setViewerSubfolder('submission'); setFootageViewerItem(item); }}
                                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 transition-colors"
                                 >
-                                  <Play className="w-2.5 h-2.5" /> Edit
+                                  <Play className="w-2.5 h-2.5" /> {language === "en" ? "Edit" : "Edición"}
                                 </button>
                                 {isAdmin && (
                                   <button onClick={() => handleDeleteFileSubmission(item)} disabled={deletingSubmission === item.id} className="w-4 h-4 flex items-center justify-center rounded text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors">
@@ -1340,35 +1342,37 @@ export default function MasterEditingQueue() {
                                 // truncation, special chars). Falls back to the external Notion
                                 // URL only when there's no linked script row.
                                 <DropdownMenuItem onClick={() => navigate(`/clients/${item.clientId}/scripts?scriptId=${item.script_id}`)}>
-                                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> View Script
+                                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "View Script" : "Ver Script"}
                                 </DropdownMenuItem>
                               ) : item.scriptUrl ? (
                                 <DropdownMenuItem asChild>
                                   <a href={item.scriptUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs">
-                                    <ExternalLink className="w-3.5 h-3.5" /> View Script
+                                    <ExternalLink className="w-3.5 h-3.5" /> {language === "en" ? "View Script" : "Ver Script"}
                                   </a>
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem disabled className="text-xs text-muted-foreground/50">
-                                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> No Script
+                                  <ExternalLink className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "No Script" : "Sin Script"}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => { setScheduleItem(item); setScheduleDate(item.scheduledDate || ""); }} className="text-xs">
                                 <Calendar className="w-3.5 h-3.5 mr-2" />
-                                {item.scheduledDate ? `Scheduled: ${item.scheduledDate}` : "Add Schedule"}
+                                {item.scheduledDate
+                                  ? (language === "en" ? `Scheduled: ${item.scheduledDate}` : `Programado: ${item.scheduledDate}`)
+                                  : (language === "en" ? "Add Schedule" : "Agregar Programación")}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setCaptionEditItem(item); setCaptionEditValue(item.caption || ''); }} className="text-xs">
                                 <Save className="w-3.5 h-3.5 mr-2" />
-                                {item.caption ? "Edit Caption" : "Add Caption"}
+                                {item.caption ? (language === "en" ? "Edit Caption" : "Editar Caption") : (language === "en" ? "Add Caption" : "Agregar Caption")}
                               </DropdownMenuItem>
                               {IS_VIDEO_EDITOR_ENABLED && (
                                 <DropdownMenuItem onClick={() => navigate(`/editing/${item.id}/edit`)} className="text-xs">
-                                  <Clapperboard className="w-3.5 h-3.5 mr-2" /> Open editor
+                                  <Clapperboard className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "Open editor" : "Abrir editor"}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => setDeleteConfirmItem(item)} className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10">
-                                <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                                <Trash2 className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "Delete" : "Eliminar"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1412,21 +1416,21 @@ export default function MasterEditingQueue() {
       <Dialog open={!!captionEditItem} onOpenChange={(v) => !v && setCaptionEditItem(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">{captionEditItem?.caption ? "Edit Caption" : "Add Caption"}</DialogTitle>
+            <DialogTitle className="text-base">{captionEditItem?.caption ? (language === "en" ? "Edit Caption" : "Editar Caption") : (language === "en" ? "Add Caption" : "Agregar Caption")}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground truncate">{captionEditItem?.title}</DialogDescription>
           </DialogHeader>
           <Textarea
             value={captionEditValue}
             onChange={e => setCaptionEditValue(e.target.value)}
-            placeholder="Write the post caption..."
+            placeholder={language === "en" ? "Write the post caption..." : "Escribe el caption de la publicación..."}
             rows={5}
             className="resize-none text-sm"
             autoFocus
           />
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setCaptionEditItem(null)}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setCaptionEditItem(null)}>{language === "en" ? "Cancel" : "Cancelar"}</Button>
             <Button size="sm" onClick={handleSaveCaptionEdit} className="gap-1.5">
-              <Save className="w-3.5 h-3.5" /> Save Caption
+              <Save className="w-3.5 h-3.5" /> {language === "en" ? "Save Caption" : "Guardar Caption"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1525,7 +1529,7 @@ export default function MasterEditingQueue() {
             )}
             {selectedItem?.caption && (
               <div className="mt-4 pt-3 border-t border-border/40">
-                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">Caption</p>
+                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1.5 tracking-wide">{language === "en" ? "Caption" : "Caption"}</p>
                 <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{selectedItem.caption}</p>
               </div>
             )}
