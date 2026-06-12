@@ -2,6 +2,9 @@ project_id = "hxojqrilwhhrvloiwmfo"
 
 # All functions use verify_jwt = false — internal auth via supabase.auth.getUser()
 # This is required for this project; gateway-level JWT check causes 401 errors.
+[functions.public-review-post]
+verify_jwt = false
+
 [functions.categorize-script]
 verify_jwt = false
 

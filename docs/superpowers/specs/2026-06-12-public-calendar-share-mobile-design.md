@@ -64,3 +64,29 @@ Branch: `fix/public-calendar-share-mobile` (off `origin/main`)
 - `tsc --noEmit` clean (CI runs no typecheck — type errors crash at runtime, so verify by exit code).
 - `vite build` succeeds.
 - Headless mobile render of `/public/calendar/<real client id>` at 390px width.
+
+---
+
+## Addendum (same day) — Share dialog + no-login review
+
+Two follow-ups after live testing:
+
+1. **Share button now opens a visible dialog** (not just a clipboard copy + toast).
+   The admin clicked Share and "nothing popped up" — the toast-only feedback was
+   too subtle. The button now opens a Share dialog showing the public URL, a Copy
+   button, and Preview / WhatsApp / Email quick-send actions. Available on mobile too.
+
+2. **Review is now NO-LOGIN** (reverses the earlier login-gate decision). Clients can
+   approve / request revisions straight from the share link with no account.
+   - New edge function `public-review-post` (`verify_jwt = false`, deployed via MCP —
+     CI does not deploy edge functions). It is JWT-free but **validates post→client
+     ownership server-side** before any write (wrong client_id → 404), and scopes the
+     UPDATE to `id + client_id`. Mirrors `update-post-status`'s lifecycle/legacy mapping.
+   - Optional reviewer name on the revision modal; stored as `"Name: notes"` in
+     `revisions` for editor attribution.
+   - Public view drops the login CTA and always shows Approve / Request Revisions for
+     non-approved posts.
+
+Verified: tsc clean, vite build clean; function tested for security gate (wrong
+client → 404), valid approve/revision (DB write confirmed, then restored), and
+missing-field validation (400); mobile render shows the no-login review buttons.

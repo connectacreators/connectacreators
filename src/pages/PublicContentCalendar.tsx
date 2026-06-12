@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Loader2, ChevronLeft, ChevronRight, Download,
   ExternalLink, Calendar, AlertCircle, Share2, CheckCircle, MessageSquare,
-  LogIn, Play, List, CalendarDays, FileText,
+  Play, List, CalendarDays, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -144,8 +144,8 @@ export default function PublicContentCalendar() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionNotes, setRevisionNotes] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [isAuthed, setIsAuthed] = useState<boolean | null>(null); // null = still resolving
   const [view, setView] = useState<"agenda" | "calendar">("agenda"); // mobile toggle; desktop shows both
 
   const [currentDate, setCurrentDate] = useState(() => {
@@ -176,8 +176,6 @@ export default function PublicContentCalendar() {
   const prevMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)), []);
   const nextMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)), []);
 
-  const loginHref = `/login?redirect=${encodeURIComponent(`/public/calendar/${clientId ?? ""}`)}`;
-
   const handleShareLink = useCallback(() => {
     if (!clientId) return;
     const publicLink = `${window.location.origin}/public/calendar/${clientId}`;
@@ -188,25 +186,14 @@ export default function PublicContentCalendar() {
     });
   }, [clientId]);
 
-  // Track auth state so we know whether to show review actions or a login prompt.
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setIsAuthed(!!session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setIsAuthed(!!session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleApprove = useCallback(async () => {
-    if (!selectedPost) return;
+    if (!selectedPost || !clientId) return;
     setUpdatingStatus(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
-
-      const res = await supabase.functions.invoke("update-post-status", {
-        headers: authHeader ? { Authorization: authHeader } : {},
-        body: { id: selectedPost.id, status: "Approved" },
+      // No-login review: anyone with the share link can approve. The endpoint
+      // verifies the post belongs to this client_id before writing.
+      const res = await supabase.functions.invoke("public-review-post", {
+        body: { post_id: selectedPost.id, client_id: clientId, action: "approve" },
       });
       if (res.error) throw res.error;
       toast.success("Post approved!");
@@ -219,7 +206,7 @@ export default function PublicContentCalendar() {
     } finally {
       setUpdatingStatus(false);
     }
-  }, [selectedPost]);
+  }, [selectedPost, clientId]);
 
   const handleRevisionClick = useCallback(() => {
     setRevisionNotes(selectedPost?.revision_notes || "");
@@ -227,33 +214,36 @@ export default function PublicContentCalendar() {
   }, [selectedPost]);
 
   const handleSubmitRevision = useCallback(async () => {
-    if (!selectedPost) return;
+    if (!selectedPost || !clientId) return;
+    if (!revisionNotes.trim()) {
+      toast.error("Please describe what needs to change.");
+      return;
+    }
     setShowRevisionModal(false);
     setUpdatingStatus(true);
+    const storedNote = reviewerName.trim() ? `${reviewerName.trim()}: ${revisionNotes.trim()}` : revisionNotes.trim();
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
-
-      const res = await supabase.functions.invoke("update-post-status", {
-        headers: authHeader ? { Authorization: authHeader } : {},
+      const res = await supabase.functions.invoke("public-review-post", {
         body: {
-          id: selectedPost.id,
-          status: "Needs Revision",
-          revision_notes: revisionNotes,
+          post_id: selectedPost.id,
+          client_id: clientId,
+          action: "revision",
+          revision_notes: revisionNotes.trim(),
+          reviewer_name: reviewerName.trim() || undefined,
         },
       });
       if (res.error) throw res.error;
       toast.success("Sent back for revision.");
       const id = selectedPost.id;
-      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : p));
-      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: revisionNotes } : null);
+      setPosts((prev) => prev.map((p) => p.id === id ? { ...p, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: storedNote } : p));
+      setSelectedPost((prev) => prev ? { ...prev, post_status: "Needs Revision", lifecycle_status: "Needs Revisions", revision_notes: storedNote } : null);
     } catch (error) {
       console.error("Revision error:", error);
       toast.error("Failed to update status");
     } finally {
       setUpdatingStatus(false);
     }
-  }, [selectedPost, revisionNotes]);
+  }, [selectedPost, clientId, revisionNotes, reviewerName]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -496,6 +486,12 @@ export default function PublicContentCalendar() {
             <p className="text-sm text-muted-foreground">
               Leave your revisions for the editor. Once the changes are made, it will be sent back to the content calendar for review.
             </p>
+            <input
+              value={reviewerName}
+              onChange={(e) => setReviewerName(e.target.value)}
+              placeholder="Your name (optional)"
+              className="w-full h-11 px-3 rounded-md border border-border/50 bg-muted/30 text-base text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
             <Textarea
               value={revisionNotes}
               onChange={(e) => setRevisionNotes(e.target.value)}
@@ -578,26 +574,19 @@ export default function PublicContentCalendar() {
                   </div>
                 )}
 
-                {/* Review actions — login gated */}
+                {/* Review actions — no login required */}
                 <div className="pt-4 border-t border-border/40">
                   {isApproved(selectedPost) ? (
                     <div className="flex items-center gap-2 text-sm text-emerald-400">
                       <CheckCircle className="w-4 h-4" />
                       This post has been approved.
                     </div>
-                  ) : isAuthed === false ? (
-                    <Button asChild className="w-full h-11 gap-2">
-                      <Link to={loginHref}>
-                        <LogIn className="w-4 h-4" />
-                        Sign in to approve or request revisions
-                      </Link>
-                    </Button>
                   ) : (
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         className="flex-1 h-11 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
                         onClick={handleApprove}
-                        disabled={updatingStatus || isAuthed === null}
+                        disabled={updatingStatus}
                       >
                         {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         Approve
@@ -606,7 +595,7 @@ export default function PublicContentCalendar() {
                         variant="outline"
                         className="flex-1 h-11 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10"
                         onClick={handleRevisionClick}
-                        disabled={updatingStatus || isAuthed === null}
+                        disabled={updatingStatus}
                       >
                         {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
                         Request Revisions

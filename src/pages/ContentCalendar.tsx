@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
 import {
   Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download,
-  CheckCircle, XCircle, ExternalLink, Calendar, AlertCircle, MessageSquare, Copy, Share2,
+  CheckCircle, XCircle, ExternalLink, Calendar, AlertCircle, MessageSquare, Copy, Share2, Mail,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Badge } from "@/components/ui/badge";
@@ -181,6 +181,8 @@ export default function ContentCalendar() {
   const [revisionNotes, setRevisionNotes] = useState("");
   const [viewMode, setViewMode] = useState<"agenda" | "table">("agenda");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   // Admin client filter (when no clientId param)
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
@@ -243,22 +245,27 @@ export default function ContentCalendar() {
   const prevMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)), []);
   const nextMonth = useCallback(() => setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)), []);
 
-  const handleSharePublicLink = useCallback(async () => {
+  const handleSharePublicLink = useCallback(() => {
     const shareId = clientId || (filterClientId && filterClientId !== "all" ? filterClientId : null);
     if (!shareId) {
       toast.error(language === "en" ? "Pick a client first" : "Elige un cliente primero");
       return;
     }
-    const publicLink = `${window.location.origin}/public/calendar/${shareId}`;
+    setShareUrl(`${window.location.origin}/public/calendar/${shareId}`);
+    setCopiedLink(false);
+    setShareDialogOpen(true);
+  }, [clientId, filterClientId, language]);
+
+  const copyShareUrl = useCallback(async () => {
     let copied = false;
     try {
-      await navigator.clipboard.writeText(publicLink);
+      await navigator.clipboard.writeText(shareUrl);
       copied = true;
     } catch {
       // Clipboard API can be blocked (permissions, non-secure context) — fall back to a temp textarea
       try {
         const ta = document.createElement("textarea");
-        ta.value = publicLink;
+        ta.value = shareUrl;
         ta.style.position = "fixed";
         ta.style.opacity = "0";
         document.body.appendChild(ta);
@@ -275,10 +282,9 @@ export default function ContentCalendar() {
       setTimeout(() => setCopiedLink(false), 2000);
       toast.success(language === "en" ? "Public link copied!" : "¡Enlace público copiado!");
     } else {
-      // Last resort: surface the link so it can still be sent
-      toast.success(publicLink, { duration: 8000 });
+      toast.success(shareUrl, { duration: 8000 });
     }
-  }, [clientId, filterClientId, language]);
+  }, [shareUrl, language]);
 
   // Fetch client name
   useEffect(() => {
@@ -529,20 +535,11 @@ export default function ContentCalendar() {
                   onClick={handleSharePublicLink}
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 text-xs hidden md:inline-flex"
-                  title={language === "en" ? "Copy public link" : "Copiar enlace público"}
+                  className="gap-1.5 text-xs inline-flex"
+                  title={language === "en" ? "Share public link" : "Compartir enlace público"}
                 >
-                  {copiedLink ? (
-                    <>
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      {language === "en" ? "Copied!" : "¡Copiado!"}
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-3.5 h-3.5" />
-                      {language === "en" ? "Share" : "Compartir"}
-                    </>
-                  )}
+                  <Share2 className="w-3.5 h-3.5" />
+                  {language === "en" ? "Share" : "Compartir"}
                 </Button>
               )}
             </div>
@@ -886,6 +883,64 @@ export default function ContentCalendar() {
 
         </div>
       </PageTransition>
+
+      {/* ─── Share Public Link Dialog ──────────────────────────────────────────── */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Share2 className="w-4 h-4 text-primary" />
+              {language === "en" ? "Share content calendar" : "Compartir calendario"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === "en"
+                ? `Anyone with this link can view ${clientName || "this client"}'s calendar, watch the videos, and approve or request revisions — no account needed.`
+                : `Cualquiera con este enlace puede ver el calendario de ${clientName || "este cliente"}, ver los videos y aprobar o pedir revisiones — sin necesidad de cuenta.`}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 h-10 px-3 rounded-md border border-border/50 bg-muted/30 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+              <Button onClick={copyShareUrl} size="sm" className="h-10 gap-1.5 flex-shrink-0">
+                {copiedLink ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedLink ? (language === "en" ? "Copied" : "Copiado") : (language === "en" ? "Copy" : "Copiar")}
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border border-border/40 bg-card/40 hover:bg-card/70 transition-colors text-xs text-foreground"
+              >
+                <ExternalLink className="w-4 h-4 text-primary" />
+                {language === "en" ? "Preview" : "Vista previa"}
+              </a>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent((language === "en" ? "Here's your content calendar — review and approve here: " : "Aquí está tu calendario — revisa y aprueba aquí: ") + shareUrl)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border border-border/40 bg-card/40 hover:bg-card/70 transition-colors text-xs text-foreground"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-500" />
+                WhatsApp
+              </a>
+              <a
+                href={`mailto:?subject=${encodeURIComponent((language === "en" ? "Content calendar — " : "Calendario de contenido — ") + (clientName || ""))}&body=${encodeURIComponent((language === "en" ? "Review and approve your content here:\n\n" : "Revisa y aprueba tu contenido aquí:\n\n") + shareUrl)}`}
+                className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border border-border/40 bg-card/40 hover:bg-card/70 transition-colors text-xs text-foreground"
+              >
+                <Mail className="w-4 h-4 text-primary" />
+                {language === "en" ? "Email" : "Correo"}
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Post Detail Modal ─────────────────────────────────────────────────── */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
