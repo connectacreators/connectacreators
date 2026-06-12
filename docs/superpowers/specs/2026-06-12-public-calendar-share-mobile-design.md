@@ -137,3 +137,23 @@ is only shown as the video when there's NO submission deliverable, so it never a
 
 NOTE (follow-up): true multi-version V1/V2 history would require the editor upload flow to retain
 past submissions (it currently overwrites `file_submission`). Not done here.
+
+---
+
+## Addendum 4 (same day) — public revisions now reach the editing queue
+
+A client's public revision wasn't appearing in the editing queue. Root cause: the editing
+queue's "REVISION NOTES" come from the `revision_comments` table (timestamped, threaded), but
+`public-review-post` only wrote `video_edits.revisions` (a plain text field the public calendar
+displays). Different stores → the editor never saw it.
+
+Fix: on `action="revision"`, `public-review-post` now ALSO inserts a `revision_comments` row
+(service role): `timestamp_seconds=null` (a general note), `author_role='client'`,
+`author_name=reviewer name || "Client"`, `resolved=false`, and crucially `source_ref=null` — the
+modal hides comments whose `source_ref` doesn't equal the active V1/V2 tab label, so a null keeps
+it visible on every version. The status change + `video_edits.revisions` write are kept. Verified:
+the insert lands with the right fields (null timestamp, client role, null source_ref); test row +
+post state restored afterward.
+
+Note: pre-fix revisions that only wrote `video_edits.revisions` are not auto-backfilled into
+`revision_comments`; re-submitting surfaces them.

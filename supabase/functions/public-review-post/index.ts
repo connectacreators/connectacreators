@@ -107,6 +107,34 @@ serve(async (req) => {
 
     if (updErr) throw updErr;
 
+    // The editing queue reads its "Revision notes" from the revision_comments
+    // table (timestamped, threaded) — NOT video_edits.revisions. So a public
+    // revision must also be inserted there or the editor never sees it. We use a
+    // null timestamp (a general note, not tied to a moment) and a null
+    // source_ref so it isn't scoped away to a specific version label (the modal
+    // hides comments whose source_ref doesn't match the active V1/V2 tab).
+    if (action === "revision") {
+      const note = (revisionNotes ?? "").trim();
+      if (note) {
+        const { error: commentErr } = await serviceSupabase
+          .from("revision_comments")
+          .insert([{
+            video_edit_id: postId,
+            timestamp_seconds: null,
+            comment: note,
+            author_name: reviewerName?.trim() || "Client",
+            author_role: "client",
+            author_id: null,
+            source_ref: null,
+            internal_only: false,
+            resolved: false,
+          }]);
+        // Don't fail the whole request if the comment insert hiccups — the
+        // status change already happened; just surface it in logs.
+        if (commentErr) console.error("public-review-post comment insert error:", commentErr.message);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, lifecycle_status: lifecycle, post_status: postStatus }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
