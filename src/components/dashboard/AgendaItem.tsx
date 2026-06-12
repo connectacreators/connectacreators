@@ -114,6 +114,29 @@ export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: st
             style={{ width: 17, height: 17 }}
           />
           <span className="truncate">{item.clientName}</span>
+          {item.owner === "editor" && (
+            <>
+              <span aria-hidden>·</span>
+              <span
+                style={{
+                  fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em',
+                  color: '#2F6B62', background: 'rgba(47,107,98,0.12)',
+                  padding: '1px 7px', borderRadius: 999, flexShrink: 0,
+                  whiteSpace: 'nowrap', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+              >
+                {t.dashboard.ownerEditor[language]}{item.ownerName ? ` · ${item.ownerName}` : ''}
+              </span>
+            </>
+          )}
+          {item.owner === "you" && (
+            <>
+              <span aria-hidden>·</span>
+              <span style={{ color: 'hsl(var(--ink-on-cream) / 0.4)', flexShrink: 0 }}>
+                {t.dashboard.ownerYou[language]}
+              </span>
+            </>
+          )}
           {item.countLabel && (
             <>
               <span aria-hidden>·</span>

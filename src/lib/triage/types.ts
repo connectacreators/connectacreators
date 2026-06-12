@@ -30,6 +30,8 @@ export interface VideosRevisionRow {
   count: number;
   sampleNames: string[];
   oldestPendingAt: string;
+  assignee?: string | null;   // editor name, only when unambiguous (one distinct editor)
+  deadlineAt?: string | null;  // earliest video_edits.deadline among the group, if any set
 }
 
 export interface PostsScheduledRow {

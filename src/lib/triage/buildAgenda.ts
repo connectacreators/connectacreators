@@ -21,6 +21,11 @@ export type AgendaKind =
   | "videos_revision"
   | "posts_scheduled";
 
+// Who has the ball on this item. "you" = the master/agency operator's own task,
+// "editor" = waiting on the assigned editor (e.g. an edit in revision),
+// "scheduled" = automated, nobody needs to act (a queued post).
+export type AgendaOwner = "you" | "editor" | "scheduled";
+
 export interface AgendaItem {
   key: string;            // `${clientId}:${kind}` — stable React key
   clientId: string;
@@ -32,6 +37,8 @@ export interface AgendaItem {
   bucket: RelativeBucket;
   href: string;
   isPrep: boolean;
+  owner: AgendaOwner;
+  ownerName?: string;     // specific person for the owner (e.g. the editor's name)
   count?: number;
   countLabel?: string;
   context?: string;
@@ -132,6 +139,28 @@ function countDate(row: Extract<TriageRow, { type: "scripts_review" | "videos_re
   return row.type === "posts_scheduled" ? row.nextAt : row.oldestPendingAt;
 }
 
+const MONTHS_CHIP = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_CHIP_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Chip for items with a real deadline. Overdue stays "Overdue"; near-term
+// time-bearing labels ("Today 3pm", "Tomorrow") read better than a bare date,
+// so keep those; otherwise show a concrete "Due Jun 11".
+function dueChip(dueIso: string, now: Date, lang: Language): string {
+  const rel = relativeDate(dueIso, now, lang);
+  if (rel.bucket === "overdue") return rel.label; // "Overdue" / "Atrasado"
+  if (rel.bucket === "soon" || rel.bucket === "today" || rel.bucket === "tomorrow") return rel.label;
+  const d = new Date(dueIso);
+  const mon = (lang === "es" ? MONTHS_CHIP_ES : MONTHS_CHIP)[d.getMonth()];
+  return `${lang === "es" ? "Vence" : "Due"} ${mon} ${d.getDate()}`;
+}
+
+// Chip for aging items with no real deadline (scripts to review, edits in
+// revision with no deadline set): how long they've been waiting.
+function waitingChip(sinceIso: string, now: Date, lang: Language): string {
+  const days = Math.max(1, Math.floor((now.getTime() - new Date(sinceIso).getTime()) / (24 * 60 * 60 * 1000)));
+  return lang === "es" ? `esperando ${days}d` : `waiting ${days}d`;
+}
+
 export function buildAgenda(
   clients: TriageClient[],
   rowsByClient: TriageRowsByClient,
@@ -178,33 +207,70 @@ export function buildAgenda(
         kind: milestone,
         verb,
         sortDate: row.at,
-        chipLabel: rel.label,
+        chipLabel: dueChip(row.at, now, lang),
         bucket: rel.bucket,
         href: hrefFor(milestone, client.id),
         isPrep: PREP_MILESTONES.has(milestone),
+        owner: "you", // pipeline milestones are the operator's own coordination tasks
         count,
         countLabel,
         context: row.label ?? baseContext,
       });
     }
 
-    // 2) Unpaired count rows → their own items, dated by their aging timestamp.
+    // 2) Unpaired count rows → their own items.
     for (const cr of countRows) {
       if (consumedCountTypes.has(cr.type)) continue;
-      const date = countDate(cr);
-      const rel = relativeDate(date, now, lang);
       const { verb, countLabel } = countMeta(cr.type, cr.count, lang);
+
+      // Resolve owner, sort date, and chip per row type:
+      //  - videos_revision  → the EDITOR must revise. Date by a real deadline if
+      //    one is set (concrete "Due …"), else by how long it's been waiting.
+      //  - scripts_review   → YOUR review; no real deadline, so show its age.
+      //  - posts_scheduled  → SCHEDULED to auto-post; keep the concrete time.
+      let owner: AgendaOwner = "you";
+      let ownerName: string | undefined;
+      let sortDate: string;
+      let chipLabel: string;
+      let bucket: RelativeBucket;
+
+      if (cr.type === "videos_revision") {
+        owner = "editor";
+        ownerName = cr.assignee ?? undefined;
+        if (cr.deadlineAt) {
+          sortDate = cr.deadlineAt;
+          bucket = relativeDate(cr.deadlineAt, now, lang).bucket;
+          chipLabel = dueChip(cr.deadlineAt, now, lang);
+        } else {
+          sortDate = cr.oldestPendingAt;
+          bucket = relativeDate(sortDate, now, lang).bucket;
+          chipLabel = waitingChip(cr.oldestPendingAt, now, lang);
+        }
+      } else if (cr.type === "scripts_review") {
+        sortDate = cr.oldestPendingAt;
+        bucket = relativeDate(sortDate, now, lang).bucket;
+        chipLabel = waitingChip(cr.oldestPendingAt, now, lang);
+      } else {
+        owner = "scheduled";
+        sortDate = countDate(cr);
+        const rel = relativeDate(sortDate, now, lang);
+        bucket = rel.bucket;
+        chipLabel = rel.label;
+      }
+
       items.push({
         key: `${client.id}:${cr.type}`,
         clientId: client.id,
         clientName,
         kind: cr.type,
         verb,
-        sortDate: date,
-        chipLabel: rel.label,
-        bucket: rel.bucket,
+        sortDate,
+        chipLabel,
+        bucket,
         href: hrefFor(cr.type, client.id),
         isPrep: false,
+        owner,
+        ownerName,
         count: cr.count,
         countLabel,
       });

@@ -79,6 +79,61 @@ describe("buildAgenda", () => {
     expect(agenda.map((l) => l.key)).toEqual(["overdue", "today", "thisweek"]);
   });
 
+  it("marks an unpaired videos_revision as the editor's task, naming the assignee", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "videos_revision", count: 1, sampleNames: [], oldestPendingAt: at(-3), assignee: "Tom" }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.verb).toBe("Edits in revision");
+    expect(item.owner).toBe("editor");
+    expect(item.ownerName).toBe("Tom");
+  });
+
+  it("dates an edit-in-revision by its real deadline when one is set", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "videos_revision", count: 2, sampleNames: [], oldestPendingAt: at(-5), deadlineAt: at(1) }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.sortDate).toBe(at(1));
+    expect(item.bucket).toBe("tomorrow");
+    expect(item.ownerName).toBeUndefined();
+  });
+
+  it("falls back to a waiting age when an edit-in-revision has no deadline", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "videos_revision", count: 1, sampleNames: [], oldestPendingAt: at(-3) }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.chipLabel).toBe("waiting 3d");
+    expect(item.bucket).toBe("overdue");
+  });
+
+  it("treats scripts_review as your task and shows its waiting age", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "scripts_review", count: 2, sampleNames: [], oldestPendingAt: at(-4) }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.owner).toBe("you");
+    expect(item.chipLabel).toBe("waiting 4d");
+  });
+
+  it("treats scheduled posts as automated (owner scheduled)", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "posts_scheduled", count: 2, sampleNames: [], nextAt: at(0.1) }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.owner).toBe("scheduled");
+  });
+
+  it("shows a concrete due date for a far-off pipeline milestone", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "pipeline", milestone: "script_due", at: at(10) }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.owner).toBe("you");
+    expect(item.chipLabel).toBe("Due Jun 20");
+  });
+
   it("carries the boosting budget label as context", () => {
     const rows: TriageRowsByClient = {
       c1: [{ type: "pipeline", milestone: "boosting", at: at(3), label: "$400 budget" }],

@@ -62,7 +62,7 @@ export function useTriageRows(clientIds: string[]): Result {
         .order("created_at", { ascending: true }),
       supabase
         .from("video_edits")
-        .select("id, client_id, lifecycle_status, updated_at")
+        .select("id, client_id, lifecycle_status, updated_at, assignee, deadline")
         .in("client_id", clientIds)
         .is("deleted_at", null)
         .eq("lifecycle_status", "Needs Revisions")
@@ -102,12 +102,16 @@ export function useTriageRows(clientIds: string[]): Result {
         // For now: aggregate counts; titles fetched in a follow-up query if
         // we want them. Keep titles empty to preserve a clean dashboard until
         // a follow-up enriches them.
-        const videosByClient = new Map<string, { count: number; oldest: string; sampleNames: string[] }>();
+        const videosByClient = new Map<string, { count: number; oldest: string; sampleNames: string[]; editors: Set<string>; earliestDeadline: string | null }>();
         for (const row of videosRes.data ?? []) {
           const id = row.client_id as string;
-          const b = videosByClient.get(id) ?? { count: 0, oldest: row.updated_at as string, sampleNames: [] };
+          const b = videosByClient.get(id) ?? { count: 0, oldest: row.updated_at as string, sampleNames: [], editors: new Set<string>(), earliestDeadline: null };
           b.count += 1;
           if ((row.updated_at as string) < b.oldest) b.oldest = row.updated_at as string;
+          const editor = (row.assignee as string | null)?.trim();
+          if (editor) b.editors.add(editor);
+          const dl = row.deadline as string | null;
+          if (dl && (b.earliestDeadline === null || dl < b.earliestDeadline)) b.earliestDeadline = dl;
           videosByClient.set(id, b);
         }
 
@@ -161,6 +165,9 @@ export function useTriageRows(clientIds: string[]): Result {
               count: v.count,
               sampleNames: v.sampleNames,
               oldestPendingAt: v.oldest,
+              // Name the editor only when one person owns every needs-revisions edit.
+              assignee: v.editors.size === 1 ? [...v.editors][0] : null,
+              deadlineAt: v.earliestDeadline,
             };
             rows.push(row);
           }

@@ -42,6 +42,9 @@ export const t = {
     // Aging marker
     agingTitle: { en: "Aging — pending more than 48 hours", es: "Antiguo — pendiente desde hace más de 48 horas" },
     prep: { en: "PREP", es: "PREP" },
+    // Agenda card owner tags ("who's up next")
+    ownerYou: { en: "you", es: "tú" },
+    ownerEditor: { en: "Editor", es: "Editor" },
     // Recent chats panel
     newChat: { en: "New chat", es: "Nuevo chat" },
     untitledChat: { en: "Untitled chat", es: "Chat sin título" },
