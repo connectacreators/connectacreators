@@ -90,3 +90,27 @@ Two follow-ups after live testing:
 Verified: tsc clean, vite build clean; function tested for security gate (wrong
 client → 404), valid approve/revision (DB write confirmed, then restored), and
 missing-field validation (400); mobile render shows the no-login review buttons.
+
+---
+
+## Addendum 2 (same day) — video playback, always-revisions, dropdown scope
+
+1. **Public video wouldn't play.** `video_edits.file_submission` is a bare Storage
+   path (web proxy) in the private `footage-proxies` bucket (raw .mov originals live in
+   `footage`); both are auth-only, so anon `<video src=path>` 404'd. New edge function
+   `public-calendar-video` (`verify_jwt=false`, MCP-deployed) validates post→client
+   ownership then service-role-signs a 1h URL, preferring `footage-proxies` (small mp4)
+   → `footage` → `storage_path`. `VideoBlock` now resolves bare paths through it (Drive
+   and direct http URLs still handled inline). Verified: signed URL serves video/mp4
+   (HTTP 206), wrong client → 404, plays in headless (404x720, readyState 4).
+
+2. **No way to leave revisions on a Scheduled post.** The review block hid all actions
+   for Published/Scheduled. Request Revisions is now ALWAYS shown; Approve only when not
+   already approved. Submitting a revision (via `public-review-post`) sets status →
+   Needs Revisions, writes the note to `revisions`, and does NOT touch `schedule_date`,
+   so it returns to the editing queue without rescheduling.
+
+3. **Admin client dropdown scope.** The Content Calendar admin picker now lists only the
+   admin's own client (`user_id = me`) plus active Connecta+ clients
+   (`plan_type='connecta_plus' AND subscription_status='active'`) — currently Bravo
+   Bonetti, Dr Calvin's Clinic, Spencer Barton.

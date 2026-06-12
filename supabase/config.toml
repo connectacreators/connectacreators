@@ -5,6 +5,9 @@ project_id = "hxojqrilwhhrvloiwmfo"
 [functions.public-review-post]
 verify_jwt = false
 
+[functions.public-calendar-video]
+verify_jwt = false
+
 [functions.categorize-script]
 verify_jwt = false
 

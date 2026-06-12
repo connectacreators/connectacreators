@@ -297,12 +297,15 @@ export default function ContentCalendar() {
       .then(({ data }) => { if (data) setClientName(data.name); });
   }, [clientId, user]);
 
-  // Fetch clients list for admin filter
+  // Fetch clients list for admin filter — restrict to the admin's own client
+  // plus active Connecta+ clients (the only ones with the public-calendar /
+  // review workflow). Anyone else is hidden from the picker.
   useEffect(() => {
     if (clientId || !isAdmin || !user) return;
     supabase
       .from("clients")
       .select("id, name")
+      .or(`user_id.eq.${user.id},and(plan_type.eq.connecta_plus,subscription_status.eq.active)`)
       .order("name")
       .then(({ data }) => { if (data) setAllClients(data); });
   }, [clientId, isAdmin, user]);

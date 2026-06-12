@@ -98,12 +98,42 @@ function formatAgendaDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" }).toUpperCase();
 }
 
-/** Portrait-friendly video block for vertical reels. */
-function VideoBlock({ url }: { url: string }) {
+const VIDEO_BOX = "mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[65vh] rounded-xl overflow-hidden bg-black border border-border/30";
+
+/** Portrait-friendly video block for vertical reels.
+ *  `url` may be a Google Drive link, a direct http(s) video URL, or a bare
+ *  Supabase Storage path. Bare paths live in private buckets, so we resolve a
+ *  short-lived signed URL through the public-calendar-video edge function. */
+function VideoBlock({ url, postId, clientId }: { url: string; postId: string; clientId: string }) {
   const driveId = extractGoogleDriveFileId(url);
+  const isHttp = /^https?:\/\//i.test(url);
+  const needsSigning = !driveId && !isHttp;
+
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(needsSigning);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!needsSigning) return;
+    let cancelled = false;
+    setResolving(true);
+    setFailed(false);
+    setSignedUrl(null);
+    supabase.functions
+      .invoke("public-calendar-video", { body: { post_id: postId, client_id: clientId } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.url) setFailed(true);
+        else setSignedUrl(data.url);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); })
+      .finally(() => { if (!cancelled) setResolving(false); });
+    return () => { cancelled = true; };
+  }, [url, postId, clientId, needsSigning]);
+
   if (driveId) {
     return (
-      <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[65vh] rounded-xl overflow-hidden bg-black border border-border/30">
+      <div className={VIDEO_BOX}>
         <iframe
           src={`https://drive.google.com/file/d/${driveId}/preview`}
           className="w-full h-full"
@@ -113,23 +143,39 @@ function VideoBlock({ url }: { url: string }) {
       </div>
     );
   }
-  if (looksPlayable(url)) {
+
+  const playableUrl = signedUrl ?? (isHttp && looksPlayable(url) ? url : null);
+  if (playableUrl) {
     return (
-      <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[65vh] rounded-xl overflow-hidden bg-black border border-border/30">
-        <video src={url} controls playsInline className="w-full h-full object-contain" />
+      <div className={VIDEO_BOX}>
+        <video src={playableUrl} controls playsInline preload="metadata" className="w-full h-full object-contain" />
       </div>
     );
   }
+
+  if (resolving) {
+    return (
+      <div className={`${VIDEO_BOX} flex items-center justify-center`}>
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // A real external URL we couldn't embed — offer it as a link.
+  if (isHttp && !failed) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 h-12 rounded-xl border border-border/40 bg-card/40 text-sm text-primary hover:bg-card/60 transition-colors">
+        <ExternalLink className="w-4 h-4" />
+        Open video file
+      </a>
+    );
+  }
+
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center justify-center gap-2 h-12 rounded-xl border border-border/40 bg-card/40 text-sm text-primary hover:bg-card/60 transition-colors"
-    >
-      <ExternalLink className="w-4 h-4" />
-      Open video file
-    </a>
+    <div className={`${VIDEO_BOX} flex items-center justify-center`}>
+      <span className="text-xs text-muted-foreground">Video unavailable</span>
+    </div>
   );
 }
 
@@ -541,7 +587,7 @@ export default function PublicContentCalendar() {
 
                 {/* Video */}
                 {selectedPost.file_submission_url ? (
-                  <VideoBlock url={selectedPost.file_submission_url} />
+                  <VideoBlock url={selectedPost.file_submission_url} postId={selectedPost.id} clientId={clientId ?? ""} />
                 ) : (
                   <div className="mx-auto w-full max-w-[360px] aspect-[9/16] max-h-[50vh] rounded-xl bg-muted/30 border border-border/30 flex items-center justify-center">
                     <span className="text-xs text-muted-foreground">No video attached</span>
@@ -575,14 +621,18 @@ export default function PublicContentCalendar() {
                 )}
 
                 {/* Review actions — no login required */}
-                <div className="pt-4 border-t border-border/40">
-                  {isApproved(selectedPost) ? (
+                <div className="pt-4 border-t border-border/40 space-y-2">
+                  {isApproved(selectedPost) && (
                     <div className="flex items-center gap-2 text-sm text-emerald-400">
                       <CheckCircle className="w-4 h-4" />
                       This post has been approved.
                     </div>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row gap-2">
+                  )}
+                  {/* Request Revisions is ALWAYS available — even on a scheduled
+                      post the client can still send it back. Approve only shows
+                      when it isn't already approved. */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    {!isApproved(selectedPost) && (
                       <Button
                         className="flex-1 h-11 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
                         onClick={handleApprove}
@@ -591,17 +641,17 @@ export default function PublicContentCalendar() {
                         {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         Approve
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-11 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10"
-                        onClick={handleRevisionClick}
-                        disabled={updatingStatus}
-                      >
-                        {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
-                        Request Revisions
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-11 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={handleRevisionClick}
+                      disabled={updatingStatus}
+                    >
+                      {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+                      Request Revisions
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Revision notes — shown when set */}
