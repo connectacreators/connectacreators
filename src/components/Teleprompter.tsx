@@ -47,12 +47,24 @@ export default function Teleprompter({ lines, onClose, showRecorder = false, onT
       return;
     }
 
+    // Track the scroll position in a float locally. Browsers round/quantize
+    // scrollTop, so reading it back and accumulating onto it drops sub-pixel
+    // increments — at lower speeds that makes the real pace lag the value
+    // shown. We keep the precise position here and write it each frame so the
+    // scroll rate matches `speed` (px/sec) exactly, regardless of frame rate.
+    let pos = scrollRef.current.scrollTop;
+    let lastRendered = pos;
     let last: number | null = null;
     const tick = (ts: number) => {
-      if (!scrollRef.current) return;
+      const el = scrollRef.current;
+      if (!el) return;
+      // If something else moved the scroll (manual scroll, reset), resync.
+      if (Math.abs(el.scrollTop - lastRendered) > 1.5) pos = el.scrollTop;
       if (last !== null) {
         const delta = (ts - last) / 1000;
-        scrollRef.current.scrollTop += speed * delta;
+        pos += speed * delta;
+        el.scrollTop = pos;
+        lastRendered = el.scrollTop;
       }
       last = ts;
       animRef.current = requestAnimationFrame(tick);
