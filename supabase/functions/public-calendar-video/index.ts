@@ -8,8 +8,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // model as public-review-post) and then signs a short-lived URL with the
 // service role so the public viewer can play the video without an account.
 //
-// Preference order: the small web-playable proxy first (footage-proxies),
-// then the submission in footage, then the raw original (storage_path).
+// For each path it signs the FRESHEST copy across footage / footage-proxies
+// (a stale proxy must never win over a newer re-uploaded submission), trying
+// file_submission first and falling back to the raw storage_path.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,22 +76,44 @@ serve(async (req) => {
       });
     }
 
-    // Try each candidate (bucket, path) until one signs successfully. Prefer the
-    // small web proxy so phones stream a light mp4 rather than a multi-GB .mov.
-    const candidates: Array<{ bucket: string; path: string }> = [];
-    if (fileSubmission) {
-      candidates.push({ bucket: "footage-proxies", path: fileSubmission });
-      candidates.push({ bucket: "footage", path: fileSubmission });
-    }
-    if (storagePath) {
-      candidates.push({ bucket: "footage-proxies", path: storagePath });
-      candidates.push({ bucket: "footage", path: storagePath });
-    }
+    // Resolve the FRESHEST copy of a given storage path. The render-worker
+    // writes a small web proxy to footage-proxies mirroring the footage path,
+    // but that proxy can lag behind a re-uploaded submission (a stale proxy is
+    // exactly why the calendar used to show an old version). So we look up the
+    // object's timestamp in both buckets and prefer whichever is newer; only on
+    // a tie do we favour the lighter proxy.
+    const tsOf = async (bucket: string, fullPath: string): Promise<number | null> => {
+      const slash = fullPath.lastIndexOf("/");
+      const dir = slash >= 0 ? fullPath.slice(0, slash) : "";
+      const base = slash >= 0 ? fullPath.slice(slash + 1) : fullPath;
+      const { data } = await service.storage.from(bucket).list(dir, { search: base, limit: 100 });
+      const f = data?.find((x: { name: string }) => x.name === base) as
+        | { name: string; updated_at?: string; created_at?: string }
+        | undefined;
+      if (!f) return null;
+      return new Date(f.updated_at || f.created_at || 0).getTime();
+    };
 
-    for (const c of candidates) {
-      const { data, error } = await service.storage.from(c.bucket).createSignedUrl(c.path, SIGN_TTL);
-      if (!error && data?.signedUrl) {
-        return new Response(JSON.stringify({ url: data.signedUrl, kind: "video", bucket: c.bucket }), {
+    const signFreshest = async (fullPath: string) => {
+      const [tFootage, tProxy] = await Promise.all([
+        tsOf("footage", fullPath),
+        tsOf("footage-proxies", fullPath),
+      ]);
+      if (tFootage === null && tProxy === null) return null;
+      // Newer wins; tie (or proxy-only) favours the lighter proxy.
+      const preferProxy = tProxy !== null && (tFootage === null || tProxy >= tFootage);
+      const order = preferProxy ? ["footage-proxies", "footage"] : ["footage", "footage-proxies"];
+      for (const bucket of order) {
+        const { data, error } = await service.storage.from(bucket).createSignedUrl(fullPath, SIGN_TTL);
+        if (!error && data?.signedUrl) return { url: data.signedUrl, bucket };
+      }
+      return null;
+    };
+
+    for (const path of [fileSubmission, storagePath].filter(Boolean) as string[]) {
+      const signed = await signFreshest(path);
+      if (signed) {
+        return new Response(JSON.stringify({ url: signed.url, kind: "video", bucket: signed.bucket }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

@@ -114,3 +114,26 @@ missing-field validation (400); mobile render shows the no-login review buttons.
    admin's own client (`user_id = me`) plus active Connecta+ clients
    (`plan_type='connecta_plus' AND subscription_status='active'`) — currently Bravo
    Bonetti, Dr Calvin's Clinic, Spencer Barton.
+
+---
+
+## Addendum 3 (same day) — latest-version playback + V1/V2 toggle
+
+**Public calendar showed an OLD version.** `video_edits.file_submission` mirrors a path that
+exists in BOTH `footage` (the real submission) and `footage-proxies` (a small web proxy). When an
+editor re-uploads with the same filename, `footage` updates but the proxy can lag — e.g. Insulin's
+footage submission was 2026-06-12 04:24 while its proxy was 03:08 (1h16m stale). The signer
+preferred the proxy → served the old video; the editing queue reads `footage` → showed the current
+one. Fix: `public-calendar-video` now signs the FRESHEST copy (compares `footage` vs
+`footage-proxies` object timestamps via storage `list`; newer wins, tie favours the lighter proxy),
+file_submission before storage_path. Verified: Insulin now resolves to footage (24MB, latest);
+Puffy Face still falls back to its proxy; headless render shows the current video (1080x1920).
+
+**V1/V2 toggle was broken.** `VideoReviewModal` built versions as `[file_submission…] + storage_path`,
+so "V2" was the raw multi-GB `.mov` original (unplayable in-browser), not a real second edit — and
+since uploads overwrite `file_submission`, true version history isn't kept. Fix: raw `storage_path`
+is only shown as the video when there's NO submission deliverable, so it never appears as a broken
+"V2" beside a real submission.
+
+NOTE (follow-up): true multi-version V1/V2 history would require the editor upload flow to retain
+past submissions (it currently overwrites `file_submission`). Not done here.

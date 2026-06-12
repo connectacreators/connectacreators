@@ -138,10 +138,12 @@ export default function VideoReviewModal({
       }
     });
 
-    // Supabase storage file from storage_path (avoid duplicate if already added via file_submission)
-    if (storagePath && !addedPaths.has(storagePath)) {
-      const vIdx = list.filter(s => s.type === 'supabase' || s.type === 'drive').length + 1;
-      list.push({ id: 'supabase', label: `V${vIdx}`, type: 'supabase', rawUrl: storagePath });
+    // storage_path is the RAW source footage (e.g. a multi-GB .mov original) —
+    // not a deliverable version of the edit, and usually not browser-playable.
+    // Only surface it as the video when there's no actual submission to show,
+    // so it never appears as a broken "V2" alongside a real submission.
+    if (storagePath && !addedPaths.has(storagePath) && list.length === 0) {
+      list.push({ id: 'supabase', label: 'V1', type: 'supabase', rawUrl: storagePath });
     }
 
     setSources(list);
