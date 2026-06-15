@@ -1175,12 +1175,13 @@ serve(async (req) => {
       const isLightTurn = classifyIntent(latestUserText) === "light";
       const isThinking = !!thinkingRequested && !isLightTurn && (model.includes("sonnet") || model.includes("opus"));
       const thinkingBudget = model.includes("opus") ? 10000 : 5000;
-      // Canvas chat max_tokens is lower than generation — most replies are
-      // conversational, not full scripts. Keep 4096 for non-canvas paths.
-      // Haiku gets 2048 in canvas (was 1024) so list-style answers like
-      // "give me 20 X" don't get truncated mid-item.
+      // max_tokens is a ceiling, not a target — short conversational replies stop
+      // early and aren't billed extra, so the canvas ceiling only needs to be high
+      // enough to fit a full multi-section script without truncating mid-sentence.
+      // 8192 covers full scripts across models (was opus/sonnet 1536, haiku 2048,
+      // which cut off long "Generate a script" / MOFU answers). Non-canvas unchanged.
       const baseMaxTokens = isCanvas
-        ? (model.includes("opus") ? 1536 : model.includes("sonnet") ? 1536 : 2048)
+        ? 8192
         : (model.includes("opus") ? 4096 : model.includes("sonnet") ? 2048 : 1024);
       // Opus 4.7+ deprecates thinking.type=enabled in favor of adaptive thinking + output_config.effort.
       // Detect the new generation by model ID.
