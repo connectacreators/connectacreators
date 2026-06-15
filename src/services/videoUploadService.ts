@@ -132,6 +132,8 @@ export const videoUploadService = {
     return { storagePath, storageUrl };
   },
 
+  // Signs the ORIGINAL full-resolution file in the `footage` bucket.
+  // Use this for downloads — the user always gets the high-quality original.
   async getSignedVideoUrl(storagePath: string): Promise<string> {
     const { data, error } = await supabase.storage
       .from(BUCKET)
@@ -139,5 +141,31 @@ export const videoUploadService = {
 
     if (error) throw error;
     return data.signedUrl;
+  },
+
+  // Proxy-aware resolver for PLAYBACK only. Returns the fast 720p web proxy
+  // from `footage-proxies` when one is ready, otherwise the original. Never use
+  // this for downloads — they must pull the full-res original via
+  // getSignedVideoUrl. Mirrors the proxy lookup in FootagePanel.
+  async getPlaybackVideoUrl(storagePath: string): Promise<string> {
+    try {
+      // `footage_proxies` is not in the generated DB types yet — cast to query it.
+      const { data: proxy } = await (supabase as any)
+        .from('footage_proxies')
+        .select('proxy_bucket, proxy_path, status')
+        .eq('source_path', storagePath)
+        .eq('status', 'done')
+        .limit(1)
+        .maybeSingle();
+      if (proxy?.proxy_path) {
+        const { data } = await supabase.storage
+          .from(proxy.proxy_bucket || 'footage-proxies')
+          .createSignedUrl(proxy.proxy_path, 3600);
+        if (data?.signedUrl) return data.signedUrl;
+      }
+    } catch {
+      // Table missing / proxy not ready / query error — fall back to original.
+    }
+    return this.getSignedVideoUrl(storagePath);
   },
 };

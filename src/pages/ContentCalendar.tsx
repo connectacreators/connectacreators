@@ -1049,6 +1049,34 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
   const isApproved = post.lifecycle_status === "Published" || post.lifecycle_status === "Scheduled";
   const isRevision = post.lifecycle_status === "Needs Revisions";
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    const submission = post.file_submission_url;
+    const driveDl = submission ? extractGoogleDriveFileId(submission) : null;
+    // Remote links → just redirect (Drive's download endpoint, or the external URL).
+    if (driveDl) { window.open(getGoogleDriveDownloadUrl(driveDl), "_blank", "noopener,noreferrer"); return; }
+    if (submission && /^https?:\/\//i.test(submission)) { window.open(submission, "_blank", "noopener,noreferrer"); return; }
+    // Supabase-hosted → sign the ORIGINAL (footage) and save the file to device.
+    const path = submission || post.storage_path;
+    if (!path) { toast.error(language === "en" ? "No file to download" : "Sin archivo para descargar"); return; }
+    setDownloading(true);
+    try {
+      const url = await videoUploadService.getSignedVideoUrl(path);
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${(post.title || "video").replace(/[^a-zA-Z0-9_\- ]/g, "")}.mp4`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error(language === "en" ? "Download failed" : "Error al descargar");
+    } finally {
+      setDownloading(false);
+    }
+  }, [post.file_submission_url, post.storage_path, post.title, language]);
 
   const handleShareLink = useCallback(async () => {
     // Public route is client-scoped; deep-link to this specific post within the client calendar.
@@ -1096,25 +1124,40 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
               </Badge>
             )}
           </DialogTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleShareLink}
-            className="gap-1.5 text-xs h-8"
-            title={language === "en" ? "Copy share link" : "Copiar enlace compartido"}
-          >
-            {copied ? (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                {language === "en" ? "Copied" : "Copiado"}
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5" />
-                {language === "en" ? "Share" : "Compartir"}
-              </>
+          <div className="flex items-center gap-1">
+            {(post.file_submission_url || post.storage_path) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDownload}
+                disabled={downloading}
+                className="gap-1.5 text-xs h-8"
+                title={language === "en" ? "Download video" : "Descargar video"}
+              >
+                {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                {language === "en" ? "Download" : "Descargar"}
+              </Button>
             )}
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShareLink}
+              className="gap-1.5 text-xs h-8"
+              title={language === "en" ? "Copy share link" : "Copiar enlace compartido"}
+            >
+              {copied ? (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  {language === "en" ? "Copied" : "Copiado"}
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5" />
+                  {language === "en" ? "Share" : "Compartir"}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogHeader>
 
@@ -1167,15 +1210,8 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
 
         {/* All action buttons in one row: Download / Script / Approve / Revisions */}
         <div className="flex items-center justify-between gap-2 text-xs pt-4 border-t border-border/40 flex-wrap">
-          {/* Left: Download + Script */}
+          {/* Left: Script (Download moved to the header, next to Share) */}
           <div className="flex items-center gap-4">
-            {driveId && (
-              <a href={getGoogleDriveDownloadUrl(driveId)} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline">
-                <Download className="w-3.5 h-3.5" />
-                {language === "en" ? "Download" : "Descargar"}
-              </a>
-            )}
             {post.script_url && (
               <a href={post.script_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-primary hover:underline">

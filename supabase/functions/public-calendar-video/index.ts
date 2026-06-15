@@ -38,6 +38,9 @@ serve(async (req) => {
     const body = await req.json();
     const postId: string | undefined = body.post_id ?? body.id;
     const clientId: string | undefined = body.client_id;
+    // Downloads pass prefer:"original" so they get the full-res footage file
+    // rather than the lightweight 720p proxy that playback may prefer.
+    const preferOriginal: boolean = body.prefer === "original";
     if (!postId || !clientId) {
       return new Response(JSON.stringify({ error: "post_id and client_id are required" }), {
         status: 400,
@@ -100,8 +103,9 @@ serve(async (req) => {
         tsOf("footage-proxies", fullPath),
       ]);
       if (tFootage === null && tProxy === null) return null;
-      // Newer wins; tie (or proxy-only) favours the lighter proxy.
-      const preferProxy = tProxy !== null && (tFootage === null || tProxy >= tFootage);
+      // Newer wins; tie (or proxy-only) favours the lighter proxy — UNLESS the
+      // caller explicitly wants the original (downloads), which forces footage first.
+      const preferProxy = !preferOriginal && tProxy !== null && (tFootage === null || tProxy >= tFootage);
       const order = preferProxy ? ["footage-proxies", "footage"] : ["footage", "footage-proxies"];
       for (const bucket of order) {
         const { data, error } = await service.storage.from(bucket).createSignedUrl(fullPath, SIGN_TTL);

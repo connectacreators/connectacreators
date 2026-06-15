@@ -155,10 +155,11 @@ export default function VideoReviewModal({
     setMobileTab('video');
   }, [open, fileSubmissionUrl, storagePath]);
 
-  // Load signed URL when active source is supabase
+  // Load signed URL when active source is supabase. Playback uses the fast
+  // 720p proxy when ready (downloads still pull the original — see handleDownload).
   useEffect(() => {
     if (!activeSource || activeSource.type !== 'supabase') { setVideoUrl(null); return; }
-    videoUploadService.getSignedVideoUrl(activeSource.rawUrl)
+    videoUploadService.getPlaybackVideoUrl(activeSource.rawUrl)
       .then(setVideoUrl)
       .catch(() => setVideoUrl(null));
   }, [activeSource]);
@@ -188,13 +189,20 @@ export default function VideoReviewModal({
 
   const handleDownload = async () => {
     if (!activeSource) return;
-    let url: string | null = null;
-    if (activeSource.type === 'supabase') url = videoUrl;
-    else if (activeSource.type === 'drive' && activeSource.driveId)
-      url = `https://drive.google.com/uc?export=download&id=${activeSource.driveId}`;
-    else url = activeSource.rawUrl;
-    if (!url) return;
     setDownloading(true);
+    let url: string | null = null;
+    try {
+      if (activeSource.type === 'supabase')
+        // Sign the ORIGINAL (footage) explicitly — never reuse the playback URL,
+        // which may be the low-res proxy. The user gets the full-quality file.
+        url = await videoUploadService.getSignedVideoUrl(activeSource.rawUrl);
+      else if (activeSource.type === 'drive' && activeSource.driveId)
+        url = `https://drive.google.com/uc?export=download&id=${activeSource.driveId}`;
+      else url = activeSource.rawUrl;
+    } catch {
+      url = null;
+    }
+    if (!url) { setDownloading(false); toast.error('Download failed'); return; }
     try {
       const res = await fetch(url);
       const blob = await res.blob();

@@ -192,6 +192,7 @@ export default function PublicContentCalendar() {
   const [revisionNotes, setRevisionNotes] = useState("");
   const [reviewerName, setReviewerName] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [view, setView] = useState<"agenda" | "calendar">("agenda"); // mobile toggle; desktop shows both
 
   const [currentDate, setCurrentDate] = useState(() => {
@@ -231,6 +232,36 @@ export default function PublicContentCalendar() {
       toast.success("Public link copied!");
     });
   }, [clientId]);
+
+  const handleDownload = useCallback(async () => {
+    if (!selectedPost || !clientId) return;
+    const submission = selectedPost.file_submission_url;
+    const driveDl = submission ? extractGoogleDriveFileId(submission) : null;
+    // Remote links → redirect (Drive's download endpoint, or the external URL).
+    if (driveDl) { window.open(getGoogleDriveDownloadUrl(driveDl), "_blank", "noopener,noreferrer"); return; }
+    if (submission && /^https?:\/\//i.test(submission)) { window.open(submission, "_blank", "noopener,noreferrer"); return; }
+    // Private storage → ask the edge fn for the ORIGINAL (footage), not the proxy.
+    setDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("public-calendar-video", {
+        body: { post_id: selectedPost.id, client_id: clientId, prefer: "original" },
+      });
+      if (error || !data?.url) throw error || new Error("No file");
+      if (data.kind === "external") { window.open(data.url, "_blank", "noopener,noreferrer"); return; }
+      const res = await fetch(data.url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${(selectedPost.title || "video").replace(/[^a-zA-Z0-9_\- ]/g, "")}.mp4`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error("Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  }, [selectedPost, clientId]);
 
   const handleApprove = useCallback(async () => {
     if (!selectedPost || !clientId) return;
@@ -603,13 +634,13 @@ export default function PublicContentCalendar() {
                 )}
 
                 {/* Download / Script links */}
-                {(selectedPost.script_url || (selectedPost.file_submission_url && extractGoogleDriveFileId(selectedPost.file_submission_url))) && (
-                  <div className="flex items-center gap-4 text-sm flex-wrap">
-                    {selectedPost.file_submission_url && extractGoogleDriveFileId(selectedPost.file_submission_url) && (
-                      <a href={getGoogleDriveDownloadUrl(extractGoogleDriveFileId(selectedPost.file_submission_url)!)} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-primary hover:underline">
-                        <Download className="w-4 h-4" />Download
-                      </a>
+                {(selectedPost.script_url || selectedPost.file_submission_url) && (
+                  <div className="flex items-center gap-3 text-sm flex-wrap">
+                    {selectedPost.file_submission_url && (
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownload} disabled={downloading}>
+                        {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {downloading ? "Downloading..." : "Download"}
+                      </Button>
                     )}
                     {selectedPost.script_url && (
                       <a href={selectedPost.script_url} target="_blank" rel="noopener noreferrer"
