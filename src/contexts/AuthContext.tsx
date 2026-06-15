@@ -83,10 +83,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return u;
         });
 
+        // Recompute the forced-password-change gate on EVERY event, even when
+        // the identity is unchanged. The change-password flow clears the flag
+        // via updateUser({ data: { force_password_change: null } }), which
+        // fires USER_UPDATED for the SAME user id. If the identity-skip below
+        // swallowed it, `requiresPasswordChange` would stay stuck `true` and
+        // DashboardLayout would bounce the user back to /change-password
+        // forever (only a full sign-out/in cleared it). This setter takes a
+        // primitive boolean and does NOT bump the `user` reference, so it can't
+        // re-trigger the tab-focus refetch storms the identity-skip prevents.
+        setRequiresPasswordChange(u?.user_metadata?.force_password_change === true);
+
         if (!identityChanged) return;
 
         if (u) {
-          setRequiresPasswordChange(u.user_metadata?.force_password_change === true);
           setRoleLoading(true);
           // Use setTimeout to avoid Supabase auth deadlock
           setTimeout(() => {
@@ -101,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setRole("client");
           setRoleLoading(false);
-          setRequiresPasswordChange(false);
         }
 
         // Mark loading done on initial session
