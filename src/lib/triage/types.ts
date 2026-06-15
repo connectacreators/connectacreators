@@ -30,7 +30,11 @@ export interface VideosRevisionRow {
   count: number;
   sampleNames: string[];
   oldestPendingAt: string;
-  assignee?: string | null;   // editor name, only when unambiguous (one distinct editor)
+  assignee?: string | null;   // assignee name, only when unambiguous (one distinct assignee)
+  assigneeUserId?: string | null; // assignee's user_id, only when unambiguous. When it
+                                  // equals the client's user_id the edit is sitting with
+                                  // the client for review (a content-calendar revision),
+                                  // not with an editor — see buildAgenda owner resolution.
   deadlineAt?: string | null;  // earliest video_edits.deadline among the group, if any set
 }
 
@@ -52,6 +56,8 @@ export type TriageRowsByClient = Record<string /* clientId */, TriageRow[]>;
 export interface TriageClient {
   id: string;
   name: string;
+  user_id?: string | null;   // the client's login user_id, when they have one. Used to
+                             // tell whether a video edit's assignee is the client itself.
 }
 
 import type { Language } from "@/hooks/useLanguage";

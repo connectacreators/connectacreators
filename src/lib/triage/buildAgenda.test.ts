@@ -7,8 +7,8 @@ function at(n: number): string {
   return new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000).toISOString();
 }
 const clients: TriageClient[] = [
-  { id: "c1", name: "Dr Calvin's Clinic" },
-  { id: "c2", name: "Master Construction" },
+  { id: "c1", name: "Dr Calvin's Clinic", user_id: "u-c1" },
+  { id: "c2", name: "Master Construction", user_id: "u-c2" },
 ];
 
 function lane(agenda: ReturnType<typeof buildAgenda>, key: string) {
@@ -87,6 +87,26 @@ describe("buildAgenda", () => {
     expect(item.verb).toBe("Edits in revision");
     expect(item.owner).toBe("editor");
     expect(item.ownerName).toBe("Tom");
+  });
+
+  it("keeps owner 'editor' when the assignee user_id is a real editor (not the client)", () => {
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "videos_revision", count: 1, sampleNames: [], oldestPendingAt: at(-3), assignee: "Tom", assigneeUserId: "u-editor" }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.owner).toBe("editor");
+    expect(item.ownerName).toBe("Tom");
+  });
+
+  it("marks a videos_revision sent back by the client (assignee is the client) as owner 'client'", () => {
+    // When a client requests a revision in the content calendar, the edit's
+    // assignee stays the client (the Scheduled handoff set it). The card must
+    // not mislabel the client as the editor.
+    const rows: TriageRowsByClient = {
+      c1: [{ type: "videos_revision", count: 1, sampleNames: [], oldestPendingAt: at(-3), assignee: "Dr Calvin's Clinic", assigneeUserId: "u-c1" }],
+    };
+    const item = buildAgenda(clients, rows, NOW).flatMap((l) => l.items)[0];
+    expect(item.owner).toBe("client");
   });
 
   it("dates an edit-in-revision by its real deadline when one is set", () => {

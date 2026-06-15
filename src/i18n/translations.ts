@@ -45,6 +45,7 @@ export const t = {
     // Agenda card owner tags ("who's up next")
     ownerYou: { en: "you", es: "tú" },
     ownerEditor: { en: "Editor", es: "Editor" },
+    ownerClient: { en: "Client review", es: "Revisión del cliente" },
     // Recent chats panel
     newChat: { en: "New chat", es: "Nuevo chat" },
     untitledChat: { en: "Untitled chat", es: "Chat sin título" },

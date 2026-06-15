@@ -23,8 +23,10 @@ export type AgendaKind =
 
 // Who has the ball on this item. "you" = the master/agency operator's own task,
 // "editor" = waiting on the assigned editor (e.g. an edit in revision),
+// "client" = sitting with the client for review in the content calendar (an edit
+// the client sent back, where the assignee is the client themselves),
 // "scheduled" = automated, nobody needs to act (a queued post).
-export type AgendaOwner = "you" | "editor" | "scheduled";
+export type AgendaOwner = "you" | "editor" | "client" | "scheduled";
 
 export interface AgendaItem {
   key: string;            // `${clientId}:${kind}` — stable React key
@@ -224,8 +226,11 @@ export function buildAgenda(
       const { verb, countLabel } = countMeta(cr.type, cr.count, lang);
 
       // Resolve owner, sort date, and chip per row type:
-      //  - videos_revision  → the EDITOR must revise. Date by a real deadline if
-      //    one is set (concrete "Due …"), else by how long it's been waiting.
+      //  - videos_revision  → usually the EDITOR must revise; but when the edit
+      //    was sent back by the CLIENT (assignee is the client's own login), it's
+      //    sitting with the client for review in the content calendar, so own it
+      //    to "client". Date by a real deadline if one is set (concrete "Due …"),
+      //    else by how long it's been waiting.
       //  - scripts_review   → YOUR review; no real deadline, so show its age.
       //  - posts_scheduled  → SCHEDULED to auto-post; keep the concrete time.
       let owner: AgendaOwner = "you";
@@ -235,8 +240,16 @@ export function buildAgenda(
       let bucket: RelativeBucket;
 
       if (cr.type === "videos_revision") {
-        owner = "editor";
-        ownerName = cr.assignee ?? undefined;
+        // The assignee is the client (not an editor) when its user_id matches the
+        // client's login. That happens after a content-calendar revision request:
+        // the Scheduled handoff set the assignee to the client and the bounce-back
+        // to "Needs Revisions" never reassigned it.
+        const assigneeIsClient =
+          !!cr.assigneeUserId && !!client.user_id && cr.assigneeUserId === client.user_id;
+        owner = assigneeIsClient ? "client" : "editor";
+        // Don't repeat the client's name (already shown as the row's client) — only
+        // an editor's distinct name is worth surfacing in the owner badge.
+        ownerName = assigneeIsClient ? undefined : (cr.assignee ?? undefined);
         if (cr.deadlineAt) {
           sortDate = cr.deadlineAt;
           bucket = relativeDate(cr.deadlineAt, now, lang).bucket;

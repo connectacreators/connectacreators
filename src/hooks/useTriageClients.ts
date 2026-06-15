@@ -63,7 +63,7 @@ export function useTriageClients(): Result {
       // match how Subscribers.tsx maps statuses to its "active" tab.
       const { data: clientRows, error: clientErr } = await supabase
         .from("clients")
-        .select("id, name")
+        .select("id, name, user_id")
         .in("user_id", userIds)
         .is("parent_subscriber_id", null)
         .in("subscription_status", ACTIVE_SUBSCRIPTION_STATUSES)

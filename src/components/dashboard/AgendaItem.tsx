@@ -129,6 +129,21 @@ export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: st
               </span>
             </>
           )}
+          {item.owner === "client" && (
+            <>
+              <span aria-hidden>·</span>
+              <span
+                style={{
+                  fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em',
+                  color: '#3B5B8C', background: 'rgba(59,91,140,0.12)',
+                  padding: '1px 7px', borderRadius: 999, flexShrink: 0,
+                  whiteSpace: 'nowrap', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+              >
+                {t.dashboard.ownerClient[language]}
+              </span>
+            </>
+          )}
           {item.owner === "you" && (
             <>
               <span aria-hidden>·</span>
