@@ -476,6 +476,7 @@ export default function Scripts() {
   const [editingCustomFormat, setEditingCustomFormat] = useState(false);
   const [customFormatDraft, setCustomFormatDraft] = useState("");
   const [recategorizing, setRecategorizing] = useState(false);
+  const [generatingCaption, setGeneratingCaption] = useState(false);
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
@@ -1459,6 +1460,47 @@ export default function Scripts() {
       toast.error(msg);
     } finally {
       setRecategorizing(false);
+    }
+  };
+
+  // Generate an IG-optimized caption from the live script content via Haiku.
+  // Fills (and persists) the caption field; the user can still edit afterward.
+  const handleGenerateCaption = async () => {
+    if (!viewingScriptId || generatingCaption) return;
+    if (!(isAdmin || isConnectaPlus)) {
+      toast.error(tr({ en: "AI caption generation is available on Connecta+ only.", es: "La generación de captions con IA está disponible solo en Connecta+." }, language));
+      return;
+    }
+    // Build from the live block document (includes unsaved edits); skip headings/empties.
+    const contentBlocks = docBlocks.filter((b) => b.block_kind !== "heading" && (b.text || "").trim());
+    if (contentBlocks.length === 0) {
+      toast.error(tr({ en: "Write the script first, then generate a caption.", es: "Escribe el script primero y luego genera el caption." }, language));
+      return;
+    }
+    const scriptText = contentBlocks.map((b) => (b.text || "").trim()).join("\n");
+    const ctaText = contentBlocks.filter((b) => b.section === "cta").map((b) => (b.text || "").trim()).join("\n");
+    const title = viewingMetadata?.idea_ganadora || "";
+
+    setGeneratingCaption(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-caption", {
+        body: { scriptText, ctaText, title },
+      });
+      if (error) throw error;
+      const caption: string | undefined = (data as any)?.caption;
+      if (!caption || typeof caption !== "string") throw new Error("no-caption");
+      setViewingCaption(caption);
+      // Persist alongside the script so the generated caption isn't lost.
+      await supabase.from("scripts").update({ caption }).eq("id", viewingScriptId);
+      await supabase.from("video_edits").update({ caption }).eq("script_id", viewingScriptId);
+      toast.success(tr({ en: "Caption generated", es: "Caption generado" }, language));
+    } catch (e: any) {
+      const msg = e?.message?.includes("Connecta+")
+        ? tr({ en: "AI caption generation is available on Connecta+ only.", es: "La generación de captions con IA está disponible solo en Connecta+." }, language)
+        : tr({ en: "Couldn't generate a caption. Try again.", es: "No se pudo generar el caption. Inténtalo de nuevo." }, language);
+      toast.error(msg);
+    } finally {
+      setGeneratingCaption(false);
     }
   };
 
@@ -3227,6 +3269,19 @@ export default function Scripts() {
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
                   {tr({ en: "Caption", es: "Caption" }, language)}
                 </span>
+                {(isAdmin || isConnectaPlus) && (
+                  <Button
+                    onClick={handleGenerateCaption}
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto h-7 gap-1.5 text-xs"
+                    disabled={generatingCaption || !viewingScriptId}
+                    title={tr({ en: "Generate an Instagram caption from this script with AI", es: "Genera un caption de Instagram a partir de este script con IA" }, language)}
+                  >
+                    {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    <span>{tr({ en: "Generate", es: "Generar" }, language)}</span>
+                  </Button>
+                )}
               </div>
               <Textarea
                 value={viewingCaption}
