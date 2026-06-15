@@ -19,7 +19,6 @@ import "../landing.css";
 import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import logoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
-import handsLike from "@/assets/hands-like.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import yuppiesBubble from "@/assets/yuppies-bubble.png";
 import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
@@ -2001,20 +2000,6 @@ export default function LandingPageNew() {
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
       <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center", position: "relative", overflow: "visible" }}>
-        {/* Like sticker — the social-proof gesture pairs with the testimonial */}
-        <InteractiveSticker
-          src={handsLike}
-          baseRotation={-8}
-          style={{
-            position: "absolute",
-            top: 60,
-            left: "6%",
-            width: 140,
-            height: "auto",
-            zIndex: 4,
-            pointerEvents: "none",
-          }}
-        />
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
           <div
             className="serif"
