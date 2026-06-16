@@ -1327,6 +1327,9 @@ export default function LandingPageNew() {
                 <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
               </svg>
             </span>
+            {/* On mobile the headline wraps to two balanced lines ("Stop Guessing," / "Start Growing.")
+                instead of letting the long single line clip at the viewport edge. */}
+            {isMobile && <br />}
             <LetterRise text=" Start " delay={0.86} step={0.04} />
             <span
               className="serif-italic"

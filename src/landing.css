@@ -4,7 +4,9 @@
    Scoped intentionally — does NOT touch global tokens.
    ============================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Figtree:wght@400;500;600;700&display=swap');
+/* Playfair (hero serif) uses display=block so it never flashes the fallback first; Figtree (body) stays swap. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=block');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
 
 html, body, #root { margin: 0; padding: 0; }
 * { box-sizing: border-box; }
