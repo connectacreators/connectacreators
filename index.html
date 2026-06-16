@@ -11,6 +11,11 @@
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Preload Playfair Display (landing hero serif) latin normal + italic so the hero paints in the
+         right font on first load, with no Georgia/fallback flash. If Google bumps the font version the
+         preloads simply no-op and the stylesheet below still loads the font. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/playfairdisplay/v40/nuFkD-vYSZviVYUb_rj3ij__anPXDTnogkk7yRZrPA.woff2">
     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
     <title>Connecta | Viral AI Scripts & Agency CRM</title>
     <meta name="description" content="Generate viral scripts with AI in seconds. The all-in-one agency CRM to manage leads, organize your calendar, and grow your brand faster." />

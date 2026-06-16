@@ -1274,7 +1274,10 @@ export default function LandingPageNew() {
           <h1
             className="serif"
             style={{
-              fontSize: "clamp(40px, 7vw, 88px)",
+              // Playfair Display runs wider/taller than the old EB Garamond,
+              // so the max is dialed back from 88px to keep the single line
+              // inside the 1080px container instead of clipping on the right.
+              fontSize: "clamp(30px, 5.4vw, 64px)",
               lineHeight: 1.18,
               // Heavy negative letter-spacing: each letter is in its own
               // .prox-letter inline-block (for the rise animation), which
@@ -1285,7 +1288,8 @@ export default function LandingPageNew() {
               fontWeight: 500,
               margin: 0,
               marginBottom: 26,
-              whiteSpace: "nowrap",
+              // No nowrap: on phones the line wraps (centered) rather than
+              // overflowing the viewport.
               paddingBottom: "0.2em",
               paddingTop: "0.1em",
             }}
@@ -1482,12 +1486,7 @@ export default function LandingPageNew() {
                     fontStyle: "italic",
                   }}
                 >
-                  <span
-                    className={`scribble-under ${s.accent === "honey" ? "honey" : "aqua"}`}
-                    style={{ display: "inline-block" }}
-                  >
-                    <ProxText>{s.num}</ProxText>
-                  </span>
+                  <ProxText>{s.num}</ProxText>
                 </div>
                 <div
                   style={{
