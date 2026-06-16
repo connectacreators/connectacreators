@@ -1,10 +1,10 @@
 /* =============================================================================
    Landing page — Editorial system (scoped to .landing-editorial)
-   Palette: Ink + Aqua + Honey  ·  Fonts: EB Garamond + Figtree
+   Palette: Ink + Aqua + Honey  ·  Fonts: Playfair Display + Figtree
    Scoped intentionally — does NOT touch global tokens.
    ============================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Figtree:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Figtree:wght@400;500;600;700&display=swap');
 
 html, body, #root { margin: 0; padding: 0; }
 * { box-sizing: border-box; }
@@ -42,12 +42,12 @@ html, body, #root { margin: 0; padding: 0; }
 
 /* ---------- Typography primitives ---------- */
 .landing-editorial .serif {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   letter-spacing: -0.015em;
   font-weight: 500;
 }
 .landing-editorial .serif-italic {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-style: italic;
   font-weight: 400;
 }
@@ -70,7 +70,7 @@ html, body, #root { margin: 0; padding: 0; }
 /* ---------- Curved italic marginalia ---------- */
 .landing-editorial .curl {
   position: absolute;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-style: italic;
   font-size: 16px;
   line-height: 1.4;
@@ -282,7 +282,7 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .eyebrow-honey { color: var(--honey); }
 
 .landing-editorial .section-h2 {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-size: clamp(26px, 3.4vw, 42px);
   line-height: 1.15;
   /* ScrollFloat splits each glyph into inline-block chars, which kills
@@ -296,7 +296,7 @@ html, body, #root { margin: 0; padding: 0; }
   font-size: clamp(22px, 2.8vw, 34px);
 }
 .landing-editorial .final-cta-h2 {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-size: clamp(34px, 5.2vw, 60px);
   line-height: 1.04;
   /* Same reason as section-h2 — ScrollFloat per-char inline-block
@@ -472,7 +472,7 @@ html, body, #root { margin: 0; padding: 0; }
   background: var(--aqua);
   display: grid; place-items: center;
   color: var(--ink);
-  font-family: 'EB Garamond', serif;
+  font-family: 'Playfair Display', serif;
   font-style: italic; font-size: 22px;
   font-weight: 500;
 }
@@ -485,7 +485,7 @@ html, body, #root { margin: 0; padding: 0; }
   letter-spacing: 0.02em;
 }
 .landing-editorial .vt-title {
-  font-family: 'EB Garamond', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 16px; font-weight: 500;
   color: var(--ink); letter-spacing: -0.005em;
   margin: 2px 0 6px;

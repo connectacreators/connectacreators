@@ -579,7 +579,7 @@ function SuperCanvasMock() {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontSize: 19,
               fontWeight: 500,
               letterSpacing: "-0.01em",
@@ -590,13 +590,13 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontStyle: "italic",
               fontSize: 15,
               color: "var(--bone-3)",
             }}
           >
-            — Luna's spring strategy
+            · Luna's spring strategy
           </span>
         </div>
         <span className="pill pill-honey">
@@ -636,14 +636,14 @@ function SuperCanvasMock() {
         >
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontStyle: "italic",
               fontSize: 12,
               color: "var(--honey)",
               letterSpacing: "0.01em",
             }}
           >
-            — the brand
+            the brand
           </span>
           <span
             className="serif"
@@ -653,7 +653,7 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontStyle: "italic",
               fontSize: 12.5,
               color: "var(--bone-2)",
@@ -667,8 +667,8 @@ function SuperCanvasMock() {
 
         {/* Satellite nodes — softer, more editorial labels */}
         <div className="sc-node" style={{ top: "10%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
-            — her audience
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            her audience
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
             Listens at <em className="serif-italic">8pm Tuesday.</em>
@@ -677,8 +677,8 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
-            — her voice
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            her voice
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
             Dry, <em className="serif-italic">slightly funny.</em>
@@ -687,8 +687,8 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
-            — her best hook
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+            her best hook
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
             "Three things I wish I knew…"
@@ -697,8 +697,8 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "10%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
-            — hot this week
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            hot this week
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
             "Soft launch the chaos"
@@ -707,8 +707,8 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
-            — the calendar
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            the calendar
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
             5 posts <em className="serif-italic">drafted.</em>
@@ -717,8 +717,8 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
-            — next ask
+          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+            next ask
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4 }}>
             Skincare partner <em className="serif-italic">draft.</em>
@@ -1357,7 +1357,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            Imagine millions of people watching what you do. What would that mean for your business? We build personal brands for experts and business owners — scripting, filming, editing, and posting, all done for you.
+            Imagine millions of people watching what you do. What would that mean for your business? We build personal brands for experts and business owners: scripting, filming, editing, and posting, all done for you.
           </div>
 
           <div
@@ -1386,7 +1386,7 @@ export default function LandingPageNew() {
               letterSpacing: "0.02em",
             }}
           >
-            1,000,000 views in 90 days — guaranteed, or your money back.
+            1,000,000 views in 90 days, guaranteed, or your money back.
           </div>
         </div>
 
@@ -1455,7 +1455,7 @@ export default function LandingPageNew() {
               {
                 num: "100K+",
                 kicker: "followers grown",
-                body: "Real audiences, built on the back of strategy — not hacks, not bots, not luck.",
+                body: "Real audiences, built on the back of strategy, not hacks, not bots, not luck.",
                 accent: "aqua" as const,
               },
             ].map((s, i) => (
@@ -1522,14 +1522,14 @@ export default function LandingPageNew() {
             style={{
               textAlign: "center",
               marginTop: 32,
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Playfair Display', serif",
               fontStyle: "italic",
               fontSize: 16,
               color: "rgba(10,14,18,0.50)",
               letterSpacing: "0.005em",
             }}
           >
-            — and we're just getting started.
+            And we're just getting started.
           </div>
         </div>
       </section>
@@ -1546,7 +1546,7 @@ export default function LandingPageNew() {
               Brands we&apos;ve built
             </h2>
             <p style={{ fontSize: 16, color: "var(--bone-2)", maxWidth: 540, margin: "14px auto 0", lineHeight: 1.55 }}>
-              Real accounts, real numbers — what the Connecta engine did for clients who handed us the keys.
+              Real accounts, real numbers: what the Connecta engine did for clients who handed us the keys.
             </p>
           </div>
 
@@ -1668,7 +1668,7 @@ export default function LandingPageNew() {
             >
               @elabogadojonathan
             </a>{" "}
-            to <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong> — the same playbook now runs for our clients.
+            to <strong style={{ color: "var(--bone-2)" }}>650K+ followers</strong>. The same playbook now runs for our clients.
           </p>
         </div>
       </section>
@@ -1725,7 +1725,7 @@ export default function LandingPageNew() {
                   ["Brand voice trained on your last 50 posts", "Captions in your tone"],
                   ["30-day strategy generated in a single click", "Strategy mode"],
                   ["Live trend overlays from Viral Today", "Trend layer"],
-                  ["Drag, rewrite, regenerate — every node is editable", "Always interactive"],
+                  ["Drag, rewrite, regenerate. Every node is editable", "Always interactive"],
                 ].map(([line, tag], i) => (
                   <li key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <span
@@ -1773,7 +1773,7 @@ export default function LandingPageNew() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[
                     { time: "MON 9:00 AM", title: "Spring lookbook · Reel", platform: "IG", status: "Scheduled", pill: "aqua" as const },
-                    { time: "MON 7:00 PM", title: "Behind the shoot — day 1", platform: "TikTok", status: "Drafting", pill: "honey" as const },
+                    { time: "MON 7:00 PM", title: "Behind the shoot · day 1", platform: "TikTok", status: "Drafting", pill: "honey" as const },
                     { time: "TUE 12:00 PM", title: "Skincare partner ask", platform: "Shorts", status: "In review", pill: "honey" as const },
                     { time: "WED 8:00 PM", title: "\"3 things I wish I knew…\"", platform: "Reel", status: "Hook ready", pill: "aqua" as const },
                     { time: "THU 6:00 PM", title: "Recurring · weekly recap", platform: "IG", status: "Auto", pill: "aqua" as const },
@@ -1916,7 +1916,7 @@ export default function LandingPageNew() {
               <em className="soft">underneath the strategy.</em>
             </ScrollFloat>
             <div className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center", position: "relative" }}>
-              <ProxText>Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval — so nothing dies in a Slack thread.</ProxText>
+              <ProxText>Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval, so nothing dies in a Slack thread.</ProxText>
             </div>
           </div>
 
@@ -1982,11 +1982,11 @@ export default function LandingPageNew() {
               eyebrow="Companion AI"
               icon={Sparkles}
               title="Drafts in your voice, before you ask."
-              body="Hooks, captions, scripts, follow-ups — all generated in your tone, ready to tweak. You stay in the director's chair."
+              body="Hooks, captions, scripts, follow-ups, all generated in your tone, ready to tweak. You stay in the director's chair."
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ fontSize: 12.5, color: "var(--bone-2)", fontStyle: "italic" }} className="serif-italic">
-                  "Caption that feels like Luna — 9 words, low-key, no exclamation marks."
+                  "Caption that feels like Luna: 9 words, low-key, no exclamation marks."
                 </div>
                 <div style={{ height: 1, background: "var(--line)" }} />
                 <div style={{ fontSize: 13, color: "var(--bone)", lineHeight: 1.5 }}>
@@ -2121,7 +2121,7 @@ export default function LandingPageNew() {
           className="curl curl-hide-mobile scroll-rise"
           style={{ top: 80, right: "8%", transform: "rotate(6deg)", color: "rgba(10,14,18,0.30)" }}
         >
-          — your strategy team in a screen
+          your strategy team in a screen
         </div>
 
         <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 32px", position: "relative" }}>
@@ -2156,7 +2156,7 @@ export default function LandingPageNew() {
               position: "relative",
             }}
           >
-            <ProxText>Hand us your account and we build the brand — scripted, filmed, edited, and posted in English and Spanish. You show up; we handle the rest.</ProxText>
+            <ProxText>Hand us your account and we build the brand: scripted, filmed, edited, and posted in English and Spanish. You show up; we handle the rest.</ProxText>
           </div>
           <Link to="/1mguarantee" className="btn btn-honey btn-large">
             Work with us <ArrowRight size={16} />
