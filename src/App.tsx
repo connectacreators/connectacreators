@@ -23,6 +23,7 @@ import ScriptsLogin from "@/components/ScriptsLogin";
 const Home = lazy(() => import("./pages/Home"));
 const LandingPageNew = lazy(() => import("./pages/LandingPageNew"));
 const LandingPageNewES = lazy(() => import("./pages/LandingPageNewES"));
+const LandingPageDoctors = lazy(() => import("./pages/LandingPageDoctors"));
 const Index = lazy(() => import("./pages/Index"));
 const IndexEN = lazy(() => import("./pages/IndexEN"));
 const OneMillionGuarantee = lazy(() => import("./pages/OneMillionGuarantee"));
@@ -177,6 +178,7 @@ const App = () => (
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/facebook-callback" element={<FacebookCallback />} />
             <Route path="/es" element={<LandingPageNewES />} />
+            <Route path="/doctors" element={<LandingPageDoctors />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<LoginRoute />} />
             <Route path="/contract/:token" element={<PublicContract />} />
