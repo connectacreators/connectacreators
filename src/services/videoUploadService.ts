@@ -63,6 +63,16 @@ async function tusUpload(
         authorization: `Bearer ${session.access_token}`,
         'x-upsert': 'true',
       },
+      // Large 4K uploads can run longer than the JWT's lifetime. The token is
+      // captured once at start, so without this a late chunk goes out with an
+      // expired token and Storage rejects it ("tus: unexpected response while
+      // uploading chunk"). Refresh the session before every request so each
+      // chunk carries a current token. getSession() returns the auto-refreshed
+      // token from supabase-js without a network round-trip when still valid.
+      onBeforeRequest: async (req) => {
+        const { data: { session: fresh } } = await supabase.auth.getSession();
+        if (fresh?.access_token) req.setHeader('authorization', `Bearer ${fresh.access_token}`);
+      },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       metadata: {

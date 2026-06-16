@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ScriptsLogin from "@/components/ScriptsLogin";
 import { toast } from "sonner";
 import FootagePanel from "@/components/FootagePanel";
+import { uploadStore } from "@/services/uploadStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -486,6 +487,10 @@ export default function Scripts() {
   const [footageViewerSubfolder, setFootageViewerSubfolder] = useState<string | undefined>(undefined);
   const [footageStorageFiles, setFootageStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
   const [submissionStorageFiles, setSubmissionStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
+  // The video-edit currently being viewed. loadStorageFiles is async, so a slow
+  // load for a previous script could resolve after a switch and overwrite the
+  // display with the wrong script's footage; we check this ref before setState.
+  const currentVeIdRef = useRef<string | null>(null);
 
   // Edit mode
   const [editingScript, setEditingScript] = useState<Script | null>(null);
@@ -1060,10 +1065,17 @@ export default function Scripts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewingScriptId, reorderAllLines]);
 
-  // Warn browser when there are unsaved changes (active edit or dirty structural changes)
+  // Warn before leaving when there are unsaved changes OR a footage upload is
+  // still in progress. uploadStore is read live inside the handler so an upload
+  // that starts after this effect ran is still caught (refreshing mid-upload
+  // would otherwise silently drop the in-progress chunking).
   useEffect(() => {
-    if (editingLineKey === null && !isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    const handler = (e: BeforeUnloadEvent) => {
+      const uploading = uploadStore.getAll().some(u => !u.done);
+      if (editingLineKey === null && !isDirty && !uploading) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [editingLineKey, isDirty]);
@@ -1182,6 +1194,9 @@ export default function Scripts() {
 
   // Load storage files whenever linked video edit changes
   useEffect(() => {
+    // Update synchronously so any in-flight load for the previous edit is
+    // discarded the moment we switch (see the guard in loadStorageFiles).
+    currentVeIdRef.current = linkedVideoEdit?.id ?? null;
     if (linkedVideoEdit) {
       loadStorageFiles(linkedVideoEdit.client_id, linkedVideoEdit.id);
     } else {
@@ -1605,6 +1620,8 @@ export default function Scripts() {
       listAndSign(`${clientId}/${videoEditId}/`),
       listAndSign(`${clientId}/${videoEditId}/submission/`),
     ]);
+    // Drop stale results: the user switched scripts while this was loading.
+    if (currentVeIdRef.current !== videoEditId) return;
     setFootageStorageFiles(footage);
     setSubmissionStorageFiles(submission);
   };
