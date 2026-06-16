@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Figtree:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@800;900&display=swap');
 
+/* Caveat (handwritten accent for /ai live broadcast). Must sit with the
+   other @imports at the top — CSS requires @import before any other rule,
+   and vite dev (unlike the production build) enforces it strictly. */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap');
+
 /* Inter is loaded locally so the browser preview uses the EXACT same font
    file the render worker burns into the exported MP4. Static weights (Bold
    700 + Black 900) match what libass picks based on the ASS style's bold
@@ -1322,8 +1327,6 @@ All colors MUST be HSL for consistency and theming.
 /* ═══════════════════════════════════════════════════════════════════════════
    /ai live broadcast — editorial scenes + embeds
    ═══════════════════════════════════════════════════════════════════════════ */
-
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap');
 
 .broadcast-card {
   background: linear-gradient(180deg, #fdf3d6 0%, #f0e3b8 100%);

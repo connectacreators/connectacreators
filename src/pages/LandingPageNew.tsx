@@ -33,7 +33,7 @@ import ViralWall from "@/components/landing/ViralWall";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /* =============================================================================
-   The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
+   The locked editorial system — Ink + Aqua + Honey + Newsreader + Inter
    Scoped to the .landing-editorial wrapper class. No global tokens touched.
    ============================================================================= */
 
@@ -114,6 +114,63 @@ function WordRise({
         </span>
       ))}
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RotatingWord — cycles the audience verticals under the hero.
+   Honey italic to match the editorial accents. On touch devices OR
+   under prefers-reduced-motion it renders a static list of all
+   verticals, so nothing is hidden (mobile animation-freeze gotcha).
+   ───────────────────────────────────────────────────────────── */
+function RotatingWord({
+  words,
+  interval = 2200,
+}: {
+  words: string[];
+  interval?: number;
+}) {
+  const isMobile = useIsMobile();
+  const [i, setI] = useState(0);
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  const animate = !isMobile && !reduced;
+
+  useEffect(() => {
+    if (!animate) return;
+    const id = setInterval(() => setI((n) => (n + 1) % words.length), interval);
+    return () => clearInterval(id);
+  }, [animate, words.length, interval]);
+
+  // Static fallback — list every vertical so none is ever hidden.
+  if (!animate) {
+    return (
+      <span className="serif-italic" style={{ color: "var(--honey)" }}>
+        {words.slice(0, -1).join(", ")} &amp; {words[words.length - 1]}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      key={i}
+      className="serif-italic"
+      style={{
+        color: "var(--honey)",
+        display: "inline-block",
+        animation: "le-fade-in 0.5s ease",
+      }}
+    >
+      {words[i]}
+    </span>
   );
 }
 
@@ -520,7 +577,7 @@ function DemoVideoPlayer() {
           </button>
           <span
             style={{
-              fontFamily: "'Figtree', monospace",
+              fontFamily: "'Inter', monospace",
               fontSize: 12,
               color: "rgba(234,230,220,0.62)",
               fontVariantNumeric: "tabular-nums",
@@ -579,7 +636,7 @@ function SuperCanvasMock() {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Newsreader', serif",
               fontSize: 19,
               fontWeight: 500,
               letterSpacing: "-0.01em",
@@ -590,7 +647,7 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Newsreader', serif",
               fontStyle: "italic",
               fontSize: 15,
               color: "var(--bone-3)",
@@ -636,7 +693,7 @@ function SuperCanvasMock() {
         >
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Newsreader', serif",
               fontStyle: "italic",
               fontSize: 12,
               color: "var(--honey)",
@@ -653,7 +710,7 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Newsreader', serif",
               fontStyle: "italic",
               fontSize: 12.5,
               color: "var(--bone-2)",
@@ -667,7 +724,7 @@ function SuperCanvasMock() {
 
         {/* Satellite nodes — softer, more editorial labels */}
         <div className="sc-node" style={{ top: "10%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             — her audience
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -677,7 +734,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             — her voice
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -687,7 +744,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             — her best hook
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
@@ -697,7 +754,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "10%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             — hot this week
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
@@ -707,7 +764,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             — the calendar
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -717,7 +774,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             — next ask
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4 }}>
@@ -737,33 +794,33 @@ function ViralTodayMock() {
   const rows = [
     {
       letter: "S",
-      meta: "@softlife · TikTok · 2h",
-      title: "Soft launch your year, not your relationship",
+      meta: "@dr.spine · Reels · 2h",
+      title: "3 signs your back pain isn't muscular",
       score: "12× outlier",
-      pill: "Hook stolen",
+      pill: "Hook ready",
       tone: "aqua" as const,
     },
     {
-      letter: "M",
-      meta: "@morningclub · Reels · 4h",
-      title: "Why I stopped journaling at 5am",
-      score: "8× outlier",
+      letter: "L",
+      meta: "@visa.luis · TikTok · 4h",
+      title: "What ICE actually checks at your asylum interview",
+      score: "9× outlier",
       pill: "Remix ready",
       tone: "honey" as const,
     },
     {
-      letter: "C",
-      meta: "@creatorlab · Shorts · 7h",
-      title: "The hook formula that never fails",
-      score: "9× outlier",
+      letter: "H",
+      meta: "@dr.heart · Shorts · 7h",
+      title: "The supplement cardiologists wish you'd stop taking",
+      score: "14× outlier",
       pill: "Saved",
       tone: "aqua" as const,
     },
     {
-      letter: "D",
-      meta: "@drjuno · TikTok · today",
-      title: "Three foods cardiologists never eat",
-      score: "14× outlier",
+      letter: "M",
+      meta: "@familylaw.maria · TikTok · today",
+      title: "Can one green-card mistake get you deported?",
+      score: "8× outlier",
       pill: "Hot",
       tone: "honey" as const,
     },
@@ -784,7 +841,7 @@ function ViralTodayMock() {
           <Flame size={14} style={{ color: "var(--honey)" }} />
           <span
             style={{
-              fontFamily: "'Figtree', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: "0.18em",
@@ -1069,7 +1126,7 @@ export default function LandingPageNew() {
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
-          fontFamily: "'Figtree', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           margin: "12px 18px 0",
           borderRadius: 999,
@@ -1141,7 +1198,7 @@ export default function LandingPageNew() {
               gap: 28,
               fontSize: 14,
               color: "rgba(10,14,18,0.72)",
-              fontFamily: "'Figtree', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 500,
             }}
           >
@@ -1156,7 +1213,7 @@ export default function LandingPageNew() {
               style={{
                 fontSize: 14,
                 color: "rgba(10,14,18,0.72)",
-                fontFamily: "'Figtree', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontWeight: 500,
               }}
             >
@@ -1220,7 +1277,7 @@ export default function LandingPageNew() {
       `}</style>
 
       {/* ===== HERO ===== */}
-      <section className="bg-ink" style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
+      <section className="bg-ink" style={{ position: "relative", paddingTop: 80, paddingBottom: 8, overflow: "hidden" }}>
         {/* Yuppies decorative stickers replace the text marginalia */}
         <InteractiveSticker
           src={yuppiesBubble}
@@ -1290,7 +1347,7 @@ export default function LandingPageNew() {
               paddingTop: "0.1em",
             }}
           >
-            <LetterRise text="Stop " delay={0.25} step={0.04} />
+            <LetterRise text="Be the expert " delay={0.25} step={0.04} />
             <span
               className="serif-italic scribble-hover"
               style={{
@@ -1299,7 +1356,7 @@ export default function LandingPageNew() {
                 fontWeight: 400,
               }}
             >
-              <LetterRise text="Guessing," delay={0.48} step={0.04} />
+              <LetterRise text="they find" delay={0.48} step={0.04} />
               {/* sparkles — appear on hover with spring scale */}
               <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
                 <path
@@ -1323,7 +1380,7 @@ export default function LandingPageNew() {
                 <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
               </svg>
             </span>
-            <LetterRise text=" Start " delay={0.86} step={0.04} />
+            <LetterRise text=" " delay={0.86} step={0.04} />
             <span
               className="serif-italic"
               style={{
@@ -1332,7 +1389,7 @@ export default function LandingPageNew() {
                 fontWeight: 400,
               }}
             >
-              <LetterRise text="Growing." delay={1.10} step={0.04} />
+              <LetterRise text="first." delay={1.10} step={0.04} />
             </span>
           </h1>
 
@@ -1388,6 +1445,18 @@ export default function LandingPageNew() {
           >
             1,000,000 views in 90 days — guaranteed, or your money back.
           </div>
+
+          <div
+            data-reveal="6"
+            style={{
+              marginTop: 14,
+              fontSize: "clamp(14px, 1.5vw, 17px)",
+              color: "var(--bone-2)",
+            }}
+          >
+            Built for{" "}
+            <RotatingWord words={["chiropractors", "immigration attorneys", "doctors"]} />.
+          </div>
         </div>
 
         {/* PromptStream (text → soundwave → output banner) removed 2026-06-07.
@@ -1397,7 +1466,7 @@ export default function LandingPageNew() {
 
       {/* ===== Viral wall — its own slim band of real million-view thumbnails,
               scrolling full-width. Foreground, full colour, view counts on show. */}
-      <section className="bg-ink" style={{ paddingTop: 18, paddingBottom: 28, overflow: "hidden" }}>
+      <section className="bg-ink" style={{ paddingTop: 6, paddingBottom: 28, overflow: "hidden" }}>
         <div data-reveal="1" style={{ textAlign: "center", marginBottom: 18, padding: "0 24px" }}>
           <span className="eyebrow">Backed by hundreds of millions of real views</span>
         </div>
@@ -1433,7 +1502,7 @@ export default function LandingPageNew() {
               marginBottom: 36,
             }}
           >
-            What Connecta has built <span className="scribble-under ink" style={{ display: "inline-block" }}>for creators</span>
+            What Connecta has built <span className="scribble-under ink" style={{ display: "inline-block" }}>for experts</span>
           </div>
 
           <div
@@ -1449,7 +1518,7 @@ export default function LandingPageNew() {
               {
                 num: "100M+",
                 kicker: "views generated",
-                body: "Across reels, shorts, and TikToks for the creators using our scripts and strategy.",
+                body: "Across reels, shorts, and TikToks for the experts using our scripts and strategy.",
                 accent: "honey" as const,
               },
               {
@@ -1491,7 +1560,7 @@ export default function LandingPageNew() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "'Figtree', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     fontSize: 12,
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
@@ -1502,17 +1571,6 @@ export default function LandingPageNew() {
                 >
                   <ProxText>{s.kicker}</ProxText>
                 </div>
-                <div
-                  style={{
-                    margin: "12px auto 0",
-                    fontSize: 14,
-                    color: "rgba(10,14,18,0.55)",
-                    maxWidth: 380,
-                    lineHeight: 1.55,
-                  }}
-                >
-                  <ProxText>{s.body}</ProxText>
-                </div>
               </div>
             ))}
           </div>
@@ -1522,7 +1580,7 @@ export default function LandingPageNew() {
             style={{
               textAlign: "center",
               marginTop: 32,
-              fontFamily: "'EB Garamond', serif",
+              fontFamily: "'Newsreader', serif",
               fontStyle: "italic",
               fontSize: 16,
               color: "rgba(10,14,18,0.50)",
@@ -1772,11 +1830,11 @@ export default function LandingPageNew() {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[
-                    { time: "MON 9:00 AM", title: "Spring lookbook · Reel", platform: "IG", status: "Scheduled", pill: "aqua" as const },
-                    { time: "MON 7:00 PM", title: "Behind the shoot — day 1", platform: "TikTok", status: "Drafting", pill: "honey" as const },
-                    { time: "TUE 12:00 PM", title: "Skincare partner ask", platform: "Shorts", status: "In review", pill: "honey" as const },
-                    { time: "WED 8:00 PM", title: "\"3 things I wish I knew…\"", platform: "Reel", status: "Hook ready", pill: "aqua" as const },
-                    { time: "THU 6:00 PM", title: "Recurring · weekly recap", platform: "IG", status: "Auto", pill: "aqua" as const },
+                    { time: "MON 9:00 AM", title: "New-patient story · Reel", platform: "IG", status: "Scheduled", pill: "aqua" as const },
+                    { time: "MON 7:00 PM", title: "Back-pain myth vs fact", platform: "TikTok", status: "Drafting", pill: "honey" as const },
+                    { time: "TUE 12:00 PM", title: "Green-card timeline explainer", platform: "Shorts", status: "In review", pill: "honey" as const },
+                    { time: "WED 8:00 PM", title: "\"The #1 mistake people make…\"", platform: "Reel", status: "Hook ready", pill: "aqua" as const },
+                    { time: "THU 6:00 PM", title: "Recurring · weekly Q&A recap", platform: "IG", status: "Auto", pill: "aqua" as const },
                   ].map((row, i) => (
                     <div
                       key={i}
@@ -1794,7 +1852,7 @@ export default function LandingPageNew() {
                     >
                       <span
                         style={{
-                          fontFamily: "'Figtree', monospace",
+                          fontFamily: "'Inter', monospace",
                           fontSize: 10.5,
                           color: "var(--bone-3)",
                           letterSpacing: "0.06em",
@@ -1881,7 +1939,7 @@ export default function LandingPageNew() {
                       boxShadow: "3px 3px 0 var(--ink)",
                     }}
                   >
-                    <span style={{ fontFamily: "'Figtree', sans-serif", fontSize: 11, color: "#A85B1F", letterSpacing: "0.1em", fontWeight: 700 }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#A85B1F", letterSpacing: "0.1em", fontWeight: 700 }}>
                       {s.num}
                     </span>
                     <div className="serif" style={{ fontSize: 17, color: "var(--ink)", letterSpacing: "-0.005em" }}>
@@ -1937,9 +1995,9 @@ export default function LandingPageNew() {
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {[
-                  { title: "Spring lookbook reel", state: "Cut 3 · review", pill: "honey" as const },
-                  { title: "Skincare routine v3", state: "Approved", pill: "aqua" as const },
-                  { title: "Behind the shoot", state: "Drafting", pill: "muted" as const },
+                  { title: "New-patient story reel", state: "Cut 3 · review", pill: "honey" as const },
+                  { title: "Back-pain myths v3", state: "Approved", pill: "aqua" as const },
+                  { title: "Clinic walkthrough", state: "Drafting", pill: "muted" as const },
                 ].map((r, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
                     <span className="serif" style={{ color: "var(--bone-2)", fontSize: 13 }}>{r.title}</span>
@@ -1986,11 +2044,11 @@ export default function LandingPageNew() {
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ fontSize: 12.5, color: "var(--bone-2)", fontStyle: "italic" }} className="serif-italic">
-                  "Caption that feels like Luna — 9 words, low-key, no exclamation marks."
+                  "Caption that sounds like Dr. Ortiz — 9 words, plain-English, no jargon."
                 </div>
                 <div style={{ height: 1, background: "var(--line)" }} />
                 <div style={{ fontSize: 13, color: "var(--bone)", lineHeight: 1.5 }}>
-                  morning chaos, golden hour, same routine. spring is just <em className="honey">showing off.</em>
+                  three signs that back pain isn't just a pulled muscle. <em className="honey">save this one.</em>
                 </div>
               </div>
             </PipelineCard>
@@ -2115,7 +2173,7 @@ export default function LandingPageNew() {
           className="curl curl-hide-mobile scroll-rise"
           style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)", color: "rgba(10,14,18,0.30)" }}
         >
-          a calmer creator economy starts here
+          your expertise, working while you sleep
         </div>
         <div
           className="curl curl-hide-mobile scroll-rise"
