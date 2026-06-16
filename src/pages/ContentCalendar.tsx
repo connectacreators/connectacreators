@@ -1021,30 +1021,44 @@ interface PostDetailProps {
 }
 
 function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor }: PostDetailProps) {
-  const isSupabaseVideo = post.upload_source === 'supabase' && post.storage_path;
+  // The post's *deliverable* is the final submission (file_submission_url) when
+  // present; the raw main footage (storage_path) is only a fallback. This
+  // mirrors the download handler, which already prefers the submission. A
+  // submission may be a Drive link, a remote URL, or a bare Supabase path.
+  const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
+  const submissionIsRemoteHttp = !!post.file_submission_url && !driveId && /^https?:\/\//i.test(post.file_submission_url);
+  const submissionIsStoragePath = !!post.file_submission_url && !driveId && !submissionIsRemoteHttp;
+  // Bare Supabase path to play: the final submission when it's a storage path,
+  // otherwise the raw footage — and only when there's no submission at all.
+  const playbackPath = submissionIsStoragePath
+    ? post.file_submission_url!
+    : (!post.file_submission_url && post.upload_source === 'supabase' ? post.storage_path : null);
+
+  // Resolve through the proxy-aware resolver so the calendar preview also gets
+  // the fast 720p proxy when one is ready (falls back to the original).
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (isSupabaseVideo && post.storage_path) {
-      videoUploadService.getSignedVideoUrl(post.storage_path).then(setSupabaseVideoUrl).catch(() => setSupabaseVideoUrl(null));
+    let cancelled = false;
+    if (playbackPath) {
+      videoUploadService.getPlaybackVideoUrl(playbackPath)
+        .then((u) => { if (!cancelled) setSupabaseVideoUrl(u); })
+        .catch(() => { if (!cancelled) setSupabaseVideoUrl(null); });
+    } else {
+      setSupabaseVideoUrl(null);
     }
-  }, [isSupabaseVideo, post.storage_path]);
+    return () => { cancelled = true; };
+  }, [playbackPath]);
 
-  // Fallback resolver for file_submission_url when it's neither a Drive link
-  // nor recognized as a Supabase upload — handles raw storage paths and
-  // signs them so the video plays inline instead of showing a download link.
+  // Remote (non-Drive) submission links are signed/resolved so they play inline
+  // instead of showing a download link.
   const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (post.file_submission_url && !isSupabaseVideo) {
-      const driveId = extractGoogleDriveFileId(post.file_submission_url);
-      if (!driveId) {
-        void resolveVideoUrl(post.file_submission_url).then((u) => { if (!cancelled) setFallbackVideoUrl(u); });
-      }
+    if (submissionIsRemoteHttp && post.file_submission_url) {
+      void resolveVideoUrl(post.file_submission_url).then((u) => { if (!cancelled) setFallbackVideoUrl(u); });
     }
     return () => { cancelled = true; };
-  }, [post.file_submission_url, isSupabaseVideo]);
-  // These are now only computed when the modal is actually open with a post
-  const driveId = post.file_submission_url ? extractGoogleDriveFileId(post.file_submission_url) : null;
+  }, [submissionIsRemoteHttp, post.file_submission_url]);
   const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
   const isApproved = post.lifecycle_status === "Published" || post.lifecycle_status === "Scheduled";
   const isRevision = post.lifecycle_status === "Needs Revisions";
@@ -1177,11 +1191,7 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
         )}
 
         {/* Video */}
-        {isSupabaseVideo && supabaseVideoUrl ? (
-          <div style={{ aspectRatio: '16 / 9' }}>
-            <ThemedVideoPlayer src={supabaseVideoUrl} className="h-full" maxHeight="100%" />
-          </div>
-        ) : driveId ? (
+        {driveId ? (
           <div className="rounded-xl overflow-hidden bg-black aspect-video border border-border/30">
             <iframe
               src={`https://drive.google.com/file/d/${driveId}/preview`}
@@ -1189,6 +1199,10 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
               allow="autoplay"
               allowFullScreen
             />
+          </div>
+        ) : supabaseVideoUrl ? (
+          <div style={{ aspectRatio: '16 / 9' }}>
+            <ThemedVideoPlayer src={supabaseVideoUrl} className="h-full" maxHeight="100%" />
           </div>
         ) : fallbackVideoUrl ? (
           <div style={{ aspectRatio: '16 / 9' }}>
