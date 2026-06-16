@@ -33,6 +33,17 @@ function shouldCacheThumbnail(url: string | null): boolean {
   return /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent|tiktokcdn|tiktokv\.com/.test(url);
 }
 
+// ── Text sanitizer ───────────────────────────────────────────────────────────
+// The VPS scraper sometimes returns captions truncated mid-emoji, leaving an
+// unpaired UTF-16 surrogate (e.g. a lone \uD83D). Such a string serializes to
+// invalid JSON, so supabase-js's batch upsert is rejected by Postgres with
+// "invalid input syntax for type json" — and because the whole batch is one
+// statement, ONE poisoned caption drops every video for that channel. Strip
+// unpaired surrogates (and NUL, which Postgres text also rejects) before insert.
+function sanitizeText(s: string): string {
+  return s.replace(/[\x00]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 // ── YouTube view count parser (kept for safety — VPS returns numeric) ────────
 
 function parseYouTubeViewCount(text: string | undefined): number {
@@ -44,9 +55,16 @@ function parseYouTubeViewCount(text: string | undefined): number {
   return parseInt(clean) || 0;
 }
 
-// HARD CAP: never scrape more than 100 posts per channel (150 for YouTube).
+// HARD CAP: never scrape more than 100 posts per channel.
 const MAX_RESULTS_PER_CHANNEL = 100;
-const MAX_RESULTS_YOUTUBE = 150;
+// YouTube is scraped with `yt-dlp --dump-json`, which resolves FULL metadata for
+// each short individually through the VPS SOCKS5 proxy. When that proxy is slow or
+// YouTube rate-limits its IP, fetching 150 shorts blows the edge function's
+// wall-clock and yt-dlp exits non-zero ("Command failed") — which silently left
+// channels stuck in "error" with 0 videos. ~25 reliably completes under current
+// proxy throughput. Raise this once the VPS uses --flat-playlist or a faster /
+// rotating proxy.
+const MAX_RESULTS_YOUTUBE = 25;
 
 // ── VPS retry helper: retry up to `retries` times on 503 (server busy) ──────
 async function fetchVpsWithRetry(
@@ -54,11 +72,15 @@ async function fetchVpsWithRetry(
   init: RequestInit,
   retries = 2,
   delayMs = 6000,
+  timeoutMs = 130_000,
 ): Promise<Response> {
-  let res = await fetch(url, init);
+  // Bound each attempt: a hung yt-dlp/proxy must surface as a catchable AbortError
+  // (→ channel marked "error" with a message) instead of silently hanging the edge
+  // function until it is force-killed.
+  let res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   while (res.status === 503 && retries-- > 0) {
     await new Promise((r) => setTimeout(r, delayMs));
-    res = await fetch(url, init);
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   }
   return res;
 }
@@ -259,7 +281,7 @@ async function processPosts(
         platform,
         video_url: post.url ?? null,
         thumbnail_url: post.thumbnail ?? null,
-        caption: (post.title ?? "").slice(0, 600),
+        caption: sanitizeText((post.title ?? "").slice(0, 600)),
         views_count: views,
         likes_count: likes,
         comments_count: comments,
@@ -313,8 +335,16 @@ async function processPosts(
     })
     .select("id, outlier_score, views_count");
 
+  // A failed batch upsert must NOT be reported as a successful "done" scrape —
+  // otherwise the channel card shows "Done" with 0 videos and the error is
+  // invisible (this is what silently zeroed channels with a poisoned caption).
   if (error) {
     console.error("Upsert error:", error);
+    await supabase
+      .from("viral_channels")
+      .update({ scrape_status: "error", scrape_error: `Upsert failed: ${error.message ?? error}` })
+      .eq("id", channelId);
+    return 0;
   }
 
   // Trigger analyze-viral-video for qualifying rows (fire-and-forget background job)
@@ -333,6 +363,13 @@ async function processPosts(
     }
   }
 
+  // Compute true row count from viral_videos — recentVideos.length is only
+  // the latest scrape (max 100), not the running total for the channel.
+  const { count: totalVideoCount } = await supabase
+    .from("viral_videos")
+    .select("id", { count: "exact", head: true })
+    .eq("channel_id", channelId);
+
   // Update channel stats
   await supabase
     .from("viral_channels")
@@ -340,7 +377,7 @@ async function processPosts(
       scrape_status: "done",
       last_scraped_at: new Date().toISOString(),
       avg_views: Math.round(avgViews),
-      video_count: recentVideos.length,
+      video_count: totalVideoCount ?? recentVideos.length,
     })
     .eq("id", channelId);
 
