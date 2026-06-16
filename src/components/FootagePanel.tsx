@@ -158,6 +158,61 @@ export default function FootagePanel({
     setLoading(false);
   };
 
+  // Keep the latest files in a ref so the polling closure below can read them
+  // without re-subscribing on every state change.
+  const filesRef = useRef<StorageFile[]>([]);
+  useEffect(() => { filesRef.current = files; }, [files]);
+
+  // While a proxy is still being built, the file plays its (slow) original.
+  // Poll proxy status and, the instant a proxy lands, swap that file's preview
+  // to the fast 720p proxy URL — so playback upgrades on its own instead of
+  // staying stuck on the original until the user reopens the panel.
+  const refreshProxyStatuses = useCallback(async () => {
+    const pending = filesRef.current.filter(
+      f => f.proxyStatus === 'queued' || f.proxyStatus === 'processing'
+    );
+    if (pending.length === 0) return;
+    const sourcePaths = pending.map(f => `${prefix}${f.name}`);
+    // `footage_proxies` isn't in the generated DB types yet — cast to query it.
+    const { data: proxies } = await (supabase as any)
+      .from('footage_proxies')
+      .select('source_path, proxy_bucket, proxy_path, status')
+      .in('source_path', sourcePaths);
+    if (!proxies?.length) return;
+    const bySource = new Map<string, any>((proxies as any[]).map((p) => [p.source_path, p]));
+
+    const updates = await Promise.all(
+      pending.map(async (f) => {
+        const p = bySource.get(`${prefix}${f.name}`);
+        if (!p || p.status === f.proxyStatus) return null; // unchanged since last poll
+        let previewUrl = f.previewUrl;
+        if (p.status === 'done' && p.proxy_path) {
+          const { data: purl } = await supabase.storage
+            .from(p.proxy_bucket || 'footage-proxies')
+            .createSignedUrl(p.proxy_path, 3600);
+          if (purl) previewUrl = purl.signedUrl;
+        }
+        return { name: f.name, status: p.status as StorageFile['proxyStatus'], previewUrl };
+      })
+    );
+    const changed = updates.filter(Boolean) as Array<{ name: string; status: StorageFile['proxyStatus']; previewUrl: string }>;
+    if (changed.length === 0) return;
+    setFiles(prev => prev.map(f => {
+      const u = changed.find(c => c.name === f.name);
+      return u ? { ...f, proxyStatus: u.status, previewUrl: u.previewUrl } : f;
+    }));
+  }, [prefix]);
+
+  const hasPendingProxy = files.some(
+    f => f.proxyStatus === 'queued' || f.proxyStatus === 'processing'
+  );
+
+  useEffect(() => {
+    if (!open || !hasPendingProxy) return;
+    const id = setInterval(refreshProxyStatuses, 5000);
+    return () => clearInterval(id);
+  }, [open, hasPendingProxy, refreshProxyStatuses]);
+
   const persistLinks = async (updatedLinks: string[]) => {
     const value = updatedLinks.length === 0 ? null
       : updatedLinks.length === 1 ? updatedLinks[0]
