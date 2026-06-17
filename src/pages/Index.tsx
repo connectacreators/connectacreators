@@ -153,9 +153,11 @@ const PROCESS = [
 
 export default function Index() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const SPEEDS = [1, 1.15, 1.25, 1.5, 2];
   const [videoStarted, setVideoStarted] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
+  const [speed, setSpeed] = useState(1.15);
   const [applyOpen, setApplyOpen] = useState(false);
   const openApply = () => setApplyOpen(true);
 
@@ -165,6 +167,7 @@ export default function Index() {
     v.muted = false;
     v.volume = 1;
     v.currentTime = 0;
+    v.playbackRate = speed;
     setVideoStarted(true);
     v.play().then(() => setVideoPlaying(true)).catch(() => {});
   };
@@ -178,6 +181,12 @@ export default function Index() {
       v.pause();
       setVideoPlaying(false);
     }
+  };
+
+  const cycleSpeed = () => {
+    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    setSpeed(next);
+    if (videoRef.current) videoRef.current.playbackRate = next;
   };
 
   return (
@@ -460,7 +469,10 @@ export default function Index() {
               preload="auto"
               poster="/vsl-espanol-poster.jpg"
               onClick={videoStarted ? togglePlay : undefined}
-              onPlay={() => setVideoPlaying(true)}
+              onPlay={(e) => {
+                setVideoPlaying(true);
+                e.currentTarget.playbackRate = speed;
+              }}
               onPause={() => setVideoPlaying(false)}
               onEnded={() => setVideoPlaying(false)}
               onTimeUpdate={(e) => {
@@ -589,6 +601,26 @@ export default function Index() {
                     }}
                   />
                 </div>
+                <button
+                  onClick={cycleSpeed}
+                  aria-label="Velocidad de reproducción"
+                  style={{
+                    flexShrink: 0,
+                    minWidth: 52,
+                    height: 32,
+                    padding: "0 10px",
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 13,
+                  }}
+                >
+                  {speed}×
+                </button>
               </div>
             )}
           </div>
