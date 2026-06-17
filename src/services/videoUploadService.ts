@@ -43,6 +43,26 @@ async function standardUpload(
   return tusUpload(file, storagePath, onProgress, Math.min(5 * 1024 * 1024, file.size), onAbortReady);
 }
 
+// Storage rejects an upload whose Authorization is `Bearer undefined` with the
+// cryptic "Invalid Compact JWS". That happens when getSession() returns a
+// session whose access_token is empty — typically after a refresh-token
+// rotation race across multiple open tabs leaves supabase-js unable to refresh
+// (auth logs show "refresh_token_not_found"). Normal page calls still work
+// because supabase-js silently falls back to the anon key, but a raw
+// `Bearer ${session.access_token}` here would send `undefined`. Force a refresh
+// to recover a usable token, and fail with a clear, actionable message
+// otherwise — never send an empty bearer.
+async function getValidAccessToken(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) return session.access_token;
+  const { data, error } = await supabase.auth.refreshSession();
+  if (!error && data.session?.access_token) return data.session.access_token;
+  throw new Error(
+    'Your login session expired and could not be refreshed. Close any other ' +
+    'tabs of the app, sign out and back in, then retry the upload.'
+  );
+}
+
 async function tusUpload(
   file: File,
   storagePath: string,
@@ -50,8 +70,7 @@ async function tusUpload(
   chunkSize = 6 * 1024 * 1024,
   onAbortReady?: (abort: () => void) => void
 ): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
+  const accessToken = await getValidAccessToken();
 
   const projectId = 'hxojqrilwhhrvloiwmfo';
 
@@ -60,18 +79,21 @@ async function tusUpload(
       endpoint: `https://${projectId}.supabase.co/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000],
       headers: {
-        authorization: `Bearer ${session.access_token}`,
+        authorization: `Bearer ${accessToken}`,
         'x-upsert': 'true',
       },
       // Large 4K uploads can run longer than the JWT's lifetime. The token is
       // captured once at start, so without this a late chunk goes out with an
       // expired token and Storage rejects it ("tus: unexpected response while
-      // uploading chunk"). Refresh the session before every request so each
-      // chunk carries a current token. getSession() returns the auto-refreshed
-      // token from supabase-js without a network round-trip when still valid.
+      // uploading chunk"). Refresh before every request so each chunk carries a
+      // current token. Best-effort: if the session can't be revived mid-upload,
+      // keep the token captured at start rather than blanking the header.
       onBeforeRequest: async (req) => {
-        const { data: { session: fresh } } = await supabase.auth.getSession();
-        if (fresh?.access_token) req.setHeader('authorization', `Bearer ${fresh.access_token}`);
+        try {
+          req.setHeader('authorization', `Bearer ${await getValidAccessToken()}`);
+        } catch {
+          // Leave the existing (start-of-upload) token in place.
+        }
       },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
