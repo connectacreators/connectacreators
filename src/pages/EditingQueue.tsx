@@ -7,6 +7,7 @@ import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, 
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal, ArrowUpRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { ScheduleCalendar, buildScheduleCounts } from "@/components/editing/ScheduleCalendar";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -16,7 +17,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
@@ -161,6 +161,18 @@ export default function EditingQueue() {
   // Schedule post modal
   const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // Today at local midnight — earliest selectable schedule day.
+  const minScheduleDate = useMemo(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }, []);
+  // Per-day dot counts for the schedule calendar. Every item here already
+  // belongs to this client (route-scoped + per-item clientId isn't carried),
+  // so we count them all — the dots reflect this client's feed only.
+  const scheduleCounts = useMemo(
+    () => buildScheduleCounts(items),
+    [items],
+  );
   // New beta-only composer (autopost / schedule / draft to FB+IG)
   const { enabled: schedulerEnabled } = useSchedulerEnabled();
   const [composerItem, setComposerItem] = useState<EditingQueueItem | null>(null);
@@ -1465,12 +1477,12 @@ export default function EditingQueue() {
               <Label className="text-xs font-medium">
                 {language === "en" ? "Select publish date" : "Selecciona la fecha de publicación"}
               </Label>
-              <Input
-                type="date"
+              <ScheduleCalendar
                 value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                className="text-sm"
+                onChange={setScheduleDate}
+                counts={scheduleCounts}
+                minDate={minScheduleDate}
+                language={language as "en" | "es"}
               />
             </div>
             <p className="text-xs text-muted-foreground">

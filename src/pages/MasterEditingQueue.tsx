@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { ScheduleCalendar, buildScheduleCounts } from "@/components/editing/ScheduleCalendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -23,7 +24,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import FootageUploadDialog from '@/components/FootageUploadDialog';
@@ -139,6 +139,17 @@ export default function MasterEditingQueue() {
   const [deleting, setDeleting] = useState(false);
   const [scheduleItem, setScheduleItem] = useState<EditingQueueItem | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // Today at local midnight — earliest selectable schedule day.
+  const minScheduleDate = useMemo(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }, []);
+  // Per-day dot counts for the schedule calendar, scoped to the post's client
+  // so the dots reflect only that client's feed (avoids double-booking them).
+  const scheduleCounts = useMemo(
+    () => buildScheduleCounts(items, scheduleItem?.clientId),
+    [items, scheduleItem?.clientId],
+  );
   // New beta-only composer drawer (autopost / schedule / draft to FB+IG)
   const { enabled: schedulerEnabled } = useSchedulerEnabled();
   const [composerItem, setComposerItem] = useState<EditingQueueItem | null>(null);
@@ -1625,12 +1636,12 @@ export default function MasterEditingQueue() {
               <Label className="text-xs font-medium">
                 {language === "en" ? "Select publish date" : "Selecciona la fecha de publicación"}
               </Label>
-              <Input
-                type="date"
+              <ScheduleCalendar
                 value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                className="text-sm"
+                onChange={setScheduleDate}
+                counts={scheduleCounts}
+                minDate={minScheduleDate}
+                language={language as "en" | "es"}
               />
             </div>
             <p className="text-xs text-muted-foreground">
