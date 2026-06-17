@@ -1,5 +1,7 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import HeroVProjectEN from "@/components/en/HeroVProjectEN";
+import ApplyModal from "@/components/ApplyModal";
+import LeadFormEN from "@/components/LeadFormEN";
 
 // Lazy load sections below the fold for better mobile performance
 const FounderSectionEN = lazy(() => import("@/components/en/FounderSectionEN"));
@@ -19,9 +21,10 @@ const SectionLoader = () => (
 );
 
 const IndexEN = () => {
+  const [applyOpen, setApplyOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background">
-      <HeroVProjectEN />
+      <HeroVProjectEN onApply={() => setApplyOpen(true)} />
       <Suspense fallback={<SectionLoader />}>
         <FounderSectionEN />
       </Suspense>
@@ -54,6 +57,10 @@ const IndexEN = () => {
       <div className="bg-card py-6 text-center">
         <p className="text-muted-foreground text-xs">*results may vary*</p>
       </div>
+
+      <ApplyModal open={applyOpen} onClose={() => setApplyOpen(false)}>
+        <LeadFormEN variant="modal" />
+      </ApplyModal>
     </div>
   );
 };

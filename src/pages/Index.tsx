@@ -329,36 +329,107 @@ export default function Index() {
       `}</style>
 
       {/* ① HERO */}
-      <div style={{ background: "#8FD0D5" }}>
+      <div style={{ background: "#0a0a0a", position: "relative", overflow: "hidden" }}>
+        {/* warm glow */}
+        <div
+          style={{
+            position: "absolute",
+            top: -140,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 760,
+            height: 420,
+            background: "radial-gradient(ellipse at center, rgba(232,133,43,0.20), transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
         <div
           className="hero-inner"
           style={{
-            maxWidth: 1080,
+            position: "relative",
+            maxWidth: 1240,
             margin: "0 auto",
-            padding: "88px 24px 32px",
+            padding: "56px 24px 64px",
             textAlign: "center",
           }}
         >
+          {/* pill */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: "1px solid rgba(232,133,43,0.35)",
+              background: "rgba(232,133,43,0.08)",
+              color: "#E8852B",
+              borderRadius: 999,
+              padding: "7px 16px",
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 600,
+              fontSize: 13,
+              marginBottom: 26,
+            }}
+          >
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
+            Sin agencias · Sin perder tiempo
+          </div>
+
           <div
             className="hero-headline"
             style={{
               fontFamily: "'Montserrat', sans-serif",
               fontWeight: 700,
-              fontSize: "clamp(30px, 6vw, 58px)",
+              fontSize: "clamp(26px, 3.3vw, 40px)",
               color: "#fff",
-              lineHeight: 1.08,
+              lineHeight: 1.14,
               letterSpacing: "-0.02em",
-              maxWidth: 900,
-              margin: "0 auto 20px",
+              maxWidth: 1240,
+              margin: "0 auto 18px",
             }}
           >
-            Construye tu <span style={{ color: "#F5C265" }}>marca personal</span> y consigue{" "}
-            <span style={{ color: "#F5C265" }}>clientes reales</span> en menos de{" "}
-            <span style={{ color: "#F5C265" }}>90 días</span>, sin agencias, sin perder tiempo.
+            Construye tu marca personal y <span style={{ color: "#E8852B" }}>consigue clientes reales</span>
+            <br />
+            en menos de 90 días, sin agencias, sin perder tiempo.
+          </div>
+
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 600,
+              fontSize: "clamp(16px, 2.2vw, 20px)",
+              color: "#fff",
+              marginBottom: 8,
+            }}
+          >
+            +150M de vistas y +100K seguidores generados para nuestros clientes.
+          </div>
+          <div
+            className="hero-sub"
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 400,
+              fontSize: "clamp(14px, 1.8vw, 17px)",
+              color: "rgba(255,255,255,0.6)",
+              lineHeight: 1.55,
+              maxWidth: 640,
+              margin: "0 auto 36px",
+            }}
+          >
+            El sistema que pone tu marca a trabajar por ti mientras tú atiendes tu negocio.
           </div>
 
           {/* VSL Video */}
-          <div style={{ maxWidth: 760, margin: "0 auto 36px", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.35)", position: "relative" }}>
+          <div
+            style={{
+              maxWidth: 760,
+              margin: "0 auto",
+              borderRadius: 16,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+              position: "relative",
+            }}
+          >
             <video
               ref={videoRef}
               controls
@@ -398,17 +469,36 @@ export default function Index() {
             )}
           </div>
 
-          <div
-            className="hero-sub"
+          {/* CTA below video */}
+          <button
+            onClick={openApply}
             style={{
+              marginTop: 28,
+              display: "inline-block",
+              background: "#E8852B",
+              color: "#0a0a0a",
               fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 500,
-              fontSize: 17,
-              color: "rgba(255,255,255,0.88)",
-              marginBottom: 0,
+              fontWeight: 700,
+              fontSize: 16,
+              letterSpacing: "0.02em",
+              border: "none",
+              borderRadius: 999,
+              padding: "16px 42px",
+              cursor: "pointer",
+              boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
             }}
           >
-            Contenido viral para negocios hispanos. Sin resultados, no pagas.
+            Agenda tu consulta →
+          </button>
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: 13,
+              color: "rgba(255,255,255,0.45)",
+              marginTop: 14,
+            }}
+          >
+            Aceptamos un máximo de 5 clientes nuevos al mes.
           </div>
         </div>
       </div>
