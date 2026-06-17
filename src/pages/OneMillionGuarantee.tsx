@@ -5,6 +5,7 @@ import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import LeadFormEN from "@/components/LeadFormEN";
+import ApplyModal from "@/components/ApplyModal";
 import {
   Video,
   Target,
@@ -38,13 +39,13 @@ const GOLD_DEEP = "#B88829";
 const INK = "#0A1419";
 const PAPER = "#F7F4EE";
 
-function ApplyBtn({ label = "APPLY NOW", inverted, glow }: { label?: string; inverted?: boolean; glow?: boolean }) {
+function ApplyBtn({ label = "APPLY NOW", inverted, glow, onApply }: { label?: string; inverted?: boolean; glow?: boolean; onApply?: () => void }) {
   return (
     <a
       href="#apply"
       onClick={(e) => {
         e.preventDefault();
-        document.getElementById("apply")?.scrollIntoView({ behavior: "smooth" });
+        onApply?.();
       }}
       className="apply-btn"
       style={{
@@ -169,6 +170,8 @@ const FAQS = [
 export default function OneMillionGuarantee() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const openApply = () => setApplyOpen(true);
   const handleUnmute = () => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -972,7 +975,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div className="hero-cta-row">
-            <ApplyBtn label="APPLY NOW" inverted glow />
+            <ApplyBtn label="APPLY NOW" inverted glow onApply={openApply} />
             <span className="hero-cta-meta">
               <CheckCircle2 size={16} color={GOLD} />
               Only 5 client slots a month
@@ -1002,9 +1005,6 @@ export default function OneMillionGuarantee() {
           </div>
         </div>
       </div>
-
-      {/* ③ LEAD FORM */}
-      <LeadFormEN />
 
       {/* ④ THE GUARANTEE */}
       <section className="section">
@@ -1194,7 +1194,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div style={{ marginTop: 56 }}>
-            <ApplyBtn label="START WITH STEP 1" />
+            <ApplyBtn label="START WITH STEP 1" onApply={openApply} />
           </div>
         </div>
       </section>
@@ -1269,7 +1269,7 @@ export default function OneMillionGuarantee() {
         <p>
           We've got space for 5 new businesses this month. Application takes ~2 minutes — strategy call is free.
         </p>
-        <ApplyBtn label="APPLY TO WORK WITH US" inverted glow />
+        <ApplyBtn label="APPLY TO WORK WITH US" inverted glow onApply={openApply} />
         <div className="scarcity">★ Only 5 client slots per month</div>
       </section>
 
@@ -1284,6 +1284,10 @@ export default function OneMillionGuarantee() {
           *results may vary · © {new Date().getFullYear()} Connecta Creators
         </div>
       </div>
+
+      <ApplyModal open={applyOpen} onClose={() => setApplyOpen(false)}>
+        <LeadFormEN variant="modal" />
+      </ApplyModal>
     </>
   );
 }

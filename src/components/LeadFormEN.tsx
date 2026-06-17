@@ -47,7 +47,8 @@ const BORDER = "#e5e7eb";
 const TEXT = "#0a0a0a";
 const MUTED = "#6b7280";
 
-export default function LeadFormEN() {
+export default function LeadFormEN({ variant = "section" }: { variant?: "section" | "modal" }) {
+  const isModal = variant === "modal";
   const [step, setStep] = useState(1);
   const [branch, setBranch] = useState<Branch>(null);
   const [data, setData] = useState<FormData>({
@@ -202,7 +203,7 @@ export default function LeadFormEN() {
 
   if (submitted === "qualified") {
     return (
-      <div ref={formRef} style={{ background: BG, padding: "72px 24px" }}>
+      <div ref={formRef} style={isModal ? undefined : { background: BG, padding: "72px 24px" }}>
         <div style={{ maxWidth: 520, margin: "0 auto" }}>
           <div style={{
             background: CARD,
@@ -226,7 +227,7 @@ export default function LeadFormEN() {
 
   if (submitted === "disqualified") {
     return (
-      <div ref={formRef} style={{ background: BG, padding: "72px 24px" }}>
+      <div ref={formRef} style={isModal ? undefined : { background: BG, padding: "72px 24px" }}>
         <div style={{ maxWidth: 520, margin: "0 auto" }}>
           <div style={{
             background: CARD,
@@ -441,7 +442,7 @@ export default function LeadFormEN() {
   };
 
   return (
-    <div ref={formRef} id="apply" style={{ background: BG, padding: "72px 24px" }}>
+    <div ref={formRef} id={isModal ? undefined : "apply"} style={isModal ? undefined : { background: BG, padding: "72px 24px" }}>
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
         <div style={{
           background: CARD,

@@ -5,6 +5,7 @@ import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import LeadForm from "@/components/LeadForm";
+import ApplyModal from "@/components/ApplyModal";
 import {
   Video,
   Target,
@@ -18,13 +19,13 @@ import {
   Dumbbell,
 } from "lucide-react";
 
-function ApplyBtn({ small, inverted }: { small?: boolean; inverted?: boolean }) {
+function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: boolean; onApply?: () => void }) {
   return (
     <a
       href="#aplicar"
       onClick={(e) => {
         e.preventDefault();
-        document.getElementById("aplicar")?.scrollIntoView({ behavior: "smooth" });
+        onApply?.();
       }}
       style={{
         display: "inline-block",
@@ -71,7 +72,7 @@ function SectionTitle({ text }: { text: string }) {
       className="section-title"
       style={{
         fontFamily: "'Montserrat', sans-serif",
-        fontWeight: 900,
+        fontWeight: 700,
         fontSize: "clamp(22px, 4vw, 38px)",
         textTransform: "uppercase",
         letterSpacing: "-0.01em",
@@ -151,6 +152,8 @@ const PROCESS = [
 export default function Index() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const openApply = () => setApplyOpen(true);
 
   const handleUnmute = () => {
     if (videoRef.current) {
@@ -192,7 +195,7 @@ export default function Index() {
         }
         .agency-stat-num {
           font-family: 'Montserrat', sans-serif;
-          font-weight: 900;
+          font-weight: 700;
           font-size: clamp(38px, 6vw, 56px);
           color: #fff;
           line-height: 1;
@@ -340,17 +343,18 @@ export default function Index() {
             className="hero-headline"
             style={{
               fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 900,
+              fontWeight: 700,
               fontSize: "clamp(30px, 6vw, 58px)",
-              textTransform: "uppercase",
               color: "#fff",
-              lineHeight: 1.05,
+              lineHeight: 1.08,
               letterSpacing: "-0.02em",
-              maxWidth: 820,
+              maxWidth: 900,
               margin: "0 auto 20px",
             }}
           >
-            1.000.000 DE VISTAS O NO PAGAS.
+            Construye tu <span style={{ color: "#F5C265" }}>marca personal</span> y consigue{" "}
+            <span style={{ color: "#F5C265" }}>clientes reales</span> en menos de{" "}
+            <span style={{ color: "#F5C265" }}>90 días</span>, sin agencias, sin perder tiempo.
           </div>
 
           {/* VSL Video */}
@@ -362,7 +366,8 @@ export default function Index() {
               muted
               playsInline
               preload="auto"
-              style={{ width: "100%", display: "block" }}
+              poster="/vsl-espanol-poster.jpg"
+              style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
             >
               <source src="/VSL_ESPANOL_ROBERTO.mp4" type="video/mp4" />
             </video>
@@ -408,9 +413,6 @@ export default function Index() {
         </div>
       </div>
 
-      {/* ② LEAD FORM — right after the VSL hero */}
-      <LeadForm />
-
       {/* ③ EL PROBLEMA */}
       <Sec>
         <SectionTitle text="EL MERCADO HISPANO ESTÁ AHÍ. TU COMPETENCIA NO LO ATIENDE." />
@@ -418,7 +420,7 @@ export default function Index() {
         <div
           style={{
             fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 900,
+            fontWeight: 700,
             fontSize: "clamp(72px, 14vw, 160px)",
             color: "#8FD0D5",
             lineHeight: 1,
@@ -482,7 +484,7 @@ export default function Index() {
                 <div
                   style={{
                     fontFamily: "'Montserrat', sans-serif",
-                    fontWeight: 900,
+                    fontWeight: 700,
                     fontSize: 13,
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
@@ -507,7 +509,81 @@ export default function Index() {
           })}
         </div>
 
-        <ApplyBtn />
+        <ApplyBtn onApply={openApply} />
+      </Sec>
+
+      {/* ③.5 EL PROCESO — cómo construyo el sistema completo */}
+      <Sec>
+        <SectionTitle text="EL PROCESO" />
+        <SectionSub text="Cómo construyo el sistema completo" />
+
+        <div className="grid-4">
+          {[
+            {
+              phase: "Fase 1",
+              icon: "🎯",
+              title: "Estrategia y Posicionamiento",
+              body: "Definimos tu identidad, cliente ideal, promesa principal y diferenciador. Aquí nace tu marca personal real —no la que tu mamá cree que tienes.",
+            },
+            {
+              phase: "Fase 2",
+              icon: "📱",
+              title: "Sistema de Contenido",
+              body: "Diseñamos la parrilla de contenido viral con estructura psicológica: hooks, narrativa, llamados a la acción. Empezamos a grabar y editar.",
+            },
+            {
+              phase: "Fase 3",
+              icon: "🌐",
+              title: "Activos de Conversión",
+              body: "Construyo tu landing page, funnel de ventas y automatizaciones en ManyChat/CRM. Convertimos visitas en conversaciones reales.",
+            },
+            {
+              phase: "Fase 4",
+              icon: "🚀",
+              title: "Escalamiento",
+              body: "Optimizamos lo que funciona, escalamos los videos virales y armamos un VSL para captar clientes high-ticket de forma consistente.",
+            },
+          ].map((p) => (
+            <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 30, marginBottom: 14, lineHeight: 1 }}>{p.icon}</div>
+              <div
+                style={{
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#8FD0D5",
+                  marginBottom: 8,
+                }}
+              >
+                {p.phase}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "#0a0a0a",
+                  marginBottom: 10,
+                  lineHeight: 1.25,
+                }}
+              >
+                {p.title}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: 13,
+                  color: "#555",
+                  lineHeight: 1.6,
+                }}
+              >
+                {p.body}
+              </div>
+            </div>
+          ))}
+        </div>
       </Sec>
 
       {/* ④ CASOS DE ÉXITO */}
@@ -575,7 +651,7 @@ export default function Index() {
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 4 }}>
                   ANTES
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#0a0a0a" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#0a0a0a" }}>
                   500 seguidores
                 </div>
               </div>
@@ -586,7 +662,7 @@ export default function Index() {
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8FD0D5", marginBottom: 4 }}>
                   DESPUÉS
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: "#8FD0D5" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#8FD0D5" }}>
                   17.6K seguidores
                 </div>
               </div>
@@ -594,7 +670,7 @@ export default function Index() {
           </div>
         </div>
 
-        <ApplyBtn />
+        <ApplyBtn onApply={openApply} />
       </Sec>
 
       {/* ⑤ PARA QUIÉN ES */}
@@ -660,7 +736,7 @@ export default function Index() {
                   alignItems: "center",
                   justifyContent: "center",
                   fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
+                  fontWeight: 700,
                   fontSize: 14,
                   marginTop: 2,
                 }}
@@ -693,7 +769,7 @@ export default function Index() {
               <div
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
+                  fontWeight: 700,
                   fontSize: 36,
                   color: "#8FD0D5",
                   marginBottom: 12,
@@ -705,7 +781,7 @@ export default function Index() {
               <div
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
+                  fontWeight: 700,
                   fontSize: 13,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
@@ -729,7 +805,7 @@ export default function Index() {
           ))}
         </div>
 
-        <ApplyBtn />
+        <ApplyBtn onApply={openApply} />
       </Sec>
 
       {/* ⑧ SOBRE ROBERTO */}
@@ -744,7 +820,7 @@ export default function Index() {
             <div
               style={{
                 fontFamily: "'Montserrat', sans-serif",
-                fontWeight: 900,
+                fontWeight: 700,
                 fontSize: 18,
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
@@ -822,6 +898,10 @@ export default function Index() {
           </a>
         </div>
       </div>
+
+      <ApplyModal open={applyOpen} onClose={() => setApplyOpen(false)}>
+        <LeadForm variant="modal" />
+      </ApplyModal>
     </>
   );
 }
@@ -832,7 +912,7 @@ function HeroStat({ number, label, sub }: { number: string; label: string; sub: 
       <div
         style={{
           fontFamily: "'Montserrat', sans-serif",
-          fontWeight: 900,
+          fontWeight: 700,
           fontSize: "clamp(28px, 5vw, 44px)",
           color: "#fff",
           lineHeight: 1,
@@ -882,12 +962,12 @@ function BeforeAfterCaption({ platform, before, after }: { platform?: string; be
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>ANTES</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#0a0a0a", lineHeight: 1 }}>{before}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#0a0a0a", lineHeight: 1 }}>{before}</div>
         </div>
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 14, color: "#ccc" }}>→</div>
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#8FD0D5", letterSpacing: "0.08em" }}>AHORA</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 18, color: "#8FD0D5", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#8FD0D5", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>
