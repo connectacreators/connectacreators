@@ -168,16 +168,21 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
 
 async function processProxyJob(client: ReturnType<typeof makeClient>, job: ProxyJobRow) {
   const workDir = path.join(WORK_DIR, `proxy-${job.id}`);
-  const input = path.join(workDir, "input" + path.extname(job.source_path));
   const output = path.join(workDir, "output.mp4");
   await fs.mkdir(workDir, { recursive: true });
   try {
-    // Download the original to local disk first, then transcode. (We tried
-    // streaming straight from a signed URL to save the download, but it
-    // destabilised the worker in prod; the proven download path is kept while
-    // the fast `ultrafast` encode preset — the real speed win — stays.)
-    await downloadToFile(client, job.source_bucket, job.source_path, input);
-    await runProxy(input, output);
+    // Stream the original straight from a signed URL — ffmpeg reads it over
+    // HTTP while it encodes, so we NEVER load a multi-GB original into worker
+    // memory. The previous download-to-memory path (Blob.arrayBuffer) OOM-
+    // crashed the worker on large 4K files, which then crash-looped. Only the
+    // small 720p proxy touches disk.
+    const { data: signed, error: signErr } = await client.storage
+      .from(job.source_bucket)
+      .createSignedUrl(job.source_path, 3600);
+    if (signErr || !signed?.signedUrl) {
+      throw new Error(`could not sign source ${job.source_path}: ${signErr?.message ?? "no url"}`);
+    }
+    await runProxy(signed.signedUrl, output);
     const proxyPath = proxyPathFor(job.source_path);
     await uploadFile(client, PROXY_BUCKET, proxyPath, output, "video/mp4");
     await markProxyDone(client, job.id, proxyPath);

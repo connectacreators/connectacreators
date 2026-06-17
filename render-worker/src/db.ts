@@ -48,11 +48,18 @@ export async function reclaimOrphanedJobs(client: SupabaseClient, staleMs = 60_0
     .update({ status: "queued", claimed_at: null, progress: 0 })
     .eq("status", "running")
     .lt("claimed_at", cutoff);
+  // Footage proxies legitimately take minutes to transcode, so a 60s reclaim
+  // would re-queue a job that's still encoding — and with any transient
+  // double-claim that sends the worker into a thrash loop (re-claim, restart,
+  // re-claim) that saturates CPU. Only reclaim a proxy that's been stuck far
+  // longer than any real transcode, so a genuine crash still self-heals but a
+  // healthy long job is never disturbed.
+  const proxyCutoff = new Date(Date.now() - Math.max(staleMs, 1_200_000)).toISOString(); // >= 20 min
   await client
     .from("footage_proxies")
     .update({ status: "queued", claimed_at: null })
     .eq("status", "processing")
-    .lt("claimed_at", cutoff);
+    .lt("claimed_at", proxyCutoff);
 }
 
 // Claim the oldest queued job atomically. Returns null if nothing to do.
