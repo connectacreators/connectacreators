@@ -138,13 +138,11 @@ export default function VideoReviewModal({
       }
     });
 
-    // storage_path is the RAW source footage (e.g. a multi-GB .mov original) —
-    // not a deliverable version of the edit, and usually not browser-playable.
-    // Only surface it as the video when there's no actual submission to show,
-    // so it never appears as a broken "V2" alongside a real submission.
-    if (storagePath && !addedPaths.has(storagePath) && list.length === 0) {
-      list.push({ id: 'supabase', label: 'V1', type: 'supabase', rawUrl: storagePath });
-    }
+    // The review modal shows the editor's FINAL SUBMISSION only. storage_path is
+    // the raw source footage (multi-GB original, often not browser-playable), so
+    // we deliberately do NOT fall back to it — otherwise a video with no
+    // submission would silently play raw footage. When there's no submission the
+    // player shows a clear "No file submission yet" empty state instead.
 
     setSources(list);
     setActiveIdx(0);
@@ -469,7 +467,7 @@ export default function VideoReviewModal({
                 </div>
               ) : (
                 <div className="w-full h-full bg-black rounded-lg flex items-center justify-center text-muted-foreground text-sm" style={{ border: '1px solid hsl(var(--aqua) / 0.2)' }}>
-                  No video available
+                  {sources.length === 0 ? 'No file submission yet' : 'No video available'}
                 </div>
               )}
             </div>
