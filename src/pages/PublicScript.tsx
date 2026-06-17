@@ -5,7 +5,7 @@ import { Loader2, FileText, Eye, Play, Clapperboard, MessageSquare } from "lucid
 import DOMPurify from "dompurify";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
-import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
+import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
 import { defaultSectionLabel } from "@/lib/scriptBlocks";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -161,14 +161,17 @@ export default function PublicScript() {
         {/* Format */}
         {(script.formato || script.format_reference_url) && (
           <div className="editorial-card p-5 mb-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-              <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr({ en: "Format", es: "Formato" }, language)}</span>
+            <div className="flex items-start gap-2 mb-3">
+              <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "How to film & edit it", es: "Cómo grabarlo y editarlo" }, language)}</div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
+              </div>
             </div>
             {script.formato && (
               <span className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
                 {FormatIcon && <FormatIcon className="w-3.5 h-3.5 shrink-0" />}
-                {script.formato}
+                {getFormatLabel(script.formato, language)}
               </span>
             )}
             {script.format_reference_url && (
@@ -189,9 +192,12 @@ export default function PublicScript() {
         {/* Inspiration */}
         {inspirationUrls.length > 0 && (
           <div className="editorial-card p-5 mb-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-              <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
+            <div className="flex items-start gap-2 mb-3">
+              <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               {inspirationUrls.map((url, idx) => (

@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import ScriptDocEditor from "@/components/ScriptDocEditor";
 import { useScripts, type ScriptLine as DocBlock } from "@/hooks/useScripts";
-import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
+import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
+import { useLanguage } from "@/hooks/useLanguage";
+import { tr } from "@/i18n/translations";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
 import { defaultSectionLabel, withUids, synthesizeBlocksFromLines } from "@/lib/scriptBlocks";
 import { applyBranding } from "@/lib/branding/apply";
@@ -122,6 +124,7 @@ export default function PublicFolderShare() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [data, setData] = useState<SharePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -342,25 +345,28 @@ export default function PublicFolderShare() {
           {/* Format — chip + subtle eye button to preview the reference video */}
           {(openScript.formato || openScript.format_reference_url) && (
             <div className="editorial-card p-5 mb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Format</span>
+              <div className="flex items-start gap-2 mb-3">
+                <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "How to film & edit it", es: "Cómo grabarlo y editarlo" }, language)}</div>
+                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {openScript.formato && (
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary max-w-full break-words">
                     {FormatIcon && <FormatIcon className="w-3.5 h-3.5 shrink-0" />}
-                    {openScript.formato}
+                    {getFormatLabel(openScript.formato, language)}
                   </span>
                 )}
                 {openScript.format_reference_url && (
                   <button
                     onClick={() => setPreviewUrl(openScript.format_reference_url)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    title="View format reference"
+                    title={tr({ en: "View format reference", es: "Ver referencia de formato" }, language)}
                   >
                     <Eye className="w-3.5 h-3.5 shrink-0" />
-                    Reference
+                    {tr({ en: "Reference", es: "Referencia" }, language)}
                   </button>
                 )}
               </div>
@@ -370,9 +376,12 @@ export default function PublicFolderShare() {
           {/* Inspiration — subtle eye buttons to preview each reference video */}
           {inspirationUrls.length > 0 && (
             <div className="editorial-card p-5 mb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>Inspiration</span>
+              <div className="flex items-start gap-2 mb-3">
+                <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
+                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {inspirationUrls.map((url, idx) => (
@@ -380,10 +389,10 @@ export default function PublicFolderShare() {
                     key={idx}
                     onClick={() => setPreviewUrl(url)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    title="Watch inspiration"
+                    title={tr({ en: "Watch inspiration", es: "Ver inspiración" }, language)}
                   >
                     <Eye className="w-3.5 h-3.5 shrink-0" />
-                    {inspirationUrls.length > 1 ? `Reference ${idx + 1}` : "Watch"}
+                    {inspirationUrls.length > 1 ? tr({ en: `Reference ${idx + 1}`, es: `Referencia ${idx + 1}` }, language) : tr({ en: "Watch", es: "Ver" }, language)}
                   </button>
                 ))}
               </div>
@@ -550,7 +559,7 @@ export default function PublicFolderShare() {
                         <p className="text-[11px] text-muted-foreground mt-0.5 break-words">
                           {s.idea_ganadora && <span>{s.idea_ganadora}</span>}
                           {s.idea_ganadora && s.formato && <span className="mx-1.5">·</span>}
-                          {s.formato && <span className="uppercase tracking-wider">{s.formato}</span>}
+                          {s.formato && <span className="uppercase tracking-wider">{getFormatLabel(s.formato, language)}</span>}
                         </p>
                       )}
                       {preview && (
