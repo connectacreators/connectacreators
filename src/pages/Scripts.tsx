@@ -47,7 +47,7 @@ import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed"
 import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
 import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
-import { SCRIPT_FORMATS } from "@/lib/scriptFormats";
+import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -112,6 +112,7 @@ function SortableScript({ id, children }: { id: string; children: React.ReactNod
 function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [listening, setListening] = useState(false);
   const recRef = useRef<any>(null);
+  const { language } = useLanguage();
 
   const toggle = useCallback(() => {
     if (listening && recRef.current) {
@@ -121,7 +122,7 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      toast.error("Speech recognition not supported");
+      toast.error(tr(t.scripts.speechNotSupported, language));
       return;
     }
     const rec = new SR();
@@ -151,7 +152,7 @@ function MicButton({ onTranscript }: { onTranscript: (text: string) => void }) {
           ? "bg-red-500 text-white animate-pulse"
           : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
       }`}
-      title={listening ? "Detener dictado" : "Dictar con micrófono"}
+      title={listening ? tr(t.scripts.stopDictation, language) : tr(t.scripts.dictateWithMic, language)}
     >
       {listening ? <MicOff className="w-4 h-4" /> : <MicIcon className="w-4 h-4" />}
     </button>
@@ -242,7 +243,7 @@ function SortableLineItem({
   const { language } = useLanguage();
   const typeConfig = getTypeConfig(language);
   const cfg = isPlaceholder
-    ? { label: "Selecciona tipo", icon: Plus, color: "text-[hsl(var(--bone) / 0.55)]", bg: "bg-[hsl(var(--graphite))]", border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[hsl(var(--bone) / 0.20)]", dot: "bg-[hsl(var(--bone) / 0.40)]" }
+    ? { label: tr(t.scripts.selectType, language), icon: Plus, color: "text-[hsl(var(--bone) / 0.55)]", bg: "bg-[hsl(var(--graphite))]", border: "border-[hsl(var(--bone) / 0.14)] border-l-[3px] border-l-[hsl(var(--bone) / 0.20)]", dot: "bg-[hsl(var(--bone) / 0.40)]" }
     : typeConfig[line.line_type];
   const Icon = cfg.icon;
 
@@ -254,14 +255,14 @@ function SortableLineItem({
         {...listeners}
         className="mt-1 p-1 rounded-lg cursor-grab active:cursor-grabbing touch-none transition-colors"
         style={{ color: "hsl(var(--bone) / 0.35)" }}
-        title="Arrastra para reordenar"
+        title={tr(t.scripts.dragToReorder, language)}
       >
         <GripVertical className="w-4 h-4" />
       </button>
       <button
         className="mt-0.5 p-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
         style={{ background: "hsl(var(--bone) / 0.05)" }}
-        title={isPlaceholder ? "Seleccionar tipo de línea" : "Cambiar tipo de línea"}
+        title={isPlaceholder ? tr(t.scripts.selectLineType, language) : tr(t.scripts.changeLineType, language)}
         onClick={async () => {
           if (!viewingScriptId) return;
           const types: ("filming" | "actor" | "editor" | "text_on_screen")[] = ["filming", "actor", "editor", "text_on_screen"];
@@ -326,7 +327,7 @@ function SortableLineItem({
             className={`mt-1 text-sm leading-relaxed cursor-pointer ${isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground"}`}
             onDoubleClick={() => { pushUndo(); setEditingLineKey(lineKey); setEditLineText(line.text); }}
           >
-            {isPlaceholder && !line.text ? "Doble clic para escribir..." : line.text}
+            {isPlaceholder && !line.text ? tr(t.scripts.doubleClickToWrite, language) : line.text}
           </p>
         )}
       </div>
@@ -335,7 +336,7 @@ function SortableLineItem({
           variant="ghost"
           size="sm"
           className="opacity-0 group-hover:opacity-100 transition-smooth text-destructive hover:text-destructive h-7 w-7 p-0 flex-shrink-0 mt-1"
-          title="Eliminar línea"
+          title={tr(t.scripts.deleteLine, language)}
           onClick={async () => {
             if (!viewingScriptId) return;
             if (!confirm(language === "en" ? "Delete this line?" : "¿Eliminar esta línea?")) return;
@@ -888,18 +889,20 @@ export default function Scripts() {
     const insertData: any = { client_id: selectedClient.id, name: newFolderName.trim() };
     if (viewingFolderId) insertData.parent_id = viewingFolderId;
     const { data, error } = await supabase.from("script_folders").insert(insertData).select().single();
-    if (error) { toast.error("Failed to create folder"); return; }
+    if (error) { toast.error(tr({ en: "Failed to create folder", es: "No se pudo crear la carpeta" }, language)); return; }
     setFolders((prev) => [...prev, data]);
     setNewFolderName("");
     setCreatingFolder(false);
-  }, [newFolderName, selectedClient, viewingFolderId]);
+  }, [newFolderName, selectedClient, viewingFolderId, language]);
 
   const handleMoveToFolder = useCallback(async (scriptId: string, folderId: string | null) => {
     const { error } = await supabase.from("scripts").update({ folder_id: folderId }).eq("id", scriptId);
-    if (error) { toast.error("Failed to move script"); return; }
+    if (error) { toast.error(tr({ en: "Failed to move script", es: "No se pudo mover el script" }, language)); return; }
     if (selectedClient) fetchScriptsByClient(selectedClient.id);
-    toast.success(folderId ? "Script moved to folder" : "Script removed from folder");
-  }, [selectedClient]);
+    toast.success(folderId
+      ? tr({ en: "Script moved to folder", es: "Script movido a la carpeta" }, language)
+      : tr({ en: "Script removed from folder", es: "Script quitado de la carpeta" }, language));
+  }, [selectedClient, language]);
 
   // Smart selection: supports plain click (toggle), Shift+click (range), Cmd/Ctrl+click (add/remove)
   const handleScriptSelect = useCallback((id: string, e?: React.MouseEvent, visibleIds?: string[]) => {
@@ -959,9 +962,12 @@ export default function Scripts() {
     const ids = Array.from(selectedScriptIds);
     await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: folderId }).eq("id", id)));
     if (selectedClient) fetchScriptsByClient(selectedClient.id);
-    toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} ${folderId ? "moved to folder" : "removed from folder"}`);
+    toast.success(tr({
+      en: `${ids.length} script${ids.length !== 1 ? "s" : ""} ${folderId ? "moved to folder" : "removed from folder"}`,
+      es: `${ids.length} script${ids.length !== 1 ? "s" : ""} ${folderId ? (ids.length === 1 ? "movido a la carpeta" : "movidos a la carpeta") : (ids.length === 1 ? "quitado de la carpeta" : "quitados de la carpeta")}`,
+    }, language));
     exitSelectMode();
-  }, [selectedScriptIds, selectedClient, exitSelectMode]);
+  }, [selectedScriptIds, selectedClient, exitSelectMode, language]);
 
   // Bulk actions for smart context menu
   const handleBulkGrabado = useCallback(async (grabado: boolean) => {
@@ -1008,7 +1014,10 @@ export default function Scripts() {
       const actualFolderId = overId.replace("folder-", "");
       await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: actualFolderId }).eq("id", id)));
       if (selectedClient) fetchScriptsByClient(selectedClient.id);
-      toast.success(`${ids.length} script${ids.length !== 1 ? "s" : ""} moved to folder`);
+      toast.success(tr({
+        en: `${ids.length} script${ids.length !== 1 ? "s" : ""} moved to folder`,
+        es: `${ids.length} script${ids.length !== 1 ? "s" : ""} ${ids.length === 1 ? "movido a la carpeta" : "movidos a la carpeta"}`,
+      }, language));
       exitSelectMode();
       return;
     }
@@ -1032,7 +1041,7 @@ export default function Scripts() {
     const newOrder = computeReorder(viewIds, ids, overId);
     await persistScriptOrder(newOrder);
     exitSelectMode();
-  }, [selectedScriptIds, selectedClient, exitSelectMode, scripts, viewingFolderId, grabadoFilter, reviewFilter, persistScriptOrder]);
+  }, [selectedScriptIds, selectedClient, exitSelectMode, scripts, viewingFolderId, grabadoFilter, reviewFilter, persistScriptOrder, language]);
 
   // Undo/Redo helper
   const pushUndo = useCallback(() => {
@@ -1093,11 +1102,11 @@ export default function Scripts() {
       setVersions(data || []);
     } catch (e) {
       console.error("Error fetching versions:", e);
-      toast.error("Error loading script history");
+      toast.error(tr({ en: "Error loading script history", es: "Error al cargar el historial del script" }, language));
     } finally {
       setVersionsLoading(false);
     }
-  }, [viewingScriptId]);
+  }, [viewingScriptId, language]);
 
   // Restore a previous version
   const restoreVersion = useCallback(async (versionId: string) => {
@@ -1110,7 +1119,7 @@ export default function Scripts() {
         .single();
 
       if (!version) {
-        toast.error("Version not found");
+        toast.error(tr({ en: "Version not found", es: "Versión no encontrada" }, language));
         return;
       }
 
@@ -1173,16 +1182,19 @@ export default function Scripts() {
     const scriptCount = scripts.filter(s => s.folder_id === target.folderId).length;
     const subfolderCount = folders.filter(f => f.parent_id === target.folderId).length;
     if (scriptCount > 0 || subfolderCount > 0) {
-      toast.error(`"${target.folderName}" isn't empty — move its ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` and ${subfolderCount} subfolder${subfolderCount !== 1 ? "s" : ""}` : ""} out first.`);
+      toast.error(tr({
+        en: `"${target.folderName}" isn't empty. Move its ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` and ${subfolderCount} subfolder${subfolderCount !== 1 ? "s" : ""}` : ""} out first.`,
+        es: `"${target.folderName}" no está vacía. Primero saca sus ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` y ${subfolderCount} subcarpeta${subfolderCount !== 1 ? "s" : ""}` : ""}.`,
+      }, language));
       return;
     }
-    if (!window.confirm(`Delete folder "${target.folderName}"?`)) return;
+    if (!window.confirm(tr({ en: `Delete folder "${target.folderName}"?`, es: `¿Eliminar la carpeta "${target.folderName}"?` }, language))) return;
     const { error } = await supabase.from("script_folders").delete().eq("id", target.folderId);
-    if (error) { toast.error("Failed to delete folder"); return; }
+    if (error) { toast.error(tr({ en: "Failed to delete folder", es: "No se pudo eliminar la carpeta" }, language)); return; }
     setFolders(prev => prev.filter(f => f.id !== target.folderId));
     if (viewingFolderId === target.folderId) setViewingFolderId(null);
-    toast.success("Folder deleted");
-  }, [ctxMenu, scripts, folders, viewingFolderId]);
+    toast.success(tr({ en: "Folder deleted", es: "Carpeta eliminada" }, language));
+  }, [ctxMenu, scripts, folders, viewingFolderId, language]);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -1721,7 +1733,7 @@ export default function Scripts() {
               className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
             >
               <Trash2 className="w-4 h-4" />
-              Delete folder
+              {tr({ en: "Delete folder", es: "Eliminar carpeta" }, language)}
             </button>
           ) : (
             <button
@@ -1729,7 +1741,7 @@ export default function Scripts() {
               className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
             >
               <FilePlus2 className="w-4 h-4" />
-              New Script
+              {tr(t.scripts.newScript, language)}
             </button>
           )}
         </div>
@@ -1761,7 +1773,7 @@ export default function Scripts() {
                   color: "hsl(var(--cream))",
                 }}
               >
-                Content Ideas
+                {tr({ en: "Content Ideas", es: "Ideas de Contenido" }, language)}
               </h1>
               <p className="max-w-xl mx-auto" style={{ color: "hsl(var(--bone) / 0.55)", fontSize: 14 }}>
                 {isAdmin ? tr(t.scripts.manageAll, language) : isVideographer ? tr(t.scripts.assignedClients, language) : tr(t.scripts.manageYour, language)}
@@ -1834,9 +1846,9 @@ export default function Scripts() {
                                       toast.success(tr(t.scripts.videographerDeleted, language));
                                     } else {
                                       const r = await res.json();
-                                       toast.error(r.error || "Error");
+                                       toast.error(r.error || tr({ en: "Error", es: "Ocurrió un error" }, language));
                                     }
-                                  } catch { toast.error("Error"); }
+                                  } catch { toast.error(tr({ en: "Error", es: "Ocurrió un error" }, language)); }
                                 }}
                                 title={tr(t.scripts.deleteVideographer, language)}
                               >
@@ -1908,7 +1920,7 @@ export default function Scripts() {
                             setVideographers((profiles || []).map((p) => ({ user_id: p.user_id, display_name: p.display_name || "Sin nombre", username: p.username })));
                           }
                         } catch (e: any) {
-                          toast.error(e.message || "Error");
+                          toast.error(e.message || tr({ en: "Error", es: "Ocurrió un error" }, language));
                         } finally {
                           setVidLoading(false);
                         }
@@ -2089,7 +2101,7 @@ export default function Scripts() {
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">{tr(t.scripts.newScript, language)}</span>
-                <span className="sm:hidden">New</span>
+                <span className="sm:hidden">{tr({ en: "New", es: "Nuevo" }, language)}</span>
               </Button>
 
               {/* Filter pills */}
@@ -2121,7 +2133,7 @@ export default function Scripts() {
                 {isAdmin && selectedClient && (
                   <button
                     onClick={() => setShowBatchModal(true)}
-                    title="Batch Generate"
+                    title={tr({ en: "Batch Generate", es: "Generación en Lote" }, language)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     <Zap className="w-4 h-4" />
@@ -2129,7 +2141,7 @@ export default function Scripts() {
                 )}
                 <button
                   onClick={() => setCreatingFolder(true)}
-                  title="New folder"
+                  title={tr({ en: "New folder", es: "Nueva carpeta" }, language)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <FolderPlus className="w-4 h-4" />
@@ -2137,7 +2149,7 @@ export default function Scripts() {
                 {selectedScriptIds.size > 0 && (
                   <button
                     onClick={exitSelectMode}
-                    title="Deselect all"
+                    title={tr({ en: "Deselect all", es: "Deseleccionar todo" }, language)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-primary bg-primary/10 transition-colors"
                   >
                     <CheckCircle2 className="w-4 h-4" />
@@ -2145,7 +2157,7 @@ export default function Scripts() {
                 )}
                 <button
                   onClick={handleToggleTrash}
-                  title={showTrash ? "Hide trash" : "Trash"}
+                  title={showTrash ? tr({ en: "Hide trash", es: "Ocultar papelera" }, language) : tr(t.scripts.trash, language)}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
                     showTrash ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
@@ -2259,7 +2271,7 @@ export default function Scripts() {
                     boxShadow: selectedScriptIds.has(s.id) ? 'inset 0 0 0 1px hsl(var(--aqua) / 0.40)' : undefined,
                   }}
                 >
-                  <button onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }} className="flex-shrink-0" title="Select (Shift+click for range)">
+                  <button onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }} className="flex-shrink-0" title={tr({ en: "Select (Shift+click for range)", es: "Seleccionar (Shift+clic para rango)" }, language)}>
                     {selectedScriptIds.has(s.id)
                       ? <CheckCircle2 className="w-5 h-5 text-primary" />
                       : <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />}
@@ -2306,7 +2318,7 @@ export default function Scripts() {
                               if (e.key === "Enter" && renameValue.trim()) {
                                 e.preventDefault();
                                 const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
-                                if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
+                                if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
                                 setRenamingScriptId(null);
                                 return;
                               }
@@ -2315,7 +2327,7 @@ export default function Scripts() {
                             onBlur={async () => {
                               if (renameValue.trim() && renameValue !== s.title) {
                                 const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
-                                if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
+                                if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
                               }
                               setRenamingScriptId(null);
                             }}
@@ -2324,7 +2336,7 @@ export default function Scripts() {
                           (() => {
                             const ideaOrTitle = s.idea_ganadora || s.title;
                             const hasIdea = !!s.idea_ganadora;
-                            const labelText = hasIdea ? (s.formato?.trim().toUpperCase() || "SCRIPT") : "SCRIPT";
+                            const labelText = hasIdea ? (getFormatLabel(s.formato, language).toUpperCase() || "SCRIPT") : "SCRIPT";
                             return (
                               <div className="min-w-0 flex-1">
                                 <span
@@ -2358,16 +2370,16 @@ export default function Scripts() {
                             className="editorial-eyebrow flex-shrink-0 px-2 py-0.5 rounded-full"
                             style={{ fontSize: 9, color: "#A85B1F", border: "1px solid rgba(168,91,31,0.32)", background: "rgba(168,91,31,0.08)" }}
                           >
-                            In Progress
+                            {tr({ en: "In Progress", es: "En Progreso" }, language)}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs mt-1" style={{ color: "hsl(var(--bone) / 0.40)" }}>{new Date(s.created_at).toLocaleDateString("es-MX")}</p>
+                      <p className="text-xs mt-1" style={{ color: "hsl(var(--bone) / 0.40)" }}>{new Date(s.created_at).toLocaleDateString(language === "en" ? "en-US" : "es-MX")}</p>
                     </div>
                   </button>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {s.review_status === 'needs_revision' && (
-                      <span className="text-xs text-red-400 hidden sm:inline">Needs revision</span>
+                      <span className="text-xs text-red-400 hidden sm:inline">{tr({ en: "Needs revision", es: "Necesita revisión" }, language)}</span>
                     )}
                     {s.review_status === 'approved' && <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />}
                     {s.review_status === 'needs_revision' && <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />}
@@ -2392,14 +2404,14 @@ export default function Scripts() {
                                     setRenameValue(s.title);
                                   }}
                                 >
-                                  <Pencil className="w-4 h-4" /> Rename
+                                  <Pencil className="w-4 h-4" /> {tr({ en: "Rename", es: "Renombrar" }, language)}
                                 </button>
                               )}
                               {/* Move to folder submenu */}
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted">
-                                    <Folder className="w-4 h-4" /> Move to folder {bulkHint}
+                                    <Folder className="w-4 h-4" /> {tr({ en: "Move to folder", es: "Mover a carpeta" }, language)} {bulkHint}
                                   </button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-44 p-1" align="end" side="left">
@@ -2408,7 +2420,7 @@ export default function Scripts() {
                                       className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground transition-colors hover:bg-muted"
                                       onClick={() => isBulk ? handleBulkMoveToFolder(null) : handleMoveToFolder(s.id, null)}
                                     >
-                                      Remove from folder
+                                      {tr({ en: "Remove from folder", es: "Quitar de la carpeta" }, language)}
                                     </button>
                                   )}
                                   {folders.map((f) => (
@@ -2438,8 +2450,8 @@ export default function Scripts() {
                               >
                                 <CheckCircle2 className="w-4 h-4" />
                                 {isBulk
-                                  ? (bulkIds.some((id) => !scripts.find((sc) => sc.id === id)?.grabado) ? "Mark as recorded" : "Unmark recorded")
-                                  : (s.grabado ? "Unmark recorded" : "Mark as recorded")
+                                  ? (bulkIds.some((id) => !scripts.find((sc) => sc.id === id)?.grabado) ? tr({ en: "Mark as recorded", es: "Marcar como grabado" }, language) : tr({ en: "Unmark recorded", es: "Desmarcar grabado" }, language))
+                                  : (s.grabado ? tr({ en: "Unmark recorded", es: "Desmarcar grabado" }, language) : tr({ en: "Mark as recorded", es: "Marcar como grabado" }, language))
                                 }
                                 {bulkHint}
                               </button>
@@ -2454,7 +2466,7 @@ export default function Scripts() {
                                   onClick={() => setReviewingScript(s)}
                                 >
                                   {s.review_status === 'needs_revision' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                                  {s.review_status === 'approved' ? 'Approved' : s.review_status === 'needs_revision' ? 'Needs Revision' : 'Review'}
+                                  {s.review_status === 'approved' ? tr({ en: "Approved", es: "Aprobado" }, language) : s.review_status === 'needs_revision' ? tr({ en: "Needs Revision", es: "Necesita Revisión" }, language) : tr({ en: "Review", es: "Revisar" }, language)}
                                 </button>
                               )}
                               {/* View revision notes (non-admin, only when notes exist) */}
@@ -2463,7 +2475,7 @@ export default function Scripts() {
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-red-400 transition-colors hover:bg-muted"
                                   onClick={() => setReviewingScript(s)}
                                 >
-                                  <AlertTriangle className="w-4 h-4" /> View revision notes
+                                  <AlertTriangle className="w-4 h-4" /> {tr({ en: "View revision notes", es: "Ver notas de revisión" }, language)}
                                 </button>
                               )}
                               <button
@@ -2473,7 +2485,7 @@ export default function Scripts() {
                                   else { handleDeleteScript(s.id); }
                                 }}
                               >
-                                <Trash2 className="w-4 h-4" /> Delete {bulkHint}
+                                <Trash2 className="w-4 h-4" /> {tr({ en: "Delete", es: "Eliminar" }, language)} {bulkHint}
                               </button>
                             </>
                           );
@@ -2519,10 +2531,10 @@ export default function Scripts() {
                           <button
                             onClick={() => setSharingFolder({ id: current.id, name: current.name })}
                             className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border/60 bg-background/60 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors"
-                            title="Share this folder"
+                            title={tr({ en: "Share this folder", es: "Compartir esta carpeta" }, language)}
                           >
                             <Share2 className="w-3.5 h-3.5" />
-                            Share
+                            {tr(t.scripts.share, language)}
                           </button>
                         );
                       })()}
@@ -2559,7 +2571,7 @@ export default function Scripts() {
                                   </p>
                                   <p className="editorial-eyebrow mt-1" style={{ letterSpacing: "0.14em", fontSize: 9.5 }}>
                                     {count} script{count !== 1 ? "s" : ""}
-                                    {subCount > 0 && ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`}
+                                    {subCount > 0 && tr({ en: ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`, es: ` · ${subCount} carpeta${subCount !== 1 ? "s" : ""}` }, language)}
                                   </p>
                                 </div>
                               </button>
@@ -2567,7 +2579,7 @@ export default function Scripts() {
                                 onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
                                 className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                                 style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
-                                title="Share folder"
+                                title={tr({ en: "Share folder", es: "Compartir carpeta" }, language)}
                               >
                                 <Share2 className="w-3 h-3" />
                               </button>
@@ -2582,7 +2594,7 @@ export default function Scripts() {
                             autoFocus
                             value={newFolderName}
                             onChange={(e) => setNewFolderName(e.target.value)}
-                            placeholder={viewingFolderId ? "Subfolder name" : "Folder name"}
+                            placeholder={viewingFolderId ? tr({ en: "Subfolder name", es: "Nombre de subcarpeta" }, language) : tr({ en: "Folder name", es: "Nombre de carpeta" }, language)}
                             className="h-8 text-sm"
                             style={{ background: "hsl(var(--bone) / 0.04)", borderColor: "hsl(var(--bone) / 0.14)", color: "hsl(var(--cream))" }}
                             onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
@@ -2593,13 +2605,13 @@ export default function Scripts() {
                               className="editorial-pill px-3 py-1 text-[11px] font-medium"
                               data-active="true"
                             >
-                              Save
+                              {tr({ en: "Save", es: "Guardar" }, language)}
                             </button>
                             <button
                               onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}
                               className="editorial-pill px-3 py-1 text-[11px] font-medium"
                             >
-                              Cancel
+                              {tr(t.scripts.cancel, language)}
                             </button>
                           </div>
                         </div>
@@ -2610,7 +2622,7 @@ export default function Scripts() {
                           style={{ color: "hsl(var(--bone) / 0.55)", minHeight: 110 }}
                         >
                           <FolderPlus className="w-5 h-5" />
-                          <span className="text-xs font-medium">New folder</span>
+                          <span className="text-xs font-medium">{tr({ en: "New folder", es: "Nueva carpeta" }, language)}</span>
                         </button>
                       )}
                     </div>
@@ -2619,7 +2631,7 @@ export default function Scripts() {
                   {/* ── Script list (filtered by folder or unfiled) ── */}
                   {filtered.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
-                      {viewingFolderId !== null ? "No scripts in this folder yet." : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
+                      {viewingFolderId !== null ? tr({ en: "No scripts in this folder yet.", es: "Aún no hay scripts en esta carpeta." }, language) : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
                     </p>
                   ) : (
                     <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
@@ -2635,7 +2647,7 @@ export default function Scripts() {
                       <div className="editorial-card flex items-center gap-2 px-4 py-3 rounded-xl" style={{ width: 280, background: "hsl(var(--graphite))", borderColor: "hsl(var(--bone) / 0.32)" }}>
                         <Folder className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-primary">
-                          Moving {selectedScriptIds.size} script{selectedScriptIds.size !== 1 ? "s" : ""}
+                          {tr({ en: `Moving ${selectedScriptIds.size} script${selectedScriptIds.size !== 1 ? "s" : ""}`, es: `Moviendo ${selectedScriptIds.size} script${selectedScriptIds.size !== 1 ? "s" : ""}` }, language)}
                         </span>
                       </div>
                     )}
@@ -2657,19 +2669,19 @@ export default function Scripts() {
                   boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
                 }}
               >
-                <span className="text-sm font-medium text-foreground">{selectedScriptIds.size} selected</span>
+                <span className="text-sm font-medium text-foreground">{tr({ en: `${selectedScriptIds.size} selected`, es: `${selectedScriptIds.size} seleccionados` }, language)}</span>
                 <div className="w-px h-4 bg-border" />
                 <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => handleSelectAll(scripts)}>
-                  Select All
+                  {tr({ en: "Select All", es: "Seleccionar Todo" }, language)}
                 </Button>
                 <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={exitSelectMode}>
-                  Deselect
+                  {tr({ en: "Deselect", es: "Deseleccionar" }, language)}
                 </Button>
                 <div className="w-px h-4 bg-border" />
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 gap-1">
-                      <Folder className="w-3 h-3" /> Move to folder
+                      <Folder className="w-3 h-3" /> {tr({ en: "Move to folder", es: "Mover a carpeta" }, language)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-48 p-1" align="center" side="top">
@@ -2677,7 +2689,7 @@ export default function Scripts() {
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
                       onClick={() => handleBulkMoveToFolder(null)}
                     >
-                      Remove from folder
+                      {tr({ en: "Remove from folder", es: "Quitar de la carpeta" }, language)}
                     </button>
                     {folders.map((f) => (
                       <button
@@ -2700,7 +2712,7 @@ export default function Scripts() {
                     handleBulkGrabado(anyNotRecorded);
                   }}
                 >
-                  <CheckCircle2 className="w-3 h-3" /> Mark recorded
+                  <CheckCircle2 className="w-3 h-3" /> {tr({ en: "Mark recorded", es: "Marcar grabado" }, language)}
                 </Button>
                 <div className="w-px h-4 bg-border" />
                 <Button
@@ -2709,7 +2721,7 @@ export default function Scripts() {
                   className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
                   onClick={handleBulkDelete}
                 >
-                  <Trash2 className="w-3 h-3" /> Delete
+                  <Trash2 className="w-3 h-3" /> {tr({ en: "Delete", es: "Eliminar" }, language)}
                 </Button>
               </div>
             )}
@@ -2901,10 +2913,10 @@ export default function Scripts() {
                        <SelectValue placeholder={tr(t.scripts.selectFormat, language)} />
                      </SelectTrigger>
                      <SelectContent className="bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] z-50">
-                       <SelectItem value="TALKING HEAD">Talking Head</SelectItem>
-                       <SelectItem value="B-ROLL CAPTION">B-Roll Caption</SelectItem>
-                       <SelectItem value="ENTREVISTA">{tr(t.scripts.interview, language)}</SelectItem>
-                       <SelectItem value="VARIADO">{tr(t.scripts.mixed, language)}</SelectItem>
+                       <SelectItem value="TALKING HEAD">{getFormatLabel("TALKING HEAD", language)}</SelectItem>
+                       <SelectItem value="B-ROLL CAPTION">{getFormatLabel("B-ROLL CAPTION", language)}</SelectItem>
+                       <SelectItem value="ENTREVISTA">{getFormatLabel("ENTREVISTA", language)}</SelectItem>
+                       <SelectItem value="VARIADO">{getFormatLabel("VARIADO", language)}</SelectItem>
                      </SelectContent>
                    </Select>
                 </div>
@@ -2984,7 +2996,7 @@ export default function Scripts() {
                       if (e.key === "Enter" && renameValue.trim() && viewingScriptId) {
                         e.preventDefault();
                         const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
-                        if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
+                        if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
                         setRenamingScriptId(null);
                         return;
                       }
@@ -2993,7 +3005,7 @@ export default function Scripts() {
                     onBlur={async () => {
                       if (renameValue.trim() && renameValue !== viewingMetadata.idea_ganadora && viewingScriptId) {
                         const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
-                        if (error) { toast.error("Error changing title"); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
+                        if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
                       }
                       setRenamingScriptId(null);
                     }}
@@ -3015,9 +3027,9 @@ export default function Scripts() {
                         setRenameValue(viewingMetadata.idea_ganadora || viewingMetadata.title || "");
                       }
                     }}
-                    title="Click to rename"
+                    title={tr({ en: "Click to rename", es: "Clic para renombrar" }, language)}
                   >
-                    {viewingMetadata.idea_ganadora || viewingMetadata.title || "Untitled"}
+                    {viewingMetadata.idea_ganadora || viewingMetadata.title || tr({ en: "Untitled", es: "Sin título" }, language)}
                   </h2>
                 )}
 
@@ -3081,7 +3093,7 @@ export default function Scripts() {
                         <SelectContent className="bg-[hsl(var(--graphite))] border-[hsl(var(--bone) / 0.14)] z-50">
                           {SCRIPT_FORMATS.map((f) => (
                             <SelectItem key={f.id} value={f.label} className="text-xs">
-                              {f.display ?? f.label}
+                              {getFormatLabel(f.label, language)}
                             </SelectItem>
                           ))}
                           {isCustomActive && (
@@ -3531,7 +3543,7 @@ export default function Scripts() {
                     footage: footageLink,
                     upload_source: footageLink ? 'gdrive' : null,
                   }).eq("id", existing.id).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
-                  if (error) { toast.error("Failed to update video edit record"); return; }
+                  if (error) { toast.error(tr({ en: "Failed to update video edit record", es: "No se pudo actualizar el registro de edición" }, language)); return; }
                   data = updated;
                 } else {
                   const { data: inserted, error } = await supabase.from("video_edits").insert({
@@ -3544,7 +3556,7 @@ export default function Scripts() {
                     upload_source: footageLink ? 'gdrive' : null,
                     ...lifecycleUpdate("Not started"),
                   }).select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").single();
-                  if (error) { toast.error("Failed to create video edit record"); return; }
+                  if (error) { toast.error(tr({ en: "Failed to create video edit record", es: "No se pudo crear el registro de edición" }, language)); return; }
                   data = inserted;
                 }
                 setLinkedVideoEdit({ id: data.id, client_id: data.client_id, footage: data.footage, file_submission: data.file_submission, upload_source: data.upload_source, storage_path: data.storage_path, storage_url: data.storage_url, file_size_bytes: data.file_size_bytes });
@@ -3552,6 +3564,15 @@ export default function Scripts() {
 
               const FootageCard = ({ url, kind, fileName, fileSize, accentColor, onView, onRemove }: { url: string; kind: 'video' | 'image' | 'audio' | 'archive' | 'doc' | 'other' | 'link'; fileName: string; fileSize: string; accentColor: string; onView: () => void; onRemove: () => void }) => {
                 const KIND_LABEL: Record<string, string> = { video: 'Video', image: 'Image', audio: 'Audio', archive: 'Archive', doc: 'Document', other: 'File', link: 'Link' };
+                const KIND_LABEL_I18N: Record<string, { en: string; es: string }> = {
+                  video: { en: 'Video', es: 'Video' },
+                  image: { en: 'Image', es: 'Imagen' },
+                  audio: { en: 'Audio', es: 'Audio' },
+                  archive: { en: 'Archive', es: 'Archivo' },
+                  doc: { en: 'Document', es: 'Documento' },
+                  other: { en: 'File', es: 'Archivo' },
+                  link: { en: 'Link', es: 'Enlace' },
+                };
                 const KIND_BADGE: Record<string, string> = {
                   video: 'bg-green-500/15 text-green-400',
                   image: 'bg-sky-500/15 text-sky-400',
@@ -3592,7 +3613,7 @@ export default function Scripts() {
                     <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${KIND_BADGE[kind]}`}>
-                        {KIND_LABEL[kind]}
+                        {tr(KIND_LABEL_I18N[kind] ?? { en: KIND_LABEL[kind], es: KIND_LABEL[kind] }, language)}
                       </span>
                       {fileSize && <span className="text-[10px] text-muted-foreground">{fileSize}</span>}
                     </div>
@@ -3605,7 +3626,7 @@ export default function Scripts() {
                         rel="noopener noreferrer"
                         className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
                         onClick={e => e.stopPropagation()}
-                        title="Open link"
+                        title={tr({ en: "Open link", es: "Abrir enlace" }, language)}
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -3613,7 +3634,7 @@ export default function Scripts() {
                     <button
                       className="w-7 h-7 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive/70 hover:text-destructive hover:bg-destructive/10"
                       onClick={e => { e.stopPropagation(); onRemove(); }}
-                      title="Remove"
+                      title={tr({ en: "Remove", es: "Quitar" }, language)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -3689,7 +3710,7 @@ export default function Scripts() {
               <div className="mt-4 pt-4 border-t border-[hsl(var(--bone) / 0.14)] p-4 rounded-2xl bg-[hsl(var(--graphite))]">
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-[hsl(var(--aqua))]" />
-                  <span className="text-sm font-semibold text-[hsl(var(--aqua))]">File Submission:</span>
+                  <span className="text-sm font-semibold text-[hsl(var(--aqua))]">{tr({ en: "File Submission:", es: "Archivo Entregado:" }, language)}</span>
                 </div>
                 {/* Supabase submission files — one card each */}
                 {submissionStorageFiles.length > 0 && (
@@ -3852,7 +3873,7 @@ export default function Scripts() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isAdmin ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
-              {isAdmin ? "Review Script" : "Revision Notes"}
+              {isAdmin ? tr({ en: "Review Script", es: "Revisar Script" }, language) : tr({ en: "Revision Notes", es: "Notas de Revisión" }, language)}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground line-clamp-2 break-words">
               {reviewingScript?.idea_ganadora || reviewingScript?.title}
@@ -3863,7 +3884,7 @@ export default function Scripts() {
           {isAdmin && showRevisionInput && (
             <div className="space-y-2">
               <Textarea
-                placeholder="Describe the revisions needed (e.g. change the hook, shorten the CTA...)"
+                placeholder={tr({ en: "Describe the revisions needed (e.g. change the hook, shorten the CTA...)", es: "Describe las revisiones necesarias (p. ej. cambia el hook, acorta el CTA...)" }, language)}
                 className="min-h-[100px] text-sm resize-none border-red-500/40 focus-visible:ring-red-500/40"
                 value={revisionNotes}
                 onChange={(e) => setRevisionNotes(e.target.value)}
@@ -3879,16 +3900,16 @@ export default function Scripts() {
                     setRevisionNotes("");
                     setShowRevisionInput(false);
                     if (selectedClient) fetchScriptsByClient(selectedClient.id);
-                    toast.warning("Script marked as needs revision");
+                    toast.warning(tr({ en: "Script marked as needs revision", es: "Script marcado como necesita revisión" }, language));
                   } catch (e) {
-                    toast.error("Failed to update status");
+                    toast.error(tr({ en: "Failed to update status", es: "No se pudo actualizar el estado" }, language));
                   }
                 }}
               >
-                <AlertTriangle className="w-4 h-4" /> Save Revision Notes
+                <AlertTriangle className="w-4 h-4" /> {tr({ en: "Save Revision Notes", es: "Guardar Notas de Revisión" }, language)}
               </Button>
               <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowRevisionInput(false)}>
-                Cancel
+                {tr({ en: "Cancel", es: "Cancelar" }, language)}
               </Button>
             </div>
           )}
@@ -3898,7 +3919,7 @@ export default function Scripts() {
               {/* Show existing revision notes if any */}
               {reviewingScript?.revision_notes && reviewingScript.review_status === 'needs_revision' && (
                 <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-                  <p className="font-medium text-xs text-red-400 mb-1">Revision notes:</p>
+                  <p className="font-medium text-xs text-red-400 mb-1">{tr({ en: "Revision notes:", es: "Notas de revisión:" }, language)}</p>
                   <p className="whitespace-pre-wrap">{reviewingScript.revision_notes}</p>
                 </div>
               )}
@@ -3911,13 +3932,13 @@ export default function Scripts() {
                       await updateReviewStatus(reviewingScript!.id, 'approved');
                       setReviewingScript(null);
                       if (selectedClient) fetchScriptsByClient(selectedClient.id);
-                      toast.success("Script approved");
+                      toast.success(tr({ en: "Script approved", es: "Script aprobado" }, language));
                     } catch (e) {
-                      toast.error("Failed to update status");
+                      toast.error(tr({ en: "Failed to update status", es: "No se pudo actualizar el estado" }, language));
                     }
                   }}
                 >
-                  <CheckCircle2 className="w-4 h-4" /> Approve
+                  <CheckCircle2 className="w-4 h-4" /> {tr({ en: "Approve", es: "Aprobar" }, language)}
                 </Button>
                 <Button
                   variant="outline"
@@ -3927,7 +3948,7 @@ export default function Scripts() {
                     setShowRevisionInput(true);
                   }}
                 >
-                  <AlertTriangle className="w-4 h-4" /> Needs Revision
+                  <AlertTriangle className="w-4 h-4" /> {tr({ en: "Needs Revision", es: "Necesita Revisión" }, language)}
                 </Button>
               </div>
               )}
@@ -3940,13 +3961,13 @@ export default function Scripts() {
                       await updateReviewStatus(reviewingScript!.id, null);
                       setReviewingScript(null);
                       if (selectedClient) fetchScriptsByClient(selectedClient.id);
-                      toast.info("Review status cleared");
+                      toast.info(tr({ en: "Review status cleared", es: "Estado de revisión borrado" }, language));
                     } catch (e) {
-                      toast.error("Failed to clear status");
+                      toast.error(tr({ en: "Failed to clear status", es: "No se pudo borrar el estado" }, language));
                     }
                   }}
                 >
-                  Clear review status
+                  {tr({ en: "Clear review status", es: "Borrar estado de revisión" }, language)}
                 </Button>
               )}
             </>
@@ -4010,7 +4031,7 @@ export default function Scripts() {
       {showBatchModal && selectedClient && (
         <BatchGenerateModal
           clientId={selectedClient.id}
-          clientName={selectedClient.name || "Client"}
+          clientName={selectedClient.name || tr({ en: "Client", es: "Cliente" }, language)}
           onClose={() => setShowBatchModal(false)}
           onSaved={() => {
             setShowBatchModal(false);
