@@ -496,9 +496,9 @@ export default function ContentCalendar() {
   return (
 
     <>
-      <PageTransition className="editorial-page flex-1 flex flex-col min-h-screen overflow-hidden">
+      <PageTransition className="editorial-page flex-1 flex flex-col min-h-0">
 
-        <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col animate-fade-in">
+        <div className="flex-1 min-h-0 px-4 sm:px-6 py-6 flex flex-col animate-fade-in">
 
           {/* Header: Back button + Title + Share button */}
           <div className="flex items-center justify-between gap-3 mb-6">
@@ -795,7 +795,7 @@ export default function ContentCalendar() {
               </div>
 
               {/* ─── Expanded Calendar (RIGHT - flex-1 on desktop) ──────────────────────────── */}
-              <div className="w-full md:flex-1 rounded-xl border border-border/40 bg-card p-4 flex flex-col">
+              <div className="w-full md:flex-1 min-h-0 rounded-xl border border-border/40 bg-card p-4 flex flex-col">
 
                 {/* Month Navigation */}
                 <div className="flex items-center justify-between gap-2 mb-4">
