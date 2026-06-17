@@ -112,6 +112,27 @@ function getStatusConfig(status: string) {
   return STATUS_CONFIGS[key];
 }
 
+// Solid, high-contrast dot color per lifecycle status — matches the calendar
+// legend (Scheduled = primary, Published/Approved = emerald, Needs Revision =
+// destructive). LIFECYCLE_STYLE's `text` colors are light "-300" shades (and
+// white/45) meant for the app's dark surfaces; they wash out on the light
+// calendar grid, so the month-grid dots use these instead.
+function lifecycleDotColor(status: LifecycleStatus): string {
+  switch (status) {
+    case "Published":
+      return "bg-emerald-500";
+    case "Scheduled":
+      return "bg-primary";
+    case "Needs Revisions":
+      return "bg-destructive";
+    case "In progress":
+      return "bg-amber-500";
+    case "Not started":
+    default:
+      return "bg-muted-foreground";
+  }
+}
+
 // Build a 6-week (42-cell) calendar grid
 function buildCalendarGrid(year: number, month: number): Date[] {
   const firstDay = new Date(year, month, 1);
@@ -862,18 +883,22 @@ export default function ContentCalendar() {
                         >
                           {day.getDate()}
                         </span>
-                        {/* Colored dots for posts */}
+                        {/* Colored dots for posts — solid, legend-matching colors so
+                            they stay visible on the light calendar surface; "+N"
+                            when a day is busy. Guides against double-booking. */}
                         {dayPosts && dayPosts.length > 0 && (
-                          <div className="flex flex-wrap justify-center gap-0.5 mt-1.5">
-                            {dayPosts.slice(0, 4).map((post, i) => {
-                              const lcStyle = LIFECYCLE_STYLE[post.lifecycle_status];
-                              return (
-                                <div
-                                  key={i}
-                                  className={`w-1.5 h-1.5 rounded-full ${lcStyle.text.replace("text-", "bg-")}`}
-                                />
-                              );
-                            })}
+                          <div className="flex flex-wrap items-center justify-center gap-0.5 mt-1.5">
+                            {dayPosts.slice(0, 4).map((post, i) => (
+                              <div
+                                key={i}
+                                className={`w-1.5 h-1.5 rounded-full ${lifecycleDotColor(post.lifecycle_status)}`}
+                              />
+                            ))}
+                            {dayPosts.length > 4 && (
+                              <span className="text-[8px] font-semibold leading-none text-muted-foreground">
+                                +{dayPosts.length - 4}
+                              </span>
+                            )}
                           </div>
                         )}
                       </button>
