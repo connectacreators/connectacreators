@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
+import { getTargetLabel } from "@/lib/scriptTargets";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
 import { defaultSectionLabel } from "@/lib/scriptBlocks";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -152,7 +153,7 @@ export default function PublicScript() {
             <div className="mt-3 pt-3" style={{ borderTop: "1px solid hsl(var(--bone) / 0.10)" }}>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground">
                 <span className="uppercase tracking-wider text-[9px] opacity-70">{tr(t.scripts.target, language)}</span>
-                {script.target}
+                {getTargetLabel(script.target, language)}
               </span>
             </div>
           )}

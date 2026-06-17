@@ -11,6 +11,7 @@ import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed"
 import ScriptDocEditor from "@/components/ScriptDocEditor";
 import { useScripts, type ScriptLine as DocBlock } from "@/hooks/useScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
+import { getTargetLabel } from "@/lib/scriptTargets";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
 import { TYPE_BAR_CLASS, TYPE_TEXT_CLASS } from "@/lib/scriptLineTypes";
@@ -336,7 +337,7 @@ export default function PublicFolderShare() {
               <div className="mt-3 pt-3" style={{ borderTop: "1px solid hsl(var(--bone) / 0.10)" }}>
                 <span className="inline-flex items-start gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground max-w-full">
                   <span className="uppercase tracking-wider text-[9px] opacity-70 shrink-0 mt-0.5">Target</span>
-                  <span className="min-w-0 break-words">{openScript.target}</span>
+                  <span className="min-w-0 break-words">{getTargetLabel(openScript.target, language)}</span>
                 </span>
               </div>
             )}

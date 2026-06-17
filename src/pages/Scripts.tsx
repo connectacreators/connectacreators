@@ -48,6 +48,7 @@ import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBl
 import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
+import { getTargetLabel } from "@/lib/scriptTargets";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -3040,7 +3041,7 @@ export default function Scripts() {
                     style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
                   >
                     <EditorTargetChip
-                      target={viewingMetadata.target}
+                      target={getTargetLabel(viewingMetadata.target, language)}
                       label={tr(t.scripts.target, language)}
                     />
                   </div>
