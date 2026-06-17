@@ -2175,7 +2175,7 @@ export default function LandingPageNew() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr 1fr",
+              gridTemplateColumns: "2fr 1fr 1fr",
               gap: 40,
               marginBottom: 48,
             }}
@@ -2209,9 +2209,23 @@ export default function LandingPageNew() {
               </div>
             </div>
             {[
-              { title: "Product", items: ["Super Canvas", "Viral Today", "Editing Queue", "Calendar", "Companion AI", "Publishing (soon)"] },
-              { title: "Resources", items: ["Guides", "Templates", "Changelog", "API"] },
-              { title: "Company", items: ["About", "Careers", "Press", "Contact"] },
+              {
+                title: "Product",
+                items: [
+                  { label: "Super Canvas", href: "#brain" },
+                  { label: "Viral Today", href: "#viral" },
+                  { label: "Editing Queue", href: "#pipeline" },
+                  { label: "Calendar", href: "#pipeline" },
+                  { label: "Companion AI", href: "#pipeline" },
+                ],
+              },
+              {
+                title: "Company",
+                items: [
+                  { label: "About", href: "/about" },
+                  { label: "Contact", href: "/1mguarantee" },
+                ],
+              },
             ].map((col, i) => (
               <div key={i}>
                 <div
@@ -2229,7 +2243,15 @@ export default function LandingPageNew() {
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                   {col.items.map((item, j) => (
                     <li key={j} style={{ padding: "4px 0", fontSize: 14, color: "var(--bone-2)" }}>
-                      {item}
+                      {item.href.startsWith("/") ? (
+                        <Link to={item.href} className="scribble-link">
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <a href={item.href} className="scribble-link">
+                          {item.label}
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -2252,9 +2274,8 @@ export default function LandingPageNew() {
           >
             <div>© 2026 Connecta. All rights reserved.</div>
             <div style={{ display: "flex", gap: 18 }}>
-              <a href="#" className="scribble-link">Privacy</a>
-              <a href="#" className="scribble-link">Terms</a>
-              <a href="#" className="scribble-link">Status</a>
+              <Link to="/privacy-policy" className="scribble-link">Privacy</Link>
+              <Link to="/terms-and-conditions" className="scribble-link">Terms</Link>
             </div>
           </div>
         </div>
