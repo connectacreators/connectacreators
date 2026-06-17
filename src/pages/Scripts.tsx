@@ -3038,9 +3038,12 @@ export default function Scripts() {
 
             {/* FORMAT — selectable chips + single reference link */}
             <div className="editorial-card p-5 mb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Clapperboard className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr({ en: "Format", es: "Formato" }, language)}</span>
+              <div className="flex items-start gap-2 mb-3">
+                <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "How to film & edit it", es: "Cómo grabarlo y editarlo" }, language)}</div>
+                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
+                </div>
               </div>
 
               {/* Two chips: format-name dropdown + format reference */}
@@ -3165,9 +3168,12 @@ export default function Scripts() {
             </div>
 
             <div className="editorial-card p-5 mb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Eye className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>{tr(t.scripts.inspiration, language)}</span>
+              <div className="flex items-start gap-2 mb-3">
+                <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
+                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 {viewingInspirationUrls.map((url, idx) =>
