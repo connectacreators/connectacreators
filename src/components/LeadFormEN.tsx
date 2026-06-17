@@ -451,10 +451,10 @@ export default function LeadFormEN({ variant = "section" }: { variant?: "section
           boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
         }}>
           <p style={{
-            fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "clamp(20px, 4.2vw, 28px)",
-            textTransform: "uppercase", color: TEXT, textAlign: "center", marginBottom: 8, letterSpacing: "-0.01em",
+            fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: "clamp(19px, 3.8vw, 26px)",
+            textTransform: "uppercase", color: TEXT, textAlign: "center", marginBottom: 8, letterSpacing: "0.01em",
           }}>
-            APPLY TO WORK WITH US
+            Apply to work with us
           </p>
           <p style={{
             fontFamily: "'Montserrat', sans-serif", fontSize: 14, color: MUTED,

@@ -17,6 +17,8 @@ import {
   HeartPulse,
   Scale,
   Dumbbell,
+  Play,
+  Pause,
 } from "lucide-react";
 
 function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: boolean; onApply?: () => void }) {
@@ -29,28 +31,28 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
       }}
       style={{
         display: "inline-block",
-        background: inverted ? "#fff" : "#8FD0D5",
-        color: inverted ? "#8FD0D5" : "#fff",
+        background: inverted ? "#fff" : "#E8852B",
+        color: inverted ? "#E8852B" : "#0a0a0a",
         fontFamily: "'Montserrat', sans-serif",
         fontWeight: 700,
-        fontSize: small ? 11 : 13,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
+        fontSize: small ? 12 : 15,
+        letterSpacing: "0.02em",
         textDecoration: "none",
-        padding: small ? "11px 22px" : "17px 40px",
+        padding: small ? "12px 26px" : "16px 40px",
         cursor: "pointer",
         whiteSpace: "nowrap",
-        borderRadius: 2,
+        borderRadius: 999,
+        boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
       }}
     >
-      APLICA PARA TRABAJAR CON NOSOTROS
+      Agenda tu consulta →
     </a>
   );
 }
 
 function Sec({
   children,
-  bg = "#fff",
+  bg = "#0a0a0a",
   style,
 }: {
   children: React.ReactNode;
@@ -77,7 +79,7 @@ function SectionTitle({ text }: { text: string }) {
         textTransform: "uppercase",
         letterSpacing: "-0.01em",
         lineHeight: 1.1,
-        color: "#0a0a0a",
+        color: "#fff",
         marginBottom: 8,
       }}
     >
@@ -93,7 +95,7 @@ function SectionSub({ text }: { text: string }) {
         fontFamily: "'Montserrat', sans-serif",
         fontWeight: 500,
         fontSize: 15,
-        color: "#666",
+        color: "rgba(255,255,255,0.5)",
         marginBottom: 40,
       }}
     >
@@ -151,29 +153,50 @@ const PROCESS = [
 
 export default function Index() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
+  const [videoStarted, setVideoStarted] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
   const openApply = () => setApplyOpen(true);
 
-  const handleUnmute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.volume = 1;
-      setMuted(false);
+  const startVideo = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    v.volume = 1;
+    v.currentTime = 0;
+    setVideoStarted(true);
+    v.play().then(() => setVideoPlaying(true)).catch(() => {});
+  };
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().then(() => setVideoPlaying(true)).catch(() => {});
+    } else {
+      v.pause();
+      setVideoPlaying(false);
     }
   };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background: #fff; font-family: 'Montserrat', sans-serif; }
+        html, body { background: #0a0a0a; font-family: 'Montserrat', sans-serif; }
+
+        @keyframes vslPulse {
+          0% { box-shadow: 0 0 0 0 rgba(232,133,43,0.55); }
+          70% { box-shadow: 0 0 0 22px rgba(232,133,43,0); }
+          100% { box-shadow: 0 0 0 0 rgba(232,133,43,0); }
+        }
 
         .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-        .ba-card { background: #fff; overflow: hidden; border-radius: 8px; border: 1px solid #ececec; }
-        .ba-img-portrait { width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; background: #fff; }
-        .ba-img-landscape { width: 100%; height: auto; display: block; background: #fff; }
+        .ba-card { background: #161616; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+        .ba-img-portrait { width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; background: #161616; }
+        .ba-img-landscape { width: 100%; height: auto; display: block; background: #161616; }
         .ba-caption { padding: 14px 16px; }
 
         .ba-grid-square { align-items: stretch; }
@@ -188,7 +211,7 @@ export default function Index() {
           margin: 0 auto;
         }
         .agency-stat {
-          background: #8FD0D5;
+          background: #E8852B;
           border-radius: 6px;
           padding: 28px 22px;
           text-align: center;
@@ -231,14 +254,14 @@ export default function Index() {
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 
         .sys-card {
-          background: #f5f5f5;
+          background: #161616; border: 1px solid rgba(255,255,255,0.08);
           padding: 32px 22px;
           border-radius: 4px;
           text-align: left;
         }
 
         .industry-card {
-          background: #f5f5f5;
+          background: #161616; border: 1px solid rgba(255,255,255,0.08);
           padding: 28px 18px;
           border-radius: 4px;
           display: flex;
@@ -248,7 +271,7 @@ export default function Index() {
         }
 
         .step-card {
-          background: #f5f5f5;
+          background: #161616; border: 1px solid rgba(255,255,255,0.08);
           padding: 28px 22px;
           border-radius: 4px;
           text-align: left;
@@ -264,9 +287,9 @@ export default function Index() {
           align-items: flex-start;
           gap: 12px;
           padding: 14px 0;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .not-for-item:last-child { border-bottom: none; }
+        .not-for-item:last-child { border-bottom: none !important; }
 
         .roberto-row {
           display: grid;
@@ -395,9 +418,9 @@ export default function Index() {
           <div
             style={{
               fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 600,
+              fontWeight: 400,
               fontSize: "clamp(16px, 2.2vw, 20px)",
-              color: "#fff",
+              color: "rgba(255,255,255,0.92)",
               marginBottom: 8,
             }}
           >
@@ -418,7 +441,7 @@ export default function Index() {
             El sistema que pone tu marca a trabajar por ti mientras tú atiendes tu negocio.
           </div>
 
-          {/* VSL Video */}
+          {/* VSL Video — custom player with click-to-start gate */}
           <div
             style={{
               maxWidth: 760,
@@ -428,44 +451,145 @@ export default function Index() {
               border: "1px solid rgba(255,255,255,0.08)",
               boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
               position: "relative",
+              background: "#000",
             }}
           >
             <video
               ref={videoRef}
-              controls
-              autoPlay
-              muted
               playsInline
               preload="auto"
               poster="/vsl-espanol-poster.jpg"
-              style={{ width: "100%", display: "block", aspectRatio: "16 / 9", background: "#000" }}
+              onClick={videoStarted ? togglePlay : undefined}
+              onPlay={() => setVideoPlaying(true)}
+              onPause={() => setVideoPlaying(false)}
+              onEnded={() => setVideoPlaying(false)}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration) setVideoProgress(v.currentTime / v.duration);
+              }}
+              style={{
+                width: "100%",
+                display: "block",
+                aspectRatio: "16 / 9",
+                background: "#000",
+                cursor: videoStarted ? "pointer" : "default",
+                filter: videoStarted ? "none" : "blur(16px)",
+                transform: videoStarted ? "none" : "scale(1.1)",
+                transition: "filter 0.4s ease",
+              }}
             >
               <source src="/VSL_ESPANOL_ROBERTO.mp4" type="video/mp4" />
             </video>
-            {muted && (
+
+            {/* Click-to-start gate */}
+            {!videoStarted && (
               <button
-                onClick={handleUnmute}
+                onClick={startVideo}
+                aria-label="Activar sonido y reproducir"
                 style={{
                   position: "absolute",
-                  bottom: 16,
-                  right: 16,
-                  background: "rgba(0,0,0,0.75)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 6,
-                  padding: "8px 14px",
-                  cursor: "pointer",
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 13,
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 6,
-                  zIndex: 10,
+                  justifyContent: "center",
+                  gap: 18,
+                  border: "none",
+                  cursor: "pointer",
+                  background: "rgba(10,10,10,0.45)",
+                  zIndex: 5,
                 }}
               >
-                🔊 Activar sonido
+                <span
+                  style={{
+                    width: 76,
+                    height: 76,
+                    borderRadius: "50%",
+                    background: "#E8852B",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    animation: "vslPulse 2s infinite",
+                  }}
+                >
+                  <Play size={32} color="#0a0a0a" fill="#0a0a0a" style={{ marginLeft: 4 }} />
+                </span>
+                <span
+                  style={{
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontWeight: 600,
+                    fontSize: "clamp(14px, 2.2vw, 18px)",
+                    color: "#fff",
+                    letterSpacing: "0.01em",
+                    textShadow: "0 2px 12px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  Haz click para activar el sonido
+                </span>
               </button>
+            )}
+
+            {/* Minimal controls (play/pause + non-seekable progress) */}
+            {videoStarted && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "28px 18px 14px",
+                  background: "linear-gradient(transparent, rgba(0,0,0,0.72))",
+                  zIndex: 6,
+                }}
+              >
+                <button
+                  onClick={togglePlay}
+                  aria-label={videoPlaying ? "Pausar" : "Reproducir"}
+                  style={{
+                    flexShrink: 0,
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    background: "#E8852B",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {videoPlaying ? (
+                    <Pause size={20} color="#0a0a0a" fill="#0a0a0a" />
+                  ) : (
+                    <Play size={20} color="#0a0a0a" fill="#0a0a0a" style={{ marginLeft: 2 }} />
+                  )}
+                </button>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 5,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.25)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.round(videoProgress * 100)}%`,
+                      height: "100%",
+                      background: "#E8852B",
+                      borderRadius: 999,
+                      transition: "width 0.2s linear",
+                    }}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
@@ -512,7 +636,7 @@ export default function Index() {
             fontFamily: "'Montserrat', sans-serif",
             fontWeight: 700,
             fontSize: "clamp(72px, 14vw, 160px)",
-            color: "#8FD0D5",
+            color: "#E8852B",
             lineHeight: 1,
             letterSpacing: "-0.04em",
             margin: "32px 0 12px",
@@ -527,7 +651,7 @@ export default function Index() {
             fontSize: 13,
             textTransform: "uppercase",
             letterSpacing: "0.12em",
-            color: "#666",
+            color: "rgba(255,255,255,0.5)",
             marginBottom: 36,
           }}
         >
@@ -537,7 +661,7 @@ export default function Index() {
           style={{
             fontFamily: "'Montserrat', sans-serif",
             fontSize: 17,
-            color: "#222",
+            color: "rgba(255,255,255,0.78)",
             lineHeight: 1.6,
             maxWidth: 640,
             margin: "0 auto",
@@ -548,7 +672,7 @@ export default function Index() {
       </Sec>
 
       {/* ③ LA SOLUCIÓN, EL SISTEMA */}
-      <Sec bg="#f5f5f5">
+      <Sec bg="#121212">
         <SectionTitle text="UN SISTEMA COMPLETO DONE-FOR-YOU" />
         <SectionSub text="4 componentes. Tú apareces en cámara, nosotros operamos todo lo demás." />
 
@@ -562,7 +686,7 @@ export default function Index() {
                     width: 48,
                     height: 48,
                     borderRadius: 4,
-                    background: "#8FD0D5",
+                    background: "#E8852B",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -578,7 +702,7 @@ export default function Index() {
                     fontSize: 13,
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
-                    color: "#0a0a0a",
+                    color: "#fff",
                     marginBottom: 10,
                   }}
                 >
@@ -588,7 +712,7 @@ export default function Index() {
                   style={{
                     fontFamily: "'Montserrat', sans-serif",
                     fontSize: 13,
-                    color: "#555",
+                    color: "rgba(255,255,255,0.6)",
                     lineHeight: 1.6,
                   }}
                 >
@@ -643,7 +767,7 @@ export default function Index() {
                   fontSize: 11,
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "#8FD0D5",
+                  color: "#E8852B",
                   marginBottom: 8,
                 }}
               >
@@ -654,7 +778,7 @@ export default function Index() {
                   fontFamily: "'Montserrat', sans-serif",
                   fontWeight: 700,
                   fontSize: 14,
-                  color: "#0a0a0a",
+                  color: "#fff",
                   marginBottom: 10,
                   lineHeight: 1.25,
                 }}
@@ -665,7 +789,7 @@ export default function Index() {
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
                   fontSize: 13,
-                  color: "#555",
+                  color: "rgba(255,255,255,0.6)",
                   lineHeight: 1.6,
                 }}
               >
@@ -690,7 +814,7 @@ export default function Index() {
               fontSize: 14,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color: "#0a0a0a",
+              color: "#fff",
               marginBottom: 16,
             }}
           >
@@ -727,7 +851,7 @@ export default function Index() {
               fontSize: 14,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color: "#0a0a0a",
+              color: "#fff",
               marginBottom: 16,
             }}
           >
@@ -738,10 +862,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitBefore} alt="ZiguFit antes" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
                   ANTES
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#0a0a0a" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#fff" }}>
                   500 seguidores
                 </div>
               </div>
@@ -749,10 +873,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitAfter} alt="ZiguFit después" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8FD0D5", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E8852B", marginBottom: 4 }}>
                   DESPUÉS
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#8FD0D5" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#E8852B" }}>
                   17.6K seguidores
                 </div>
               </div>
@@ -764,7 +888,7 @@ export default function Index() {
       </Sec>
 
       {/* ⑤ PARA QUIÉN ES */}
-      <Sec bg="#f5f5f5">
+      <Sec bg="#121212">
         <SectionTitle text="PARA QUIÉN ESTÁ HECHO" />
         <SectionSub text="Negocios de servicios con mercado hispano disponible" />
 
@@ -773,7 +897,7 @@ export default function Index() {
             const Icon = i.icon;
             return (
               <div className="industry-card" key={i.name}>
-                <Icon size={32} color="#8FD0D5" strokeWidth={2} />
+                <Icon size={32} color="#E8852B" strokeWidth={2} />
                 <div
                   style={{
                     fontFamily: "'Montserrat', sans-serif",
@@ -781,7 +905,7 @@ export default function Index() {
                     fontSize: 13,
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
-                    color: "#0a0a0a",
+                    color: "#fff",
                     textAlign: "center",
                   }}
                 >
@@ -796,7 +920,7 @@ export default function Index() {
           style={{
             fontFamily: "'Montserrat', sans-serif",
             fontSize: 15,
-            color: "#444",
+            color: "rgba(255,255,255,0.65)",
             lineHeight: 1.65,
             maxWidth: 580,
             margin: "0 auto",
@@ -820,8 +944,8 @@ export default function Index() {
                   width: 22,
                   height: 22,
                   borderRadius: "50%",
-                  background: "#fee",
-                  color: "#c33",
+                  background: "rgba(229,72,77,0.18)",
+                  color: "#ff6b6b",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -837,7 +961,7 @@ export default function Index() {
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
                   fontSize: 14,
-                  color: "#333",
+                  color: "rgba(255,255,255,0.72)",
                   lineHeight: 1.55,
                 }}
               >
@@ -849,7 +973,7 @@ export default function Index() {
       </Sec>
 
       {/* ⑦ CÓMO TRABAJAMOS */}
-      <Sec bg="#f5f5f5">
+      <Sec bg="#121212">
         <SectionTitle text="CÓMO TRABAJAMOS" />
         <SectionSub text="Un proceso de 4 pasos para activar el sistema en tu negocio" />
 
@@ -861,7 +985,7 @@ export default function Index() {
                   fontFamily: "'Montserrat', sans-serif",
                   fontWeight: 700,
                   fontSize: 36,
-                  color: "#8FD0D5",
+                  color: "#E8852B",
                   marginBottom: 12,
                   lineHeight: 1,
                 }}
@@ -875,7 +999,7 @@ export default function Index() {
                   fontSize: 13,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
-                  color: "#0a0a0a",
+                  color: "#fff",
                   marginBottom: 10,
                 }}
               >
@@ -885,7 +1009,7 @@ export default function Index() {
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
                   fontSize: 13,
-                  color: "#555",
+                  color: "rgba(255,255,255,0.6)",
                   lineHeight: 1.6,
                 }}
               >
@@ -914,7 +1038,7 @@ export default function Index() {
                 fontSize: 18,
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
-                color: "#0a0a0a",
+                color: "#fff",
                 marginBottom: 12,
               }}
             >
@@ -924,7 +1048,7 @@ export default function Index() {
               style={{
                 fontFamily: "'Montserrat', sans-serif",
                 fontSize: 15,
-                color: "#333",
+                color: "rgba(255,255,255,0.72)",
                 lineHeight: 1.7,
                 marginBottom: 20,
               }}
@@ -939,9 +1063,9 @@ export default function Index() {
                 fontSize: 12,
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
-                color: "#8FD0D5",
+                color: "#E8852B",
                 textDecoration: "none",
-                borderBottom: "2px solid #8FD0D5",
+                borderBottom: "2px solid #E8852B",
                 paddingBottom: 2,
               }}
             >
@@ -954,7 +1078,8 @@ export default function Index() {
       {/* FOOTER */}
       <div
         style={{
-          background: "#f0f0f0",
+          background: "#0a0a0a",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
           padding: "32px 24px",
           textAlign: "center",
         }}
@@ -964,7 +1089,7 @@ export default function Index() {
             fontFamily: "'Montserrat', sans-serif",
             fontWeight: 700,
             fontSize: 12,
-            color: "#0a0a0a",
+            color: "#fff",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             marginBottom: 6,
@@ -976,13 +1101,13 @@ export default function Index() {
           style={{
             fontFamily: "'Montserrat', sans-serif",
             fontSize: 13,
-            color: "#555",
+            color: "rgba(255,255,255,0.6)",
           }}
         >
           ¿Tienes preguntas? Escríbenos a:{" "}
           <a
             href="mailto:admin@connectacreators.com"
-            style={{ color: "#8FD0D5", fontWeight: 700 }}
+            style={{ color: "#E8852B", fontWeight: 700 }}
           >
             admin@connectacreators.com
           </a>
@@ -1045,19 +1170,19 @@ function BeforeAfterCaption({ platform, before, after }: { platform?: string; be
   return (
     <div className="ba-caption">
       {platform ? (
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "#999", marginBottom: 6, textAlign: "center" }}>
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 6, textAlign: "center" }}>
           {platform}
         </div>
       ) : null}
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>ANTES</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#0a0a0a", lineHeight: 1 }}>{before}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1 }}>{before}</div>
         </div>
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#8FD0D5", letterSpacing: "0.08em" }}>AHORA</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#8FD0D5", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E8852B", letterSpacing: "0.08em" }}>AHORA</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#E8852B", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>
