@@ -25,7 +25,7 @@ import { ScheduledPostCard } from "@/components/scheduler/ScheduledPostCard";
 import { PublishComposer } from "@/components/scheduler/PublishComposer";
 import { resolveVideoUrl } from "@/lib/videoUrl";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { LIFECYCLE_STYLE, LIFECYCLE_VALUES, deriveFromLegacy, lifecycleUpdate, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -506,6 +506,51 @@ export default function ContentCalendar() {
     }
   }, [selectedPost, revisionNotes, language]);
 
+  // Admin: set lifecycle status directly (dual-writes legacy columns; the
+  // video_edits workflow trigger reassigns owners exactly as the normal flow).
+  const handleChangeStatus = useCallback(async (newStatus: LifecycleStatus) => {
+    if (!selectedPost || newStatus === selectedPost.lifecycle_status) return;
+    const id = selectedPost.id;
+    const prev = selectedPost.lifecycle_status;
+    setUpdatingStatus(true);
+    setPosts((ps) => ps.map((p) => p.id === id ? { ...p, lifecycle_status: newStatus } : p));
+    setSelectedPost((p) => p ? { ...p, lifecycle_status: newStatus } : null);
+    try {
+      const { error } = await supabase.from("video_edits").update(lifecycleUpdate(newStatus)).eq("id", id);
+      if (error) throw error;
+      toast.success(language === "en" ? "Status updated" : "Estado actualizado");
+    } catch (e) {
+      console.error("Status change error:", e);
+      setPosts((ps) => ps.map((p) => p.id === id ? { ...p, lifecycle_status: prev } : p));
+      setSelectedPost((p) => p ? { ...p, lifecycle_status: prev } : null);
+      toast.error(language === "en" ? "Failed to update status" : "Error al actualizar estado");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }, [selectedPost, language]);
+
+  // Admin: change the scheduled date (YYYY-MM-DD).
+  const handleChangeDate = useCallback(async (newDate: string) => {
+    if (!selectedPost || !newDate || newDate === selectedPost.scheduled_date) return;
+    const id = selectedPost.id;
+    const prev = selectedPost.scheduled_date;
+    setUpdatingStatus(true);
+    setPosts((ps) => ps.map((p) => p.id === id ? { ...p, scheduled_date: newDate } : p));
+    setSelectedPost((p) => p ? { ...p, scheduled_date: newDate } : null);
+    try {
+      const { error } = await supabase.from("video_edits").update({ schedule_date: newDate }).eq("id", id);
+      if (error) throw error;
+      toast.success(language === "en" ? "Date updated" : "Fecha actualizada");
+    } catch (e) {
+      console.error("Date change error:", e);
+      setPosts((ps) => ps.map((p) => p.id === id ? { ...p, scheduled_date: prev } : p));
+      setSelectedPost((p) => p ? { ...p, scheduled_date: prev } : null);
+      toast.error(language === "en" ? "Failed to update date" : "Error al actualizar fecha");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }, [selectedPost, language]);
+
   if (loading) {
     return (
         <div className="flex items-center justify-center h-64">
@@ -982,6 +1027,9 @@ export default function ContentCalendar() {
               onApprove={handleApprove}
               onRevision={handleRevisionClick}
               isEditor={isEditor}
+              isAdmin={isAdmin}
+              onChangeStatus={handleChangeStatus}
+              onChangeDate={handleChangeDate}
             />
           )}
         </DialogContent>
@@ -1043,9 +1091,12 @@ interface PostDetailProps {
   onApprove: () => void;
   onRevision: () => void;  // opens the revision notes modal
   isEditor?: boolean;
+  isAdmin?: boolean;
+  onChangeStatus?: (status: LifecycleStatus) => void;
+  onChangeDate?: (date: string) => void;
 }
 
-function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor }: PostDetailProps) {
+function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor, isAdmin, onChangeStatus, onChangeDate }: PostDetailProps) {
   // The post's *deliverable* is the final submission (file_submission_url) when
   // present; the raw main footage (storage_path) is only a fallback. This
   // mirrors the download handler, which already prefers the submission. A
@@ -1201,8 +1252,46 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
       </DialogHeader>
 
       <div className="space-y-4">
-        {/* Scheduled date */}
-        {post.scheduled_date && (
+        {/* Admin: edit status + scheduled date inline */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+                {language === "en" ? "Status" : "Estado"}
+              </span>
+              <Select
+                value={post.lifecycle_status}
+                onValueChange={(v) => onChangeStatus?.(v as LifecycleStatus)}
+                disabled={updatingStatus}
+              >
+                <SelectTrigger className="h-8 w-[170px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LIFECYCLE_VALUES.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+                {language === "en" ? "Date" : "Fecha"}
+              </span>
+              <input
+                type="date"
+                value={post.scheduled_date || ""}
+                onChange={(e) => onChangeDate?.(e.target.value)}
+                disabled={updatingStatus}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary disabled:opacity-50"
+              />
+            </div>
+            {updatingStatus && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          </div>
+        )}
+
+        {/* Scheduled date (read-only for non-admin; admin edits it above) */}
+        {post.scheduled_date && !isAdmin && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="w-3.5 h-3.5" />
             {language === "en" ? "Scheduled for" : "Programado para"}:{" "}
