@@ -139,20 +139,29 @@ async function tusUpload(
       endpoint: `https://${PROJECT_ID}.supabase.co/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000],
       headers: {
-        authorization: `Bearer ${accessToken}`,
+        // IMPORTANT: do NOT set `authorization` here. tus-js-client writes
+        // static `headers` onto the request via XHR setRequestHeader, then
+        // calls onBeforeRequest which setRequestHeaders AGAIN. Per the XHR
+        // spec a repeated header is *appended* ("Bearer a, Bearer b"), and
+        // Supabase Storage rejects that combined value as a 400
+        // "Invalid Compact JWS". So the bearer is set exactly once, in
+        // onBeforeRequest below. (This regressed the day onBeforeRequest was
+        // introduced; the token itself was never the problem.)
         apikey: SUPABASE_PUBLISHABLE_KEY,
         'x-upsert': 'true',
       },
-      // Large 4K uploads can outlive the JWT. Re-fetch a *validated* token
-      // before every request so each chunk carries a current, well-formed
-      // token. Best-effort: if it can't be revived mid-upload, keep the start
-      // token rather than blanking the header.
+      // Set the bearer exactly once per request. Re-fetch a *validated* token
+      // each time so large 4K uploads survive the JWT outliving its lifetime;
+      // fall back to the validated start-of-upload token if a mid-upload
+      // refresh fails — never blank, never duplicated.
       onBeforeRequest: async (req) => {
+        let token = accessToken;
         try {
-          req.setHeader('authorization', `Bearer ${await getValidAccessToken()}`);
+          token = await getValidAccessToken();
         } catch {
-          // Leave the existing (start-of-upload) token in place.
+          // keep the validated start-of-upload token
         }
+        req.setHeader('authorization', `Bearer ${token}`);
       },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
