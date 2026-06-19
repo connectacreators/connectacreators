@@ -1364,18 +1364,6 @@ export default function LandingPageNew() {
               Client login
             </Link>
           </div>
-
-          <div
-            data-reveal="5"
-            style={{
-              marginTop: 18,
-              fontSize: 12.5,
-              color: "var(--bone-3)",
-              letterSpacing: "0.02em",
-            }}
-          >
-            1,000,000 views in 90 days, guaranteed, or your money back.
-          </div>
         </div>
 
         {/* PromptStream (text → soundwave → output banner) removed 2026-06-07.
