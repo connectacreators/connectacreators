@@ -20,8 +20,6 @@ import logoHandBone from "@/assets/connecta-logo-hand-bone.png";
 import logoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import brainDoodle from "@/assets/brain-doodle.png";
-import yuppiesBubble from "@/assets/yuppies-bubble.png";
-import yuppiesMagnifyingGlass from "@/assets/yuppies-magnifying-glass.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import drCalvin78k from "@/assets/dr-calvin-78k.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
@@ -1221,41 +1219,14 @@ export default function LandingPageNew() {
 
       {/* ===== HERO ===== */}
       <section className="bg-ink" style={{ position: "relative", paddingTop: 80, paddingBottom: 60, overflow: "hidden" }}>
-        {/* Yuppies decorative stickers replace the text marginalia */}
-        <InteractiveSticker
-          src={yuppiesBubble}
-          baseRotation={-8}
-          maxOffset={8}
-          radius={180}
-          style={{
-            position: "absolute",
-            top: 110,
-            left: "4%",
-            width: 160,
-            height: "auto",
-            opacity: 0.62,
-            zIndex: 0,
-            pointerEvents: "none",
-            display: "block",
-          }}
-        />
-        <InteractiveSticker
-          src={yuppiesMagnifyingGlass}
-          baseRotation={6}
-          maxOffset={8}
-          radius={180}
-          style={{
-            position: "absolute",
-            top: 190,
-            right: "3%",
-            width: 180,
-            height: "auto",
-            opacity: 0.62,
-            zIndex: 0,
-            pointerEvents: "none",
-            display: "block",
-          }}
-        />
+        {/* Ambient thumbnail wall behind the hero — the same real viral covers
+            from the band below, dimmed to a very low opacity so the headline
+            and promise stay legible. Replaces the old marginalia stickers and
+            the demo video player. */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.14, pointerEvents: "none" }}>
+          <ViralWall variant="background" rows={4} />
+        </div>
+        <div className="viral-wall-veil" />
 
         <div
           style={{
@@ -1345,12 +1316,22 @@ export default function LandingPageNew() {
 
           <div
             data-reveal="2"
+            className="serif"
             style={{
-              maxWidth: 720,
+              maxWidth: 760,
               margin: "0 auto 36px",
+              fontSize: "clamp(22px, 3.2vw, 38px)",
+              lineHeight: 1.22,
+              letterSpacing: "-0.02em",
+              fontWeight: 500,
+              color: "var(--bone)",
             }}
           >
-            <DemoVideoPlayer />
+            We help experts become the{" "}
+            <span className="serif-italic" style={{ color: "var(--honey)", fontWeight: 400 }}>
+              biggest name
+            </span>{" "}
+            in their city.
           </div>
 
           <div
