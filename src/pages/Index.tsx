@@ -7,10 +7,6 @@ import robertoFounder from "@/assets/roberto-founder.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
-  Video,
-  Target,
-  MessageCircle,
-  BarChart3,
   Stethoscope,
   Smile,
   Sparkles,
@@ -103,29 +99,6 @@ function SectionSub({ text }: { text: string }) {
     </div>
   );
 }
-
-const SYSTEM_COMPONENTS = [
-  {
-    icon: Video,
-    title: "MARCA PERSONAL",
-    body: "20 scripts/mes, día de filmación profesional, edición y posting en Instagram y TikTok.",
-  },
-  {
-    icon: Target,
-    title: "ADS DIRIGIDOS",
-    body: "Meta Ads en español, audiencia hispana segmentada, optimización semanal.",
-  },
-  {
-    icon: MessageCircle,
-    title: "CONVERSIÓN",
-    body: "ManyChat responde en menos de 5 min, califica y agenda la cita por DM.",
-  },
-  {
-    icon: BarChart3,
-    title: "REPORTES",
-    body: "Dashboard mensual: leads, costo por lead, conversión a cita y crecimiento.",
-  },
-];
 
 const INDUSTRIES = [
   { icon: HeartPulse, name: "Quiroprácticos" },
@@ -701,61 +674,6 @@ export default function Index() {
         >
           Tu competencia les habla en inglés. Vas a hablarles en español.
         </div>
-      </Sec>
-
-      {/* ③ LA SOLUCIÓN, EL SISTEMA */}
-      <Sec bg="#121212">
-        <SectionTitle text="UN SISTEMA COMPLETO DONE-FOR-YOU" />
-        <SectionSub text="4 componentes. Tú apareces en cámara, nosotros operamos todo lo demás." />
-
-        <div className="grid-4" style={{ marginBottom: 52 }}>
-          {SYSTEM_COMPONENTS.map((c) => {
-            const Icon = c.icon;
-            return (
-              <div className="sys-card" key={c.title}>
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 4,
-                    background: "#E8852B",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 18,
-                  }}
-                >
-                  <Icon size={24} color="#fff" strokeWidth={2.2} />
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#fff",
-                    marginBottom: 10,
-                  }}
-                >
-                  {c.title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontSize: 13,
-                    color: "rgba(255,255,255,0.6)",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {c.body}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <ApplyBtn onApply={openApply} />
       </Sec>
 
       {/* ③.5 EL PROCESO — cómo construyo el sistema completo */}
