@@ -111,7 +111,7 @@ export default function LandingPageDoctors() {
           <a href="#work" className="dc-btn dc-btn-line dc-btn-lg">See the work →</a>
         </div>
         <div className="dc-stats rise" style={{ animationDelay: ".46s" }}>
-          <div><b>93K</b><span>followers grown</span></div>
+          <div><b>100K+</b><span>followers grown</span></div>
           <div className="dc-stat-sep" />
           <div><b>30–50</b><span>new leads / month</span></div>
           <div className="dc-stat-sep" />
@@ -134,15 +134,15 @@ export default function LandingPageDoctors() {
               <span className="dc-case-badge">Dr. Calvin · Chiropractic</span>
             </div>
             <div className="dc-case-body">
-              <h3 className="dc-case-h">From 7K followers in 16 years to 93K — and a packed schedule.</h3>
+              <h3 className="dc-case-h">From 7K followers in 16 years to over 100K in 9 months — and a packed schedule.</h3>
               <p className="dc-case-p">
                 We built Dr. Calvin's feed into one of the most-watched in his space: 50M+ views,
-                93K followers, and a steady 30–50 new patient leads every month — about $15K in extra
+                100K+ followers in 9 months, and a steady 30–50 new patient leads every month — about $15K in extra
                 revenue. The same playbook now runs for the doctors we partner with.
               </p>
               <div className="dc-case-stats">
                 <div><b>50M+</b><span>views</span></div>
-                <div><b>93K</b><span>followers</span></div>
+                <div><b>100K+</b><span>followers</span></div>
                 <div><b>$15K</b><span>extra / mo</span></div>
               </div>
               <a className="dc-case-link" href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer">
@@ -204,7 +204,7 @@ export default function LandingPageDoctors() {
               <h2 className="dc-h2">Meet your strategist.</h2>
               <p className="dc-about-p">
                 I'm <b>Roberto Gauna</b>, founder of Connecta. I build personal brands for doctors and
-                clinics — including Dr. Calvin's growth to 93K followers and 50M+ views. I own the
+                clinics — including Dr. Calvin's growth to 100K+ followers and 50M+ views. I own the
                 strategy and playbook that turn good doctors into the most-known name in their city,
                 and I'm personally in the room for every practice we take on.
               </p>
@@ -226,7 +226,7 @@ export default function LandingPageDoctors() {
           <div className="dc-quote-card">
             <span className="dc-eyebrow">What doctors say</span>
             <p className="dc-quote">
-              "I had 7K followers for 16 years… now <span className="dc-teal-tx">93K</span> — with 30–50 new
+              "I had 7K followers for 16 years… now <span className="dc-teal-tx">100K+</span> — with 30–50 new
               leads and about <span className="dc-teal-tx">$15K extra every month.</span> Best decision I've
               made for my practice."
             </p>
@@ -235,7 +235,7 @@ export default function LandingPageDoctors() {
               <div>
                 <div className="dc-by-name">Dr. Calvin</div>
                 <div className="dc-by-role">
-                  Chiropractor · 93K followers · 50M+ views with Connecta ·{" "}
+                  Chiropractor · 100K+ followers · 50M+ views with Connecta ·{" "}
                   <a href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer" className="dc-by-link">see his work →</a>
                 </div>
               </div>
