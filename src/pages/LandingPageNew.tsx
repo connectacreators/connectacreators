@@ -1383,14 +1383,9 @@ export default function LandingPageNew() {
             restore steps in docs/superpowers/archived-promptstream-hero.md. */}
       </section>
 
-      {/* ===== Viral wall — its own slim band of real million-view thumbnails,
-              scrolling full-width. Foreground, full colour, view counts on show. */}
-      <section className="bg-ink" style={{ paddingTop: 18, paddingBottom: 28, overflow: "hidden" }}>
-        <div data-reveal="1" style={{ textAlign: "center", marginBottom: 18, padding: "0 24px" }}>
-          <span className="eyebrow">Backed by hundreds of millions of real views</span>
-        </div>
-        <ViralWall variant="band" rows={2} />
-      </section>
+      {/* Viral-wall band removed 2026-06-19 — the same thumbnails now run as
+         the low-opacity hero backdrop, so the full-colour band below was a
+         duplicate. ViralWall (background variant) still lives in the hero. */}
 
       {/* ===== Real track record — bone panel ===== */}
       <section className="panel-bone" style={{ padding: "80px 0 90px", marginTop: 24, position: "relative", overflow: "visible" }}>
