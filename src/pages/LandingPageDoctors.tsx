@@ -6,7 +6,7 @@ import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
    Doctors landing — modern edition.
    Aesthetic: bright, contemporary, confident. Off-white canvas, vivid cobalt +
    warm coral accents, oversized Bricolage Grotesque display, bento grid,
-   soft gradient glow, big rounded cards. Bilingual EN/ES throughout.
+   soft gradient glow, big rounded cards. English throughout.
    Self-contained — scoped to .imx, fonts injected at runtime.
    ============================================================================= */
 
@@ -15,18 +15,18 @@ const FONT_HREF =
   "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap";
 
 const AREAS = [
-  ["Family Medicine", "Medicina familiar"],
-  ["Dermatology", "Dermatología"],
-  ["Cardiology", "Cardiología"],
-  ["Pediatrics", "Pediatría"],
-  ["Aesthetics", "Estética"],
-  ["Wellness", "Bienestar"],
+  "Family Medicine",
+  "Dermatology",
+  "Cardiology",
+  "Pediatrics",
+  "Aesthetics",
+  "Wellness",
 ];
 
 const STEPS = [
-  ["01", "We learn your voice", "Aprendemos tu voz", "How you explain medicine — in plain English and natural Spanish. Trained on you, not translated."],
-  ["02", "We script, film & edit", "Guion, grabación, edición", "Hooks that travel, captions that convert, both languages. You show up; we run the studio."],
-  ["03", "We post & grow", "Publicamos y crecemos", "Daily, bilingual, on every platform — so the next patient finds you before they call anyone else."],
+  ["01", "We learn your voice", "How you explain medicine, in plain language. Trained on you, not a template."],
+  ["02", "We script, film & edit", "Hooks that travel, captions that convert. You show up; we run the studio."],
+  ["03", "We post & grow", "Daily, on every platform — so the next patient finds you before they call anyone else."],
 ];
 
 export default function LandingPageDoctors() {
@@ -51,7 +51,7 @@ export default function LandingPageDoctors() {
         </Link>
         <div className="imx-nav-links">
           <a href="#what">What we do</a>
-          <a href="#method">El método</a>
+          <a href="#method">The method</a>
           <a href="#proof">Results</a>
         </div>
         <Link to="/1mguarantee" className="imx-btn imx-btn-dark imx-btn-sm">Work with us</Link>
@@ -61,19 +61,15 @@ export default function LandingPageDoctors() {
       <header className="imx-hero">
         <div className="imx-glow" aria-hidden />
         <span className="imx-tag rise" style={{ animationDelay: ".04s" }}>
-          <span className="imx-tag-dot" /> For doctors and clinicians · EN / ES
+          <span className="imx-tag-dot" /> For doctors and clinicians
         </span>
         <h1 className="imx-h1 rise" style={{ animationDelay: ".12s" }}>
           The doctor patients<br />
           trust <span className="imx-grad">before they call.</span>
         </h1>
-        <p className="imx-es rise" style={{ animationDelay: ".22s" }}>
-          El doctor en quien los pacientes confían — <em>primero</em>.
-        </p>
         <p className="imx-lede rise" style={{ animationDelay: ".30s" }}>
-          We build your personal brand in English <em>and</em> Spanish — scripted, filmed,
-          edited, and posted for you. You practice medicine; we make sure the right patients
-          find you first.
+          We build your personal brand — <em>scripted, filmed, edited, and posted for you.</em>{" "}
+          You practice medicine; we make sure the right patients find you first.
         </p>
         <div className="imx-cta rise" style={{ animationDelay: ".38s" }}>
           <Link to="/1mguarantee" className="imx-btn imx-btn-cobalt imx-btn-lg">
@@ -82,11 +78,11 @@ export default function LandingPageDoctors() {
           <a href="#what" className="imx-btn imx-btn-line imx-btn-lg">See how it works</a>
         </div>
         <div className="imx-stats rise" style={{ animationDelay: ".48s" }}>
-          <div><b>100M+</b><span>views generated</span></div>
+          <div><b>93K</b><span>followers grown</span></div>
           <div className="imx-stat-sep" />
-          <div><b>100K+</b><span>followers grown</span></div>
+          <div><b>30–50</b><span>new leads / month</span></div>
           <div className="imx-stat-sep" />
-          <div><b>50M+</b><span>one clinic's views</span></div>
+          <div><b>$15K</b><span>extra revenue / month</span></div>
         </div>
       </header>
 
@@ -95,22 +91,18 @@ export default function LandingPageDoctors() {
         <div className="imx-wrap">
           <div className="imx-head">
             <span className="imx-eyebrow">What we do</span>
-            <h2 className="imx-h2">Everything handled — <span className="imx-cobalt-tx">in both languages.</span></h2>
+            <h2 className="imx-h2">Everything handled — <span className="imx-cobalt-tx">done for you.</span></h2>
           </div>
 
           <div className="imx-bento">
             <div className="imx-card imx-b-wide imx-card-cobalt">
-              <span className="imx-card-kick">La ventaja bilingüe</span>
-              <h3 className="imx-card-h">One story, filmed twice — native English, native Spanish.</h3>
+              <span className="imx-card-kick">The Connecta edge</span>
+              <h3 className="imx-card-h">Your expertise, turned into content patients can't scroll past.</h3>
               <p className="imx-card-p">
-                Most of your patients think in Spanish and search in both. We produce every piece
-                in both languages, never machine-translated — so every family understands you.
+                We learn how you explain medicine, then build a feed around it — scripted, filmed,
+                and edited to your voice. The result: a steady stream of new patients who already
+                trust you before they walk in.
               </p>
-              <div className="imx-lang-row">
-                <span className="imx-lang-chip">EN</span>
-                <span className="imx-lang-x">↔</span>
-                <span className="imx-lang-chip imx-lang-coral">ES</span>
-              </div>
             </div>
 
             <div className="imx-card">
@@ -132,7 +124,7 @@ export default function LandingPageDoctors() {
             </div>
 
             <div className="imx-card imx-b-wide imx-card-dark">
-              <span className="imx-card-kick light">La garantía</span>
+              <span className="imx-card-kick light">The guarantee</span>
               <h3 className="imx-card-h light">90 leads in 90 days — <span className="imx-coral-tx">or you don't pay.</span></h3>
               <p className="imx-card-p light">We watch what's winning in medical content every day and put your spin on it before the trend peaks.</p>
             </div>
@@ -144,14 +136,13 @@ export default function LandingPageDoctors() {
       <section className="imx-section imx-section-tint">
         <div className="imx-wrap">
           <div className="imx-head center">
-            <span className="imx-eyebrow">Para tu especialidad</span>
+            <span className="imx-eyebrow">For your specialty</span>
             <h2 className="imx-h2">Made for your specialty.</h2>
           </div>
           <div className="imx-areas">
-            {AREAS.map(([en, es]) => (
+            {AREAS.map((en) => (
               <div className="imx-area" key={en}>
                 <span className="imx-area-en">{en}</span>
-                <span className="imx-area-es">{es}</span>
               </div>
             ))}
           </div>
@@ -162,15 +153,14 @@ export default function LandingPageDoctors() {
       <section className="imx-section" id="method">
         <div className="imx-wrap">
           <div className="imx-head">
-            <span className="imx-eyebrow">El método</span>
+            <span className="imx-eyebrow">The method</span>
             <h2 className="imx-h2">You practice medicine. <span className="imx-cobalt-tx">We run your feed.</span></h2>
           </div>
           <div className="imx-steps">
-            {STEPS.map(([n, en, es, body]) => (
+            {STEPS.map(([n, en, body]) => (
               <div className="imx-step" key={n}>
                 <span className="imx-step-n">{n}</span>
                 <h3 className="imx-step-en">{en}</h3>
-                <span className="imx-step-es">{es}</span>
                 <p className="imx-step-p">{body}</p>
               </div>
             ))}
@@ -181,17 +171,18 @@ export default function LandingPageDoctors() {
       {/* ===== PROOF (cobalt block) ===== */}
       <section className="imx-proof" id="proof">
         <div className="imx-wrap">
-          <span className="imx-eyebrow light">The record</span>
+          <span className="imx-eyebrow light">The record · Dr. Calvin</span>
           <h2 className="imx-proof-h">The numbers are already in.</h2>
           <div className="imx-proof-grid">
-            <div className="imx-proof-stat"><b>100M+</b><span>views generated</span></div>
-            <div className="imx-proof-stat"><b>100K+</b><span>followers grown</span></div>
-            <div className="imx-proof-stat"><b>50M+</b><span>one clinic's views</span></div>
+            <div className="imx-proof-stat"><b>93K</b><span>followers grown</span></div>
+            <div className="imx-proof-stat"><b>30–50</b><span>new leads / month</span></div>
+            <div className="imx-proof-stat"><b>$15K</b><span>extra revenue / month</span></div>
           </div>
           <p className="imx-proof-note">
-            Dr. Calvin's clinic grew to{" "}
-            <a href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer">50M+ views</a>{" "}
-            and a packed schedule with Connecta — the same playbook now runs for the doctors we work with.
+            Dr. Calvin grew to{" "}
+            <a href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer">93K followers and 50M+ views</a>{" "}
+            with Connecta — turning his feed into 30–50 new patient leads and about $15K in extra
+            revenue every month. The same playbook now runs for the doctors we work with.
           </p>
         </div>
       </section>
@@ -201,7 +192,8 @@ export default function LandingPageDoctors() {
         <div className="imx-wrap">
           <div className="imx-quote-card">
             <p className="imx-quote">
-              "I had 7K followers for 16 years… now <span className="imx-cobalt-tx">62K in 6 months.</span>
+              "I had 7K followers for 16 years… now <span className="imx-cobalt-tx">93K</span> — with
+              30–50 new leads and about <span className="imx-cobalt-tx">$15K extra every month.</span>
               Thank you guys."
             </p>
             <div className="imx-quote-by">
@@ -209,7 +201,7 @@ export default function LandingPageDoctors() {
               <div>
                 <div className="imx-by-name">Dr. Calvin</div>
                 <div className="imx-by-role">
-                  Chiropractor · 50M+ views with Connecta ·{" "}
+                  Chiropractor · 93K followers · 50M+ views with Connecta ·{" "}
                   <a href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer" className="imx-by-link">see his work →</a>
                 </div>
               </div>
@@ -221,9 +213,9 @@ export default function LandingPageDoctors() {
       {/* ===== FINAL CTA ===== */}
       <section className="imx-final">
         <div className="imx-wrap center">
-          <h2 className="imx-final-h">Let's build your name.<br /><span className="imx-grad">Construyamos tu nombre.</span></h2>
+          <h2 className="imx-final-h">Let's build <span className="imx-grad">your name.</span></h2>
           <Link to="/1mguarantee" className="imx-btn imx-btn-cobalt imx-btn-lg">
-            Work with us / Trabaja con nosotros <span className="imx-arr">→</span>
+            Work with us <span className="imx-arr">→</span>
           </Link>
           <p className="imx-final-sub">90 leads in 90 days, or you don't pay.</p>
         </div>
@@ -231,7 +223,7 @@ export default function LandingPageDoctors() {
 
       <footer className="imx-foot">
         <span className="imx-brand"><span className="imx-brand-dot" aria-hidden />Connecta</span>
-        <span>Content for doctors &amp; clinics · English &amp; Spanish · © 2026</span>
+        <span>Content for doctors &amp; clinics · © 2026</span>
       </footer>
     </div>
   );
@@ -393,7 +385,7 @@ const CSS = `
 .imx .imx-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 .imx .imx-step { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px; }
 .imx .imx-step-n { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17px; color: #fff; background: var(--cobalt); width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; }
-.imx .imx-step-en { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 21px; letter-spacing: -0.01em; margin: 18px 0 2px; }
+.imx .imx-step-en { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 21px; letter-spacing: -0.01em; margin: 18px 0 12px; }
 .imx .imx-step-es { display: block; font-size: 13px; color: var(--coral); font-weight: 600; margin-bottom: 12px; }
 .imx .imx-step-p { font-size: 14.5px; color: var(--ink-2); line-height: 1.6; margin: 0; }
 
