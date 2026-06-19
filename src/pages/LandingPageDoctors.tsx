@@ -54,7 +54,7 @@ const FAQ = [
   ["What is content strategy, and why does it matter so much?", "It's the backbone. We study your niche, the algorithm, and what actually performs in medical content, then engineer a plan around how you explain medicine. Without it, you're just posting. With it, you're growing."],
   ["Do I have to be on camera all the time?", "On camera, yes — that's how patients come to trust you before they ever call. But not all the time. We make filming efficient: batch a month of content in a single short session."],
   ["How much does it cost?", "It depends on your market and goals. Book a discovery call and we'll walk you through it honestly — no pressure, no à la carte upsells."],
-  ["How long until I see results?", "Brand momentum builds in the first weeks; patient leads follow as the system compounds. Dr. Calvin went from 7K followers in 16 years to 93K — and 30–50 new leads a month."],
+  ["How long until I see results?", "Dr. Calvin started seeing new patients come in about two weeks after he signed up, and it keeps compounding from there."],
   ["What makes you different?", "No templates. We build one system around your practice, in your voice, and we back it: 90 leads in 90 days, or you don't pay."],
   ["How do we get started?", "Book a discovery call. We work with a select group of doctors at a time and we'll see if we're a fit."],
 ];
@@ -99,7 +99,7 @@ export default function LandingPageDoctors() {
           <span className="dc-tag-dot" /> Now accepting new doctor partners
         </span>
         <h1 className="dc-h1 rise" style={{ animationDelay: ".12s" }}>
-          We help doctors become the <span className="dc-grad">biggest name</span> in their city.
+          We help clinics win the <span className="dc-grad">Spanish-speaking patients</span> everyone else overlooks.
         </h1>
         <p className="dc-lede rise" style={{ animationDelay: ".24s" }}>
           More patients. Bigger brand. A practice people drive across town for.
