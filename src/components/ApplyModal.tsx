@@ -6,6 +6,8 @@ interface ApplyModalProps {
   onClose: () => void;
   children: React.ReactNode;
   label?: string;
+  /** Use light × button styling for dark-themed form cards (e.g. /doctors). */
+  dark?: boolean;
 }
 
 /**
@@ -15,7 +17,7 @@ interface ApplyModalProps {
  * can clip the fixed overlay. Closes on backdrop click, ESC, or the × button;
  * locks body scroll and restores focus while open.
  */
-export default function ApplyModal({ open, onClose, children, label = "Apply to work with us" }: ApplyModalProps) {
+export default function ApplyModal({ open, onClose, children, label = "Apply to work with us", dark = false }: ApplyModalProps) {
   const lastFocused = useRef<HTMLElement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -96,8 +98,8 @@ export default function ApplyModal({ open, onClose, children, label = "Apply to 
             justifyContent: "center",
             borderRadius: "50%",
             border: "none",
-            background: "rgba(10,10,10,0.06)",
-            color: "#0a0a0a",
+            background: dark ? "rgba(255,255,255,0.12)" : "rgba(10,10,10,0.06)",
+            color: dark ? "#F1F5F9" : "#0a0a0a",
             fontSize: 22,
             lineHeight: 1,
             cursor: "pointer",

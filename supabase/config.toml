@@ -223,6 +223,10 @@ verify_jwt = false
 [functions.send-lead-notification]
 verify_jwt = false
 
+# Doctors landing discovery-call booking — public endpoint, no JWT required
+[functions.send-doctor-lead]
+verify_jwt = false
+
 [functions.analyze-viral-video]
 verify_jwt = false
 
