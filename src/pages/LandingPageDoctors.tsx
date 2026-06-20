@@ -99,7 +99,7 @@ export default function LandingPageDoctors() {
           <span className="dc-tag-dot" /> Now accepting new doctor partners
         </span>
         <h1 className="dc-h1 rise" style={{ animationDelay: ".12s" }}>
-          We help clinics win the <span className="dc-grad">Spanish-speaking patients</span> everyone else overlooks.
+          We help medical clinics bring <span className="dc-grad">10–30 new Hispanic patients</span> every month — and position them as the <span className="dc-teal-tx">#1 authority</span> in their city.
         </h1>
         <p className="dc-lede rise" style={{ animationDelay: ".24s" }}>
           More patients. Bigger brand. A practice people drive across town for.
@@ -400,7 +400,7 @@ const CSS = `
 @keyframes dc-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
 .dc .dc-h1 {
   font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700;
-  font-size: clamp(42px, 7vw, 88px); line-height: 1.0; letter-spacing: -0.035em; margin: 0;
+  font-size: clamp(36px, 5.2vw, 66px); line-height: 1.04; letter-spacing: -0.03em; margin: 0;
 }
 .dc .dc-lede { max-width: 560px; margin: 22px auto 0; font-size: 19px; color: var(--ink-2); line-height: 1.5; }
 .dc .dc-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
@@ -523,7 +523,7 @@ const CSS = `
 @media (max-width: 540px) {
   .dc .dc-services { grid-template-columns: 1fr; }
   .dc .dc-hero { padding: 44px 20px 54px; }
-  .dc .dc-h1 { font-size: 40px; letter-spacing: -0.03em; }
+  .dc .dc-h1 { font-size: 33px; letter-spacing: -0.025em; }
   .dc .dc-lede { font-size: 17px; }
   .dc .dc-stats { gap: 14px 18px; padding: 16px 18px; width: 100%; }
   .dc .dc-stats b { font-size: 26px; }
