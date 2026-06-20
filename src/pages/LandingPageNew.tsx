@@ -1145,7 +1145,6 @@ export default function LandingPageNew() {
           >
             <a href="#brain" className="scribble-link">The Brain</a>
             <a href="#viral" className="scribble-link">Viral Today</a>
-            <a href="#pipeline" className="scribble-link">Pipeline</a>
           </div>
 
           <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1199,7 +1198,6 @@ export default function LandingPageNew() {
           >
             <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
             <a href="#viral" onClick={() => setMobileOpen(false)}>Viral Today</a>
-            <a href="#pipeline" onClick={() => setMobileOpen(false)}>Pipeline</a>
             <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
               Client login
             </Link>
@@ -1868,102 +1866,6 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Section 3 — PIPELINE (Editing / Calendar / Companion) ===== */}
-      <section id="pipeline" className="bg-ink" style={{ padding: "120px 0", marginTop: 24, position: "relative" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
-          <div className="scroll-rise">
-            <span className="eyebrow">The pipeline</span>
-            <ScrollFloat
-              containerClassName="section-h2"
-              stagger={0.025}
-            >
-              The production layer
-              <br />
-              <em className="soft">underneath the strategy.</em>
-            </ScrollFloat>
-            <div className="section-lede" style={{ margin: "0 auto 56px", textAlign: "center", position: "relative" }}>
-              <ProxText>Plans only matter if they ship. The pipeline tracks every video from idea to edit to approval, so nothing dies in a Slack thread.</ProxText>
-            </div>
-          </div>
-
-          <div
-            className="scroll-rise"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 18,
-              textAlign: "left",
-            }}
-          >
-            <PipelineCard
-              eyebrow="Editing Queue"
-              icon={Film}
-              title="Every cut, every revision, in one place."
-              body="Editors and clients see the same screen. No more Slack archaeology to find the latest version."
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {[
-                  { title: "Spring lookbook reel", state: "Cut 3 · review", pill: "honey" as const },
-                  { title: "Skincare routine v3", state: "Approved", pill: "aqua" as const },
-                  { title: "Behind the shoot", state: "Drafting", pill: "muted" as const },
-                ].map((r, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
-                    <span className="serif" style={{ color: "var(--bone-2)", fontSize: 13 }}>{r.title}</span>
-                    <span className={`pill pill-${r.pill}`}>{r.state}</span>
-                  </div>
-                ))}
-              </div>
-            </PipelineCard>
-
-            <PipelineCard
-              eyebrow="Content Calendar"
-              icon={Calendar}
-              title="A calendar that thinks ahead."
-              body="Drag posts across platforms. Companion AI suggests the best slot based on your audience and past performance."
-            >
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-                {Array.from({ length: 21 }).map((_, i) => {
-                  const has = [3, 4, 7, 10, 11, 14, 17].includes(i);
-                  const hot = [4, 11].includes(i);
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        aspectRatio: "1",
-                        borderRadius: 6,
-                        background: has
-                          ? hot
-                            ? "var(--honey-soft)"
-                            : "var(--aqua-soft)"
-                          : "rgba(234,230,220,0.04)",
-                        border: "1px solid var(--line)",
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </PipelineCard>
-
-            <PipelineCard
-              eyebrow="Companion AI"
-              icon={Sparkles}
-              title="Drafts in your voice, before you ask."
-              body="Hooks, captions, scripts, follow-ups, all generated in your tone, ready to tweak. You stay in the director's chair."
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ fontSize: 12.5, color: "var(--bone-2)", fontStyle: "italic" }} className="serif-italic">
-                  "Caption that feels like Luna: 9 words, low-key, no exclamation marks."
-                </div>
-                <div style={{ height: 1, background: "var(--line)" }} />
-                <div style={{ fontSize: 13, color: "var(--bone)", lineHeight: 1.5 }}>
-                  morning chaos, golden hour, same routine. spring is just <em className="honey">showing off.</em>
-                </div>
-              </div>
-            </PipelineCard>
-          </div>
-        </div>
-      </section>
-
       {/* ===== Section 5 — TESTIMONIAL ===== */}
       <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center", position: "relative", overflow: "visible" }}>
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
@@ -2178,9 +2080,6 @@ export default function LandingPageNew() {
                 items: [
                   { label: "Super Canvas", href: "#brain" },
                   { label: "Viral Today", href: "#viral" },
-                  { label: "Editing Queue", href: "#pipeline" },
-                  { label: "Calendar", href: "#pipeline" },
-                  { label: "Companion AI", href: "#pipeline" },
                 ],
               },
               {
