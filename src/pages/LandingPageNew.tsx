@@ -1160,7 +1160,7 @@ export default function LandingPageNew() {
             >
               Client login
             </Link>
-            <Link to="/1mguarantee" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
+            <Link to="/reto" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
               Work with us
             </Link>
           </div>
@@ -1203,7 +1203,7 @@ export default function LandingPageNew() {
             <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
               Client login
             </Link>
-            <Link to="/1mguarantee" className="btn btn-aqua" style={{ marginTop: 4, alignSelf: "flex-start" }}>
+            <Link to="/reto" className="btn btn-aqua" style={{ marginTop: 4, alignSelf: "flex-start" }}>
               Work with us
             </Link>
           </div>
@@ -1357,7 +1357,7 @@ export default function LandingPageNew() {
               flexWrap: "wrap",
             }}
           >
-            <Link to="/1mguarantee" className="btn btn-aqua btn-large">
+            <Link to="/reto" className="btn btn-aqua btn-large">
               Work with us <ArrowRight size={16} />
             </Link>
             <Link to="/login" className="btn btn-ghost btn-large">
@@ -1712,7 +1712,7 @@ export default function LandingPageNew() {
               </ul>
 
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link to="/1mguarantee" className="btn btn-aqua">
+                <Link to="/reto" className="btn btn-aqua">
                   Work with us <ArrowRight size={15} />
                 </Link>
                 <a href="#viral" className="btn btn-ghost">See trends</a>
@@ -1860,7 +1860,7 @@ export default function LandingPageNew() {
                 ))}
               </div>
 
-              <Link to="/1mguarantee" className="btn btn-honey">
+              <Link to="/reto" className="btn btn-honey">
                 Work with us <ArrowRight size={15} />
               </Link>
             </div>
@@ -2124,7 +2124,7 @@ export default function LandingPageNew() {
           >
             <ProxText>Hand us your account and we build the brand: scripted, filmed, edited, and posted in English and Spanish. You show up; we handle the rest.</ProxText>
           </div>
-          <Link to="/1mguarantee" className="btn btn-honey btn-large">
+          <Link to="/reto" className="btn btn-honey btn-large">
             Work with us <ArrowRight size={16} />
           </Link>
           <div style={{ marginTop: 18, fontSize: 12.5, color: "rgba(10,14,18,0.45)" }}>

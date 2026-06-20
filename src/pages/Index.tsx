@@ -376,7 +376,7 @@ export default function Index() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
-            Sin agencias · Sin perder tiempo
+            Sin perder tiempo
           </div>
 
           <div
@@ -394,7 +394,7 @@ export default function Index() {
           >
             Construye tu marca personal y <span style={{ color: "#E8852B" }}>consigue clientes reales</span>
             <br />
-            en menos de 90 días, sin agencias, sin perder tiempo.
+            en menos de 90 días, sin perder tiempo.
           </div>
 
           <div
