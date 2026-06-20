@@ -15,6 +15,9 @@ export type ScriptLine = {
   // In-memory-only stable id used by the editor for stable React keys.
   // Never persisted / never required from the DB.
   uid?: string;
+  // Stable DB identity (script_lines.id, a uuid). Present for persisted blocks;
+  // assigned client-side (crypto.randomUUID()) for blocks created in the editor.
+  id?: string;
 };
 
 export type Script = {
@@ -468,7 +471,7 @@ export function useScripts() {
   const getScriptBlocks = async (scriptId: string): Promise<ScriptLine[]> => {
     const { data, error } = await supabase
       .from("script_lines")
-      .select("line_number, line_type, section, text, rich_text, block_kind")
+      .select("id, line_number, line_type, section, text, rich_text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number");
     if (error) {
@@ -476,6 +479,7 @@ export function useScripts() {
       return [];
     }
     return (data || []).map((d: any) => ({
+      id: d.id,
       line_number: d.line_number,
       line_type: d.line_type,
       section: d.section || "body",
