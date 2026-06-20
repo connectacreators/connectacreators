@@ -45,6 +45,7 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
+import { buildBaseline } from "@/lib/scriptBlockDiff";
 import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
@@ -1558,6 +1559,7 @@ export default function Scripts() {
       google_drive_link: script.google_drive_link,
     });
     setViewingScriptId(script.id);
+    revisionRef.current = (script as any).revision ?? 0;
     setIsDirty(false);
     setEditingLineKey(null);
     // Load file_submission and linked video_edit record
@@ -1577,6 +1579,22 @@ export default function Scripts() {
   // Skip the auto-save triggered by the docBlocks change that (re)loading a script causes.
   const skipNextAutoSaveRef = useRef(false);
 
+  // Per-session save state for non-destructive diff saves.
+  const baselineRef = useRef<Map<string, string>>(new Map());
+  const removedIdsRef = useRef<Set<string>>(new Set());
+  const revisionRef = useRef<number | null>(null);
+
+  // User edits flow through here (NOT load-driven setDocBlocks): assign uuids to
+  // newly created blocks and record explicit removals for the diff save.
+  const handleBlocksChange = useCallback((next: ScriptLine[]) => {
+    setDocBlocks((prev) => {
+      const withIds = next.map((b) => (b.id ? b : { ...b, id: crypto.randomUUID() }));
+      const nextIds = new Set(withIds.map((b) => b.id));
+      prev.forEach((b) => { if (b.id && !nextIds.has(b.id)) removedIdsRef.current.add(b.id); });
+      return withIds;
+    });
+  }, []);
+
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
   // Lazy backfill: if no heading rows exist, synthesize headings in memory from the
@@ -1591,6 +1609,8 @@ export default function Scripts() {
       const next = hasHeadings ? withUids(all) : synthesizeBlocksFromLines(all);
       skipNextAutoSaveRef.current = true;
       setDocBlocks(next);
+      baselineRef.current = buildBaseline(next.filter((b) => b.id) as any);
+      removedIdsRef.current = new Set();
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1604,7 +1624,20 @@ export default function Scripts() {
     if (!viewingScriptId || docBlocks.length === 0) return;
     if (skipNextAutoSaveRef.current) { skipNextAutoSaveRef.current = false; return; }
     const sid = viewingScriptId;
-    const t = setTimeout(() => { saveScriptBlocks(sid, docBlocks).catch(() => {}); }, 900);
+    const t = setTimeout(() => {
+      saveScriptBlocks(sid, docBlocks, {
+        baseline: baselineRef.current,
+        removedIds: Array.from(removedIdsRef.current),
+        expectedRevision: revisionRef.current,
+      }).then((res) => {
+        baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
+        removedIdsRef.current = new Set();
+        revisionRef.current = res.revision;
+        if (res.conflicted) {
+          toast.info(tr({ en: "Synced changes from another session", es: "Se sincronizaron cambios de otra sesión" }, language));
+        }
+      }).catch(() => {});
+    }, 900);
     return () => clearTimeout(t);
   }, [docBlocks, viewingScriptId]);
 
@@ -3353,8 +3386,15 @@ export default function Scripts() {
                     try {
                       // Authoritative block save: preserves heading rows, recomputes each
                       // line's section from its nearest heading, renumbers all.
-                      const saved = await saveScriptBlocks(sid, docBlocks);
-                      setDocBlocks(withUids(saved));
+                      const res = await saveScriptBlocks(sid, docBlocks, {
+                        baseline: baselineRef.current,
+                        removedIds: Array.from(removedIdsRef.current),
+                        expectedRevision: revisionRef.current,
+                      });
+                      setDocBlocks(withUids(res.blocks));
+                      baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
+                      removedIdsRef.current = new Set();
+                      revisionRef.current = res.revision;
                       // Save caption alongside the document
                       await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", sid);
                       // Sync caption to linked video_edits record
@@ -3445,7 +3485,7 @@ export default function Scripts() {
             <ScriptDocEditor
               embedded
               blocks={docBlocks}
-              onBlocksChange={setDocBlocks}
+              onBlocksChange={handleBlocksChange}
               scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
               scriptMeta={
                 [viewingMetadata?.target, viewingMetadata?.formato]
