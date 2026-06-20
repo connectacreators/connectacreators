@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeBlocks } from "@/lib/scriptBlocks";
+import { computeBlockDiff } from "@/lib/scriptBlockDiff";
 import { toast } from "sonner";
 
 export type ScriptLine = {
@@ -83,6 +84,15 @@ const replaceAllLines = async (scriptId: string, lines: { line_type: string; sec
   // Clean up lock if we're still the latest
   if (_locks.get(scriptId) === op) _locks.delete(scriptId);
   return result;
+};
+
+const getScriptRevision = async (scriptId: string): Promise<number> => {
+  const { data } = await supabase
+    .from("scripts")
+    .select("revision")
+    .eq("id", scriptId)
+    .maybeSingle();
+  return (data?.revision as number) ?? 0;
 };
 
 // Save a snapshot of the current script lines into script_versions (for history)
@@ -489,40 +499,71 @@ export function useScripts() {
     })) as ScriptLine[];
   };
 
-  // Authoritative block save. Accepts the FULL ordered block list (headings + lines
-  // interleaved). It:
-  //   - renumbers line_number = index+1 across the whole list,
-  //   - sets each content line's section = role of nearest preceding heading
-  //     (fallback 'body'), while heading rows keep their own section + label,
-  //   - persists via delete-all-then-reinsert (same pattern as replaceAllLines),
-  //   - returns the fresh saved blocks (re-read via getScriptBlocks).
-  // Both the Doc Editor and Card View converge on this so no save ever wipes headings.
-  const saveScriptBlocks = async (scriptId: string, blocks: ScriptLine[]): Promise<ScriptLine[]> => {
+  // Non-destructive block save. Upserts ONLY blocks whose content differs from the
+  // caller-supplied baseline, and deletes ONLY ids the user explicitly removed —
+  // so a concurrent session editing other blocks is never clobbered. Conditionally
+  // bumps scripts.revision as a convergence signal.
+  const saveScriptBlocks = async (
+    scriptId: string,
+    blocks: ScriptLine[],
+    opts: { baseline?: Map<string, string>; removedIds?: string[]; expectedRevision?: number | null } = {},
+  ): Promise<{ blocks: ScriptLine[]; revision: number; conflicted: boolean }> => {
     const normalized = normalizeBlocks(blocks);
-    // SAFETY: never let an empty document wipe a script. An empty `blocks` is
-    // almost always a half-loaded / glitched editor state, not an intentional
-    // clear — and replaceAllLines would delete every row and report success.
-    // If the in-memory document has no content lines, skip the destructive
-    // replace and return what's currently persisted untouched.
+    // SAFETY: never let an empty document wipe a script.
     const hasContentLine = normalized.some((b) => (b.block_kind ?? "line") === "line");
     if (!hasContentLine) {
-      return getScriptBlocks(scriptId);
+      return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false };
     }
-    const ok = await replaceAllLines(
-      scriptId,
-      normalized.map((b) => ({
+    // Ensure every block has a stable uuid id (new blocks created in the editor).
+    const withIds = normalized.map((b) => ({ ...b, id: b.id ?? crypto.randomUUID() })) as (ScriptLine & { id: string })[];
+
+    const { upserts, deleteIds } = computeBlockDiff(withIds, opts.baseline ?? new Map(), opts.removedIds ?? []);
+
+    if (upserts.length > 0) {
+      const rows = upserts.map((b) => ({
+        id: b.id,
+        script_id: scriptId,
+        line_number: b.line_number,
         line_type: b.line_type,
         section: b.section,
         text: b.text,
+        block_kind: b.block_kind,
         rich_text: b.rich_text,
-        block_kind: b.block_kind ?? "line",
-      }))
-    );
-    if (!ok) {
-      toast.error("Error saving script");
-      throw new Error("Failed to save script blocks");
+      }));
+      const { error } = await supabase.from("script_lines").upsert(rows, { onConflict: "id" });
+      if (error) {
+        console.error("saveScriptBlocks upsert error:", error);
+        toast.error("Error saving script");
+        throw new Error("Failed to save script blocks");
+      }
     }
-    return getScriptBlocks(scriptId);
+    if (deleteIds.length > 0) {
+      await supabase.from("script_lines").delete().in("id", deleteIds);
+    }
+
+    // Revision backstop: conditional bump signals concurrent edits without blocking the save.
+    let conflicted = false;
+    let revision: number;
+    const expected = opts.expectedRevision;
+    if (expected != null) {
+      const { data: bumped } = await supabase
+        .from("scripts")
+        .update({ revision: expected + 1 })
+        .eq("id", scriptId)
+        .eq("revision", expected)
+        .select("revision")
+        .maybeSingle();
+      if (bumped) {
+        revision = bumped.revision as number;
+      } else {
+        conflicted = true;
+        revision = await getScriptRevision(scriptId);
+      }
+    } else {
+      revision = await getScriptRevision(scriptId);
+    }
+
+    return { blocks: await getScriptBlocks(scriptId), revision, conflicted };
   };
 
   const deleteScript = async (scriptId: string) => {
@@ -893,6 +934,7 @@ export function useScripts() {
     categorizeAndSave,
     getScriptLines,
     getScriptBlocks,
+    getScriptRevision,
     saveScriptBlocks,
     deleteScript,
     restoreScript,
