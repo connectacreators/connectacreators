@@ -1586,14 +1586,23 @@ export default function Scripts() {
 
   // User edits flow through here (NOT load-driven setDocBlocks): assign uuids to
   // newly created blocks and record explicit removals for the diff save.
-  const handleBlocksChange = useCallback((next: ScriptLine[]) => {
-    setDocBlocks((prev) => {
-      const withIds = next.map((b) => (b.id ? b : { ...b, id: crypto.randomUUID() }));
-      const nextIds = new Set(withIds.map((b) => b.id));
-      prev.forEach((b) => { if (b.id && !nextIds.has(b.id)) removedIdsRef.current.add(b.id); });
-      return withIds;
-    });
-  }, []);
+  // Accepts BOTH plain arrays AND functional updaters (React.SetStateAction) because
+  // ScriptDocEditor calls onBlocksChange with updater functions (e.g. on blur/Enter/undo).
+  const handleBlocksChange = useCallback(
+    (action: React.SetStateAction<ScriptLine[]>) => {
+      setDocBlocks((prev) => {
+        const next =
+          typeof action === "function"
+            ? (action as (p: ScriptLine[]) => ScriptLine[])(prev)
+            : action;
+        const withIds = next.map((b) => (b.id ? b : { ...b, id: crypto.randomUUID() }));
+        const nextIds = new Set(withIds.map((b) => b.id));
+        prev.forEach((b) => { if (b.id && !nextIds.has(b.id)) removedIdsRef.current.add(b.id); });
+        return withIds;
+      });
+    },
+    [],
+  );
 
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
@@ -1639,7 +1648,7 @@ export default function Scripts() {
       }).catch(() => {});
     }, 900);
     return () => clearTimeout(t);
-  }, [docBlocks, viewingScriptId]);
+  }, [docBlocks, viewingScriptId, language]);
 
   const refreshLinkedVideoEdit = async (scriptId: string) => {
     const { data } = await supabase.from("video_edits").select("id, client_id, footage, file_submission, upload_source, storage_path, storage_url, file_size_bytes").eq("script_id", scriptId).maybeSingle();

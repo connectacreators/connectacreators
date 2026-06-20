@@ -538,7 +538,12 @@ export function useScripts() {
       }
     }
     if (deleteIds.length > 0) {
-      await supabase.from("script_lines").delete().in("id", deleteIds);
+      const { error: delErr } = await supabase
+        .from("script_lines")
+        .delete()
+        .eq("script_id", scriptId)
+        .in("id", deleteIds);
+      if (delErr) console.error("saveScriptBlocks delete error:", delErr);
     }
 
     // Revision backstop: conditional bump signals concurrent edits without blocking the save.
