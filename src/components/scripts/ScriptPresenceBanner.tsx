@@ -22,7 +22,7 @@ export default function ScriptPresenceBanner({ others }: Props) {
         {people.slice(0, 6).map((p) => (
           <div key={p.userId} className="relative group">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white ring-2"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
               style={{ background: colorForUser(p.userId), boxShadow: "0 0 0 2px hsl(var(--ink))" }}
             >
               {initialsFromName(p.name)}
