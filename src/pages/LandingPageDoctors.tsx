@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import spencerPortrait from "@/assets/spencer-portrait.jpg";
+import spencerBefore from "@/assets/spencer-before.jpg";
+import spencerAfter from "@/assets/spencer-after.jpg";
 import ApplyModal from "@/components/ApplyModal";
 import DoctorBookingForm from "@/components/DoctorBookingForm";
 
@@ -138,6 +141,40 @@ export default function LandingPageDoctors() {
               <a className="dc-case-link" href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer">
                 Watch his reels →
               </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SPENCER — before / after ===== */}
+      <section className="dc-section dc-section-tint">
+        <div className="dc-wrap">
+          <div className="dc-head">
+            <span className="dc-eyebrow">Another result</span>
+            <h2 className="dc-h2">Years of crickets. Then <span className="dc-teal-tx">12.7K in four posts.</span></h2>
+            <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd posted for two years with almost nothing to show for it.</p>
+          </div>
+          <div className="dc-ba">
+            <div className="dc-ba-card">
+              <div className="dc-ba-row">
+                <span className="dc-ba-tag">Before</span>
+                <span className="dc-ba-meta">2 years posting · ~130 views each</span>
+              </div>
+              <img className="dc-ba-img" src={spencerBefore} alt="Three of Spencer's earlier posts averaging around 130 views: 83, 170 and 137 views" loading="lazy" />
+            </div>
+            <div className="dc-ba-card dc-ba-win">
+              <div className="dc-ba-row">
+                <span className="dc-ba-tag teal">4 posts in</span>
+                <span className="dc-ba-meta">His first 12.7K</span>
+              </div>
+              <img className="dc-ba-img dc-ba-img-tall" src={spencerAfter} alt="Spencer's first post to break 12.7K views" loading="lazy" />
+            </div>
+          </div>
+          <div className="dc-ba-by">
+            <img className="dc-avatar" src={spencerPortrait} alt="Spencer Barton" />
+            <div>
+              <div className="dc-by-name">Spencer Barton, NP</div>
+              <div className="dc-by-role">Nurse Practitioner · Pecan Health</div>
             </div>
           </div>
         </div>
@@ -449,6 +486,18 @@ const CSS = `
 .dc .dc-case-link { margin-top: auto; align-self: flex-start; color: var(--teal); font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--teal-soft); padding-bottom: 2px; }
 .dc .dc-case-link:hover { border-color: var(--teal); }
 
+/* spencer before / after */
+.dc .dc-ba { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; align-items: start; }
+.dc .dc-ba-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 16px; }
+.dc .dc-ba-win { border-color: rgba(45,212,191,0.4); }
+.dc .dc-ba-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 6px 12px; }
+.dc .dc-ba-tag { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
+.dc .dc-ba-tag.teal { color: var(--teal); }
+.dc .dc-ba-meta { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.dc .dc-ba-img { width: 100%; height: auto; border-radius: 12px; display: block; }
+.dc .dc-ba-img-tall { width: auto; max-width: 100%; max-height: 360px; margin: 0 auto; }
+.dc .dc-ba-by { display: inline-flex; align-items: center; gap: 13px; margin-top: 26px; }
+
 /* outcomes */
 .dc .dc-outcomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .dc .dc-outcome { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 32px 28px; transition: transform .18s ease, border-color .18s ease; }
@@ -516,6 +565,7 @@ const CSS = `
 @media (max-width: 920px) {
   .dc .dc-nav-links { display: none; }
   .dc .dc-case { grid-template-columns: 1fr; }
+  .dc .dc-ba { grid-template-columns: 1fr; }
   .dc .dc-case-media { min-height: 280px; }
   .dc .dc-outcomes { grid-template-columns: 1fr; }
   .dc .dc-about { grid-template-columns: 1fr; }
