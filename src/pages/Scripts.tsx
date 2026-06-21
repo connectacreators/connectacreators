@@ -1606,6 +1606,15 @@ export default function Scripts() {
   const removedIdsRef = useRef<Set<string>>(new Set());
   const revisionRef = useRef<number | null>(null);
   const savedCaptionRef = useRef<string>("");
+  // Ordered block ids as of the last persisted save — used to detect an unsaved
+  // local structural change (reorder/insert/delete) so a remote merge can't relocate it.
+  const savedOrderRef = useRef<string[]>([]);
+  // Live mirror of docBlocks so the (ref-stable) remote-sync handler can read current state.
+  const docBlocksRef = useRef<ScriptLine[]>([]);
+  const viewingCaptionRef = useRef<string>("");
+  // Set when a remote "saved" ping arrives while we have unsaved local edits; the next
+  // successful local save re-runs the merge so peer changes aren't lost, only deferred.
+  const pendingRemoteSyncRef = useRef(false);
 
   // User edits flow through here (NOT load-driven setDocBlocks): assign uuids to
   // newly created blocks and record explicit removals for the diff save.
@@ -1630,28 +1639,49 @@ export default function Scripts() {
   const handleRemoteSaved = useCallback(async () => {
     const sid = viewingScriptId;
     if (!sid) return;
+
+    // If we have ANY unsaved local change (content edit, reorder/insert/delete, or a
+    // pending caption edit), DEFER the merge. Applying remote state now could relocate an
+    // inserted line, snap back an unsaved reorder, or drop a debounced edit. Our autosave
+    // fires within ~900ms; its .then re-runs this once we're clean, so peer changes are
+    // delayed, never lost.
+    const cur = docBlocksRef.current;
+    const anyDirty = cur.some((bl) => bl.id && baselineRef.current.get(bl.id) !== blockSignature(bl));
+    const curOrder = cur.filter((bl) => bl.id).map((bl) => bl.id as string);
+    const orderChanged =
+      curOrder.length !== savedOrderRef.current.length ||
+      curOrder.some((id, i) => savedOrderRef.current[i] !== id);
+    const captionDirty = viewingCaptionRef.current !== savedCaptionRef.current;
+    if (anyDirty || orderChanged || removedIdsRef.current.size > 0 || captionDirty) {
+      pendingRemoteSyncRef.current = true;
+      return;
+    }
+
     const remoteBlocks = await getScriptBlocks(sid);
     const { data } = await supabase.from("scripts").select("caption, revision").eq("id", sid).maybeSingle();
 
-    skipNextAutoSaveRef.current = true; // the merge-driven setDocBlocks must not re-trigger a save
     setDocBlocks((prev) => {
+      // Recompute dirty inside the updater in case the user typed during the await; such a
+      // block is preserved by mergeRemoteBlocks and re-armed below.
       const dirty = new Set(
         prev.filter((bl) => bl.id && baselineRef.current.get(bl.id) !== blockSignature(bl)).map((bl) => bl.id as string),
       );
       const merged = mergeRemoteBlocks(prev, remoteBlocks, dirty);
       // Blocks we accepted from remote are now the persisted baseline.
       merged.forEach((bl) => { if (bl.id && !dirty.has(bl.id)) baselineRef.current.set(bl.id, blockSignature(bl)); });
+      savedOrderRef.current = merged.filter((bl) => bl.id).map((bl) => bl.id as string);
+      // Only skip the merge-driven autosave when nothing is locally pending; if a race made
+      // a block dirty, let the autosave fire so that edit still persists.
+      skipNextAutoSaveRef.current = dirty.size === 0;
       return withUids(merged);
     });
 
     if (data) {
       revisionRef.current = (data as any).revision ?? revisionRef.current;
       const remoteCaption = (data as any).caption ?? "";
-      // Only adopt the remote caption if the user hasn't edited theirs since last save.
-      setViewingCaption((prev) => {
-        if (prev === savedCaptionRef.current) { savedCaptionRef.current = remoteCaption; return remoteCaption; }
-        return prev;
-      });
+      // Caption is clean here (we deferred otherwise), so adopt the remote value.
+      savedCaptionRef.current = remoteCaption;
+      setViewingCaption(remoteCaption);
     }
   }, [viewingScriptId]);
 
@@ -1659,6 +1689,10 @@ export default function Scripts() {
     roomId: viewingScriptId ? `script:${viewingScriptId}` : "",
     onRemoteSaved: handleRemoteSaved,
   });
+
+  // Keep refs in sync with state so the ref-stable remote-sync handler reads current values.
+  useEffect(() => { docBlocksRef.current = docBlocks; }, [docBlocks]);
+  useEffect(() => { viewingCaptionRef.current = viewingCaption; }, [viewingCaption]);
 
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
@@ -1675,7 +1709,9 @@ export default function Scripts() {
       skipNextAutoSaveRef.current = true;
       setDocBlocks(next);
       baselineRef.current = buildBaseline(next.filter((b) => b.id) as any);
+      savedOrderRef.current = next.filter((b) => b.id).map((b) => b.id as string);
       removedIdsRef.current = new Set();
+      pendingRemoteSyncRef.current = false;
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1696,12 +1732,15 @@ export default function Scripts() {
         expectedRevision: revisionRef.current,
       }).then((res) => {
         baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
+        savedOrderRef.current = res.blocks.filter((b) => b.id).map((b) => b.id as string);
         removedIdsRef.current = new Set();
         revisionRef.current = res.revision;
         if (res.wrote) broadcastSaved();
         if (res.conflicted) {
           toast.info(tr({ en: "Synced changes from another session", es: "Se sincronizaron cambios de otra sesión" }, language));
         }
+        // A remote ping arrived while we had unsaved edits — now clean, apply it.
+        if (pendingRemoteSyncRef.current) { pendingRemoteSyncRef.current = false; handleRemoteSaved(); }
       }).catch(() => {});
     }, 900);
     return () => clearTimeout(t);
@@ -3441,6 +3480,8 @@ export default function Scripts() {
                       await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
                       savedCaptionRef.current = viewingCaption;
                       broadcastSaved();
+                      // If a remote ping was deferred because the caption was dirty, apply it now.
+                      if (pendingRemoteSyncRef.current) { pendingRemoteSyncRef.current = false; handleRemoteSaved(); }
                     }
                   }
                 }}
@@ -3466,15 +3507,17 @@ export default function Scripts() {
                       });
                       setDocBlocks(withUids(res.blocks));
                       baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
+                      savedOrderRef.current = res.blocks.filter((b) => b.id).map((b) => b.id as string);
                       removedIdsRef.current = new Set();
                       revisionRef.current = res.revision;
-                      if (res.wrote) broadcastSaved();
                       // Save caption alongside the document
                       await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", sid);
                       // Sync caption to linked video_edits record
                       await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", sid);
                       savedCaptionRef.current = viewingCaption;
+                      // One ping after the full save (blocks + caption), then apply any deferred remote sync.
                       broadcastSaved();
+                      if (pendingRemoteSyncRef.current) { pendingRemoteSyncRef.current = false; handleRemoteSaved(); }
                       // Keep legacy content-only reads (AI/teleprompter/public/canvas) consistent.
                       const fresh = await getScriptLines(sid);
                       setParsedLines(fresh);
