@@ -1679,9 +1679,13 @@ export default function Scripts() {
     if (data) {
       revisionRef.current = (data as any).revision ?? revisionRef.current;
       const remoteCaption = (data as any).caption ?? "";
-      // Caption is clean here (we deferred otherwise), so adopt the remote value.
-      savedCaptionRef.current = remoteCaption;
-      setViewingCaption(remoteCaption);
+      // Guard the await-race: if the user started typing the caption during the fetches
+      // above, keep their text and re-defer (caption onBlur will apply the remote value).
+      setViewingCaption((prev) => {
+        if (prev === savedCaptionRef.current) { savedCaptionRef.current = remoteCaption; return remoteCaption; }
+        pendingRemoteSyncRef.current = true;
+        return prev;
+      });
     }
   }, [viewingScriptId]);
 
