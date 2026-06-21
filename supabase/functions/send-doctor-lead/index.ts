@@ -17,8 +17,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       name, practice_name, email, phone,
-      specialty, city, goal, on_camera, timeline, preferred_time,
-      qualified, status,
+      specialty, city, annual_revenue, marketing_spend, personal_brand,
+      consent, qualified, status,
     } = body;
 
     const supabase = createClient(
@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
 
     const { error: dbError } = await supabase.from("doctor_leads").insert({
       name, practice_name, email, phone,
-      specialty, city, goal, on_camera, timeline, preferred_time,
+      specialty, city, annual_revenue, marketing_spend, personal_brand,
+      consent: consent ?? false,
       qualified: qualified ?? true,
       status: status || (qualified === false ? "unqualified" : "qualified"),
       source: "doctors-landing",
@@ -46,15 +47,15 @@ Deno.serve(async (req) => {
       `Name: ${name}`,
       `Practice: ${practice_name || "—"}`,
       `Specialty: ${specialty || "—"}`,
-      `City / market: ${city || "—"}`,
+      `Location: ${city || "—"}`,
       `Email: ${email}`,
       `Phone: ${phone}`,
       ``,
-      `Goal: ${goal || "—"}`,
-      `Willing to be on camera: ${on_camera || "—"}`,
-      `Timeline: ${timeline || "—"}`,
-      `Preferred call time: ${preferred_time || "—"}`,
+      `Annual revenue: ${annual_revenue || "—"}`,
+      `Marketing spend: ${marketing_spend || "—"}`,
+      `Has a personal brand: ${personal_brand || "—"}`,
       ``,
+      `SMS / contact consent: ${consent ? "Yes" : "No"}`,
       `Qualified: ${qualified === false ? "No" : "Yes"}`,
       `Submitted: ${new Date().toLocaleString("en-US", { timeZone: "America/Denver" })}`,
     ].join("\n");
