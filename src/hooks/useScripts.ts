@@ -507,17 +507,19 @@ export function useScripts() {
     scriptId: string,
     blocks: ScriptLine[],
     opts: { baseline?: Map<string, string>; removedIds?: string[]; expectedRevision?: number | null } = {},
-  ): Promise<{ blocks: ScriptLine[]; revision: number; conflicted: boolean }> => {
+  ): Promise<{ blocks: ScriptLine[]; revision: number; conflicted: boolean; wrote: boolean }> => {
     const normalized = normalizeBlocks(blocks);
     // SAFETY: never let an empty document wipe a script.
     const hasContentLine = normalized.some((b) => (b.block_kind ?? "line") === "line");
     if (!hasContentLine) {
-      return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false };
+      return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false, wrote: false };
     }
     // Ensure every block has a stable uuid id (new blocks created in the editor).
     const withIds = normalized.map((b) => ({ ...b, id: b.id ?? crypto.randomUUID() })) as (ScriptLine & { id: string })[];
 
     const { upserts, deleteIds } = computeBlockDiff(withIds, opts.baseline ?? new Map(), opts.removedIds ?? []);
+
+    const wrote = upserts.length > 0 || deleteIds.length > 0;
 
     if (upserts.length > 0) {
       const rows = upserts.map((b) => ({
@@ -568,7 +570,7 @@ export function useScripts() {
       revision = await getScriptRevision(scriptId);
     }
 
-    return { blocks: await getScriptBlocks(scriptId), revision, conflicted };
+    return { blocks: await getScriptBlocks(scriptId), revision, conflicted, wrote };
   };
 
   const deleteScript = async (scriptId: string) => {
