@@ -22,17 +22,6 @@ const OUTCOMES = [
   ["Done-For-You", "We handle the content, filming, and follow-up. You focus on practicing medicine."],
 ];
 
-const SERVICES = [
-  ["Content Strategy", "The backbone. We study your niche, the algorithm, and what actually blows up, then engineer the plan."],
-  ["Short-Form Video", "Reels and shorts built to travel — the content that grows the name."],
-  ["Commercial Video", "Polished brand films that make your practice look like the obvious choice."],
-  ["Photo Production", "Scroll-stopping stills for your feed, ads, and site."],
-  ["Social Media", "Posted daily, on every platform, managed end to end."],
-  ["Paid Marketing", "Ads that turn the audience into booked appointments."],
-  ["Graphic Design", "A brand that looks as good as the medicine you practice."],
-  ["Website & SEO", "So when they search you — and your city — you're the answer."],
-];
-
 const FOR_YOU = [
   "You're tired of being your city's best-kept secret",
   "Your online presence feels stale",
@@ -52,6 +41,7 @@ const NOT_FOR_YOU = [
 const FAQ = [
   ["What does Connecta actually do?", "We build the content system that makes you the most known doctor in your city — strategy, scripts, filming, editing, posting, and ads. Done for you. You show up; we run the studio."],
   ["What is content strategy, and why does it matter so much?", "It's the backbone. We study your niche, the algorithm, and what actually performs in medical content, then engineer a plan around how you explain medicine. Without it, you're just posting. With it, you're growing."],
+  ["Why build a personal brand?", "Most patients need to trust you before going to your clinic, so they'll look you up online. If your social media is filled with information and you talk about how you'll fix their core problems, you'll earn their trust — and that means a lower cost per patient acquisition."],
   ["Do I have to be on camera all the time?", "On camera, yes — that's how patients come to trust you before they ever call. But not all the time. We make filming efficient: batch a month of content in a single short session."],
   ["How much does it cost?", "It depends on your market and goals. Book a discovery call and we'll walk you through it honestly — no pressure, no à la carte upsells."],
   ["How long until I see results?", "Dr. Calvin started seeing new patients come in about two weeks after he signed up, and it keeps compounding from there."],
@@ -175,22 +165,42 @@ export default function LandingPageDoctors() {
         </div>
       </section>
 
-      {/* ===== SERVICES ===== */}
+      {/* ===== WHAT WE DO — two strategies ===== */}
       <section className="dc-section" id="services">
         <div className="dc-wrap">
           <div className="dc-head">
             <span className="dc-eyebrow">What we do</span>
-            <h2 className="dc-h2">Not your average <span className="dc-teal-tx">marketing agency.</span></h2>
-            <p className="dc-head-p">No templates. We study your niche, your patients, what sets you apart — then build the system that makes you the name in your city.</p>
+            <h2 className="dc-h2">Two ways we <span className="dc-teal-tx">grow your practice.</span></h2>
+            <p className="dc-head-p">Depending on your clinic and how far you can take patients, we run one of two strategies. Same lead engine underneath — we just decide whether a personal brand sits on top.</p>
           </div>
-          <div className="dc-services">
-            {SERVICES.map(([name, blurb], i) => (
-              <div className="dc-service" key={name}>
-                <span className="dc-service-n">{String(i + 1).padStart(2, "0")}</span>
-                <h3 className="dc-service-h">{name}</h3>
-                <p className="dc-service-p">{blurb}</p>
-              </div>
-            ))}
+          <div className="dc-fit">
+            <div className="dc-fit-col dc-fit-yes">
+              <span className="dc-eyebrow" style={{ marginBottom: 10 }}>Strategy 01</span>
+              <h3 className="dc-fit-h">Personal brand + full lead engine</h3>
+              <p className="dc-strat-p">Best if you can take patients beyond your city. We build your personal brand and turn it into qualified leads and followers.</p>
+              <ul>
+                <li><span className="dc-fit-mark yes">✓</span>A personal brand that brings in qualified leads and followers</li>
+                <li><span className="dc-fit-mark yes">✓</span>Ad campaigns targeting the Hispanic community</li>
+                <li><span className="dc-fit-mark yes">✓</span>A landing page where patients book their own appointment</li>
+                <li><span className="dc-fit-mark yes">✓</span>A follow-up system that books and qualifies them before they reach your clinic</li>
+                <li><span className="dc-fit-mark yes">✓</span>A CRM so your team keeps track of every lead</li>
+              </ul>
+            </div>
+            <div className="dc-fit-col">
+              <span className="dc-eyebrow" style={{ marginBottom: 10 }}>Strategy 02</span>
+              <h3 className="dc-fit-h">The same engine, without the personal brand</h3>
+              <p className="dc-strat-p">Everything in Strategy 1, minus building a personal brand. Perfect for local clinics.</p>
+              <ul>
+                <li><span className="dc-fit-mark no">×</span><span style={{ opacity: 0.55 }}>Personal brand build</span></li>
+                <li><span className="dc-fit-mark yes">✓</span>Ad campaigns targeting the Hispanic community</li>
+                <li><span className="dc-fit-mark yes">✓</span>A landing page where patients book their own appointment</li>
+                <li><span className="dc-fit-mark yes">✓</span>A follow-up system that books and qualifies them</li>
+                <li><span className="dc-fit-mark yes">✓</span>A CRM so your team keeps track of every lead</li>
+              </ul>
+            </div>
+          </div>
+          <div className="dc-center-cta">
+            <button onClick={openBooking} className="dc-btn dc-btn-teal dc-btn-lg">Book a Discovery Meeting <span className="dc-arr">→</span></button>
           </div>
         </div>
       </section>
@@ -448,14 +458,6 @@ const CSS = `
 .dc .dc-outcome-p { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin: 0; }
 .dc .dc-center-cta { text-align: center; margin-top: 44px; }
 
-/* services */
-.dc .dc-services { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-.dc .dc-service { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; transition: border-color .16s ease, transform .16s ease; }
-.dc .dc-service:hover { border-color: var(--teal); transform: translateY(-3px); }
-.dc .dc-service-n { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 13px; color: var(--teal-2); }
-.dc .dc-service-h { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; margin: 10px 0 8px; }
-.dc .dc-service-p { font-size: 13.5px; color: var(--ink-2); line-height: 1.55; margin: 0; }
-
 /* about */
 .dc .dc-about { display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 28px; align-items: center; }
 .dc .dc-about-p { font-size: 17px; color: var(--ink-2); line-height: 1.68; margin: 20px 0 0; max-width: 560px; }
@@ -486,6 +488,7 @@ const CSS = `
 .dc .dc-fit-mark { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; margin-top: 1px; }
 .dc .dc-fit-mark.yes { background: var(--teal); color: #04201C; }
 .dc .dc-fit-mark.no { background: rgba(241,245,249,0.10); color: var(--ink-3); }
+.dc .dc-strat-p { font-size: 14.5px; color: var(--ink-2); line-height: 1.6; margin: 0 0 20px; }
 
 /* faq */
 .dc .dc-faq { display: flex; flex-direction: column; gap: 12px; }
@@ -515,13 +518,11 @@ const CSS = `
   .dc .dc-case { grid-template-columns: 1fr; }
   .dc .dc-case-media { min-height: 280px; }
   .dc .dc-outcomes { grid-template-columns: 1fr; }
-  .dc .dc-services { grid-template-columns: 1fr 1fr; }
   .dc .dc-about { grid-template-columns: 1fr; }
   .dc .dc-fit { grid-template-columns: 1fr; }
   .dc .dc-section { padding: 64px 0; }
 }
 @media (max-width: 540px) {
-  .dc .dc-services { grid-template-columns: 1fr; }
   .dc .dc-hero { padding: 44px 20px 54px; }
   .dc .dc-h1 { font-size: 33px; letter-spacing: -0.025em; }
   .dc .dc-lede { font-size: 17px; }
