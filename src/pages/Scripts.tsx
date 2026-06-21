@@ -1162,15 +1162,30 @@ export default function Scripts() {
           line_type: l.line_type,
           section: l.section || "body",
           text: l.text,
+          block_kind: l.block_kind ?? "line",
+          ...(l.rich_text != null ? { rich_text: l.rich_text } : {}),
         }));
         await supabase.from("script_lines").insert(rows);
       }
 
-      // Reload from DB
+      // Reload legacy line reads.
       const result = await getScriptLines(viewingScriptId);
-      if (result) {
-        setParsedLines(result);
-      }
+      if (result) setParsedLines(result);
+
+      // Reload the unified block document so the editor shows the restored content,
+      // and reset the diff-save baseline to it (so the next save diffs against restored state).
+      const restored = await getScriptBlocks(viewingScriptId);
+      skipNextAutoSaveRef.current = true;
+      setDocBlocks(withUids(restored));
+      baselineRef.current = buildBaseline(restored.filter((b) => b.id) as any);
+      savedOrderRef.current = restored.filter((b) => b.id).map((b) => b.id as string);
+      removedIdsRef.current = new Set();
+
+      // Bump revision so other open sessions re-sync to the restored content.
+      const { data: revRow } = await supabase.from("scripts").select("revision").eq("id", viewingScriptId).maybeSingle();
+      const nextRev = ((revRow?.revision as number) ?? 0) + 1;
+      await supabase.from("scripts").update({ revision: nextRev }).eq("id", viewingScriptId);
+      revisionRef.current = nextRev;
 
       toast.success(tr({ en: "Script restored successfully", es: "Script restaurado correctamente" }, language));
       setShowHistory(false);
