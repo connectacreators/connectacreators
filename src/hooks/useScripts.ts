@@ -105,6 +105,9 @@ const saveVersionSnapshot = async (scriptId: string) => {
   try {
     const now = Date.now();
     if (!shouldSnapshot(_lastSnapshotMs.get(scriptId), now)) return;
+    // Claim the throttle window BEFORE any await so concurrent autosaves don't both pass
+    // the gate and double-write a snapshot.
+    _lastSnapshotMs.set(scriptId, now);
 
     const { data: currentLines } = await supabase
       .from("script_lines")
@@ -112,9 +115,6 @@ const saveVersionSnapshot = async (scriptId: string) => {
       .eq("script_id", scriptId)
       .order("line_number");
     if (!currentLines || currentLines.length === 0) return;
-
-    // Mark snapshotted BEFORE the insert so concurrent autosaves don't double-write.
-    _lastSnapshotMs.set(scriptId, now);
 
     const rawContent = currentLines.map((l) => l.text).join("\n");
     const { data: lastVersion } = await supabase
