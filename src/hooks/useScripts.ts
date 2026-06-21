@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { normalizeBlocks } from "@/lib/scriptBlocks";
 import { computeBlockDiff } from "@/lib/scriptBlockDiff";
 import { toast } from "sonner";
+import { shouldSnapshot } from "@/lib/versionSnapshotThrottle";
 
 export type ScriptLine = {
   line_number: number;
@@ -53,6 +54,9 @@ export type ScriptMetadata = {
 // Mutex to prevent concurrent replaceAllLines from racing (delete-all + re-insert pattern)
 const _locks = new Map<string, Promise<boolean>>();
 
+// Last version-snapshot time per script (ms epoch) — throttles autosave snapshots.
+const _lastSnapshotMs = new Map<string, number>();
+
 // Helper: delete all lines for a script and re-insert them in order.
 // This avoids 409 Conflict errors from unique constraint on (script_id, line_number).
 // Uses a per-script mutex to prevent concurrent calls from wiping each other.
@@ -95,21 +99,24 @@ const getScriptRevision = async (scriptId: string): Promise<number> => {
   return (data?.revision as number) ?? 0;
 };
 
-// Save a snapshot of the current script lines into script_versions (for history)
+// Save a snapshot of the current persisted script lines into script_versions (history).
+// Throttled to <=1 / 2min / script; prunes to the most recent 50 versions.
 const saveVersionSnapshot = async (scriptId: string) => {
   try {
-    // Get current lines before the mutation
+    const now = Date.now();
+    if (!shouldSnapshot(_lastSnapshotMs.get(scriptId), now)) return;
+
     const { data: currentLines } = await supabase
       .from("script_lines")
-      .select("line_number, line_type, section, text")
+      .select("line_number, line_type, section, text, rich_text, block_kind")
       .eq("script_id", scriptId)
       .order("line_number");
     if (!currentLines || currentLines.length === 0) return;
 
-    // Build raw_content from lines
-    const rawContent = currentLines.map(l => l.text).join("\n");
+    // Mark snapshotted BEFORE the insert so concurrent autosaves don't double-write.
+    _lastSnapshotMs.set(scriptId, now);
 
-    // Get next version number
+    const rawContent = currentLines.map((l) => l.text).join("\n");
     const { data: lastVersion } = await supabase
       .from("script_versions")
       .select("version_number")
@@ -125,6 +132,15 @@ const saveVersionSnapshot = async (scriptId: string) => {
       raw_content: rawContent,
       lines_snapshot: currentLines,
     });
+
+    // Prune: keep only the most recent 50 versions.
+    if (nextVersion > 50) {
+      await supabase
+        .from("script_versions")
+        .delete()
+        .eq("script_id", scriptId)
+        .lte("version_number", nextVersion - 50);
+    }
   } catch (e) {
     console.error("saveVersionSnapshot error:", e);
   }
@@ -516,6 +532,9 @@ export function useScripts() {
     }
     // Ensure every block has a stable uuid id (new blocks created in the editor).
     const withIds = normalized.map((b) => ({ ...b, id: b.id ?? crypto.randomUUID() })) as (ScriptLine & { id: string })[];
+
+    // Safety net: snapshot the pre-save state (throttled) so any overwrite is recoverable.
+    await saveVersionSnapshot(scriptId);
 
     const { upserts, deleteIds } = computeBlockDiff(withIds, opts.baseline ?? new Map(), opts.removedIds ?? []);
 
