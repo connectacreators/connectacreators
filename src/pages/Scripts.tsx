@@ -50,6 +50,8 @@ import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
 import { getTargetLabel } from "@/lib/scriptTargets";
+import { useRealtimePresence } from "@/hooks/useRealtimePresence";
+import ScriptPresenceBanner from "@/components/scripts/ScriptPresenceBanner";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -484,6 +486,7 @@ export default function Scripts() {
   const [viewingMetadata, setViewingMetadata] = useState<ScriptMetadata | null>(null);
   const [viewingCaption, setViewingCaption] = useState<string>("");
   const [viewingScriptId, setViewingScriptId] = useState<string | null>(null);
+  const [myDisplayName, setMyDisplayName] = useState<string>("");
   const [fileSubmission, setFileSubmission] = useState<string | null>(null);
   const [linkedVideoEdit, setLinkedVideoEdit] = useState<{ id: string; client_id: string; footage: string | null; file_submission: string | null; upload_source: string | null; storage_path: string | null; storage_url: string | null; file_size_bytes: number | null } | null>(null);
   const [footageViewerOpen, setFootageViewerOpen] = useState(false);
@@ -615,6 +618,22 @@ export default function Scripts() {
     };
     checkName();
   }, [user, authLoading, isAdmin]);
+
+  // Fetch current user's display name for presence
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setMyDisplayName(data?.display_name?.trim() || ""); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const { others: scriptPresence } = useRealtimePresence({
+    roomId: viewingScriptId ? `script:${viewingScriptId}` : "",
+    userId: user?.id || "",
+    currentView: "script",
+    displayName: myDisplayName,
+  });
 
   const handleSaveName = useCallback(async () => {
     if (!promptName.trim() || !user) return;
@@ -3008,6 +3027,11 @@ export default function Scripts() {
             zero-line script is editable in place (no dead-end empty state). */}
         {view === "view-script" && (
           <div className="space-y-4 animate-fade-in">
+            {scriptPresence.length > 0 && (
+              <div className="flex justify-end">
+                <ScriptPresenceBanner others={scriptPresence} />
+              </div>
+            )}
             {/* Unified editor: chrome (Winning Idea / Inspiration / Caption / actions)
                 always renders, followed by the block document. No tabs. */}
             {/* Winning Idea block — flat editorial card, no glow */}
