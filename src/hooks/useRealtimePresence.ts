@@ -55,6 +55,7 @@ function getTabId(): string {
 export interface PresenceUser {
   tabId: string;
   userId: string;
+  name?: string;
   animalName: string;
   color: string;
   cursorX?: number;
@@ -72,11 +73,14 @@ interface UseRealtimePresenceOptions {
   currentView?: string;
   /** Whether to track cursor position (default false) */
   trackCursor?: boolean;
+  /** Human display name for real-person presence (e.g. profile display_name) */
+  displayName?: string;
 }
 
 export function useRealtimePresence({
   roomId,
   userId,
+  displayName,
   currentView = "canvas",
   trackCursor = false,
 }: UseRealtimePresenceOptions) {
@@ -96,6 +100,7 @@ export function useRealtimePresence({
       channelRef.current?.track({
         tabId: tabId.current,
         userId,
+        name: displayName,
         animalName: animalName.current,
         color: color.current,
         cursorX: x,
@@ -104,7 +109,7 @@ export function useRealtimePresence({
         currentView,
       });
     },
-    [userId, currentView]
+    [userId, displayName, currentView]
   );
 
   useEffect(() => {
@@ -138,6 +143,7 @@ export function useRealtimePresence({
           await channel.track({
             tabId: tabId.current,
             userId,
+            name: displayName,
             animalName: animalName.current,
             color: color.current,
             lastActive: Date.now(),
@@ -161,12 +167,13 @@ export function useRealtimePresence({
     channelRef.current.track({
       tabId: tabId.current,
       userId,
+      name: displayName,
       animalName: animalName.current,
       color: color.current,
       lastActive: Date.now(),
       currentView,
     });
-  }, [currentView, userId]);
+  }, [currentView, userId, displayName]);
 
   return {
     /** Other users currently present (excludes self) */
