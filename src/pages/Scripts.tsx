@@ -45,7 +45,9 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
-import { buildBaseline } from "@/lib/scriptBlockDiff";
+import { buildBaseline, blockSignature } from "@/lib/scriptBlockDiff";
+import { mergeRemoteBlocks } from "@/lib/scriptRemoteMerge";
+import { useRealtimeScriptSync } from "@/hooks/useRealtimeScriptSync";
 import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
@@ -1566,6 +1568,7 @@ export default function Scripts() {
         : (script.inspiration_url ? [script.inspiration_url] : [])
     );
     setViewingCaption(script.caption ?? "");
+    savedCaptionRef.current = script.caption ?? "";
     setViewingFormatReferenceUrl(script.format_reference_url ?? null);
     setEditingFormatReference(false);
     setFormatReferenceDraft("");
@@ -1602,6 +1605,7 @@ export default function Scripts() {
   const baselineRef = useRef<Map<string, string>>(new Map());
   const removedIdsRef = useRef<Set<string>>(new Set());
   const revisionRef = useRef<number | null>(null);
+  const savedCaptionRef = useRef<string>("");
 
   // User edits flow through here (NOT load-driven setDocBlocks): assign uuids to
   // newly created blocks and record explicit removals for the diff save.
@@ -1622,6 +1626,39 @@ export default function Scripts() {
     },
     [],
   );
+
+  const handleRemoteSaved = useCallback(async () => {
+    const sid = viewingScriptId;
+    if (!sid) return;
+    const remoteBlocks = await getScriptBlocks(sid);
+    const { data } = await supabase.from("scripts").select("caption, revision").eq("id", sid).maybeSingle();
+
+    skipNextAutoSaveRef.current = true; // the merge-driven setDocBlocks must not re-trigger a save
+    setDocBlocks((prev) => {
+      const dirty = new Set(
+        prev.filter((bl) => bl.id && baselineRef.current.get(bl.id) !== blockSignature(bl)).map((bl) => bl.id as string),
+      );
+      const merged = mergeRemoteBlocks(prev, remoteBlocks, dirty);
+      // Blocks we accepted from remote are now the persisted baseline.
+      merged.forEach((bl) => { if (bl.id && !dirty.has(bl.id)) baselineRef.current.set(bl.id, blockSignature(bl)); });
+      return withUids(merged);
+    });
+
+    if (data) {
+      revisionRef.current = (data as any).revision ?? revisionRef.current;
+      const remoteCaption = (data as any).caption ?? "";
+      // Only adopt the remote caption if the user hasn't edited theirs since last save.
+      setViewingCaption((prev) => {
+        if (prev === savedCaptionRef.current) { savedCaptionRef.current = remoteCaption; return remoteCaption; }
+        return prev;
+      });
+    }
+  }, [viewingScriptId]);
+
+  const { broadcastSaved } = useRealtimeScriptSync({
+    roomId: viewingScriptId ? `script:${viewingScriptId}` : "",
+    onRemoteSaved: handleRemoteSaved,
+  });
 
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
@@ -1661,6 +1698,7 @@ export default function Scripts() {
         baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
         removedIdsRef.current = new Set();
         revisionRef.current = res.revision;
+        if (res.wrote) broadcastSaved();
         if (res.conflicted) {
           toast.info(tr({ en: "Synced changes from another session", es: "Se sincronizaron cambios de otra sesión" }, language));
         }
@@ -3401,6 +3439,8 @@ export default function Scripts() {
                     } else {
                       // Sync caption to linked video_edits record
                       await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", viewingScriptId);
+                      savedCaptionRef.current = viewingCaption;
+                      broadcastSaved();
                     }
                   }
                 }}
@@ -3428,10 +3468,13 @@ export default function Scripts() {
                       baselineRef.current = buildBaseline(res.blocks.filter((b) => b.id) as any);
                       removedIdsRef.current = new Set();
                       revisionRef.current = res.revision;
+                      if (res.wrote) broadcastSaved();
                       // Save caption alongside the document
                       await supabase.from("scripts").update({ caption: viewingCaption || null }).eq("id", sid);
                       // Sync caption to linked video_edits record
                       await supabase.from("video_edits").update({ caption: viewingCaption || null }).eq("script_id", sid);
+                      savedCaptionRef.current = viewingCaption;
+                      broadcastSaved();
                       // Keep legacy content-only reads (AI/teleprompter/public/canvas) consistent.
                       const fresh = await getScriptLines(sid);
                       setParsedLines(fresh);
