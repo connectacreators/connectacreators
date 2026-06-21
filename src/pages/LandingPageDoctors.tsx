@@ -151,8 +151,8 @@ export default function LandingPageDoctors() {
         <div className="dc-wrap">
           <div className="dc-head">
             <span className="dc-eyebrow">Another result</span>
-            <h2 className="dc-h2">Years of crickets. Then <span className="dc-teal-tx">12.7K in four posts.</span></h2>
-            <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd posted for two years with almost nothing to show for it.</p>
+            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">12.7K in four posts.</span></h2>
+            <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd been posting for a couple of years with little to show for it.</p>
           </div>
           <div className="dc-ba">
             <div className="dc-ba-card">
