@@ -533,63 +533,43 @@ export function useScripts() {
     // Ensure every block has a stable uuid id (new blocks created in the editor).
     const withIds = normalized.map((b) => ({ ...b, id: b.id ?? crypto.randomUUID() })) as (ScriptLine & { id: string })[];
 
+    const { upserts, deleteIds } = computeBlockDiff(withIds, opts.baseline ?? new Map(), opts.removedIds ?? []);
+    const wrote = upserts.length > 0 || deleteIds.length > 0;
+
+    // Nothing changed (e.g. a merge-driven re-render): don't snapshot, don't bump revision.
+    if (!wrote) {
+      return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false, wrote: false };
+    }
+
     // Safety net: snapshot the pre-save state (throttled) so any overwrite is recoverable.
     await saveVersionSnapshot(scriptId);
 
-    const { upserts, deleteIds } = computeBlockDiff(withIds, opts.baseline ?? new Map(), opts.removedIds ?? []);
-
-    const wrote = upserts.length > 0 || deleteIds.length > 0;
-
-    if (upserts.length > 0) {
-      const rows = upserts.map((b) => ({
+    // Atomic server-side save: upsert + delete + revision bump in one transaction under a
+    // FOR UPDATE lock on the script row (serializes concurrent saves; no interleaving).
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("save_script_blocks_atomic", {
+      p_script_id: scriptId,
+      p_expected_revision: opts.expectedRevision ?? null,
+      p_upserts: upserts.map((b) => ({
         id: b.id,
-        script_id: scriptId,
         line_number: b.line_number,
         line_type: b.line_type,
         section: b.section,
         text: b.text,
-        block_kind: b.block_kind,
         rich_text: b.rich_text,
-      }));
-      const { error } = await supabase.from("script_lines").upsert(rows, { onConflict: "id" });
-      if (error) {
-        console.error("saveScriptBlocks upsert error:", error);
-        toast.error("Error saving script");
-        throw new Error("Failed to save script blocks");
-      }
+        block_kind: b.block_kind,
+      })),
+      p_delete_ids: deleteIds,
+    });
+    if (rpcErr) {
+      console.error("saveScriptBlocks rpc error:", rpcErr);
+      toast.error("Error saving script");
+      throw new Error("Failed to save script blocks");
     }
-    if (deleteIds.length > 0) {
-      const { error: delErr } = await supabase
-        .from("script_lines")
-        .delete()
-        .eq("script_id", scriptId)
-        .in("id", deleteIds);
-      if (delErr) console.error("saveScriptBlocks delete error:", delErr);
-    }
+    const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    const revision = (row?.new_revision as number) ?? (await getScriptRevision(scriptId));
+    const conflicted = !!row?.was_conflicted;
 
-    // Revision backstop: conditional bump signals concurrent edits without blocking the save.
-    let conflicted = false;
-    let revision: number;
-    const expected = opts.expectedRevision;
-    if (expected != null) {
-      const { data: bumped } = await supabase
-        .from("scripts")
-        .update({ revision: expected + 1 })
-        .eq("id", scriptId)
-        .eq("revision", expected)
-        .select("revision")
-        .maybeSingle();
-      if (bumped) {
-        revision = bumped.revision as number;
-      } else {
-        conflicted = true;
-        revision = await getScriptRevision(scriptId);
-      }
-    } else {
-      revision = await getScriptRevision(scriptId);
-    }
-
-    return { blocks: await getScriptBlocks(scriptId), revision, conflicted, wrote };
+    return { blocks: await getScriptBlocks(scriptId), revision, conflicted, wrote: true };
   };
 
   const deleteScript = async (scriptId: string) => {
