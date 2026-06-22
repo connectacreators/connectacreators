@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import calvinReel1 from "@/assets/calvin-reel-1.jpg";
@@ -61,65 +61,16 @@ const FAQ = [
   ["How do we get started?", "Book a discovery call. We work with a select group of doctors at a time and we'll see if we're a fit."],
 ];
 
-const CALVIN_PAIRS = [
-  { before: { src: calvinReel1, alt: "Dr. Calvin reel before working with us — 460 views" }, now: { src: calvinReel2, alt: "Dr. Calvin reel now — 3.8M views" } },
-  { before: { src: calvinReel3, alt: "Dr. Calvin reel before working with us — 192 views" }, now: { src: calvinReel4, alt: "Dr. Calvin reel now — 1.5M views" } },
-  { before: { src: calvinReel5, alt: "Dr. Calvin reel before working with us — 226 views" }, now: { src: calvinReel6, alt: "Dr. Calvin reel now — 963K views" } },
+const CALVIN_BEFORE = [
+  { src: calvinReel1, alt: "Dr. Calvin reel before working with us — 460 views" },
+  { src: calvinReel3, alt: "Dr. Calvin reel before working with us — 192 views" },
+  { src: calvinReel5, alt: "Dr. Calvin reel before working with us — 226 views" },
 ];
-
-function CalvinReels() {
-  const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const n = CALVIN_PAIRS.length;
-  const touchX = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (paused) return;
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = window.setInterval(() => setI((p) => (p + 1) % n), 4500);
-    return () => window.clearInterval(t);
-  }, [paused, n]);
-
-  return (
-    <div
-      className="dc-rc"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
-      onTouchEnd={(e) => {
-        if (touchX.current == null) return;
-        const dx = e.changedTouches[0].clientX - touchX.current;
-        if (Math.abs(dx) > 40) setI((p) => (p + (dx < 0 ? 1 : -1) + n) % n);
-        touchX.current = null;
-      }}
-    >
-      <button className="dc-rc-arrow dc-rc-prev" aria-label="Previous reel" onClick={() => setI((p) => (p - 1 + n) % n)}>‹</button>
-      <div className="dc-rc-view">
-        <div className="dc-rc-track" style={{ transform: `translateX(-${i * 100}%)` }}>
-          {CALVIN_PAIRS.map((p, k) => (
-            <div className="dc-rc-slide" key={k}>
-              <div className="dc-rc-reel">
-                <span className="dc-rc-tag">Before</span>
-                <img src={p.before.src} alt={p.before.alt} loading="lazy" />
-              </div>
-              <span className="dc-rc-mid">→</span>
-              <div className="dc-rc-reel">
-                <span className="dc-rc-tag now">Now</span>
-                <img src={p.now.src} alt={p.now.alt} loading="lazy" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <button className="dc-rc-arrow dc-rc-next" aria-label="Next reel" onClick={() => setI((p) => (p + 1) % n)}>›</button>
-      <div className="dc-rc-dots">
-        {CALVIN_PAIRS.map((_, k) => (
-          <button key={k} className={`dc-rc-dot${k === i ? " on" : ""}`} aria-label={`Go to comparison ${k + 1}`} onClick={() => setI(k)} />
-        ))}
-      </div>
-    </div>
-  );
-}
+const CALVIN_AFTER = [
+  { src: calvinReel2, alt: "Dr. Calvin reel now — 3.8M views" },
+  { src: calvinReel4, alt: "Dr. Calvin reel now — 1.5M views" },
+  { src: calvinReel6, alt: "Dr. Calvin reel now — 963K views" },
+];
 
 export default function LandingPageDoctors() {
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -222,7 +173,25 @@ export default function LandingPageDoctors() {
             <span className="dc-eyebrow">Before &amp; after</span>
             <h2 className="dc-h2">From a few hundred views to <span className="dc-teal-tx">3.8M</span> a post.</h2>
           </div>
-          <CalvinReels />
+          <div className="dc-ba2">
+            <div className="dc-ba2-group">
+              <span className="dc-ba2-label">Before working with us</span>
+              <div className="dc-ba2-reels">
+                {CALVIN_BEFORE.map((r, k) => (
+                  <div className="dc-ba2-reel" key={k}><img src={r.src} alt={r.alt} loading="lazy" /></div>
+                ))}
+              </div>
+            </div>
+            <span className="dc-ba2-arrow">→</span>
+            <div className="dc-ba2-group">
+              <span className="dc-ba2-label now">Now</span>
+              <div className="dc-ba2-reels">
+                {CALVIN_AFTER.map((r, k) => (
+                  <div className="dc-ba2-reel" key={k}><img src={r.src} alt={r.alt} loading="lazy" /></div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -597,23 +566,17 @@ const CSS = `
 .dc .dc-cmp-before { height: 240px; width: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
 .dc .dc-cmp-after { height: 320px; width: auto; border-radius: 14px; border: 1px solid rgba(45,212,191,0.45); display: block; }
 .dc .dc-cmp-arrow { color: var(--ink-3); font-size: 28px; flex-shrink: 0; }
-/* dr calvin reels carousel */
-.dc .dc-rc { position: relative; width: 520px; max-width: 94vw; margin: 0 auto; }
-.dc .dc-rc-view { width: 100%; overflow: hidden; }
-.dc .dc-rc-track { display: flex; transition: transform .55s cubic-bezier(.2,.8,.2,1); }
-.dc .dc-rc-slide { flex: 0 0 100%; display: flex; gap: 14px; align-items: center; justify-content: center; }
-.dc .dc-rc-reel { position: relative; flex: 1 1 0; max-width: 232px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #000; }
-.dc .dc-rc-reel img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; display: block; background: #000; }
-.dc .dc-rc-mid { color: var(--ink-3); font-size: 22px; flex-shrink: 0; }
-.dc .dc-rc-tag { position: absolute; top: 9px; left: 9px; z-index: 2; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 9px; border-radius: 99px; background: rgba(10,15,26,0.8); color: var(--ink); backdrop-filter: blur(4px); }
-.dc .dc-rc-tag.now { background: var(--teal); color: #04201C; }
-.dc .dc-rc-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 38px; height: 38px; border-radius: 50%; background: rgba(10,15,26,0.78); border: 1px solid var(--line); color: var(--ink); font-size: 21px; line-height: 1; cursor: pointer; display: grid; place-items: center; backdrop-filter: blur(6px); transition: border-color .15s ease, color .15s ease; }
-.dc .dc-rc-arrow:hover { border-color: var(--teal); color: var(--teal); }
-.dc .dc-rc-prev { left: -6px; }
-.dc .dc-rc-next { right: -6px; }
-.dc .dc-rc-dots { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
-.dc .dc-rc-dot { width: 8px; height: 8px; border-radius: 99px; background: rgba(241,245,249,0.25); border: none; cursor: pointer; padding: 0; transition: background .2s ease, width .2s ease; }
-.dc .dc-rc-dot.on { background: var(--teal); width: 22px; }
+/* dr calvin before/after — two groups of three */
+.dc .dc-ba2 { display: flex; gap: 30px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+.dc .dc-ba2-group { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.dc .dc-ba2-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 16px; border-radius: 99px; background: rgba(241,245,249,0.08); color: var(--ink-3); }
+.dc .dc-ba2-label.now { background: var(--teal); color: #04201C; }
+.dc .dc-ba2-reels { display: flex; gap: 10px; }
+.dc .dc-ba2-reel { width: 150px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+.dc .dc-ba2-reel img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; display: block; background: #000; }
+.dc .dc-ba2-arrow { align-self: center; color: var(--ink-3); font-size: 30px; flex-shrink: 0; }
+@media (max-width: 1000px) { .dc .dc-ba2-arrow { transform: rotate(90deg); } }
+@media (max-width: 600px) { .dc .dc-ba2-reel { width: 27vw; } }
 .dc .dc-ba-by { display: inline-flex; align-items: center; gap: 13px; margin-top: 24px; }
 .dc .dc-avatar-rect { width: 76px; height: 50px; border-radius: 10px; object-fit: cover; object-position: center 28%; flex-shrink: 0; }
 
