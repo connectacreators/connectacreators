@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import calvinReel1 from "@/assets/calvin-reel-1.jpg";
+import calvinReel2 from "@/assets/calvin-reel-2.jpg";
+import calvinReel3 from "@/assets/calvin-reel-3.jpg";
+import calvinReel4 from "@/assets/calvin-reel-4.jpg";
+import calvinReel5 from "@/assets/calvin-reel-5.jpg";
 import spencerPortrait from "@/assets/spencer-portrait.jpg";
 import spencerBefore from "@/assets/spencer-before.jpg";
 import spencerAfter from "@/assets/spencer-after.jpg";
@@ -54,6 +59,60 @@ const FAQ = [
   ["What makes you different?", "No templates. We build one system around your practice, in your voice, and we back it: 90 leads in 90 days, or you don't pay."],
   ["How do we get started?", "Book a discovery call. We work with a select group of doctors at a time and we'll see if we're a fit."],
 ];
+
+const CALVIN_REELS = [
+  { src: calvinReel1, alt: "Dr. Calvin reel — calf raises for circulation" },
+  { src: calvinReel2, alt: "Dr. Calvin reel — 3 things for your health" },
+  { src: calvinReel3, alt: "Dr. Calvin reel — patient consult" },
+  { src: calvinReel4, alt: "Dr. Calvin reel — neuropathy and feet" },
+  { src: calvinReel5, alt: "Dr. Calvin reel — laser therapy close-up" },
+];
+
+function CalvinReels() {
+  const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const n = CALVIN_REELS.length;
+  const touchX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (paused) return;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = window.setInterval(() => setI((p) => (p + 1) % n), 4500);
+    return () => window.clearInterval(t);
+  }, [paused, n]);
+
+  return (
+    <div
+      className="dc-rc"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current == null) return;
+        const dx = e.changedTouches[0].clientX - touchX.current;
+        if (Math.abs(dx) > 40) setI((p) => (p + (dx < 0 ? 1 : -1) + n) % n);
+        touchX.current = null;
+      }}
+    >
+      <button className="dc-rc-arrow dc-rc-prev" aria-label="Previous reel" onClick={() => setI((p) => (p - 1 + n) % n)}>‹</button>
+      <div className="dc-rc-view">
+        <div className="dc-rc-track" style={{ transform: `translateX(-${i * 100}%)` }}>
+          {CALVIN_REELS.map((s, k) => (
+            <div className="dc-rc-slide" key={k}>
+              <img src={s.src} alt={s.alt} loading="lazy" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <button className="dc-rc-arrow dc-rc-next" aria-label="Next reel" onClick={() => setI((p) => (p + 1) % n)}>›</button>
+      <div className="dc-rc-dots">
+        {CALVIN_REELS.map((_, k) => (
+          <button key={k} className={`dc-rc-dot${k === i ? " on" : ""}`} aria-label={`Go to reel ${k + 1}`} onClick={() => setI(k)} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPageDoctors() {
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -149,12 +208,23 @@ export default function LandingPageDoctors() {
         </div>
       </section>
 
+      {/* ===== DR CALVIN — reels carousel ===== */}
+      <section className="dc-section">
+        <div className="dc-wrap">
+          <div className="dc-head center">
+            <span className="dc-eyebrow">The reels</span>
+            <h2 className="dc-h2">Now his reels pull <span className="dc-teal-tx">millions</span> — up to 3.8M a post.</h2>
+          </div>
+          <CalvinReels />
+        </div>
+      </section>
+
       {/* ===== SPENCER — before / after ===== */}
       <section className="dc-section dc-section-tint">
         <div className="dc-wrap">
           <div className="dc-head center">
             <span className="dc-eyebrow">Another result</span>
-            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">23.4K in four posts.</span></h2>
+            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">30.2K in four posts.</span></h2>
           </div>
           <div className="dc-cmp">
             <figure className="dc-cmp-fig">
@@ -164,7 +234,7 @@ export default function LandingPageDoctors() {
             <span className="dc-cmp-arrow">→</span>
             <figure className="dc-cmp-fig">
               <span className="dc-cmp-lbl teal">After · 4 posts in</span>
-              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's first post to break 23.4K views" loading="lazy" />
+              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's first post to break 30.2K views" loading="lazy" />
             </figure>
           </div>
           <div style={{ textAlign: "center" }}>
@@ -520,6 +590,19 @@ const CSS = `
 .dc .dc-cmp-before { height: 240px; width: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
 .dc .dc-cmp-after { height: 320px; width: auto; border-radius: 14px; border: 1px solid rgba(45,212,191,0.45); display: block; }
 .dc .dc-cmp-arrow { color: var(--ink-3); font-size: 28px; flex-shrink: 0; }
+/* dr calvin reels carousel */
+.dc .dc-rc { position: relative; width: 300px; max-width: 82vw; margin: 0 auto; }
+.dc .dc-rc-view { width: 100%; overflow: hidden; border-radius: 18px; border: 1px solid var(--line); background: #000; }
+.dc .dc-rc-track { display: flex; transition: transform .55s cubic-bezier(.2,.8,.2,1); }
+.dc .dc-rc-slide { flex: 0 0 100%; }
+.dc .dc-rc-slide img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block; }
+.dc .dc-rc-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 40px; height: 40px; border-radius: 50%; background: rgba(10,15,26,0.7); border: 1px solid var(--line); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; display: grid; place-items: center; backdrop-filter: blur(6px); transition: border-color .15s ease, color .15s ease; }
+.dc .dc-rc-arrow:hover { border-color: var(--teal); color: var(--teal); }
+.dc .dc-rc-prev { left: 8px; }
+.dc .dc-rc-next { right: 8px; }
+.dc .dc-rc-dots { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.dc .dc-rc-dot { width: 8px; height: 8px; border-radius: 99px; background: rgba(241,245,249,0.25); border: none; cursor: pointer; padding: 0; transition: background .2s ease, width .2s ease; }
+.dc .dc-rc-dot.on { background: var(--teal); width: 22px; }
 .dc .dc-ba-by { display: inline-flex; align-items: center; gap: 13px; margin-top: 24px; }
 .dc .dc-avatar-rect { width: 76px; height: 50px; border-radius: 10px; object-fit: cover; object-position: center 28%; flex-shrink: 0; }
 
