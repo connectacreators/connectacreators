@@ -1713,6 +1713,31 @@ export default function Scripts() {
   useEffect(() => { docBlocksRef.current = docBlocks; }, [docBlocks]);
   useEffect(() => { viewingCaptionRef.current = viewingCaption; }, [viewingCaption]);
 
+  // Heartbeat: realtime broadcast is best-effort; if a "saved" ping is dropped, this catches
+  // up by polling the revision (cheap) and merging when the DB is ahead. Also re-syncs when
+  // the tab regains focus.
+  useEffect(() => {
+    if (!viewingScriptId) return;
+    const sid = viewingScriptId;
+    let cancelled = false;
+    const check = async () => {
+      const { data } = await supabase.from("scripts").select("revision").eq("id", sid).maybeSingle();
+      if (cancelled) return;
+      const dbRev = (data?.revision as number) ?? null;
+      if (dbRev != null && revisionRef.current != null && dbRev > revisionRef.current) {
+        handleRemoteSaved();
+      }
+    };
+    const interval = setInterval(check, 25_000);
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [viewingScriptId, handleRemoteSaved]);
+
   // Load the full block list whenever a script is open (unified editor — the block
   // document is the single source of truth and always renders).
   // Lazy backfill: if no heading rows exist, synthesize headings in memory from the
