@@ -6,6 +6,7 @@ import calvinReel2 from "@/assets/calvin-reel-2.jpg";
 import calvinReel3 from "@/assets/calvin-reel-3.jpg";
 import calvinReel4 from "@/assets/calvin-reel-4.jpg";
 import calvinReel5 from "@/assets/calvin-reel-5.jpg";
+import calvinReel6 from "@/assets/calvin-reel-6.jpg";
 import spencerPortrait from "@/assets/spencer-portrait.jpg";
 import spencerBefore from "@/assets/spencer-before.jpg";
 import spencerAfter from "@/assets/spencer-after.jpg";
@@ -61,11 +62,12 @@ const FAQ = [
 ];
 
 const CALVIN_REELS = [
-  { src: calvinReel1, alt: "Dr. Calvin reel — calf raises for circulation" },
-  { src: calvinReel2, alt: "Dr. Calvin reel — 3 things for your health" },
-  { src: calvinReel3, alt: "Dr. Calvin reel — patient consult" },
-  { src: calvinReel4, alt: "Dr. Calvin reel — neuropathy and feet" },
-  { src: calvinReel5, alt: "Dr. Calvin reel — laser therapy close-up" },
+  { src: calvinReel1, now: false, alt: "Dr. Calvin reel before working with us — 460 views" },
+  { src: calvinReel2, now: true, alt: "Dr. Calvin reel now — 3.8M views" },
+  { src: calvinReel3, now: false, alt: "Dr. Calvin reel before working with us — 192 views" },
+  { src: calvinReel4, now: true, alt: "Dr. Calvin reel now — 1.5M views" },
+  { src: calvinReel5, now: false, alt: "Dr. Calvin reel before working with us — 226 views" },
+  { src: calvinReel6, now: true, alt: "Dr. Calvin reel now — 963K views" },
 ];
 
 function CalvinReels() {
@@ -99,6 +101,7 @@ function CalvinReels() {
         <div className="dc-rc-track" style={{ transform: `translateX(-${i * 100}%)` }}>
           {CALVIN_REELS.map((s, k) => (
             <div className="dc-rc-slide" key={k}>
+              <span className={`dc-rc-tag${s.now ? " now" : ""}`}>{s.now ? "Now" : "Before"}</span>
               <img src={s.src} alt={s.alt} loading="lazy" />
             </div>
           ))}
@@ -212,8 +215,8 @@ export default function LandingPageDoctors() {
       <section className="dc-section">
         <div className="dc-wrap">
           <div className="dc-head center">
-            <span className="dc-eyebrow">The reels</span>
-            <h2 className="dc-h2">Now his reels pull <span className="dc-teal-tx">millions</span> — up to 3.8M a post.</h2>
+            <span className="dc-eyebrow">Before &amp; after</span>
+            <h2 className="dc-h2">From a few hundred views to <span className="dc-teal-tx">3.8M</span> a post.</h2>
           </div>
           <CalvinReels />
         </div>
@@ -594,8 +597,10 @@ const CSS = `
 .dc .dc-rc { position: relative; width: 300px; max-width: 82vw; margin: 0 auto; }
 .dc .dc-rc-view { width: 100%; overflow: hidden; border-radius: 18px; border: 1px solid var(--line); background: #000; }
 .dc .dc-rc-track { display: flex; transition: transform .55s cubic-bezier(.2,.8,.2,1); }
-.dc .dc-rc-slide { flex: 0 0 100%; }
-.dc .dc-rc-slide img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block; }
+.dc .dc-rc-slide { flex: 0 0 100%; position: relative; }
+.dc .dc-rc-slide img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; display: block; background: #000; }
+.dc .dc-rc-tag { position: absolute; top: 10px; left: 10px; z-index: 2; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 99px; background: rgba(10,15,26,0.78); color: var(--ink); backdrop-filter: blur(4px); }
+.dc .dc-rc-tag.now { background: var(--teal); color: #04201C; }
 .dc .dc-rc-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 40px; height: 40px; border-radius: 50%; background: rgba(10,15,26,0.7); border: 1px solid var(--line); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; display: grid; place-items: center; backdrop-filter: blur(6px); transition: border-color .15s ease, color .15s ease; }
 .dc .dc-rc-arrow:hover { border-color: var(--teal); color: var(--teal); }
 .dc .dc-rc-prev { left: 8px; }
