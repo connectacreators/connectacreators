@@ -152,7 +152,7 @@ export default function LandingPageDoctors() {
       {/* ===== SPENCER — before / after ===== */}
       <section className="dc-section dc-section-tint">
         <div className="dc-wrap">
-          <div className="dc-head">
+          <div className="dc-head center">
             <span className="dc-eyebrow">Another result</span>
             <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">23.4K in four posts.</span></h2>
             <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd been posting for a couple of years with little to show for it.</p>
@@ -189,7 +189,7 @@ export default function LandingPageDoctors() {
       {/* ===== SARATOGA — viral reels ===== */}
       <section className="dc-section">
         <div className="dc-wrap">
-          <div className="dc-head">
+          <div className="dc-head center">
             <span className="dc-eyebrow">And another</span>
             <h2 className="dc-h2">Saratoga Chiropractic: <span className="dc-teal-tx">57.8K and 15K</span> on two posts.</h2>
             <p className="dc-head-p">The two chiropractors behind Saratoga Chiropractic turned everyday adjustments into scroll-stopping content. Even the "aren't you embarrassed to be posting?" video pulled 15K.</p>
@@ -204,11 +204,13 @@ export default function LandingPageDoctors() {
               <figcaption>15K views</figcaption>
             </figure>
           </div>
-          <div className="dc-ba-by" style={{ marginTop: 24 }}>
-            <img className="dc-avatar-rect" src={saratogaTeam} alt="Saratoga Chiropractic" />
-            <div>
-              <div className="dc-by-name">Saratoga Chiropractic</div>
-              <div className="dc-by-role">Dr. Davis &amp; partner · Chiropractors</div>
+          <div style={{ textAlign: "center", marginTop: 24 }}>
+            <div className="dc-ba-by">
+              <img className="dc-avatar-rect" src={saratogaTeam} alt="Saratoga Chiropractic" />
+              <div>
+                <div className="dc-by-name">Saratoga Chiropractic</div>
+                <div className="dc-by-role">Dr. Davis &amp; partner · Chiropractors</div>
+              </div>
             </div>
           </div>
         </div>
@@ -529,7 +531,8 @@ const CSS = `
 .dc .dc-ba-tag.teal { color: var(--teal); }
 .dc .dc-ba-meta { font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .dc .dc-ba-img { width: 100%; height: auto; border-radius: 12px; display: block; }
-.dc .dc-ba-after { display: grid; grid-template-columns: auto 1fr; gap: 30px; align-items: center; }
+.dc .dc-ba-after { display: flex; flex-wrap: wrap; gap: 30px; align-items: center; justify-content: center; }
+.dc .dc-ba-after > div { max-width: 360px; }
 .dc .dc-ba-shot { height: 340px; width: auto; border-radius: 16px; display: block; border: 1px solid var(--line); }
 .dc .dc-ba-big { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(48px, 7vw, 76px); line-height: 1; letter-spacing: -0.03em; color: var(--teal); margin-top: 10px; }
 .dc .dc-ba-sub { font-size: 16px; color: var(--ink-2); line-height: 1.55; margin-top: 12px; max-width: 360px; }
@@ -537,7 +540,7 @@ const CSS = `
 .dc .dc-avatar-rect { width: 76px; height: 50px; border-radius: 10px; object-fit: cover; object-position: center 28%; flex-shrink: 0; }
 
 /* saratoga viral reels */
-.dc .dc-reels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; max-width: 660px; }
+.dc .dc-reels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; max-width: 660px; margin: 0 auto; }
 .dc .dc-reel { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
 .dc .dc-reel img { width: 100%; height: 360px; object-fit: contain; background: var(--bg); border-radius: 10px; display: block; }
 .dc .dc-reel figcaption { margin-top: 10px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 17px; color: var(--teal); text-align: center; }
@@ -609,7 +612,7 @@ const CSS = `
 @media (max-width: 920px) {
   .dc .dc-nav-links { display: none; }
   .dc .dc-case { grid-template-columns: 1fr; }
-  .dc .dc-ba-after { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .dc .dc-ba-after { flex-direction: column; text-align: center; }
   .dc .dc-case-media { min-height: 280px; }
   .dc .dc-outcomes { grid-template-columns: 1fr; }
   .dc .dc-about { grid-template-columns: 1fr; }
