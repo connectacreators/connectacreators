@@ -5,8 +5,8 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /* ---------------------------------------------------------------------------
    Doctors landing — qualifying discovery-call booking form.
-   Mirrors the Reto LeadForm pattern (multi-step qualify + POST) but English,
-   doctor-specific, and styled to the dark/teal /doctors aesthetic.
+   Multi-step qualifier (specialty → location → revenue → marketing spend →
+   personal brand → contact) + A2P-compliant SMS/contact consent.
    Submits to the send-doctor-lead edge function → doctor_leads + SMTP email.
    --------------------------------------------------------------------------- */
 
@@ -21,29 +21,26 @@ const SPECIALTIES = [
   "Other",
 ];
 
-const GOALS = [
-  "More patients booked",
-  "Become the known name in my city",
-  "Both",
+const REVENUE = [
+  "Under $250K / year",
+  "$250K – $500K / year",
+  "$500K – $1M / year",
+  "$1M+ / year",
+  "Prefer not to say",
 ];
 
-// The hard filter — camera willingness, straight from the reference's "Is this for you".
-const CAMERA = [
-  { label: "Yes — I'm ready to be on camera", qualified: true },
-  { label: "Open to it with coaching", qualified: true },
-  { label: "No, not under any circumstance", qualified: false },
+const MARKETING_SPEND = [
+  "Nothing yet",
+  "Under $1K / month",
+  "$1K – $5K / month",
+  "$5K – $15K / month",
+  "$15K+ / month",
 ];
 
-const TIMELINE = [
-  "As soon as possible",
-  "In the next 30–60 days",
-  "Just exploring for now",
-];
-
-const PREFERRED = [
-  "Weekday morning",
-  "Weekday afternoon",
-  "Weekday evening",
+const PERSONAL_BRAND = [
+  "Yes — I post consistently",
+  "I've started, but it's inconsistent",
+  "No — not yet",
 ];
 
 // palette (dark / teal)
@@ -58,25 +55,25 @@ const MUTED = "#94A3B8";
 interface FormData {
   specialty: string;
   city: string;
-  goal: string;
-  on_camera: string;
-  timeline: string;
-  preferred_time: string;
+  annual_revenue: string;
+  marketing_spend: string;
+  personal_brand: string;
   name: string;
   practice_name: string;
   email: string;
   phone: string;
 }
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 
 export default function DoctorBookingForm() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<null | "qualified" | "disqualified">(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [data, setData] = useState<FormData>({
-    specialty: "", city: "", goal: "", on_camera: "", timeline: "",
-    preferred_time: "", name: "", practice_name: "", email: "", phone: "",
+    specialty: "", city: "", annual_revenue: "", marketing_spend: "",
+    personal_brand: "", name: "", practice_name: "", email: "", phone: "",
   });
 
   const set = (k: keyof FormData, v: string) => setData((d) => ({ ...d, [k]: v }));
@@ -88,23 +85,22 @@ export default function DoctorBookingForm() {
   };
 
   async function submit() {
-    const isQualified = CAMERA.find((o) => o.label === data.on_camera)?.qualified ?? true;
     setSubmitting(true);
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/send-doctor-lead`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY },
-        body: JSON.stringify({ ...data, qualified: isQualified }),
+        body: JSON.stringify({ ...data, consent, qualified: true }),
       });
     } catch {
       /* show success anyway — the lead matters more than the toast */
     }
     setSubmitting(false);
-    setSubmitted(isQualified ? "qualified" : "disqualified");
+    setSubmitted(true);
   }
 
   const contactValid =
-    data.name.trim() && data.email.trim() && data.phone.trim();
+    !!data.name.trim() && !!data.email.trim() && !!data.phone.trim() && consent;
 
   return (
     <div style={styles.card}>
@@ -113,24 +109,11 @@ export default function DoctorBookingForm() {
       {submitted ? (
         <div style={{ textAlign: "center", padding: "16px 4px" }}>
           <div style={styles.checkWrap}>✓</div>
-          {submitted === "qualified" ? (
-            <>
-              <h3 style={styles.successH}>You're in.</h3>
-              <p style={styles.successP}>
-                Thanks{data.name ? `, ${data.name.split(" ")[0]}` : ""}. We'll reach out within
-                24 hours to lock in your discovery call{data.preferred_time ? ` — you picked ${data.preferred_time.toLowerCase()}` : ""}.
-                Keep an eye on your inbox and phone.
-              </p>
-            </>
-          ) : (
-            <>
-              <h3 style={styles.successH}>Thanks for the honesty.</h3>
-              <p style={styles.successP}>
-                Our system is built around doctors showing up on camera — that's what makes you
-                the name in your city. If that changes, we'd love to talk.
-              </p>
-            </>
-          )}
+          <h3 style={styles.successH}>You're in.</h3>
+          <p style={styles.successP}>
+            Thanks{data.name ? `, ${data.name.split(" ")[0]}` : ""}. We'll reach out within
+            24 hours to lock in your discovery call. Keep an eye on your inbox and phone.
+          </p>
         </div>
       ) : (
         <>
@@ -151,7 +134,7 @@ export default function DoctorBookingForm() {
           )}
 
           {step === 2 && (
-            <Question title="What city do you want to own?" sub="The market where you want to be the known name.">
+            <Question title="Where are you located?" sub="City and state of your practice.">
               <input
                 autoFocus
                 style={styles.input}
@@ -165,49 +148,58 @@ export default function DoctorBookingForm() {
           )}
 
           {step === 3 && (
-            <Question title="What's the #1 goal?" sub="What winning looks like for you.">
-              {GOALS.map((g) => (
-                <OptionBtn key={g} active={data.goal === g} onClick={() => pick("goal", g)}>{g}</OptionBtn>
+            <Question title="How much is your clinic making annually?" sub="Helps us right-size the plan. Kept private.">
+              {REVENUE.map((r) => (
+                <OptionBtn key={r} active={data.annual_revenue === r} onClick={() => pick("annual_revenue", r)}>{r}</OptionBtn>
               ))}
               <BackOnly onBack={() => setStep(2)} />
             </Question>
           )}
 
           {step === 4 && (
-            <Question title="Are you willing to be on camera?" sub="Straight answer — it's how we build your name.">
-              {CAMERA.map((c) => (
-                <OptionBtn key={c.label} active={data.on_camera === c.label} onClick={() => pick("on_camera", c.label)}>{c.label}</OptionBtn>
+            <Question title="How much are you spending on marketing now?" sub="Monthly, across everything.">
+              {MARKETING_SPEND.map((m) => (
+                <OptionBtn key={m} active={data.marketing_spend === m} onClick={() => pick("marketing_spend", m)}>{m}</OptionBtn>
               ))}
               <BackOnly onBack={() => setStep(3)} />
             </Question>
           )}
 
           {step === 5 && (
-            <Question title="When do you want to start?" sub="No pressure — just helps us plan.">
-              {TIMELINE.map((t) => (
-                <OptionBtn key={t} active={data.timeline === t} onClick={() => pick("timeline", t)}>{t}</OptionBtn>
+            <Question title="Do you currently have a personal brand?" sub="Where you're starting from on social.">
+              {PERSONAL_BRAND.map((p) => (
+                <OptionBtn key={p} active={data.personal_brand === p} onClick={() => pick("personal_brand", p)}>{p}</OptionBtn>
               ))}
               <BackOnly onBack={() => setStep(4)} />
             </Question>
           )}
 
           {step === 6 && (
-            <Question title="Best time for your call?" sub="We'll confirm the exact slot by email.">
-              {PREFERRED.map((p) => (
-                <OptionBtn key={p} active={data.preferred_time === p} onClick={() => pick("preferred_time", p)}>{p}</OptionBtn>
-              ))}
-              <BackOnly onBack={() => setStep(5)} />
-            </Question>
-          )}
-
-          {step === 7 && (
             <Question title="Where do we send the details?" sub="We'll reach out within 24 hours to confirm.">
               <input style={styles.input} placeholder="Full name" value={data.name} onChange={(e) => set("name", e.target.value)} autoFocus />
               <input style={styles.input} placeholder="Practice name (optional)" value={data.practice_name} onChange={(e) => set("practice_name", e.target.value)} />
               <input style={styles.input} type="email" placeholder="Email" value={data.email} onChange={(e) => set("email", e.target.value)} />
               <input style={styles.input} type="tel" placeholder="Phone / WhatsApp" value={data.phone} onChange={(e) => set("phone", e.target.value)} />
+
+              <label style={styles.consent}>
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span style={styles.consentText}>
+                  I agree to receive calls, texts, and emails from R3 Productions LLC about my
+                  inquiry. Msg &amp; data rates may apply; reply STOP to opt out. Consent is not a
+                  condition of purchase. I've read the{" "}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={styles.consentLink}>Privacy Policy</a>{" "}
+                  and{" "}
+                  <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer" style={styles.consentLink}>Terms &amp; Conditions</a>.
+                </span>
+              </label>
+
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                <button style={styles.backBtn} onClick={() => setStep(6)}>← Back</button>
+                <button style={styles.backBtn} onClick={() => setStep(5)}>← Back</button>
                 <button
                   style={{ ...styles.submitBtn, opacity: contactValid && !submitting ? 1 : 0.5, cursor: contactValid && !submitting ? "pointer" : "not-allowed" }}
                   disabled={!contactValid || submitting}
@@ -286,6 +278,10 @@ const styles: Record<string, CSSProperties> = {
     border: `1px solid ${BORDER}`, color: TEXT, fontSize: 15.5,
     fontFamily: "'Instrument Sans', sans-serif", outline: "none",
   },
+  consent: { display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 2px 2px", cursor: "pointer" },
+  checkbox: { marginTop: 3, width: 17, height: 17, accentColor: TEAL, flexShrink: 0, cursor: "pointer" },
+  consentText: { fontSize: 12.5, color: MUTED, lineHeight: 1.5 },
+  consentLink: { color: TEAL, textDecoration: "underline" },
   backBtn: {
     padding: "13px 20px", borderRadius: 99, background: "transparent",
     border: `1px solid ${BORDER}`, color: MUTED, fontSize: 14.5, fontWeight: 600,

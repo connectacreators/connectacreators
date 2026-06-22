@@ -154,7 +154,7 @@ export default function LandingPageDoctors() {
         <div className="dc-wrap">
           <div className="dc-head">
             <span className="dc-eyebrow">Another result</span>
-            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">12.7K in four posts.</span></h2>
+            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">23.4K in four posts.</span></h2>
             <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd been posting for a couple of years with little to show for it.</p>
           </div>
           <div className="dc-ba">
@@ -167,10 +167,10 @@ export default function LandingPageDoctors() {
             </div>
             <div className="dc-ba-card dc-ba-win">
               <div className="dc-ba-after">
-                <img className="dc-ba-shot" src={spencerAfter} alt="Spencer's first post to break 12.7K views" loading="lazy" />
+                <img className="dc-ba-shot" src={spencerAfter} alt="Spencer's first post to break 23.4K views" loading="lazy" />
                 <div>
                   <span className="dc-ba-tag teal">4 posts in</span>
-                  <div className="dc-ba-big">12.7K</div>
+                  <div className="dc-ba-big">23.4K</div>
                   <div className="dc-ba-sub">His first post to break out — after two years stuck near 130 views.</div>
                   <div className="dc-ba-by">
                     <img className="dc-avatar" src={spencerPortrait} alt="Spencer Barton" />
