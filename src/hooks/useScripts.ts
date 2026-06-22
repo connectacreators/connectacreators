@@ -4,6 +4,7 @@ import { normalizeBlocks } from "@/lib/scriptBlocks";
 import { computeBlockDiff } from "@/lib/scriptBlockDiff";
 import { toast } from "sonner";
 import { shouldSnapshot } from "@/lib/versionSnapshotThrottle";
+import { scriptBodyLength, SCRIPT_BODY_CHAR_LIMIT } from "@/lib/scriptLength";
 
 export type ScriptLine = {
   line_number: number;
@@ -528,6 +529,12 @@ export function useScripts() {
     // SAFETY: never let an empty document wipe a script.
     const hasContentLine = normalized.some((b) => (b.block_kind ?? "line") === "line");
     if (!hasContentLine) {
+      return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false, wrote: false };
+    }
+    // Length cap: never persist/sync a body over the limit (paste-bomb / runaway guard).
+    // Silent here — the editor's live counter is the user-facing feedback; the Save button
+    // surfaces a toast on explicit save.
+    if (scriptBodyLength(normalized) > SCRIPT_BODY_CHAR_LIMIT) {
       return { blocks: await getScriptBlocks(scriptId), revision: await getScriptRevision(scriptId), conflicted: false, wrote: false };
     }
     // Ensure every block has a stable uuid id (new blocks created in the editor).
