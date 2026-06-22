@@ -54,6 +54,7 @@ import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
 import { getTargetLabel } from "@/lib/scriptTargets";
 import { useRealtimePresence } from "@/hooks/useRealtimePresence";
 import ScriptPresenceBanner from "@/components/scripts/ScriptPresenceBanner";
+import { scriptBodyLength, SCRIPT_BODY_CHAR_LIMIT } from "@/lib/scriptLength";
 
 // Droppable folder card for drag-to-folder
 const EDITOR_TARGET_TRUNCATE_CHARS = 40;
@@ -3540,6 +3541,10 @@ export default function Scripts() {
                   onClick={async () => {
                     const sid = viewingScriptId;
                     if (!sid || savingScript) return;
+                    if (scriptBodyLength(docBlocks) > SCRIPT_BODY_CHAR_LIMIT) {
+                      toast.error(tr({ en: "Script is too long. Trim it to 15,000 characters to save.", es: "El script es demasiado largo. Recórtalo a 15,000 caracteres para guardar." }, language));
+                      return;
+                    }
                     setSavingScript(true);
                     try {
                       // Authoritative block save: preserves heading rows, recomputes each
@@ -3641,6 +3646,22 @@ export default function Scripts() {
                 </Button>
               </div>
             </div>
+            {(() => {
+              const bodyLen = scriptBodyLength(docBlocks);
+              const over = bodyLen > SCRIPT_BODY_CHAR_LIMIT;
+              const near = !over && bodyLen > SCRIPT_BODY_CHAR_LIMIT * 0.9;
+              return (
+                <div className="flex justify-end mb-1">
+                  <span
+                    className="text-[11px] tabular-nums"
+                    style={{ color: over ? "hsl(var(--destructive))" : near ? "hsl(var(--honey))" : "hsl(var(--bone) / 0.45)" }}
+                  >
+                    {bodyLen.toLocaleString()} / {SCRIPT_BODY_CHAR_LIMIT.toLocaleString()}
+                    {over ? ` · ${tr({ en: "over limit — trim to save", es: "excede el límite — recorta para guardar" }, language)}` : ""}
+                  </span>
+                </div>
+              );
+            })()}
             {/* Unified block document — single source of truth (docBlocks).
                 Renamable/custom sections, inline editing, slash, '# ', drag,
                 line-type bars, empty sections visible. Saving is owned by the
