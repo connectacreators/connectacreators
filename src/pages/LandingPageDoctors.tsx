@@ -155,31 +155,24 @@ export default function LandingPageDoctors() {
           <div className="dc-head center">
             <span className="dc-eyebrow">Another result</span>
             <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">23.4K in four posts.</span></h2>
-            <p className="dc-head-p">Spencer Barton, NP at Pecan Health, helps people reach their ideal body weight and optimal health. He'd been posting for a couple of years with little to show for it.</p>
           </div>
-          <div className="dc-ba">
-            <div className="dc-ba-card">
-              <div className="dc-ba-row">
-                <span className="dc-ba-tag">Before</span>
-                <span className="dc-ba-meta">2 years posting · ~130 views each</span>
-              </div>
-              <img className="dc-ba-img" src={spencerBefore} alt="Three of Spencer's earlier posts averaging around 130 views: 83, 170 and 137 views" loading="lazy" />
-            </div>
-            <div className="dc-ba-card dc-ba-win">
-              <div className="dc-ba-after">
-                <img className="dc-ba-shot" src={spencerAfter} alt="Spencer's first post to break 23.4K views" loading="lazy" />
-                <div>
-                  <span className="dc-ba-tag teal">4 posts in</span>
-                  <div className="dc-ba-big">23.4K</div>
-                  <div className="dc-ba-sub">His first post to break out — after two years stuck near 130 views.</div>
-                  <div className="dc-ba-by">
-                    <img className="dc-avatar" src={spencerPortrait} alt="Spencer Barton" />
-                    <div>
-                      <div className="dc-by-name">Spencer Barton, NP</div>
-                      <div className="dc-by-role">Nurse Practitioner · Pecan Health</div>
-                    </div>
-                  </div>
-                </div>
+          <div className="dc-cmp">
+            <figure className="dc-cmp-fig">
+              <span className="dc-cmp-lbl">Before · 2 years</span>
+              <img className="dc-cmp-before" src={spencerBefore} alt="Three of Spencer's earlier posts averaging around 130 views: 83, 170 and 137" loading="lazy" />
+            </figure>
+            <span className="dc-cmp-arrow">→</span>
+            <figure className="dc-cmp-fig">
+              <span className="dc-cmp-lbl teal">After · 4 posts in</span>
+              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's first post to break 23.4K views" loading="lazy" />
+            </figure>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div className="dc-ba-by">
+              <img className="dc-avatar" src={spencerPortrait} alt="Spencer Barton" />
+              <div>
+                <div className="dc-by-name">Spencer Barton, NP</div>
+                <div className="dc-by-role">Nurse Practitioner · Pecan Health</div>
               </div>
             </div>
           </div>
@@ -192,16 +185,13 @@ export default function LandingPageDoctors() {
           <div className="dc-head center">
             <span className="dc-eyebrow">And another</span>
             <h2 className="dc-h2">Saratoga Chiropractic: <span className="dc-teal-tx">57.8K and 15K</span> on two posts.</h2>
-            <p className="dc-head-p">The two chiropractors behind Saratoga Chiropractic turned everyday adjustments into scroll-stopping content. Even the "aren't you embarrassed to be posting?" video pulled 15K.</p>
           </div>
           <div className="dc-reels">
             <figure className="dc-reel">
               <img src={saratogaReel1} alt="Saratoga Chiropractic adjustment video — 57.8K views" loading="lazy" />
-              <figcaption>57.8K views</figcaption>
             </figure>
             <figure className="dc-reel">
               <img src={saratogaReel2} alt="Saratoga Chiropractic video answering 'aren't you embarrassed to post?' — 15K views" loading="lazy" />
-              <figcaption>15K views</figcaption>
             </figure>
           </div>
           <div style={{ textAlign: "center", marginTop: 24 }}>
@@ -522,28 +512,21 @@ const CSS = `
 .dc .dc-case-link { margin-top: auto; align-self: flex-start; color: var(--teal); font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--teal-soft); padding-bottom: 2px; }
 .dc .dc-case-link:hover { border-color: var(--teal); }
 
-/* spencer before / after — stacked, balanced */
-.dc .dc-ba { display: flex; flex-direction: column; gap: 18px; }
-.dc .dc-ba-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 18px; }
-.dc .dc-ba-win { border-color: rgba(45,212,191,0.4); }
-.dc .dc-ba-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 4px 14px; }
-.dc .dc-ba-tag { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
-.dc .dc-ba-tag.teal { color: var(--teal); }
-.dc .dc-ba-meta { font-size: 13.5px; font-weight: 700; color: var(--ink); }
-.dc .dc-ba-img { width: 100%; height: auto; border-radius: 12px; display: block; }
-.dc .dc-ba-after { display: flex; flex-wrap: wrap; gap: 30px; align-items: center; justify-content: center; }
-.dc .dc-ba-after > div { max-width: 360px; }
-.dc .dc-ba-shot { height: 340px; width: auto; border-radius: 16px; display: block; border: 1px solid var(--line); }
-.dc .dc-ba-big { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(48px, 7vw, 76px); line-height: 1; letter-spacing: -0.03em; color: var(--teal); margin-top: 10px; }
-.dc .dc-ba-sub { font-size: 16px; color: var(--ink-2); line-height: 1.55; margin-top: 12px; max-width: 360px; }
+/* spencer before -> after (one line) */
+.dc .dc-cmp { display: flex; align-items: center; justify-content: center; gap: 26px; flex-wrap: wrap; }
+.dc .dc-cmp-fig { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.dc .dc-cmp-lbl { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
+.dc .dc-cmp-lbl.teal { color: var(--teal); }
+.dc .dc-cmp-before { height: 240px; width: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
+.dc .dc-cmp-after { height: 320px; width: auto; border-radius: 14px; border: 1px solid rgba(45,212,191,0.45); display: block; }
+.dc .dc-cmp-arrow { color: var(--ink-3); font-size: 28px; flex-shrink: 0; }
 .dc .dc-ba-by { display: inline-flex; align-items: center; gap: 13px; margin-top: 24px; }
 .dc .dc-avatar-rect { width: 76px; height: 50px; border-radius: 10px; object-fit: cover; object-position: center 28%; flex-shrink: 0; }
 
 /* saratoga viral reels */
-.dc .dc-reels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; max-width: 660px; margin: 0 auto; }
-.dc .dc-reel { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
-.dc .dc-reel img { width: 100%; height: 360px; object-fit: contain; background: var(--bg); border-radius: 10px; display: block; }
-.dc .dc-reel figcaption { margin-top: 10px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 17px; color: var(--teal); text-align: center; }
+.dc .dc-reels { display: flex; gap: 18px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.dc .dc-reel { margin: 0; }
+.dc .dc-reel img { height: 360px; width: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
 
 /* outcomes */
 .dc .dc-outcomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -612,7 +595,6 @@ const CSS = `
 @media (max-width: 920px) {
   .dc .dc-nav-links { display: none; }
   .dc .dc-case { grid-template-columns: 1fr; }
-  .dc .dc-ba-after { flex-direction: column; text-align: center; }
   .dc .dc-case-media { min-height: 280px; }
   .dc .dc-outcomes { grid-template-columns: 1fr; }
   .dc .dc-about { grid-template-columns: 1fr; }
