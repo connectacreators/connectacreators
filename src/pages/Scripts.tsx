@@ -1643,7 +1643,20 @@ export default function Scripts() {
           typeof action === "function"
             ? (action as (p: ScriptLine[]) => ScriptLine[])(prev)
             : action;
-        const withIds = next.map((b) => (b.id ? b : { ...b, id: crypto.randomUUID() }));
+        // Assign a fresh id to any block missing one OR whose id already appeared earlier in
+        // the array. Editor split/duplicate/paste can clone a block keeping its DB id, and two
+        // upsert rows with the same id crash the atomic save (ON CONFLICT cannot affect a row
+        // twice). Guaranteeing unique ids lets both lines persist as separate rows.
+        const seenIds = new Set<string>();
+        const withIds = next.map((b) => {
+          if (!b.id || seenIds.has(b.id)) {
+            const fresh = crypto.randomUUID();
+            seenIds.add(fresh);
+            return { ...b, id: fresh };
+          }
+          seenIds.add(b.id);
+          return b;
+        });
         const nextIds = new Set(withIds.map((b) => b.id));
         prev.forEach((b) => { if (b.id && !nextIds.has(b.id)) removedIdsRef.current.add(b.id); });
         return withIds;
