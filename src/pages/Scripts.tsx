@@ -1665,7 +1665,12 @@ export default function Scripts() {
     [],
   );
 
+  // Live collaborative sync (auto-merge of remote edits + heartbeat) is DISABLED until the
+  // CRDT rebuild — the diff-merge heuristic could transiently drop lines from the editor view.
+  // Saves stay non-destructive (diff-save) with version history + length cap.
+  const LIVE_SYNC_ENABLED = false;
   const handleRemoteSaved = useCallback(async () => {
+    if (!LIVE_SYNC_ENABLED) return;
     const sid = viewingScriptId;
     if (!sid) return;
 
@@ -1731,7 +1736,7 @@ export default function Scripts() {
   // up by polling the revision (cheap) and merging when the DB is ahead. Also re-syncs when
   // the tab regains focus.
   useEffect(() => {
-    if (!viewingScriptId) return;
+    if (!viewingScriptId || !LIVE_SYNC_ENABLED) return;
     const sid = viewingScriptId;
     let cancelled = false;
     const check = async () => {
