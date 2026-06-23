@@ -2846,9 +2846,19 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
 
         if (block.name === "fill_onboarding_fields") {
           const { fields, navigate_to_onboarding } = block.input;
-          // Merge new fields into existing onboarding_data
-          const merged = { ...(client.onboarding_data || {}), ...fields };
+          // Re-read the latest onboarding_data before merging. `client` is a
+          // snapshot from the start of the request; the form may have saved
+          // fields since (e.g. social passwords, which this tool never carries).
+          // Merging into a stale snapshot would silently wipe them.
+          const { data: freshRow } = await adminClient
+            .from("clients")
+            .select("onboarding_data")
+            .eq("id", client.id)
+            .maybeSingle();
+          const base = (freshRow?.onboarding_data as Record<string, unknown>) ?? client.onboarding_data ?? {};
+          const merged = { ...base, ...fields };
           await adminClient.from("clients").update({ onboarding_data: merged }).eq("id", client.id);
+          client.onboarding_data = merged; // keep snapshot fresh for later tools this turn
           actions.push({ type: "fill_onboarding", fields });
           if (navigate_to_onboarding) actions.push({ type: "navigate", path: "/onboarding" });
           toolResults.push({

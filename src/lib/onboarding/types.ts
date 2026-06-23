@@ -86,3 +86,37 @@ export function prepareForSave(data: OnboardingData): OnboardingData {
     top3Profiles: data.top3Profiles.map((p) => p.trim()).filter(Boolean),
   };
 }
+
+/**
+ * Social credentials. These are uniquely fragile: the form blanks them on a
+ * stale local draft, and the AI companion's fill tool never carries them — so a
+ * full-blob save can silently wipe them.
+ */
+export const PASSWORD_FIELDS = [
+  "instagramPassword",
+  "tiktokPassword",
+  "youtubePassword",
+  "facebookPassword",
+] as const;
+
+/**
+ * Guard against silent credential loss: a blank password in the outgoing payload
+ * must never overwrite a non-empty password already stored. Returns a new payload
+ * with empty password fields backfilled from `stored`. A non-empty incoming value
+ * (an intentional change) is always respected.
+ */
+export function preservePasswords(
+  payload: OnboardingData,
+  stored: Record<string, unknown> | null | undefined,
+): OnboardingData {
+  if (!stored) return payload;
+  const next = { ...payload };
+  for (const key of PASSWORD_FIELDS) {
+    const incoming = next[key];
+    const prev = stored[key];
+    if ((!incoming || !incoming.trim()) && typeof prev === "string" && prev.trim()) {
+      next[key] = prev;
+    }
+  }
+  return next;
+}

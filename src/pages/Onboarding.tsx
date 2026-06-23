@@ -11,7 +11,7 @@ import OnboardingSharePanel from "@/components/onboarding/OnboardingSharePanel";
 import ArrivalChooser from "@/components/onboarding/fast/ArrivalChooser";
 import FastOnboardingFlow from "@/components/onboarding/fast/FastOnboardingFlow";
 import { exportOnboardingPdf } from "@/lib/onboarding/exportPdf";
-import { EMPTY_ONBOARDING, normalizeOnboarding, prepareForSave, type OnboardingData } from "@/lib/onboarding/types";
+import { EMPTY_ONBOARDING, normalizeOnboarding, prepareForSave, preservePasswords, PASSWORD_FIELDS, type OnboardingData } from "@/lib/onboarding/types";
 
 type Gate = "loading" | "ok" | "closed" | "denied" | "needLogin" | "noClient";
 type UiMode = "choose" | "fast" | "standard";
@@ -175,11 +175,25 @@ const Onboarding = () => {
       toast.error(`${perspective === "self" ? "Your" : "Client"} name and email are required`);
       return false;
     }
-    const write = () =>
-      supabase
+    const write = async () => {
+      let payload = prepareForSave(formData);
+      // Never let a blank password field overwrite a stored credential. The form
+      // can carry blank passwords (a stale local draft, an AI fill that omits
+      // them) and this save replaces the whole onboarding_data blob — so re-read
+      // the stored copy and backfill any blanks before writing.
+      if (PASSWORD_FIELDS.some((k) => !payload[k] || !payload[k].trim())) {
+        const { data: cur } = await supabase
+          .from("clients")
+          .select("onboarding_data")
+          .eq("id", resolvedClientId)
+          .maybeSingle();
+        payload = preservePasswords(payload, (cur?.onboarding_data as Record<string, unknown>) ?? null);
+      }
+      return supabase
         .from("clients")
-        .update({ onboarding_data: prepareForSave(formData) as unknown as Record<string, unknown> })
+        .update({ onboarding_data: payload as unknown as Record<string, unknown> })
         .eq("id", resolvedClientId);
+    };
 
     if (silent) {
       const { error } = await write();
