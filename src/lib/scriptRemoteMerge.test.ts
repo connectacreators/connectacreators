@@ -28,11 +28,11 @@ describe("mergeRemoteBlocks", () => {
     expect(out.map((x) => x.id)).toEqual(["a", "c"]);
   });
 
-  it("drops a clean local block that was deleted remotely", () => {
+  it("KEEPS a clean local block absent from remote (never drops a line)", () => {
     const local = [b("a", "a"), b("b", "b")];
     const remote = [b("a", "a")];
     const out = mergeRemoteBlocks(local, remote, new Set());
-    expect(out.map((x) => x.id)).toEqual(["a"]);
+    expect(out.map((x) => x.id)).toEqual(["a", "b"]);
   });
 
   it("preserves a locally-created block not yet known remotely (dirty)", () => {
