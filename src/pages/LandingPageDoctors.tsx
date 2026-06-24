@@ -112,7 +112,7 @@ export default function LandingPageDoctors() {
           <span className="dc-tag-dot" /> Now accepting new doctor partners
         </span>
         <h1 className="dc-h1 rise" style={{ animationDelay: ".12s" }}>
-          We help medical clinics bring <span className="dc-grad">10–30 new Hispanic patients</span> every month — and position them as the <span className="dc-teal-tx">#1 authority</span> in their city.
+          We help medical clinics bring <span className="dc-grad">10–30 new Hispanic patients</span> every month using our Hybrid Content Funnel Adquisition system. <span className="dc-teal-tx">Guaranteed, or you don't pay us.</span>
         </h1>
         <p className="dc-lede rise" style={{ animationDelay: ".24s" }}>
           More patients. Bigger brand. A practice people drive across town for.
