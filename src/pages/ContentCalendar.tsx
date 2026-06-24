@@ -922,7 +922,7 @@ export default function ContentCalendar() {
                           ${isSelected ? "bg-muted/30" : ""}`}
                       >
                         <span className={`inline-block w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-semibold
-                          ${isToday ? "bg-primary text-primary-foreground"
+                          ${isToday ? "bg-primary text-[hsl(var(--ink-on-cream))]"
                             : isCurrentMonth ? "text-foreground"
                             : "text-muted-foreground/40"}`}
                         >

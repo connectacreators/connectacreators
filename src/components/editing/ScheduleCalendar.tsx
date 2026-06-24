@@ -139,6 +139,22 @@ export function ScheduleCalendar({
         disabled={minDate ? { before: minDate } : undefined}
         showOutsideDays
         className="rounded-md border p-2"
+        classNames={{
+          // Drop the square accent fill the base Calendar paints behind a
+          // selected day's cell — it bled a mismatched rounded square around
+          // the circular day buttons. The day button carries the selection.
+          cell: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+          // Selected day = solid aqua circle with the dark ink number forced
+          // on (the ghost base otherwise leaves it the light foreground, which
+          // is invisible on aqua). `!` also wins over day_today when the
+          // selected day is today.
+          day_selected:
+            "!bg-primary !text-primary-foreground rounded-full font-semibold hover:!bg-primary hover:!text-primary-foreground focus:!bg-primary focus:!text-primary-foreground",
+          // Today (when not the selected day) = subtle aqua ring, not the
+          // honey accent square the base Calendar used.
+          day_today:
+            "rounded-full font-semibold text-foreground ring-1 ring-inset ring-primary/60",
+        }}
         components={{
           IconLeft: () => <ChevronLeft className="h-4 w-4" />,
           IconRight: () => <ChevronRight className="h-4 w-4" />,
