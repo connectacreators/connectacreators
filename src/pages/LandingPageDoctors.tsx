@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import calvin100kText from "@/assets/calvin-100k-text.png";
 import calvinReel1 from "@/assets/calvin-reel-1.jpg";
 import calvinReel2 from "@/assets/calvin-reel-2.jpg";
 import calvinReel3 from "@/assets/calvin-reel-3.jpg";
@@ -156,6 +157,7 @@ export default function LandingPageDoctors() {
               </a>
             </div>
           </div>
+          <img className="dc-case-text" src={calvin100kText} alt="" loading="lazy" />
         </div>
       </section>
 
@@ -559,6 +561,7 @@ const CSS = `
 .dc .dc-case-stats span { font-size: 12.5px; color: var(--ink-2); }
 .dc .dc-case-link { margin-top: auto; align-self: flex-start; color: var(--teal); font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--teal-soft); padding-bottom: 2px; }
 .dc .dc-case-link:hover { border-color: var(--teal); }
+.dc .dc-case-text { display: block; width: 100%; margin-top: 22px; border-radius: 16px; border: 1px solid var(--line); }
 
 /* spencer before -> after (one line) */
 .dc .dc-cmp { display: flex; align-items: center; justify-content: center; gap: 26px; flex-wrap: wrap; }
