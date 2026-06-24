@@ -399,6 +399,15 @@ export default function LandingPageDoctors() {
         </div>
       </section>
 
+      {/* ===== ROI GUARANTEE ===== */}
+      <section className="dc-guarantee">
+        <div className="dc-wrap center">
+          <p className="dc-guarantee-txt rise">
+            We offer a 100% ROI guarantee. If we don't perform, you don't pay. Simple as that.
+          </p>
+        </div>
+      </section>
+
       {/* ===== FINAL CTA ===== */}
       <section className="dc-final">
         <div className="dc-glow dc-glow-final" aria-hidden />
@@ -636,6 +645,8 @@ const CSS = `
 .dc .dc-final-h { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(36px, 5.8vw, 76px); line-height: 1.0; letter-spacing: -0.035em; margin: 8px 0 22px; }
 .dc .dc-final-sub { max-width: 560px; margin: 0 auto 32px; font-size: 17px; color: var(--ink-2); line-height: 1.6; }
 .dc .dc-final-fine { margin-top: 18px; font-size: 13.5px; color: var(--ink-3); }
+.dc .dc-guarantee { padding: 70px 0; background: linear-gradient(135deg, var(--teal), var(--teal-2)); }
+.dc .dc-guarantee-txt { max-width: 900px; margin: 0 auto; color: var(--bg); font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(26px, 4vw, 44px); line-height: 1.18; letter-spacing: -0.02em; }
 
 /* footer */
 .dc .dc-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; max-width: 1140px; margin: 0 auto; padding: 30px 28px 44px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); }
