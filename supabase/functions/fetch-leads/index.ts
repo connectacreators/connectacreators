@@ -216,7 +216,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 page_size: 100,
-                sorts: [{ property: "Date", direction: "descending" }],
+                sorts: [{ timestamp: "created_time", direction: "descending" }],
                 ...(clientName ? {
                   filter: {
                     property: "Client",
@@ -241,7 +241,10 @@ serve(async (req) => {
                 client: props["Client"]?.select?.name || clientName || "",
                 campaignName: props["Campaign Name"]?.rich_text?.[0]?.plain_text || "",
                 notes: props["Notes"]?.rich_text?.[0]?.plain_text || "",
-                createdDate: props["Date"]?.date?.start || page.created_time || "",
+                // "Date" is the APPOINTMENT date — never the submission date.
+                // Use the Notion page's real creation timestamp so newest leads
+                // sort to the top instead of leads with the furthest-future appt.
+                createdDate: page.created_time || "",
                 lastContacted: props["Last Contacted"]?.date?.start || "",
                 appointmentDate: props["Date"]?.date?.start || "",
                 notionUrl: page.url,

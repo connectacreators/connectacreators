@@ -98,6 +98,19 @@ const STATUS_COLORS: Record<string, string> = {
 // leads whose status never synced. Canceled leads are excluded.
 const BOOKED_STATUSES = new Set(["Booked", "Appointment Booked"]);
 const CANCELED_STATUSES = new Set(["Canceled"]);
+
+// Collapse the two naming conventions that mean the same thing into one
+// canonical label (used for the filter list, filter matching, and badges).
+// Legacy Notion labels: "Appointment Booked", "Follow up #1 (Not Booked)".
+// App labels: "Booked", "Follow-up 1". Both fold to "Booked" / "Follow-up N".
+const canonicalizeStatus = (status?: string): string => {
+  if (!status) return "";
+  const s = status.trim();
+  if (/^(appointment\s+)?booked$/i.test(s)) return "Booked";
+  const followUp = s.match(/follow[\s-]*up\s*#?\s*(\d+)/i);
+  if (followUp) return `Follow-up ${followUp[1]}`;
+  return s;
+};
 const isCanceledStatus = (status?: string) => !!status && CANCELED_STATUSES.has(status);
 const isBookedLead = (lead: { leadStatus?: string; appointmentDate?: string; booked?: boolean }) => {
   if (isCanceledStatus(lead.leadStatus)) return false;
@@ -694,7 +707,7 @@ export default function LeadTracker() {
       lead.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.phone.includes(searchTerm);
-    const matchesStatus = statusFilter === "all" || lead.leadStatus === statusFilter;
+    const matchesStatus = statusFilter === "all" || canonicalizeStatus(lead.leadStatus) === statusFilter;
     const matchesSource = sourceFilter === "all" || lead.leadSource === sourceFilter;
     return matchesSearch && matchesStatus && matchesSource && matchesDate(lead.createdDate);
   }).sort((a, b) => {
@@ -713,7 +726,11 @@ export default function LeadTracker() {
     return sortMode === "oldest" ? aT - bT : bT - aT;
   });
 
-  const statuses = statusOptions.length > 0 ? statusOptions : [...new Set(leads.map((l) => l.leadStatus).filter(Boolean))];
+  const statuses = [...new Set(
+    (statusOptions.length > 0 ? statusOptions : leads.map((l) => l.leadStatus))
+      .map(canonicalizeStatus)
+      .filter(Boolean)
+  )];
   const sources = sourceOptions.length > 0 ? sourceOptions : [...new Set(leads.map((l) => l.leadSource).filter(Boolean))];
 
   // CSV export of the currently-visible (post-filter, post-sort) list. Column
@@ -1206,9 +1223,9 @@ export default function LeadTracker() {
                       {lead.leadStatus && (
                         <Badge
                           variant="outline"
-                          className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[lead.leadStatus] || "bg-muted text-muted-foreground"}`}
+                          className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[canonicalizeStatus(lead.leadStatus)] || "bg-muted text-muted-foreground"}`}
                         >
-                          {lead.leadStatus}
+                          {canonicalizeStatus(lead.leadStatus)}
                         </Badge>
                       )}
                       {lead.leadSource && (
@@ -1228,12 +1245,20 @@ export default function LeadTracker() {
                           {lead.email}
                         </span>
                       )}
-                      {lead.createdDate && (
+                      {/* Green calendar = a real BOOKED appointment date. Non-booked
+                          leads only get a muted "created on" date so the green never
+                          implies a booking that doesn't exist. */}
+                      {isBookedLead(lead) && lead.appointmentDate ? (
                         <span className="flex items-center gap-1 text-green-400 font-medium">
                           <Calendar className="w-3 h-3" />
-                          📅 {new Date(lead.createdDate).toLocaleDateString("es-MX")}
+                          📅 {parseLocalDate(lead.appointmentDate).toLocaleDateString("es-MX")}
                         </span>
-                      )}
+                      ) : lead.createdDate ? (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          {language === "es" ? "Creado" : "Created"} {new Date(lead.createdDate).toLocaleDateString("es-MX")}
+                        </span>
+                      ) : null}
                       {lead.campaignName && (
                         <span className="text-primary/70">📢 {lead.campaignName}</span>
                       )}
