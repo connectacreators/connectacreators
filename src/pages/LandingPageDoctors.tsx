@@ -123,13 +123,6 @@ export default function LandingPageDoctors() {
           </button>
           <a href="#work" className="dc-btn dc-btn-line dc-btn-lg">See the work →</a>
         </div>
-        <div className="dc-stats rise" style={{ animationDelay: ".46s" }}>
-          <div><b>100K+</b><span>followers grown</span></div>
-          <div className="dc-stat-sep" />
-          <div><b>30–50</b><span>new leads / month</span></div>
-          <div className="dc-stat-sep" />
-          <div><b>$15K</b><span>extra revenue / month</span></div>
-        </div>
       </header>
 
       {/* ===== RECENT WORK — Dr. Calvin case study ===== */}
