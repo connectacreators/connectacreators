@@ -57,7 +57,7 @@ const FAQ = [
   ["Do I have to be on camera all the time?", "On camera, yes — that's how patients come to trust you before they ever call. But not all the time. We make filming efficient: batch a month of content in a single short session."],
   ["How much does it cost?", "It depends on your market and goals. Book a discovery call and we'll walk you through it honestly — no pressure, no à la carte upsells."],
   ["How long until I see results?", "Dr. Calvin started seeing new patients come in about two weeks after he signed up, and it keeps compounding from there."],
-  ["What makes you different?", "No templates. We build one system around your practice, in your voice, and we back it: 90 leads in 90 days, or you don't pay."],
+  ["What makes you different?", "No templates. We build one system around your practice, in your voice, and we back it: 50 new Hispanic patients in 60 days, or you don't pay."],
   ["How do we get started?", "Book a discovery call. We work with a select group of doctors at a time and we'll see if we're a fit."],
 ];
 
@@ -325,7 +325,7 @@ export default function LandingPageDoctors() {
             </div>
             <div className="dc-about-card">
               <span className="dc-about-kick">The promise</span>
-              <p className="dc-about-quote">"90 leads in 90 days — or you don't pay."</p>
+              <p className="dc-about-quote">"50 new Hispanic patients in 60 days — or you don't pay."</p>
               <p className="dc-about-note">We only win when you do. That's the whole model.</p>
             </div>
           </div>
@@ -410,7 +410,7 @@ export default function LandingPageDoctors() {
             to learn about your practice and see if we're a fit.
           </p>
           <button onClick={openBooking} className="dc-btn dc-btn-teal dc-btn-lg">Book a Discovery Meeting <span className="dc-arr">→</span></button>
-          <p className="dc-final-fine">90 leads in 90 days, or you don't pay.</p>
+          <p className="dc-final-fine">50 new Hispanic patients in 60 days, or you don't pay.</p>
         </div>
       </section>
 
