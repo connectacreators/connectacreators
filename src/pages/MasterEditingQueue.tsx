@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
-import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle, ArrowUpRight } from "lucide-react";
+import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Archive, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle, ArrowUpRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,7 @@ interface EditingQueueItem {
   deadline?: string | null;
   storageUrl?: string | null;
   deleted_at?: string | null;
+  archived_at?: string | null;
 }
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
@@ -252,6 +253,12 @@ export default function MasterEditingQueue() {
   const [trashedItems, setTrashedItems] = useState<EditingQueueItem[]>([]);
   const [fetchingTrash, setFetchingTrash] = useState(false);
 
+  // Archive
+  const [showArchive, setShowArchive] = useState(false);
+  const [archivedItems, setArchivedItems] = useState<EditingQueueItem[]>([]);
+  const [fetchingArchive, setFetchingArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -297,6 +304,7 @@ export default function MasterEditingQueue() {
         .select("id, reel_title, status, post_status, lifecycle_status, file_submission, script_url, assignee, assignee_user_id, revisions, created_at, footage, schedule_date, deadline, client_id, caption, upload_source, storage_path, storage_url, deleted_at, script_id, clients(name), scripts(title, idea_ganadora)")
         .in("client_id", clientIds)
         .is("deleted_at", null)
+        .is("archived_at", null)
         .order("created_at", { ascending: false });
 
       if (dbErr) throw dbErr;
@@ -757,6 +765,94 @@ export default function MasterEditingQueue() {
     }
   };
 
+  const handleArchiveItem = async (item: EditingQueueItem) => {
+    setArchiving(true);
+    const now = new Date().toISOString();
+    try {
+      const { error } = await supabase.from("video_edits").update({ archived_at: now }).eq("id", item.id);
+      if (error) throw error;
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      toast.success(language === "en" ? "Archived" : "Archivado");
+    } catch (e: any) {
+      console.error("Error archiving item:", e);
+      toast.error(language === "en" ? "Failed to archive" : "Error al archivar");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    setArchiving(true);
+    const now = new Date().toISOString();
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("video_edits").update({ archived_at: now }).in("id", ids);
+      if (error) throw error;
+      const count = ids.length;
+      setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
+      setSelectedIds(new Set());
+      toast.success(language === "en" ? `${count} items archived` : `${count} elementos archivados`);
+    } catch (e: any) {
+      toast.error(language === "en" ? "Failed to archive items" : "Error al archivar elementos");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const fetchArchivedItems = async () => {
+    if (!user) return;
+    setFetchingArchive(true);
+    try {
+      const { data, error } = await supabase
+        .from("video_edits")
+        .select("id, reel_title, status, client_id, archived_at, created_at, script_id, clients(name)")
+        .not("archived_at", "is", null)
+        .is("deleted_at", null)
+        .order("archived_at", { ascending: false });
+      if (error) throw error;
+      setArchivedItems((data || []).map((v: any) => ({
+        id: v.id,
+        title: v.reel_title || "Untitled",
+        status: v.status || "Not started",
+        statusColor: "",
+        fileSubmissionUrl: null,
+        footageUrl: null,
+        scriptUrl: null,
+        assignee: null,
+        assignee_user_id: null,
+        assigneeId: null,
+        assigneePropName: null,
+        revisions: null,
+        revisionPropName: null,
+        lastEdited: v.created_at,
+        scheduledDate: null,
+        clientId: v.client_id,
+        clientName: v.clients?.name || v.client_id,
+        script_id: v.script_id || null,
+        source: 'db' as const,
+        deleted_at: null,
+        archived_at: v.archived_at,
+      })));
+    } catch (e: any) {
+      toast.error(language === "en" ? "Failed to fetch archive" : "Error al cargar el archivo");
+    } finally {
+      setFetchingArchive(false);
+    }
+  };
+
+  const handleUnarchiveItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase.from("video_edits").update({ archived_at: null }).eq("id", itemId);
+      if (error) throw error;
+      setArchivedItems(prev => prev.filter(i => i.id !== itemId));
+      toast.success(language === "en" ? "Restored to queue" : "Restaurado a la cola");
+      fetchQueue();
+    } catch {
+      toast.error(language === "en" ? "Failed to restore" : "Error al restaurar");
+    }
+  };
+
   const fetchTrashedItems = async () => {
     if (!user) return;
     setFetchingTrash(true);
@@ -1006,11 +1102,29 @@ export default function MasterEditingQueue() {
                 </Select>
               )}
 
+              {/* Archive toggle */}
+              <button
+                onClick={() => {
+                  if (!showArchive) fetchArchivedItems();
+                  setShowArchive(!showArchive);
+                  setShowTrash(false);
+                }}
+                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm border transition-all ${
+                  showArchive
+                    ? "bg-white/20 border-white/30 text-foreground"
+                    : "bg-white/10 border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/20"
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                {language === "en" ? "Archive" : "Archivo"}
+              </button>
+
               {/* Trash toggle */}
               <button
                 onClick={() => {
                   if (!showTrash) fetchTrashedItems();
                   setShowTrash(!showTrash);
+                  setShowArchive(false);
                 }}
                 className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm border transition-all ${
                   showTrash
@@ -1066,7 +1180,60 @@ export default function MasterEditingQueue() {
             </div>
           </motion.div>
 
-          {showTrash ? (
+          {showArchive ? (
+            /* ===== ARCHIVE VIEW ===== */
+            <motion.div
+              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.1 }}
+            >
+              <div className="px-4 py-3 border-b border-border/50">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Archive className="w-4 h-4" />
+                  {language === "en" ? "Archived items are moved to trash after 30 days" : "Los elementos archivados se mueven a la papelera después de 30 días"}
+                </h3>
+              </div>
+              {fetchingArchive ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : archivedItems.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground text-sm">
+                  {language === "en" ? "Archive is empty" : "El archivo está vacío"}
+                </div>
+              ) : (
+                <div className="divide-y divide-border/30">
+                  {archivedItems.map((item) => {
+                    const archivedDate = item.archived_at ? new Date(item.archived_at) : new Date();
+                    const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - archivedDate.getTime()) / (1000 * 60 * 60 * 24)));
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                        <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-muted-foreground truncate">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.clientName} · {language === "en" ? "Archived" : "Archivado"} {archivedDate.toLocaleDateString(language === "en" ? "en-US" : "es-MX")} · {daysLeft} {language === "en" ? "days until trash" : "días para papelera"}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUnarchiveItem(item.id)}
+                            title={language === "en" ? "Restore" : "Restaurar"}
+                            className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          ) : showTrash ? (
             /* ===== TRASH VIEW ===== */
             <motion.div
               className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card"
@@ -1411,6 +1578,9 @@ export default function MasterEditingQueue() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleArchiveItem(item)} className="text-xs">
+                                <Archive className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "Archive" : "Archivar"}
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setDeleteConfirmItem(item)} className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10">
                                 <Trash2 className="w-3.5 h-3.5 mr-2" /> {language === "en" ? "Delete" : "Eliminar"}
                               </DropdownMenuItem>
@@ -1439,6 +1609,16 @@ export default function MasterEditingQueue() {
             {language === "en" ? "Deselect All" : "Deseleccionar"}
           </Button>
           <div className="w-px h-4 bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-foreground hover:text-foreground hover:bg-white/10 gap-1"
+            onClick={handleBulkArchive}
+            disabled={archiving}
+          >
+            {archiving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
+            {language === "en" ? "Archive" : "Archivar"}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
