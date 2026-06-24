@@ -4,15 +4,13 @@ import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
+import calvin100kText from "@/assets/calvin-100k-text.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
-  Stethoscope,
-  Smile,
-  Sparkles,
-  HeartPulse,
   Scale,
-  Dumbbell,
+  TrendingUp,
+  Briefcase,
   Play,
   Pause,
 } from "lucide-react";
@@ -101,27 +99,24 @@ function SectionSub({ text }: { text: string }) {
 }
 
 const INDUSTRIES = [
-  { icon: HeartPulse, name: "Quiroprácticos" },
-  { icon: Smile, name: "Dentistas" },
-  { icon: Sparkles, name: "Med Spas" },
-  { icon: Stethoscope, name: "Médicos / Clínicas" },
   { icon: Scale, name: "Abogados" },
-  { icon: Dumbbell, name: "Fitness / Wellness" },
+  { icon: TrendingUp, name: "Coaches High Ticket" },
+  { icon: Briefcase, name: "Consultores" },
 ];
 
 const NOT_FOR = [
-  "Negocios sin mercado hispano local relevante",
+  "Negocios sin una oferta high-ticket clara",
   "Dueños que no quieren aparecer en cámara",
-  "Quien busca solo edición o solo ads sin el sistema completo",
+  "Quien busca solo anuncios o solo contenido, sin el sistema completo",
   "Quien espera resultados sin filmar el contenido",
-  "Negocios fuera de los nichos listados",
+  "Quien no tiene capacidad para atender más citas y clientes",
 ];
 
 const PROCESS = [
   { n: "01", title: "APLICAS", body: "Llenas la aplicación con la información de tu negocio. Revisamos perfil." },
-  { n: "02", title: "CALIFICAMOS", body: "Llamada de 30 min. Te explicamos cómo se vería el sistema en tu negocio." },
-  { n: "03", title: "INSTALAMOS", body: "2 a 3 semanas: investigación, scripts, primer día de filmación, ads y ManyChat." },
-  { n: "04", title: "OPERAMOS", body: "Cada mes: 20 scripts, filmación, edición, posting, ads y reporte de resultados." },
+  { n: "02", title: "CALIFICAMOS", body: "Llamada de 30 min. Te mostramos cómo se vería el Sistema Híbrido en tu negocio." },
+  { n: "03", title: "INSTALAMOS", body: "2 a 3 semanas: oferta, investigación, scripts, primer día de filmación, anuncios y sistema de follow-up." },
+  { n: "04", title: "OPERAMOS", body: "Cada mes: scripts, filmación, edición, posting, anuncios, follow-up de leads y reporte de citas y ventas." },
 ];
 
 export default function Index() {
@@ -173,6 +168,25 @@ export default function Index() {
           0% { box-shadow: 0 0 0 0 rgba(232,133,43,0.55); }
           70% { box-shadow: 0 0 0 22px rgba(232,133,43,0); }
           100% { box-shadow: 0 0 0 0 rgba(232,133,43,0); }
+        }
+
+        .hero-bullets {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-width: 540px;
+          margin: 0 auto;
+          align-items: flex-start;
+        }
+        .hero-bullet { display: flex; align-items: flex-start; gap: 11px; }
+
+        .calvin-text-shot {
+          display: block;
+          width: 100%;
+          max-width: 620px;
+          margin: 0 auto;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.08);
         }
 
         .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
@@ -376,7 +390,7 @@ export default function Index() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
-            Sin perder tiempo
+            Sistema Híbrido de Adquisición
           </div>
 
           <div
@@ -389,25 +403,45 @@ export default function Index() {
               lineHeight: 1.14,
               letterSpacing: "-0.02em",
               maxWidth: 1240,
-              margin: "0 auto 18px",
+              margin: "0 auto 22px",
             }}
           >
-            Construye tu marca personal y <span style={{ color: "#E8852B" }}>consigue clientes reales</span>
-            <br />
-            en menos de 90 días, sin perder tiempo.
+            Ayudamos a dueños de negocios ocupados a generar <span style={{ color: "#E8852B" }}>$15k/mes extra</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
           </div>
 
-          <div
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 400,
-              fontSize: "clamp(16px, 2.2vw, 20px)",
-              color: "rgba(255,255,255,0.92)",
-              marginBottom: 8,
-            }}
-          >
-            +150M de vistas y +100K seguidores generados para nuestros clientes.
+          {/* Bullets de apoyo */}
+          <div className="hero-bullets">
+            {[
+              { k: "Qué hacemos", v: "$15k/mes extra con anuncios y contenido orgánico." },
+              { k: "Para quién", v: "abogados, coaches high ticket y consultores." },
+              { k: "Cómo", v: "sistema de follow-up que convierte tus leads en citas." },
+            ].map((b) => (
+              <div className="hero-bullet" key={b.k}>
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#E8852B",
+                    marginTop: 9,
+                  }}
+                />
+                <div
+                  style={{
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontSize: "clamp(14px, 1.8vw, 16px)",
+                    color: "rgba(255,255,255,0.78)",
+                    lineHeight: 1.5,
+                    textAlign: "left",
+                  }}
+                >
+                  <span style={{ color: "#fff", fontWeight: 700 }}>{b.k}:</span> {b.v}
+                </div>
+              </div>
+            ))}
           </div>
+
           <div
             className="hero-sub"
             style={{
@@ -417,10 +451,10 @@ export default function Index() {
               color: "rgba(255,255,255,0.6)",
               lineHeight: 1.55,
               maxWidth: 640,
-              margin: "0 auto 36px",
+              margin: "28px auto 36px",
             }}
           >
-            El sistema que pone tu marca a trabajar por ti mientras tú atiendes tu negocio.
+            Anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte tus leads en citas agendadas — mientras tú atiendes tu negocio.
           </div>
 
           {/* VSL Video — custom player with click-to-start gate */}
@@ -634,7 +668,7 @@ export default function Index() {
 
       {/* ③ EL PROBLEMA */}
       <Sec>
-        <SectionTitle text="EL MERCADO HISPANO ESTÁ AHÍ. TU COMPETENCIA NO LO ATIENDE." />
+        <SectionTitle text="ANUNCIOS TRAEN LEADS. EL ORGÁNICO GENERA CONFIANZA. EL FOLLOW-UP CIERRA." />
 
         <div
           style={{
@@ -647,7 +681,7 @@ export default function Index() {
             margin: "32px 0 12px",
           }}
         >
-          63M
+          $15K
         </div>
         <div
           style={{
@@ -660,7 +694,7 @@ export default function Index() {
             marginBottom: 36,
           }}
         >
-          HISPANOS EN ESTADOS UNIDOS
+          EXTRA AL MES, EN 90 DÍAS
         </div>
         <div
           style={{
@@ -672,7 +706,7 @@ export default function Index() {
             margin: "0 auto",
           }}
         >
-          Tu competencia les habla en inglés. Vas a hablarles en español.
+          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo: anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas.
         </div>
       </Sec>
 
@@ -686,26 +720,26 @@ export default function Index() {
             {
               phase: "Fase 1",
               icon: "🎯",
-              title: "Estrategia y Posicionamiento",
-              body: "Definimos tu identidad, cliente ideal, promesa principal y diferenciador. Aquí nace tu marca personal real —no la que tu mamá cree que tienes.",
+              title: "Estrategia y Oferta",
+              body: "Definimos tu oferta high-ticket, cliente ideal y mensaje principal. La base que hace que los anuncios y el contenido conviertan.",
             },
             {
               phase: "Fase 2",
-              icon: "📱",
-              title: "Sistema de Contenido",
-              body: "Diseñamos la parrilla de contenido viral con estructura psicológica: hooks, narrativa, llamados a la acción. Empezamos a grabar y editar.",
+              icon: "📣",
+              title: "Motor de Adquisición",
+              body: "Lanzamos anuncios y contenido orgánico con estructura psicológica: hooks, narrativa y llamados a la acción que generan leads calificados.",
             },
             {
               phase: "Fase 3",
-              icon: "🌐",
-              title: "Activos de Conversión",
-              body: "Construyo tu landing page, funnel de ventas y automatizaciones en ManyChat/CRM. Convertimos visitas en conversaciones reales.",
+              icon: "🔁",
+              title: "Sistema de Follow-up",
+              body: "Instalamos CRM y automatizaciones en ManyChat/email que dan seguimiento a cada lead y los convierten en citas agendadas.",
             },
             {
               phase: "Fase 4",
               icon: "🚀",
               title: "Escalamiento",
-              body: "Optimizamos lo que funciona, escalamos los videos virales y armamos un VSL para captar clientes high-ticket de forma consistente.",
+              body: "Optimizamos lo que funciona y escalamos anuncios y contenido para sostener $15k/mes extra de forma consistente.",
             },
           ].map((p) => (
             <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
@@ -782,14 +816,16 @@ export default function Index() {
 
           <div className="agency-stats">
             <div className="agency-stat">
+              <div className="agency-stat-num">$15K+</div>
+              <div className="agency-stat-label">EXTRA AL MES</div>
+            </div>
+            <div className="agency-stat">
               <div className="agency-stat-num">100K+</div>
               <div className="agency-stat-label">SEGUIDORES GENERADOS</div>
             </div>
-            <div className="agency-stat">
-              <div className="agency-stat-num">$50K+</div>
-              <div className="agency-stat-label">DÓLARES FACTURADOS</div>
-            </div>
           </div>
+
+          <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
         </div>
 
         {/* Caso Zigufit */}
@@ -840,7 +876,7 @@ export default function Index() {
       {/* ⑤ PARA QUIÉN ES */}
       <Sec bg="#121212">
         <SectionTitle text="PARA QUIÉN ESTÁ HECHO" />
-        <SectionSub text="Negocios de servicios con mercado hispano disponible" />
+        <SectionSub text="Negocios de servicios high-ticket listos para escalar" />
 
         <div className="grid-3" style={{ marginBottom: 36, maxWidth: 880, margin: "0 auto 36px" }}>
           {INDUSTRIES.map((i) => {
@@ -876,7 +912,7 @@ export default function Index() {
             margin: "0 auto",
           }}
         >
-          Eres dueño del negocio. Tienes mercado hispano local disponible. Estás listo para aparecer en cámara.
+          Eres dueño del negocio, vendes servicios high-ticket y estás listo para aparecer en cámara y delegar tu adquisición de clientes.
         </div>
       </Sec>
 
@@ -1003,7 +1039,7 @@ export default function Index() {
                 marginBottom: 20,
               }}
             >
-              Lideró la estrategia de contenido para Intermountain Immigration, la firma del Abogado Jonathan Shaw, escalando la cuenta a más de 650K seguidores entre Instagram y TikTok. Hoy aplica ese mismo sistema en Connecta para los casos de Dr. Calvin y Zigufit.
+              Lideró la estrategia de contenido y adquisición para Intermountain Immigration, la firma del Abogado Jonathan Shaw, escalando la cuenta a más de 650K seguidores y un flujo constante de clientes. Hoy aplica ese mismo Sistema Híbrido de Adquisición en Connecta para casos como Dr. Calvin y Zigufit.
             </div>
             <a
               href="/about"
