@@ -54,6 +54,7 @@ interface ClientStrategy {
 interface MonthCounts {
   scripts: number;
   videos_edited: number;
+  videos_published: number;
   posts_scheduled: number;
 }
 
@@ -159,7 +160,7 @@ export default function ClientStrategy() {
   const en = language === "en";
 
   const [strategy, setStrategy] = useState<ClientStrategy | null>(null);
-  const [counts, setCounts] = useState<MonthCounts>({ scripts: 0, videos_edited: 0, posts_scheduled: 0 });
+  const [counts, setCounts] = useState<MonthCounts>({ scripts: 0, videos_edited: 0, videos_published: 0, posts_scheduled: 0 });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -195,13 +196,14 @@ export default function ClientStrategy() {
       monthStart.setHours(0, 0, 0, 0);
       const iso = monthStart.toISOString();
 
-      const [{ count: scriptCount }, { count: videoCount }, { count: calCount }] = await Promise.all([
+      const [{ count: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
         supabase.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", clientId).gte("created_at", iso),
         supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
+        supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("post_status", "Published").is("deleted_at", null).gte("created_at", iso),
         supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).gte("schedule_date", iso.slice(0, 10)).is("deleted_at", null),
       ]);
 
-      setCounts({ scripts: scriptCount || 0, videos_edited: videoCount || 0, posts_scheduled: calCount || 0 });
+      setCounts({ scripts: scriptCount || 0, videos_edited: videoCount || 0, videos_published: publishedCount || 0, posts_scheduled: calCount || 0 });
     } finally {
       setLoading(false);
     }
@@ -414,6 +416,7 @@ export default function ClientStrategy() {
             {[
               { label: en ? "Scripts" : "Guiones", pct: Math.round(Math.min(100, (counts.scripts / Math.max(1, s.scripts_per_month)) * 100)) },
               { label: en ? "Videos edited" : "Videos editados", pct: Math.round(Math.min(100, (counts.videos_edited / Math.max(1, s.videos_edited_per_month)) * 100)) },
+              { label: en ? "Published" : "Publicados", pct: Math.round(Math.min(100, (counts.videos_published / Math.max(1, s.videos_edited_per_month)) * 100)) },
               { label: en ? "Posts scheduled" : "Posts programados", pct: Math.round(Math.min(100, (counts.posts_scheduled / Math.max(1, s.posts_per_month)) * 100)) },
               { label: "ManyChat", pct: s.manychat_active ? 100 : 0 },
             ].map(item => (
@@ -431,12 +434,13 @@ export default function ClientStrategy() {
 
         {/* Monthly Pace */}
         <StatusCard status={paceStatus} title={en ? "Monthly Pace" : "Ritmo Mensual"} badge={paceStatus === "green" ? (en ? "On Track" : "En Camino") : paceStatus === "yellow" ? (en ? "Needs Work" : "Necesita Trabajo") : (en ? "Behind" : "Atrasado")}>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: en ? "Scripts" : "Guiones", count: counts.scripts, target: s.scripts_per_month, field: "scripts_per_month" as keyof ClientStrategy },
-              { label: en ? "Videos Edited" : "Videos Editados", count: counts.videos_edited, target: s.videos_edited_per_month, field: "videos_edited_per_month" as keyof ClientStrategy },
-              { label: en ? "Posts Scheduled" : "Posts Programados", count: counts.posts_scheduled, target: s.posts_per_month, field: "posts_per_month" as keyof ClientStrategy },
-            ].map(item => {
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {([
+              { label: en ? "Scripts" : "Guiones", count: counts.scripts, target: s.scripts_per_month, field: "scripts_per_month" },
+              { label: en ? "Videos Edited" : "Videos Editados", count: counts.videos_edited, target: s.videos_edited_per_month, field: "videos_edited_per_month" },
+              { label: en ? "Published" : "Publicados", count: counts.videos_published, target: s.videos_edited_per_month, field: null },
+              { label: en ? "Posts Scheduled" : "Posts Programados", count: counts.posts_scheduled, target: s.posts_per_month, field: "posts_per_month" },
+            ] as { label: string; count: number; target: number; field: keyof ClientStrategy | null }[]).map(item => {
               const pct = Math.min(100, (item.count / Math.max(1, item.target)) * 100);
               const c = pct >= 70 ? "#22c55e" : pct >= 30 ? "#f59e0b" : "#ef4444";
               return (
@@ -445,7 +449,7 @@ export default function ClientStrategy() {
                   <div className="text-lg font-black" style={{ color: c }}>
                     {item.count} <span className="text-xs font-normal text-white/25">/ {item.target}</span>
                   </div>
-                  {editing && <div className="mt-1">{input(item.field, "number")}</div>}
+                  {editing && item.field && <div className="mt-1">{input(item.field, "number")}</div>}
                   <ProgressBar pct={pct} color={c} />
                 </div>
               );
