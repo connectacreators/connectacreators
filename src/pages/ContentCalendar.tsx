@@ -584,19 +584,26 @@ export default function ContentCalendar() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              {/* Client Filter — admin only, no clientId */}
+              {/* Client Filter — admin only, no clientId. In-page styled
+                  dropdown (not the OS-native <select>); the menu portals to
+                  <body> so it's pinned to a white editorial card surface with
+                  dark ink rather than inheriting the root dark popover. */}
               {isAdmin && !clientId && allClients.length > 0 && (
-                <select
-                  value={filterClientId}
-                  onChange={(e) => setFilterClientId(e.target.value)}
-                  className="h-8 px-2 pr-7 text-xs rounded-md border border-border/50 bg-card/50 text-foreground backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
-                >
-                  <option value="all">{language === "en" ? "All Clients" : "Todos los Clientes"}</option>
-                  {allClients.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <Select value={filterClientId} onValueChange={setFilterClientId}>
+                  <SelectTrigger className="h-8 w-auto min-w-[150px] gap-1.5 px-2.5 text-xs rounded-md border-border/50 bg-card/50 text-foreground backdrop-blur-sm focus:ring-1 focus:ring-primary/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white text-[hsl(var(--ink-on-cream))] border-[hsl(var(--ink-on-cream)/0.1)] z-50">
+                    <SelectItem value="all" className="text-xs focus:bg-[hsl(var(--ink-on-cream)/0.06)] focus:text-[hsl(var(--ink-on-cream))]">
+                      {language === "en" ? "All Clients" : "Todos los Clientes"}
+                    </SelectItem>
+                    {allClients.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs focus:bg-[hsl(var(--ink-on-cream)/0.06)] focus:text-[hsl(var(--ink-on-cream))]">
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
               {/* Share Button - Desktop only */}
               {(clientId || (filterClientId && filterClientId !== "all")) && (
