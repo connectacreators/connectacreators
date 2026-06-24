@@ -170,15 +170,37 @@ export default function Index() {
           100% { box-shadow: 0 0 0 0 rgba(232,133,43,0); }
         }
 
-        .hero-bullets {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          max-width: 540px;
+        .qqc-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          max-width: 920px;
           margin: 0 auto;
-          align-items: flex-start;
         }
-        .hero-bullet { display: flex; align-items: flex-start; gap: 11px; }
+        .qqc-card {
+          background: #161616;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-left: 3px solid #E8852B;
+          border-radius: 8px;
+          padding: 22px 22px;
+          text-align: left;
+        }
+        .qqc-k {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #E8852B;
+          margin-bottom: 8px;
+        }
+        .qqc-v {
+          font-family: 'Montserrat', sans-serif;
+          font-size: 15px;
+          color: rgba(255,255,255,0.82);
+          line-height: 1.5;
+        }
+        @media (max-width: 780px) { .qqc-grid { grid-template-columns: 1fr; gap: 12px; max-width: 460px; } }
 
         .calvin-text-shot {
           display: block;
@@ -409,39 +431,6 @@ export default function Index() {
             Ayudamos a dueños de negocios ocupados a generar <span style={{ color: "#E8852B" }}>$15k/mes extra</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
           </div>
 
-          {/* Bullets de apoyo */}
-          <div className="hero-bullets">
-            {[
-              { k: "Qué hacemos", v: "$15k/mes extra con anuncios y contenido orgánico." },
-              { k: "Para quién", v: "abogados, coaches high ticket y consultores." },
-              { k: "Cómo", v: "sistema de follow-up que convierte tus leads en citas." },
-            ].map((b) => (
-              <div className="hero-bullet" key={b.k}>
-                <span
-                  style={{
-                    flexShrink: 0,
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "#E8852B",
-                    marginTop: 9,
-                  }}
-                />
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontSize: "clamp(14px, 1.8vw, 16px)",
-                    color: "rgba(255,255,255,0.78)",
-                    lineHeight: 1.5,
-                    textAlign: "left",
-                  }}
-                >
-                  <span style={{ color: "#fff", fontWeight: 700 }}>{b.k}:</span> {b.v}
-                </div>
-              </div>
-            ))}
-          </div>
-
           <div
             className="hero-sub"
             style={{
@@ -666,6 +655,24 @@ export default function Index() {
         </div>
       </div>
 
+      {/* ② QUÉ / QUIÉN / CÓMO */}
+      <div style={{ background: "#0d0d0d", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
+          <div className="qqc-grid">
+            {[
+              { k: "Qué hacemos", v: "$15k/mes extra con anuncios y contenido orgánico." },
+              { k: "Para quién", v: "Abogados, coaches high ticket y consultores." },
+              { k: "Cómo", v: "Sistema de follow-up que convierte tus leads en citas." },
+            ].map((b) => (
+              <div className="qqc-card" key={b.k}>
+                <div className="qqc-k">{b.k}</div>
+                <div className="qqc-v">{b.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* ③ EL PROBLEMA */}
       <Sec>
         <SectionTitle text="ANUNCIOS TRAEN LEADS. EL ORGÁNICO GENERA CONFIANZA. EL FOLLOW-UP CIERRA." />
@@ -673,40 +680,14 @@ export default function Index() {
         <div
           style={{
             fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 700,
-            fontSize: "clamp(72px, 14vw, 160px)",
-            color: "#E8852B",
-            lineHeight: 1,
-            letterSpacing: "-0.04em",
-            margin: "32px 0 12px",
-          }}
-        >
-          $15K
-        </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontWeight: 700,
-            fontSize: 13,
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            color: "rgba(255,255,255,0.5)",
-            marginBottom: 36,
-          }}
-        >
-          EXTRA AL MES, EN 90 DÍAS
-        </div>
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
             fontSize: 17,
             color: "rgba(255,255,255,0.78)",
             lineHeight: 1.6,
             maxWidth: 640,
-            margin: "0 auto",
+            margin: "28px auto 0",
           }}
         >
-          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo: anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas.
+          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo —anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas— para sumar <span style={{ color: "#E8852B", fontWeight: 700 }}>$15K/mes extra en 90 días</span>.
         </div>
       </Sec>
 
