@@ -195,7 +195,7 @@ export default function LandingPageDoctors() {
         <div className="dc-wrap">
           <div className="dc-head center">
             <span className="dc-eyebrow">Another result</span>
-            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">30.2K in four posts.</span></h2>
+            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">122K in four posts.</span></h2>
           </div>
           <div className="dc-cmp">
             <figure className="dc-cmp-fig">
@@ -205,7 +205,7 @@ export default function LandingPageDoctors() {
             <span className="dc-cmp-arrow">→</span>
             <figure className="dc-cmp-fig">
               <span className="dc-cmp-lbl teal">After · 4 posts in</span>
-              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's first post to break 30.2K views" loading="lazy" />
+              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's post that reached 122K views" loading="lazy" />
             </figure>
           </div>
           <div style={{ textAlign: "center" }}>
