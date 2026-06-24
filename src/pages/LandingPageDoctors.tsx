@@ -112,10 +112,10 @@ export default function LandingPageDoctors() {
           <span className="dc-tag-dot" /> Now accepting new doctor partners
         </span>
         <h1 className="dc-h1 rise" style={{ animationDelay: ".12s" }}>
-          We help medical clinics bring <span className="dc-grad">10–30 new Hispanic patients</span> every month using our Hybrid Content Funnel Acquisition system. <span className="dc-teal-tx">Guaranteed, or you don't pay us.</span>
+          We help medical clinics bring <span className="dc-grad">10–30 new Hispanic patients</span> every month using our Hybrid Content Funnel Acquisition system.
         </h1>
         <p className="dc-lede rise" style={{ animationDelay: ".24s" }}>
-          More patients. Bigger brand. A practice people drive across town for.
+          Guaranteed, or you don't pay us.
         </p>
         <div className="dc-cta rise" style={{ animationDelay: ".34s" }}>
           <button onClick={openBooking} className="dc-btn dc-btn-teal dc-btn-lg">
