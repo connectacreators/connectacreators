@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import drCalvinAfter from "@/assets/dr-calvin-78k.png";
-import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
+import calvinFb from "@/assets/calvin-fb-118k.png";
+import calvinTiktok from "@/assets/calvin-tiktok-24k.png";
+import calvinIg from "@/assets/calvin-ig-9k.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
@@ -208,6 +209,21 @@ export default function Index() {
           max-width: 620px;
           margin: 0 auto;
           border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .calvin-socials {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          max-width: 560px;
+          margin: 0 auto 20px;
+        }
+        .calvin-socials img {
+          width: 100%;
+          height: auto;
+          display: block;
+          border-radius: 10px;
           border: 1px solid rgba(255,255,255,0.08);
         }
 
@@ -786,13 +802,10 @@ export default function Index() {
             DR. CALVIN, QUIROPRÁCTICO
           </div>
 
-          <div className="ba-grid ba-grid-square" style={{ marginBottom: 20, maxWidth: 560, margin: "0 auto 20px" }}>
-            <div className="ba-card ba-card-square">
-              <img src={drCalvinAfter} alt="Dr. Calvin Facebook" />
-            </div>
-            <div className="ba-card ba-card-square">
-              <img src={drCalvinTiktok} alt="Dr. Calvin TikTok" />
-            </div>
+          <div className="calvin-socials">
+            <img src={calvinFb} alt="Dr. Calvin — Facebook, 118K seguidores" loading="lazy" />
+            <img src={calvinTiktok} alt="Dr. Calvin — TikTok, 24.6K seguidores" loading="lazy" />
+            <img src={calvinIg} alt="Dr. Calvin — Instagram, 9.2K seguidores" loading="lazy" />
           </div>
 
           <div className="agency-stats">
@@ -801,7 +814,7 @@ export default function Index() {
               <div className="agency-stat-label">EXTRA AL MES</div>
             </div>
             <div className="agency-stat">
-              <div className="agency-stat-num">100K+</div>
+              <div className="agency-stat-num">150K+</div>
               <div className="agency-stat-label">SEGUIDORES GENERADOS</div>
             </div>
           </div>
