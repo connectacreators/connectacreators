@@ -810,13 +810,24 @@ export default function Index() {
 
           <div className="agency-stats">
             <div className="agency-stat">
-              <div className="agency-stat-num">$15K+</div>
-              <div className="agency-stat-label">EXTRA AL MES</div>
+              <div className="agency-stat-num">1,200</div>
+              <div className="agency-stat-label">SEGUIDORES ANTES</div>
             </div>
             <div className="agency-stat">
-              <div className="agency-stat-num">150K+</div>
-              <div className="agency-stat-label">SEGUIDORES GENERADOS</div>
+              <div className="agency-stat-num">+152K</div>
+              <div className="agency-stat-label">SEGUIDORES AHORA</div>
             </div>
+          </div>
+
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: 13,
+              color: "rgba(255,255,255,0.5)",
+              marginTop: 14,
+            }}
+          >
+            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>$22K</span> generados en ingresos por pacientes.
           </div>
 
           <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
