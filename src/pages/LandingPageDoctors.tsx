@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import calvin100kText from "@/assets/calvin-100k-text.png";
 import saratogaTeam from "@/assets/saratoga-team.jpg";
 import calvinLeads from "@/assets/calvin-leads-90d.png";
 import saratogaLeads from "@/assets/saratoga-leads.png";
-import ApplyModal from "@/components/ApplyModal";
-import DoctorBookingForm from "@/components/DoctorBookingForm";
 
 /* =============================================================================
    Doctors landing — "Content Doctors" edition.
@@ -15,6 +13,9 @@ import DoctorBookingForm from "@/components/DoctorBookingForm";
    .dc, fonts injected at runtime. CTAs open a qualifying discovery-call booking
    that emails Roberto via SMTP (send-doctor-lead). English throughout.
    ============================================================================= */
+
+const CALENDLY_URL = "https://calendly.com/rob_gauna/advisorycall";
+const CALENDLY_SCRIPT_ID = "calendly-widget-script";
 
 const FONT_LINK_ID = "imx-fonts";
 const FONT_HREF =
@@ -35,11 +36,9 @@ const FOR_YOU = [
 ];
 
 const NOT_FOR_YOU = [
-  "You're satisfied with how things are right now",
-  "You don't believe online marketing works for doctors",
-  "You won't be on camera under any circumstance",
-  "You want SEO only, ads only, or social only — not the full system",
-  "You're shopping by lowest price",
+  "You only serve the English-speaking community",
+  "You don't speak Spanish and don't have a team member who does",
+  "You're comfortable with the results you're already getting",
 ];
 
 const FAQ = [
@@ -54,8 +53,8 @@ const FAQ = [
 ];
 
 export default function LandingPageDoctors() {
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const openBooking = () => setBookingOpen(true);
+  const openBooking = () =>
+    document.getElementById("book")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   useEffect(() => {
     if (document.getElementById(FONT_LINK_ID)) return;
@@ -64,6 +63,28 @@ export default function LandingPageDoctors() {
     link.rel = "stylesheet";
     link.href = FONT_HREF;
     document.head.appendChild(link);
+  }, []);
+
+  // Load Calendly's inline-widget script and mount the booking calendar.
+  useEffect(() => {
+    const initWidget = () => {
+      const Calendly = (window as unknown as { Calendly?: { initInlineWidget: (o: { url: string; parentElement: Element }) => void } }).Calendly;
+      const el = document.getElementById("calendly-embed");
+      if (Calendly && el && !el.querySelector("iframe")) {
+        Calendly.initInlineWidget({ url: CALENDLY_URL, parentElement: el });
+      }
+    };
+    const existing = document.getElementById(CALENDLY_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existing) {
+      initWidget();
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = CALENDLY_SCRIPT_ID;
+    script.src = "https://assets.calendly.com/assets/external/widget.js";
+    script.async = true;
+    script.onload = initWidget;
+    document.body.appendChild(script);
   }, []);
 
   return (
@@ -342,17 +363,17 @@ export default function LandingPageDoctors() {
         </div>
       </section>
 
-      {/* ===== FINAL CTA ===== */}
-      <section className="dc-final">
+      {/* ===== FINAL CTA — Calendly booking ===== */}
+      <section className="dc-final" id="book">
         <div className="dc-glow dc-glow-final" aria-hidden />
         <div className="dc-wrap center">
           <span className="dc-eyebrow">Ready to grow?</span>
-          <h2 className="dc-final-h">Stop being your city's <span className="dc-grad">best-kept secret.</span></h2>
+          <h2 className="dc-final-h">Book your <span className="dc-grad">discovery call.</span></h2>
           <p className="dc-final-sub">
-            Book a discovery meeting. We work with a select group of doctors at a time — always happy
+            Pick a time below. We work with a select group of doctors at a time — always happy
             to learn about your practice and see if we're a fit.
           </p>
-          <button onClick={openBooking} className="dc-btn dc-btn-teal dc-btn-lg">Book a Discovery Meeting <span className="dc-arr">→</span></button>
+          <div id="calendly-embed" className="dc-calendly" />
           <p className="dc-final-fine">30 new Hispanic patients in 60 days, or you don't pay.</p>
         </div>
       </section>
@@ -361,10 +382,6 @@ export default function LandingPageDoctors() {
         <span className="dc-brand"><span className="dc-brand-dot" aria-hidden />Connecta</span>
         <span>Marketing for doctors who want to be the most-known name in their city · © 2026</span>
       </footer>
-
-      <ApplyModal open={bookingOpen} onClose={() => setBookingOpen(false)} label="Book a discovery call" dark>
-        <DoctorBookingForm />
-      </ApplyModal>
     </div>
   );
 }
@@ -587,6 +604,7 @@ const CSS = `
 .dc .dc-final-h { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(36px, 5.8vw, 76px); line-height: 1.0; letter-spacing: -0.035em; margin: 8px 0 22px; }
 .dc .dc-final-sub { max-width: 560px; margin: 0 auto 32px; font-size: 17px; color: var(--ink-2); line-height: 1.6; }
 .dc .dc-final-fine { margin-top: 18px; font-size: 13.5px; color: var(--ink-3); }
+.dc .dc-calendly { width: 100%; max-width: 1040px; min-width: 320px; height: 700px; margin: 8px auto 0; border-radius: 16px; overflow: hidden; }
 .dc .dc-guarantee { padding: 70px 0; background: linear-gradient(135deg, var(--teal), var(--teal-2)); }
 .dc .dc-guarantee-txt { max-width: 900px; margin: 0 auto; color: var(--bg); font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(26px, 4vw, 44px); line-height: 1.18; letter-spacing: -0.02em; }
 
