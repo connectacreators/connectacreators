@@ -2,18 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import calvin100kText from "@/assets/calvin-100k-text.png";
-import calvinReel1 from "@/assets/calvin-reel-1.jpg";
-import calvinReel2 from "@/assets/calvin-reel-2.jpg";
-import calvinReel3 from "@/assets/calvin-reel-3.jpg";
-import calvinReel4 from "@/assets/calvin-reel-4.jpg";
-import calvinReel5 from "@/assets/calvin-reel-5.jpg";
-import calvinReel6 from "@/assets/calvin-reel-6.jpg";
-import spencerPortrait from "@/assets/spencer-portrait.jpg";
-import spencerBefore from "@/assets/spencer-before.jpg";
-import spencerAfter from "@/assets/spencer-after.jpg";
 import saratogaTeam from "@/assets/saratoga-team.jpg";
-import saratogaReel1 from "@/assets/saratoga-reel-1.jpg";
-import saratogaReel2 from "@/assets/saratoga-reel-2.jpg";
+import calvinLeads from "@/assets/calvin-leads-90d.png";
+import saratogaLeads from "@/assets/saratoga-leads.png";
 import ApplyModal from "@/components/ApplyModal";
 import DoctorBookingForm from "@/components/DoctorBookingForm";
 
@@ -60,17 +51,6 @@ const FAQ = [
   ["How long until I see results?", "Dr. Calvin started seeing new patients come in about two weeks after he signed up, and it keeps compounding from there."],
   ["What makes you different?", "No templates. We build one system around your practice, in your voice, and we back it: 30 new Hispanic patients in 60 days, or you don't pay."],
   ["How do we get started?", "Book a discovery call. We work with a select group of doctors at a time and we'll see if we're a fit."],
-];
-
-const CALVIN_BEFORE = [
-  { src: calvinReel1, alt: "Dr. Calvin reel before working with us — 460 views" },
-  { src: calvinReel3, alt: "Dr. Calvin reel before working with us — 192 views" },
-  { src: calvinReel5, alt: "Dr. Calvin reel before working with us — 226 views" },
-];
-const CALVIN_AFTER = [
-  { src: calvinReel2, alt: "Dr. Calvin reel now — 3.8M views" },
-  { src: calvinReel4, alt: "Dr. Calvin reel now — 1.5M views" },
-  { src: calvinReel6, alt: "Dr. Calvin reel now — 963K views" },
 ];
 
 export default function LandingPageDoctors() {
@@ -131,8 +111,8 @@ export default function LandingPageDoctors() {
         <div className="dc-wrap">
           <div className="dc-head">
             <span className="dc-eyebrow">Recent work</span>
-            <h2 className="dc-h2">Reels that built a <span className="dc-teal-tx">real practice.</span></h2>
-            <p className="dc-head-p">A look at what the system ships. Every post is part of a machine that turns a feed into booked patients.</p>
+            <h2 className="dc-h2">Leads that fill the <span className="dc-teal-tx">schedule.</span></h2>
+            <p className="dc-head-p">What doctors actually care about: new patient leads and booked appointments. Here's what the system delivers.</p>
           </div>
 
           <div className="dc-case">
@@ -141,100 +121,41 @@ export default function LandingPageDoctors() {
               <span className="dc-case-badge">Dr. Calvin · Chiropractic</span>
             </div>
             <div className="dc-case-body">
-              <h3 className="dc-case-h">From 7K followers in 16 years to over 100K in 9 months — and a packed schedule.</h3>
+              <h3 className="dc-case-h">From 7K followers in 16 years to over 100K in 9 months — and a schedule full of new patients.</h3>
               <p className="dc-case-p">
-                We built Dr. Calvin's feed into one of the most-watched in his space: 50M+ views,
-                100K+ followers in 9 months, and a steady 30–50 new patient leads every month — about $15K in extra
-                revenue. The same playbook now runs for the doctors we partner with.
+                We turned Dr. Calvin's feed into a patient-acquisition machine: a steady stream of new patient
+                leads every month at around $13 a lead — people actively looking for a chiropractic care plan.
+                The same playbook now runs for the doctors we partner with.
               </p>
               <div className="dc-case-stats">
-                <div><b>50M+</b><span>views</span></div>
-                <div><b>100K+</b><span>followers</span></div>
-                <div><b>$15K</b><span>extra / mo</span></div>
+                <div><b>129</b><span>leads · last 90 days</span></div>
+                <div><b>$12.79</b><span>per lead</span></div>
+                <div><b>30–50</b><span>booked / mo</span></div>
               </div>
               <a className="dc-case-link" href="https://www.facebook.com/drcalvinsclinics/reels/" target="_blank" rel="noopener noreferrer">
                 Watch his reels →
               </a>
             </div>
           </div>
-          <img className="dc-case-text" src={calvin100kText} alt="" loading="lazy" />
+          <figure className="dc-leadshot">
+            <img src={calvinLeads} alt="Meta Ads performance overview for Dr. Calvin: 129 form leads, $12.79 per lead, $1,649.64 spent" loading="lazy" />
+            <figcaption>Dr. Calvin — leads in the last 90 days. Patients requesting a chiropractic care plan.</figcaption>
+          </figure>
+          <img className="dc-case-text" src={calvin100kText} alt="Dr. Calvin: 'Nice. Thanks to you guys' — congratulated on hitting 100K followers" loading="lazy" />
         </div>
       </section>
 
-      {/* ===== DR CALVIN — reels carousel ===== */}
-      <section className="dc-section">
-        <div className="dc-wrap">
-          <div className="dc-head center">
-            <span className="dc-eyebrow">Before &amp; after</span>
-            <h2 className="dc-h2">From a few hundred views to <span className="dc-teal-tx">3.8M</span> a post.</h2>
-          </div>
-          <div className="dc-ba2">
-            <div className="dc-ba2-group">
-              <span className="dc-ba2-label">Before working with us</span>
-              <div className="dc-ba2-reels">
-                {CALVIN_BEFORE.map((r, k) => (
-                  <div className="dc-ba2-reel" key={k}><img src={r.src} alt={r.alt} loading="lazy" /></div>
-                ))}
-              </div>
-            </div>
-            <span className="dc-ba2-arrow">→</span>
-            <div className="dc-ba2-group">
-              <span className="dc-ba2-label now">Now</span>
-              <div className="dc-ba2-reels">
-                {CALVIN_AFTER.map((r, k) => (
-                  <div className="dc-ba2-reel" key={k}><img src={r.src} alt={r.alt} loading="lazy" /></div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== SPENCER — before / after ===== */}
+      {/* ===== SARATOGA — leads result ===== */}
       <section className="dc-section dc-section-tint">
         <div className="dc-wrap">
           <div className="dc-head center">
-            <span className="dc-eyebrow">Another result</span>
-            <h2 className="dc-h2">Two years of little traction. Then <span className="dc-teal-tx">122K in four posts.</span></h2>
+            <span className="dc-eyebrow">Another practice</span>
+            <h2 className="dc-h2">Saratoga Chiropractic: <span className="dc-teal-tx">53 new patient leads</span> at $12.31 each.</h2>
           </div>
-          <div className="dc-cmp">
-            <figure className="dc-cmp-fig">
-              <span className="dc-cmp-lbl">Before · 2 years</span>
-              <img className="dc-cmp-before" src={spencerBefore} alt="Three of Spencer's earlier posts averaging around 130 views: 83, 170 and 137" loading="lazy" />
-            </figure>
-            <span className="dc-cmp-arrow">→</span>
-            <figure className="dc-cmp-fig">
-              <span className="dc-cmp-lbl teal">After · 4 posts in</span>
-              <img className="dc-cmp-after" src={spencerAfter} alt="Spencer's post that reached 122K views" loading="lazy" />
-            </figure>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div className="dc-ba-by">
-              <img className="dc-avatar" src={spencerPortrait} alt="Spencer Barton" />
-              <div>
-                <div className="dc-by-name">Spencer Barton, NP</div>
-                <div className="dc-by-role">Nurse Practitioner · Pecan Health</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== SARATOGA — viral reels ===== */}
-      <section className="dc-section">
-        <div className="dc-wrap">
-          <div className="dc-head center">
-            <span className="dc-eyebrow">And another</span>
-            <h2 className="dc-h2">Saratoga Chiropractic: <span className="dc-teal-tx">57.8K and 15K</span> on two posts.</h2>
-          </div>
-          <div className="dc-reels">
-            <figure className="dc-reel">
-              <img src={saratogaReel1} alt="Saratoga Chiropractic adjustment video — 57.8K views" loading="lazy" />
-            </figure>
-            <figure className="dc-reel">
-              <img src={saratogaReel2} alt="Saratoga Chiropractic video answering 'aren't you embarrassed to post?' — 15K views" loading="lazy" />
-            </figure>
-          </div>
+          <figure className="dc-leadshot center">
+            <img src={saratogaLeads} alt="Ads performance for Saratoga Chiropractic: 53 form leads, $652.44 total spent, $12.31 per lead" loading="lazy" />
+            <figcaption>Saratoga Chiropractic — new patient leads from one campaign.</figcaption>
+          </figure>
           <div style={{ textAlign: "center", marginTop: 24 }}>
             <div className="dc-ba-by">
               <img className="dc-avatar-rect" src={saratogaTeam} alt="Saratoga Chiropractic" />
@@ -244,6 +165,17 @@ export default function LandingPageDoctors() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ===== REACH — minimal views footnote ===== */}
+      <section className="dc-reachbar">
+        <div className="dc-wrap">
+          <p className="dc-reach">
+            <span className="dc-reach-k">Reach, too</span>
+            <span><b>3.8M</b> views on a Calvin reel</span>
+            <span><b>122K</b> for Spencer in 4 posts</span>
+          </p>
         </div>
       </section>
 
@@ -562,6 +494,13 @@ const CSS = `
 .dc .dc-case-link { margin-top: auto; align-self: flex-start; color: var(--teal); font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--teal-soft); padding-bottom: 2px; }
 .dc .dc-case-link:hover { border-color: var(--teal); }
 .dc .dc-case-text { display: block; width: 100%; margin-top: 22px; border-radius: 16px; border: 1px solid var(--line); }
+.dc .dc-leadshot { margin: 26px auto 0; max-width: 780px; background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 22px 24px; }
+.dc .dc-leadshot img { display: block; width: 100%; border-radius: 8px; }
+.dc .dc-leadshot figcaption { margin-top: 14px; font-size: 13.5px; line-height: 1.5; color: rgba(10,15,26,0.55); text-align: center; }
+.dc .dc-reachbar { padding: 30px 0; }
+.dc .dc-reach { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 28px; font-size: 14px; color: var(--ink-3); margin: 0; }
+.dc .dc-reach b { color: var(--ink-2); font-weight: 700; }
+.dc .dc-reach-k { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11.5px; color: var(--teal); font-weight: 700; }
 
 /* spencer before -> after (one line) */
 .dc .dc-cmp { display: flex; align-items: center; justify-content: center; gap: 26px; flex-wrap: wrap; }
