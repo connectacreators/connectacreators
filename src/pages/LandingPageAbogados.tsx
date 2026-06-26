@@ -109,11 +109,8 @@ export default function LandingPageAbogados() {
           <span className="abg-tag-dot" /> Para abogados de inmigración
         </span>
         <h1 className="abg-h1 rise" style={{ animationDelay: ".12s" }}>
-          Cierra <span className="abg-it">10 casos de inmigración nuevos</span> cada 60 días.
+          Ayudamos a abogados a agendar <span className="abg-it">10 casos de inmigración nuevos cada 60 días</span> con el Sistema de Adquisición Orgánico.
         </h1>
-        <p className="abg-es rise" style={{ animationDelay: ".22s" }}>
-          Con un sistema de adquisición <em>100% orgánico</em>.
-        </p>
         <p className="abg-lede rise" style={{ animationDelay: ".30s" }}>
           Sin pauta y sin perseguir clientes. Convertimos tu Instagram en el lugar donde los
           inmigrantes que buscan asilo, greencard o TPS te encuentran, confían en ti y agendan
@@ -303,6 +300,13 @@ export default function LandingPageAbogados() {
         </div>
       </section>
 
+      {/* ===== ROI GUARANTEE ===== */}
+      <section className="abg-guarantee">
+        <div className="abg-wrap center">
+          <p className="abg-guarantee-txt">100% ROI guarantee. We only win when you win.</p>
+        </div>
+      </section>
+
       {/* ===== FINAL CTA — Calendly booking ===== */}
       <section className="abg-final" id="book">
         <div className="abg-glow-final" aria-hidden />
@@ -348,11 +352,11 @@ const CSS = `
 }
 .abg * { box-sizing: border-box; }
 .abg a { color: inherit; text-decoration: none; }
-.abg em { font-style: italic; }
+.abg em { font-style: normal; }
 .abg .abg-wrap { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 0 28px; }
 .abg .abg-wrap-narrow { max-width: 820px; }
 .abg .abg-wrap.center, .abg .center { text-align: center; }
-.abg .abg-it { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 500; color: var(--gold); }
+.abg .abg-it { color: var(--gold); }
 .abg .abg-gold { color: var(--gold); }
 
 @keyframes abg-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
@@ -465,7 +469,7 @@ const CSS = `
 .abg .abg-shot figcaption { padding: 12px 18px; font-size: 13px; color: var(--ink-3); text-align: center; border-top: 1px solid var(--line); }
 .abg .abg-shot-stack { display: flex; flex-direction: column; gap: 16px; }
 .abg .abg-nurture { border-radius: 26px; padding: 48px 40px; display: grid; place-items: center; min-height: 260px; text-align: center; }
-.abg .abg-nurture-quote { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 500; font-size: clamp(22px, 3vw, 30px); line-height: 1.3; color: var(--ink); }
+.abg .abg-nurture-quote { font-family: 'Playfair Display', serif; font-weight: 500; font-size: clamp(22px, 3vw, 30px); line-height: 1.3; color: var(--ink); }
 
 /* includes / features */
 .abg .abg-feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -509,6 +513,10 @@ const CSS = `
 .abg .abg-final-sub { max-width: 580px; margin: 0 auto 32px; font-size: 17px; color: var(--ink-2); line-height: 1.62; }
 .abg .abg-final-fine { margin-top: 18px; font-size: 13.5px; color: var(--ink-3); }
 .abg .abg-calendly { width: 100%; max-width: 1040px; min-width: 320px; height: 700px; margin: 8px auto 0; border-radius: 16px; overflow: hidden; background: #fff; }
+
+/* roi guarantee band */
+.abg .abg-guarantee { position: relative; z-index: 1; padding: 72px 0; background: linear-gradient(135deg, var(--gold), var(--gold-2)); }
+.abg .abg-guarantee-txt { max-width: 920px; margin: 0 auto; color: #2A2008; font-family: 'Playfair Display', serif; font-weight: 700; font-size: clamp(26px, 4vw, 44px); line-height: 1.2; letter-spacing: -0.01em; }
 
 /* footer */
 .abg .abg-foot { position: relative; z-index: 1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; max-width: 1140px; margin: 0 auto; padding: 30px 28px 44px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); }
