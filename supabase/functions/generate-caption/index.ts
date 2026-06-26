@@ -175,7 +175,7 @@ Hard rules:
                 },
                 cta: {
                   type: "string",
-                  description: "Call-to-action in first/second person. Include 'Follow @handle for more ...' when a handle is provided; otherwise follow or comment a keyword based on the script's CTA.",
+                  description: "Call-to-action in the script's language, first/second person. When a handle is provided, tell viewers to follow that @handle for more; otherwise follow or comment a keyword based on the script's CTA.",
                 },
                 hashtags: {
                   type: "array",
