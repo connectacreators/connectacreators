@@ -126,7 +126,7 @@ serve(async (req) => {
 You MUST return exactly four parts via the tool:
 1. "hook": A SHORT, punchy first-line hook sentence (max ~12 words). Little to no emojis — prefer none. It should make someone stop scrolling and relate to the topic.
 2. "context": ONE line that adds context and naturally packs in the main SEO keywords/topics of the video (what someone would search for). Conversational, not a keyword dump.
-3. "cta": A short call-to-action. If an Instagram handle is provided below, the CTA MUST tell viewers to follow that exact handle, phrased like "Follow @handle for more <topic> tips." (replace <topic> with what this video is about). If the script's own CTA also asks people to comment a keyword, save, share, or DM, weave that intent in too. If no handle is provided, base it on the script's CTA, or default to asking them to follow for more on the topic.
+3. "cta": A short call-to-action. If an Instagram handle is provided below, the CTA MUST tell viewers to follow that exact handle (include the @handle verbatim) for more on this topic. Write this follow line in the SAME LANGUAGE as the script: a Spanish script gets a Spanish CTA (for example "Sígueme en @handle para más sobre esto."), an English script gets an English one ("Follow @handle for more ..."). If the script's own CTA also asks people to comment a keyword, save, share, or DM, weave that intent in too. If no handle is provided, base it on the script's CTA, or default to asking them to follow for more on the topic.
 4. "hashtags": EXACTLY 5 hashtags. Each must be a SINGLE word (no spaces), SEO-optimized for the video's topic. Return them WITHOUT the leading "#".
 
 Hard rules:
@@ -142,7 +142,7 @@ Hard rules:
         : `The script has no explicit call-to-action. Default the CTA to following for more on this topic.`
     }${
       instagramHandle
-        ? `\n\nThe creator's Instagram handle is @${instagramHandle}. The CTA MUST include "Follow @${instagramHandle} for more ..." about this topic.`
+        ? `\n\nThe creator's Instagram handle is @${instagramHandle}. The CTA MUST tell viewers to follow @${instagramHandle} for more on this topic, written in the SAME LANGUAGE as the script (if the script is in Spanish, write the follow line in Spanish, do not switch to English).`
         : ""
     }`;
 
