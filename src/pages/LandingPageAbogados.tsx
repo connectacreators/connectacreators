@@ -109,7 +109,7 @@ export default function LandingPageAbogados() {
           <span className="abg-tag-dot" /> Para abogados de inmigración
         </span>
         <h1 className="abg-h1 rise" style={{ animationDelay: ".12s" }}>
-          Ayudamos a abogados a agendar <span className="abg-it">10 casos de inmigración nuevos cada 60 días</span> con el Sistema de Adquisición Orgánico.
+          Ayudamos a abogados a conseguir <span className="abg-it">10 casos de inmigración nuevos</span> cada <span className="abg-it">60 días</span> con el Sistema de Adquisición Orgánico.
         </h1>
         <p className="abg-lede rise" style={{ animationDelay: ".30s" }}>
           Sin pauta y sin perseguir clientes. Convertimos tu Instagram en el lugar donde los
