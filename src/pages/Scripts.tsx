@@ -1547,10 +1547,22 @@ export default function Scripts() {
     const ctaText = contentBlocks.filter((b) => b.section === "cta").map((b) => (b.text || "").trim()).join("\n");
     const title = viewingMetadata?.idea_ganadora || "";
 
+    // Pull the creator's IG handle from onboarding so the CTA can say "Follow @handle".
+    let instagramHandle = "";
+    if (selectedClient?.id) {
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("onboarding_data")
+        .eq("id", selectedClient.id)
+        .maybeSingle();
+      const ig = (clientRow?.onboarding_data as any)?.instagram;
+      if (typeof ig === "string") instagramHandle = ig.trim().replace(/^@+/, "");
+    }
+
     setGeneratingCaption(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-caption", {
-        body: { scriptText, ctaText, title },
+        body: { scriptText, ctaText, title, instagramHandle },
       });
       if (error) throw error;
       const caption: string | undefined = (data as any)?.caption;

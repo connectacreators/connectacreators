@@ -106,6 +106,10 @@ serve(async (req) => {
     const scriptText: string = typeof body?.scriptText === "string" ? body.scriptText : "";
     const ctaText: string = typeof body?.ctaText === "string" ? body.ctaText : "";
     const title: string = typeof body?.title === "string" ? body.title : "";
+    // Creator's IG handle from onboarding; used to anchor the CTA's follow line.
+    const instagramHandle: string = (typeof body?.instagramHandle === "string" ? body.instagramHandle : "")
+      .trim()
+      .replace(/^@+/, "");
 
     if (!scriptText.trim()) {
       return new Response(JSON.stringify({ error: "scriptText is required" }), {
@@ -122,10 +126,11 @@ serve(async (req) => {
 You MUST return exactly four parts via the tool:
 1. "hook": A SHORT, punchy first-line hook sentence (max ~12 words). Little to no emojis — prefer none. It should make someone stop scrolling and relate to the topic.
 2. "context": ONE line that adds context and naturally packs in the main SEO keywords/topics of the video (what someone would search for). Conversational, not a keyword dump.
-3. "cta": A short call-to-action that tells the viewer to FOLLOW or to COMMENT a specific keyword. Base this on the script's actual call-to-action: if the script's CTA asks people to comment a word, save, share, follow, or DM, mirror that intent and reuse its keyword. If the script gives no clear CTA, default to asking them to follow for more on the topic.
+3. "cta": A short call-to-action. If an Instagram handle is provided below, the CTA MUST tell viewers to follow that exact handle, phrased like "Follow @handle for more <topic> tips." (replace <topic> with what this video is about). If the script's own CTA also asks people to comment a keyword, save, share, or DM, weave that intent in too. If no handle is provided, base it on the script's CTA, or default to asking them to follow for more on the topic.
 4. "hashtags": EXACTLY 5 hashtags. Each must be a SINGLE word (no spaces), SEO-optimized for the video's topic. Return them WITHOUT the leading "#".
 
 Hard rules:
+- Write in FIRST person or SECOND person only (use "I", "we", "my", "you", "your"). NEVER write in third person. Talk directly to the viewer.
 - NEVER use em dashes (—) or en dashes (–) anywhere. Use commas or periods instead.
 - Write in the SAME LANGUAGE as the script (if the script is in Spanish, write the caption in Spanish).
 - Sound like a real person, not AI. No generic filler, no "dive into", no "unlock", no "elevate".
@@ -135,6 +140,10 @@ Hard rules:
       ctaText.trim()
         ? `The script's call-to-action lines are:\n${ctaText}\n\nUse these to shape the caption's CTA.`
         : `The script has no explicit call-to-action. Default the CTA to following for more on this topic.`
+    }${
+      instagramHandle
+        ? `\n\nThe creator's Instagram handle is @${instagramHandle}. The CTA MUST include "Follow @${instagramHandle} for more ..." about this topic.`
+        : ""
     }`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -166,7 +175,7 @@ Hard rules:
                 },
                 cta: {
                   type: "string",
-                  description: "Call-to-action: follow or comment a keyword, based on the script's CTA.",
+                  description: "Call-to-action in first/second person. Include 'Follow @handle for more ...' when a handle is provided; otherwise follow or comment a keyword based on the script's CTA.",
                 },
                 hashtags: {
                   type: "array",
