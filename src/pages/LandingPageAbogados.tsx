@@ -122,10 +122,6 @@ export default function LandingPageAbogados() {
           </button>
           <a href="#metodo" className="abg-btn abg-btn-glass abg-btn-lg">Ver cómo funciona</a>
         </div>
-        <div className="abg-guar-chip rise" style={{ animationDelay: ".48s" }}>
-          <span className="abg-diamond" aria-hidden>◆</span>
-          10 casos nuevos cada 60 días — con contenido orgánico.
-        </div>
       </header>
 
       {/* ===== CÓMO FUNCIONA — the funnel ===== */}
