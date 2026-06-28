@@ -1,0 +1,235 @@
+/* ============================================================
+   /thank-you — clean light confirmation page
+   Scoped under .thank-you-page so it never touches the rest of
+   the app or the dark .landing-editorial system.
+   Public/landing surface: literal hex is intentional here.
+   ============================================================ */
+
+.thank-you-page {
+  --ty-bg: #F7F5F0;        /* soft warm white */
+  --ty-card: #FFFFFF;      /* card surface */
+  --ty-ink: #1A1A1A;       /* primary text */
+  --ty-muted: #5F5C55;     /* secondary text */
+  --ty-line: rgba(26, 24, 22, 0.10);
+  --ty-green: #2E9E6B;     /* success accent */
+  --ty-accent: #1A1A1A;    /* CTA / play button */
+
+  min-height: 100vh;
+  background: var(--ty-bg);
+  color: var(--ty-ink);
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+
+.thank-you-page * { box-sizing: border-box; }
+
+.ty-container {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- Logo ---------- */
+.ty-logo-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 28px 0 0;
+}
+.ty-logo {
+  /* square PNG with built-in whitespace padding — size by width */
+  width: 200px;
+  height: auto;
+}
+
+/* ---------- Hero ---------- */
+.ty-hero {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+
+.ty-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: rgba(46, 158, 107, 0.12);
+  color: var(--ty-green);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.ty-badge svg { width: 34px; height: 34px; }
+
+.ty-h1 {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(28px, 5vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 auto 18px;
+  max-width: 20ch;
+}
+
+.ty-lede {
+  font-size: clamp(16px, 2.2vw, 18px);
+  line-height: 1.6;
+  color: var(--ty-muted);
+  max-width: 56ch;
+  margin: 0 auto 10px;
+}
+
+.ty-watch {
+  font-size: clamp(17px, 2.4vw, 20px);
+  font-weight: 700;
+  color: var(--ty-ink);
+  margin: 22px auto 0;
+}
+
+/* ---------- Video ---------- */
+.ty-video-wrap {
+  padding: 28px 0 8px;
+}
+.ty-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 50% 0%, #2A2824 0%, #15140F 70%);
+  border: 1px solid var(--ty-line);
+  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ty-video video,
+.ty-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.ty-play {
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
+}
+.ty-play svg {
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
+  fill: var(--ty-ink);
+}
+.ty-video-caption {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Social proof ---------- */
+.ty-proof {
+  padding: 56px 0 16px;
+  text-align: center;
+}
+.ty-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ty-green);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.ty-proof-h2 {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(24px, 3.6vw, 34px);
+  margin: 0 0 32px;
+}
+.ty-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  text-align: left;
+}
+.ty-card {
+  background: var(--ty-card);
+  border: 1px solid var(--ty-line);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 14px 40px -30px rgba(0, 0, 0, 0.4);
+}
+.ty-card-result {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ty-ink);
+}
+.ty-card-quote {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ty-muted);
+}
+.ty-card-name {
+  margin-top: auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ty-ink);
+}
+
+/* ---------- Footer ---------- */
+.ty-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--ty-line);
+  padding: 32px 0 40px;
+  text-align: center;
+}
+.ty-footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ty-footer-links {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.ty-footer-links a {
+  color: var(--ty-muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+.ty-footer-links a:hover { color: var(--ty-ink); }
+.ty-footer-copy {
+  font-size: 13px;
+  color: var(--ty-muted);
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 720px) {
+  .ty-cards { grid-template-columns: 1fr; }
+  .ty-logo-wrap { padding-top: 28px; }
+  .ty-proof { padding-top: 44px; }
+}

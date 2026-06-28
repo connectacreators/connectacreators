@@ -81,6 +81,7 @@ const CommandCenterPreview = lazy(() => import("./pages/CommandCenterPreview"));
 const PublicContract = lazy(() => import("./pages/PublicContract"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const SocialAccounts = lazy(() => import("./pages/SocialAccounts"));
+const ThankYou = lazy(() => import("./pages/ThankYou"));
 
 const queryClient = new QueryClient();
 
@@ -179,6 +180,7 @@ const App = () => (
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/facebook-callback" element={<FacebookCallback />} />
             <Route path="/es" element={<LandingPageNewES />} />
+            <Route path="/thank-you" element={<ThankYou />} />
             <Route path="/doctors" element={<LandingPageDoctors />} />
             <Route path="/abogados" element={<LandingPageAbogados />} />
             <Route path="/signup" element={<Signup />} />
