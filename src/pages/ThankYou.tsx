@@ -3,11 +3,12 @@ import logoInk from "@/assets/connecta-logo-black.png";
 import "./thank-you.css";
 
 /**
- * Drop the "what to do next" video URL here when ready.
+ * The "what to do next" video URL.
  * - Direct file (Supabase/MP4): set to the .mp4 URL  -> renders a <video> player.
- * - Otherwise leave empty ("") to show the styled placeholder frame.
+ * - Leave empty ("") to show the styled placeholder frame instead.
  */
-const VIDEO_URL = "";
+const VIDEO_URL =
+  "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/thank-you-video.mp4";
 
 /** Edit these three to swap in real client results. Plain text, no emojis. */
 const RESULTS = [
