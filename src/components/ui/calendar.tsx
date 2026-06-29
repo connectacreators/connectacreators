@@ -34,20 +34,25 @@ function Calendar({
         head_cell:
           "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-range-middle)]:bg-[hsl(var(--aqua)/0.15)] first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
+          "h-9 w-9 p-0 font-normal rounded-full aria-selected:opacity-100"
         ),
         day_range_end: "day-range-end",
+        // Solid aqua fill + ink text, pinned to the raw palette tokens so the
+        // selected day always reads dark-on-aqua regardless of the surrounding
+        // theme scope (popover portals escape the page wrapper's tokens).
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+          "!bg-[hsl(var(--aqua))] !text-[hsl(var(--ink))] hover:!bg-[hsl(var(--aqua))] hover:!text-[hsl(var(--ink))] focus:!bg-[hsl(var(--aqua))] focus:!text-[hsl(var(--ink))]",
+        // Today = subtle aqua ring instead of a solid (orange) accent fill.
+        day_today:
+          "bg-transparent text-inherit ring-1 ring-inset ring-[hsl(var(--aqua)/0.6)]",
         day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
+          "day-outside text-muted-foreground opacity-50 aria-selected:text-muted-foreground aria-selected:opacity-30",
         day_disabled: "text-muted-foreground opacity-50",
         day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+          "aria-selected:bg-[hsl(var(--aqua)/0.15)] aria-selected:!text-foreground",
         day_hidden: "invisible",
         ...classNames,
       }}
