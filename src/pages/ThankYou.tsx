@@ -32,19 +32,11 @@ export default function ThankYou() {
   return (
     <div className="thank-you-page">
       <div className="ty-container">
-        <div className="ty-logo-wrap">
-          <img className="ty-logo" src={logoInk} alt="Connecta" />
-        </div>
-
         <header className="ty-hero">
-          <span className="ty-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </span>
-
           <h1 className="ty-h1">
-            Congratulations! Your Appointment Has Been Scheduled &amp; Confirmed
+            Congratulations! Your Appointment
+            <br />
+            Has Been Scheduled &amp; Confirmed
           </h1>
 
           <p className="ty-lede">
@@ -91,6 +83,7 @@ export default function ThankYou() {
 
       <footer className="ty-footer">
         <div className="ty-footer-inner">
+          <img className="ty-footer-logo" src={logoInk} alt="Connecta" />
           <div className="ty-footer-links">
             <Link to="/privacy-policy">Privacy Policy</Link>
             <Link to="/terms-and-conditions">Terms &amp; Conditions</Link>

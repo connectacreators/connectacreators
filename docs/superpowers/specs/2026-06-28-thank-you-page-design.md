@@ -35,26 +35,34 @@ Clean light / orza-style — distinct from the existing dark editorial landing:
 - This is a public/landing surface, so literal hex colors are acceptable here
   (the branding-token rule applies to in-app surfaces, not landing pages).
 
+## Typography
+
+Modern sans aesthetic — **Figtree** (the app's sans), NOT the editorial EB
+Garamond serif. Note: the app's global CSS sets a serif on bare `<h1>`/`<h2>`
+elements, so headings must set `font-family` explicitly (via `--ty-sans`) — an
+inherited value won't override a direct element rule.
+
 ## Page structure (top → bottom, centered)
 
-1. **Logo** — `@/assets/connecta-logo-hand-ink.png`, centered near the top.
-2. **Success badge** — a green circular ✓.
-3. **H1** — "Congratulations! Your Appointment Has Been Scheduled & Confirmed…"
-4. **Subtext** — confirmation sent via email & text + "please make sure that you
+1. **H1** — "Congratulations! Your Appointment Has Been Scheduled & Confirmed",
+   forced to exactly **two lines** via a `<br />` ("Congratulations! Your
+   Appointment" / "Has Been Scheduled & Confirmed"). No logo or badge above it.
+2. **Subtext** — confirmation sent via email & text + "please make sure that you
    put this in your calendar right now." then a bold line: "Watch this brief
    video for what to do next." (no emoji).
-5. **Video frame** — styled 16:9 placeholder (poster background + centered play
+3. **Video frame** — styled 16:9 placeholder (poster background + centered play
    button). The video source is a single named constant (`VIDEO_URL`) at the top
    of the component, empty by default; when set, render the real `<video>`/embed,
    otherwise show the placeholder. Clearly commented so the URL can be dropped in
    later.
-6. **Social proof** — an eyebrow/title "Real clients, real results" above a
+4. **Social proof** — an eyebrow/title "Real clients, real results" above a
    responsive row of 3 placeholder result cards, each with a name + a one-line
    headline result + a short supporting quote. Defined as an editable array at
    the top of the component (mirrors orza's "Robert — $0 to $21.7K in 46 days"
    style, but with placeholder copy).
-7. **Footer** — small Connecta wordmark, copyright line, and links to
-   `/privacy-policy` and `/terms-and-conditions`.
+5. **Footer** — the Connecta logo (`@/assets/connecta-logo-black.png`), a
+   copyright line, and links to `/privacy-policy` and `/terms-and-conditions`.
+   This is the only place the logo appears on the page.
 
 ## Files
 
