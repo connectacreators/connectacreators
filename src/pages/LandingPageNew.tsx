@@ -21,6 +21,7 @@ import logoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import drCalvin78k from "@/assets/dr-calvin-78k.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
@@ -1962,6 +1963,151 @@ export default function LandingPageNew() {
                 <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99h-2.54V12h2.54V9.8c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
               </svg>
               See his Facebook
+            </a>
+          </div>
+        </div>
+
+        {/* ----- Second testimonial — Pecan Healthy (hybrid: pull-quote + the real DM receipts) ----- */}
+        <div
+          className="scroll-rise"
+          style={{ maxWidth: 920, margin: "112px auto 0", padding: "0 32px", position: "relative" }}
+        >
+          {/* hairline divider so the two testimonials read as separate voices */}
+          <div
+            style={{
+              width: 64,
+              height: 1,
+              background: "var(--honey)",
+              opacity: 0.5,
+              margin: "0 auto 56px",
+            }}
+          />
+          <div
+            className="serif"
+            style={{
+              fontSize: "clamp(28px, 4.2vw, 48px)",
+              lineHeight: 1.2,
+              letterSpacing: "-0.015em",
+              fontWeight: 500,
+              marginBottom: 36,
+              color: "var(--bone)",
+            }}
+          >
+            <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
+            That one video got me to <em className="honey">10K followers</em> … and the cancer post hit <em className="soft">1.9M views.</em>
+            <span style={{ color: "var(--aqua)", fontStyle: "italic" }}>"</span>
+          </div>
+          <div
+            className="serif-italic"
+            style={{
+              fontSize: 19,
+              color: "var(--bone-2)",
+              marginTop: -16,
+              marginBottom: 40,
+            }}
+          >
+            Bonkers!
+          </div>
+
+          {/* The receipts — the actual DMs, rebuilt as a short message thread so
+              they stay crisp + legible at every viewport (the raw screenshots
+              were single-line strips that collapsed to unreadable on mobile). */}
+          <div style={{ maxWidth: 460, margin: "0 auto 44px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span className="eyebrow">straight from the DMs</span>
+            </div>
+            {[
+              "Sorry, I was checked out for a bit. That one video on Facebook got me to 10k followers? Cause I'm pretty sure I was in the 100's on Facebook.",
+              "That cancer post is crazy!! Bonkers! 1.9 mil views.",
+            ].map((msg, i) => (
+              <div
+                key={i}
+                style={{
+                  alignSelf: "flex-start",
+                  maxWidth: "88%",
+                  textAlign: "left",
+                  background: "hsl(var(--bone) / 0.10)",
+                  color: "var(--bone)",
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: 15,
+                  lineHeight: 1.4,
+                  padding: "11px 16px",
+                  borderRadius: 20,
+                  borderBottomLeftRadius: 6,
+                }}
+              >
+                {msg}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, position: "relative", flexWrap: "wrap", justifyContent: "center" }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                overflow: "hidden",
+                border: "2px solid var(--honey)",
+                boxShadow: "3px 3px 0 var(--honey)",
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src={pecanHealthyPortrait}
+                alt="Pecan Healthy"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  display: "block",
+                }}
+              />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <div className="serif" style={{ fontSize: 17, color: "var(--bone)" }}>
+                <ProxText>Pecan Healthy</ProxText>
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
+                <ProxText>10K followers in 3 weeks · 3M+ views with Connecta</ProxText>
+              </div>
+            </div>
+            <a
+              href="https://www.facebook.com/pecanhealthy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                borderRadius: 999,
+                background: "var(--bone)",
+                color: "var(--ink)",
+                border: "1px solid var(--ink)",
+                boxShadow: "3px 3px 0 var(--honey)",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
+                fontSize: 13,
+                letterSpacing: "0.02em",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translate(-1px, -1px)";
+                e.currentTarget.style.boxShadow = "4px 4px 0 var(--honey)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translate(0, 0)";
+                e.currentTarget.style.boxShadow = "3px 3px 0 var(--honey)";
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99h-2.54V12h2.54V9.8c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
+              </svg>
+              See their Facebook
             </a>
           </div>
         </div>
