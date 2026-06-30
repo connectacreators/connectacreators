@@ -260,6 +260,19 @@ export const videoUploadService = {
     return data.signedUrl;
   },
 
+  // Signed URL that forces a browser download (Content-Disposition: attachment)
+  // so the file streams straight to disk. Use this for the Download button —
+  // never fetch()+blob() the original, which buffers the WHOLE file in memory
+  // and OOMs on large footage (600MB+ originals are common).
+  async getDownloadVideoUrl(storagePath: string, filename?: string): Promise<string> {
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(storagePath, 3600, { download: filename || true });
+
+    if (error) throw error;
+    return data.signedUrl;
+  },
+
   // Proxy-aware resolver for PLAYBACK only. Returns the fast 720p web proxy
   // from `footage-proxies` when one is ready, otherwise the original. Never use
   // this for downloads — they must pull the full-res original via

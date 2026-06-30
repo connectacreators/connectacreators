@@ -1159,15 +1159,16 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
     if (!path) { toast.error(language === "en" ? "No file to download" : "Sin archivo para descargar"); return; }
     setDownloading(true);
     try {
-      const url = await videoUploadService.getSignedVideoUrl(path);
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      const filename = `${(post.title || "video").replace(/[^a-zA-Z0-9_\- ]/g, "")}.mp4`;
+      // Stream straight to disk via a Content-Disposition: attachment signed URL.
+      // Never fetch()+blob() — that buffers the whole file in memory and OOMs on
+      // large originals (600MB+ footage), which is what made "Download failed" fire.
+      const url = await videoUploadService.getDownloadVideoUrl(path, filename);
       const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `${(post.title || "video").replace(/[^a-zA-Z0-9_\- ]/g, "")}.mp4`;
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
     } catch {
       toast.error(language === "en" ? "Download failed" : "Error al descargar");
     } finally {

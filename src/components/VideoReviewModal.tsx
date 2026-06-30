@@ -188,12 +188,15 @@ export default function VideoReviewModal({
   const handleDownload = async () => {
     if (!activeSource) return;
     setDownloading(true);
+    const filename = `${(title || 'video').replace(/[^a-zA-Z0-9_\- ]/g, '')}.mp4`;
     let url: string | null = null;
     try {
       if (activeSource.type === 'supabase')
-        // Sign the ORIGINAL (footage) explicitly — never reuse the playback URL,
-        // which may be the low-res proxy. The user gets the full-quality file.
-        url = await videoUploadService.getSignedVideoUrl(activeSource.rawUrl);
+        // Sign the ORIGINAL (footage) with a Content-Disposition: attachment so
+        // the browser streams it straight to disk. Do NOT fetch()+blob() it —
+        // that buffers the whole file in memory and OOMs on large originals
+        // (600MB+ footage), which is what made "Download failed" fire.
+        url = await videoUploadService.getDownloadVideoUrl(activeSource.rawUrl, filename);
       else if (activeSource.type === 'drive' && activeSource.driveId)
         url = `https://drive.google.com/uc?export=download&id=${activeSource.driveId}`;
       else url = activeSource.rawUrl;
@@ -202,14 +205,14 @@ export default function VideoReviewModal({
     }
     if (!url) { setDownloading(false); toast.error('Download failed'); return; }
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      // Anchor navigation to an attachment URL downloads without buffering and
+      // without a cross-origin fetch (Google Drive sends no CORS headers).
       const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `${(title || 'video').replace(/[^a-zA-Z0-9_\- ]/g, '')}.mp4`;
+      a.href = url;
+      a.download = filename; // honored same-origin; the CD header forces it cross-origin
+      a.rel = 'noopener';
       document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
     } catch { toast.error('Download failed'); }
     finally { setDownloading(false); }
   };
