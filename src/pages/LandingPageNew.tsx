@@ -22,6 +22,8 @@ import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
+import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
+import pecanMsgViews from "@/assets/pecan-msg-views.png";
 import drCalvin78k from "@/assets/dr-calvin-78k.png";
 import drCalvinTiktok from "@/assets/dr-calvin-tiktok.png";
 import zigufitBefore from "@/assets/zigufit-before.png";
@@ -2009,35 +2011,26 @@ export default function LandingPageNew() {
             Bonkers!
           </div>
 
-          {/* The receipts — the actual DMs, rebuilt as a short message thread so
-              they stay crisp + legible at every viewport (the raw screenshots
-              were single-line strips that collapsed to unreadable on mobile). */}
-          <div style={{ maxWidth: 460, margin: "0 auto 44px", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ textAlign: "center", marginBottom: 8 }}>
-              <span className="eyebrow">straight from the DMs</span>
-            </div>
+          {/* The receipts — the actual DM screenshots, stacked as a short thread */}
+          <div style={{ maxWidth: 640, margin: "0 auto 44px", display: "flex", flexDirection: "column", gap: 12 }}>
             {[
-              "Sorry, I was checked out for a bit. That one video on Facebook got me to 10k followers? Cause I'm pretty sure I was in the 100's on Facebook.",
-              "That cancer post is crazy!! Bonkers! 1.9 mil views.",
-            ].map((msg, i) => (
-              <div
+              { src: pecanMsgFollowers, alt: "Client message: that one video on Facebook got me to 10k followers" },
+              { src: pecanMsgViews, alt: "Client message: that cancer post is crazy, 1.9 mil views" },
+            ].map((r, i) => (
+              <img
                 key={i}
+                src={r.src}
+                alt={r.alt}
+                loading="lazy"
                 style={{
-                  alignSelf: "flex-start",
-                  maxWidth: "88%",
-                  textAlign: "left",
-                  background: "hsl(var(--bone) / 0.10)",
-                  color: "var(--bone)",
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: 15,
-                  lineHeight: 1.4,
-                  padding: "11px 16px",
-                  borderRadius: 20,
-                  borderBottomLeftRadius: 6,
+                  width: "100%",
+                  height: "auto",
+                  display: "block",
+                  borderRadius: 14,
+                  border: "1px solid hsl(var(--bone) / 0.10)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
                 }}
-              >
-                {msg}
-              </div>
+              />
             ))}
           </div>
 
