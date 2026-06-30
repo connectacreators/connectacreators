@@ -1328,7 +1328,7 @@ export default function LandingPageNew() {
               color: "var(--bone)",
             }}
           >
-            We help experts become the{" "}
+            We help professional service experts become the{" "}
             <span className="serif-italic" style={{ color: "var(--honey)", fontWeight: 400 }}>
               biggest name
             </span>{" "}
