@@ -1069,7 +1069,7 @@ export default function Index() {
           <SectionSub text="30 minutes to map out exactly what this looks like for your business." />
           <div
             className="calendly-inline-widget"
-            data-url="https://calendly.com/robertogaunaj/demo-presentation"
+            data-url="https://calendly.com/rob_gauna/advisory_call?primary_color=ffbb35"
             style={{ minWidth: 320, height: 700, maxWidth: 1000, margin: "0 auto", borderRadius: 16, overflow: "hidden" }}
           />
         </div>

@@ -72,7 +72,7 @@ const CTASectionEN = () => {
             <Button 
               size="default"
               className="group text-base px-8 py-5 rounded-full shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
-              onClick={() => window.open('https://calendly.com/robertogaunaj/demo-presentation', '_blank')}
+              onClick={() => window.open('https://calendly.com/rob_gauna/advisory_call?primary_color=ffbb35', '_blank')}
             >
               Book a Strategy Call
               <motion.span

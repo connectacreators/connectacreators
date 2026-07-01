@@ -129,7 +129,7 @@ const HeroVProject = () => {
             transition={{ delay: 1.4, duration: 0.6 }}
           >
             <motion.a 
-              href="https://calendly.com/robertogaunaj/demo-presentation" 
+              href="https://calendly.com/rob_gauna/advisory_call?primary_color=ffbb35" 
               target="_blank" 
               rel="noopener noreferrer"
               whileHover={{ scale: 1.05 }}

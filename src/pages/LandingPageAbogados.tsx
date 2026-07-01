@@ -14,7 +14,7 @@ import jossDm from "@/assets/abogado-joss-dm.png";
    Self-contained — scoped to .abg, fonts injected at runtime.
    ============================================================================= */
 
-const CALENDLY_URL = "https://calendly.com/rob_gauna/advisorycall";
+const CALENDLY_URL = "https://calendly.com/rob_gauna/advisory_call?primary_color=ffbb35";
 const CALENDLY_SCRIPT_ID = "calendly-widget-script";
 
 const FONT_LINK_ID = "abg-fonts";
