@@ -494,8 +494,8 @@ export default function Scripts() {
   const [linkedVideoEdit, setLinkedVideoEdit] = useState<{ id: string; client_id: string; footage: string | null; file_submission: string | null; upload_source: string | null; storage_path: string | null; storage_url: string | null; file_size_bytes: number | null } | null>(null);
   const [footageViewerOpen, setFootageViewerOpen] = useState(false);
   const [footageViewerSubfolder, setFootageViewerSubfolder] = useState<string | undefined>(undefined);
-  const [footageStorageFiles, setFootageStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
-  const [submissionStorageFiles, setSubmissionStorageFiles] = useState<{ name: string; path: string; signedUrl: string }[]>([]);
+  const [footageStorageFiles, setFootageStorageFiles] = useState<{ name: string; path: string; signedUrl: string; previewUrl: string }[]>([]);
+  const [submissionStorageFiles, setSubmissionStorageFiles] = useState<{ name: string; path: string; signedUrl: string; previewUrl: string }[]>([]);
   // The video-edit currently being viewed. loadStorageFiles is async, so a slow
   // load for a previous script could resolve after a switch and overwrite the
   // display with the wrong script's footage; we check this ref before setState.
@@ -1836,11 +1836,28 @@ export default function Scripts() {
       const { data } = await supabase.storage.from(BUCKET).list(prefix);
       if (!data?.length) return [];
       const files = data.filter(f => f.name && !f.name.endsWith('/'));
+      const sourcePaths = files.map(f => `${prefix}${f.name}`);
+      // Proxy lookup for the whole folder in one query. `footage_proxies` isn't
+      // in generated types — cast. On error, previewUrl falls back to original.
+      const { data: proxies } = await (supabase as any)
+        .from('footage_proxies')
+        .select('source_path, proxy_bucket, proxy_path, status')
+        .in('source_path', sourcePaths);
+      const proxyBySource = new Map<string, any>((proxies ?? []).map((p: any) => [p.source_path, p]));
       return Promise.all(files.map(async f => {
         const path = `${prefix}${f.name}`;
         const { data: url } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
-        return url ? { name: f.name, path, signedUrl: url.signedUrl } : null;
-      })).then(r => r.filter(Boolean) as { name: string; path: string; signedUrl: string }[]);
+        if (!url) return null;
+        let previewUrl = url.signedUrl;
+        const proxy = proxyBySource.get(path);
+        if (proxy?.status === 'done' && proxy.proxy_path) {
+          const { data: purl } = await supabase.storage
+            .from(proxy.proxy_bucket || 'footage-proxies')
+            .createSignedUrl(proxy.proxy_path, 3600);
+          if (purl) previewUrl = purl.signedUrl;
+        }
+        return { name: f.name, path, signedUrl: url.signedUrl, previewUrl };
+      })).then(r => r.filter(Boolean) as { name: string; path: string; signedUrl: string; previewUrl: string }[]);
     };
     const [footage, submission] = await Promise.all([
       listAndSign(`${clientId}/${videoEditId}/`),
@@ -3910,7 +3927,7 @@ export default function Scripts() {
                     {footageStorageFiles.map(f => (
                       <FootageCard
                         key={f.path}
-                        url={f.signedUrl}
+                        url={f.previewUrl}
                         kind={fileCardKind(f.name)}
                         fileName={f.name}
                         fileSize=""
@@ -3973,7 +3990,7 @@ export default function Scripts() {
                     {submissionStorageFiles.map(f => (
                       <FootageCard
                         key={f.path}
-                        url={f.signedUrl}
+                        url={f.previewUrl}
                         kind={fileCardKind(f.name)}
                         fileName={f.name}
                         fileSize=""
