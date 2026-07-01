@@ -43,7 +43,7 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
       }}
     >
-      Agenda tu consulta →
+      Book your consultation →
     </a>
   );
 }
@@ -103,24 +103,24 @@ function SectionSub({ text }: { text: string }) {
 }
 
 const INDUSTRIES = [
-  { icon: Scale, name: "Abogados" },
-  { icon: TrendingUp, name: "Coaches High Ticket" },
-  { icon: Briefcase, name: "Consultores" },
+  { icon: Scale, name: "Lawyers" },
+  { icon: TrendingUp, name: "High-Ticket Coaches" },
+  { icon: Briefcase, name: "Consultants" },
 ];
 
 const NOT_FOR = [
-  "Negocios sin una oferta high-ticket clara",
-  "Dueños que no quieren aparecer en cámara",
-  "Quien busca solo anuncios o solo contenido, sin el sistema completo",
-  "Quien espera resultados sin filmar el contenido",
-  "Quien no tiene capacidad para atender más citas y clientes",
+  "Businesses without a clear high-ticket offer",
+  "Owners who don't want to appear on camera",
+  "Anyone looking for just ads or just content, without the full system",
+  "Anyone expecting results without filming the content",
+  "Anyone without the capacity to take on more appointments and clients",
 ];
 
 const PROCESS = [
-  { n: "01", title: "APLICAS", body: "Llenas la aplicación con la información de tu negocio. Revisamos perfil." },
-  { n: "02", title: "CALIFICAMOS", body: "Llamada de 30 min. Te mostramos cómo se vería el Sistema Híbrido en tu negocio." },
-  { n: "03", title: "INSTALAMOS", body: "2 a 3 semanas: oferta, investigación, scripts, primer día de filmación, anuncios y sistema de follow-up." },
-  { n: "04", title: "OPERAMOS", body: "Cada mes: scripts, filmación, edición, posting, anuncios, follow-up de leads y reporte de citas y ventas." },
+  { n: "01", title: "APPLY", body: "You fill out the application with your business information. We review your profile." },
+  { n: "02", title: "QUALIFY", body: "30-minute call. We show you what the Hybrid System would look like in your business." },
+  { n: "03", title: "INSTALL", body: "2 to 3 weeks: offer, research, scripts, first filming day, ads and follow-up system." },
+  { n: "04", title: "OPERATE", body: "Every month: scripts, filming, editing, posting, ads, lead follow-up and a report on appointments and sales." },
 ];
 
 export default function Index() {
@@ -431,7 +431,7 @@ export default function Index() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
-            Sistema Híbrido de Adquisición
+            Hybrid Acquisition System
           </div>
 
           <div
@@ -447,7 +447,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            Ayudamos a expertos en servicios profesionales a generar <span style={{ color: "#E8852B" }}>1 millón de vistas garantizadas</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
+            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Hybrid Acquisition System.
           </div>
 
           <div
@@ -462,7 +462,7 @@ export default function Index() {
               margin: "28px auto 36px",
             }}
           >
-            Anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte tus leads en citas agendadas — mientras tú atiendes tu negocio.
+            Ads that fill your pipeline, organic content that positions you, and a follow-up that turns your leads into booked appointments — while you run your business.
           </div>
 
           {/* VSL Video — custom player with click-to-start gate */}
@@ -512,7 +512,7 @@ export default function Index() {
             {!videoStarted && (
               <button
                 onClick={startVideo}
-                aria-label="Activar sonido y reproducir"
+                aria-label="Turn on sound and play"
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -553,7 +553,7 @@ export default function Index() {
                     textShadow: "0 2px 12px rgba(0,0,0,0.6)",
                   }}
                 >
-                  Haz click para activar el sonido
+                  Click to turn on sound
                 </span>
               </button>
             )}
@@ -577,7 +577,7 @@ export default function Index() {
               >
                 <button
                   onClick={togglePlay}
-                  aria-label={videoPlaying ? "Pausar" : "Reproducir"}
+                  aria-label={videoPlaying ? "Pause" : "Play"}
                   style={{
                     flexShrink: 0,
                     width: 42,
@@ -618,7 +618,7 @@ export default function Index() {
                 </div>
                 <button
                   onClick={cycleSpeed}
-                  aria-label="Velocidad de reproducción"
+                  aria-label="Playback speed"
                   style={{
                     flexShrink: 0,
                     minWidth: 52,
@@ -659,7 +659,7 @@ export default function Index() {
               boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
             }}
           >
-            Agenda tu consulta →
+            Book your consultation →
           </button>
           <div
             style={{
@@ -669,19 +669,19 @@ export default function Index() {
               marginTop: 14,
             }}
           >
-            Aceptamos un máximo de 5 clientes nuevos al mes.
+            We accept a maximum of 5 new clients per month.
           </div>
         </div>
       </div>
 
-      {/* ② QUÉ / QUIÉN / CÓMO */}
+      {/* ② WHAT / WHO / HOW */}
       <div style={{ background: "#0d0d0d", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
           <div className="qqc-grid">
             {[
-              { k: "Qué hacemos", v: "1 millón de vistas garantizadas con anuncios y contenido orgánico." },
-              { k: "Para quién", v: "Cualquier experto en servicios profesionales: médicos, abogados, coaches y consultores." },
-              { k: "Cómo", v: "Sistema de follow-up que convierte tus leads en citas." },
+              { k: "What we do", v: "1 million guaranteed views with ads and organic content." },
+              { k: "Who it's for", v: "Any professional-service expert: doctors, lawyers, coaches and consultants." },
+              { k: "How", v: "A follow-up system that turns your leads into appointments." },
             ].map((b) => (
               <div className="qqc-card" key={b.k}>
                 <div className="qqc-k">{b.k}</div>
@@ -692,9 +692,9 @@ export default function Index() {
         </div>
       </div>
 
-      {/* ③ EL PROBLEMA */}
+      {/* ③ THE PROBLEM */}
       <Sec>
-        <SectionTitle text="ANUNCIOS TRAEN LEADS. EL ORGÁNICO GENERA CONFIANZA. EL FOLLOW-UP CIERRA." />
+        <SectionTitle text="ADS BRING LEADS. ORGANIC BUILDS TRUST. FOLLOW-UP CLOSES." />
 
         <div
           style={{
@@ -706,40 +706,40 @@ export default function Index() {
             margin: "28px auto 0",
           }}
         >
-          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo —anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas— para garantizarte <span style={{ color: "#E8852B", fontWeight: 700 }}>1 millón de vistas en 90 días</span>.
+          Most bet on a single piece and fall short. We install the complete system —ads that fill your pipeline, organic content that positions you and a follow-up that turns those leads into booked appointments— to guarantee you <span style={{ color: "#E8852B", fontWeight: 700 }}>1 million views in 90 days</span>.
         </div>
       </Sec>
 
-      {/* ③.5 EL PROCESO — cómo construyo el sistema completo */}
+      {/* ③.5 THE PROCESS — how I build the complete system */}
       <Sec>
-        <SectionTitle text="EL PROCESO" />
-        <SectionSub text="Cómo construyo el sistema completo" />
+        <SectionTitle text="THE PROCESS" />
+        <SectionSub text="How I build the complete system" />
 
         <div className="grid-4">
           {[
             {
-              phase: "Fase 1",
+              phase: "Phase 1",
               icon: "🎯",
-              title: "Estrategia y Oferta",
-              body: "Definimos tu oferta high-ticket, cliente ideal y mensaje principal. La base que hace que los anuncios y el contenido conviertan.",
+              title: "Strategy & Offer",
+              body: "We define your high-ticket offer, ideal client and core message. The foundation that makes ads and content convert.",
             },
             {
-              phase: "Fase 2",
+              phase: "Phase 2",
               icon: "📣",
-              title: "Motor de Adquisición",
-              body: "Lanzamos anuncios y contenido orgánico con estructura psicológica: hooks, narrativa y llamados a la acción que generan leads calificados.",
+              title: "Acquisition Engine",
+              body: "We launch ads and organic content with a psychological structure: hooks, narrative and calls to action that generate qualified leads.",
             },
             {
-              phase: "Fase 3",
+              phase: "Phase 3",
               icon: "🔁",
-              title: "Sistema de Follow-up",
-              body: "Instalamos CRM y automatizaciones en ManyChat/email que dan seguimiento a cada lead y los convierten en citas agendadas.",
+              title: "Follow-up System",
+              body: "We install a CRM and ManyChat/email automations that follow up with every lead and turn them into booked appointments.",
             },
             {
-              phase: "Fase 4",
+              phase: "Phase 4",
               icon: "🚀",
-              title: "Escalamiento",
-              body: "Optimizamos lo que funciona y escalamos anuncios y contenido para sostener un volumen de vistas consistente.",
+              title: "Scaling",
+              body: "We optimize what works and scale ads and content to sustain a consistent volume of views.",
             },
           ].map((p) => (
             <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
@@ -784,12 +784,12 @@ export default function Index() {
         </div>
       </Sec>
 
-      {/* ④ CASOS DE ÉXITO */}
+      {/* ④ SUCCESS STORIES */}
       <Sec>
-        <SectionTitle text="RESULTADOS REALES DE CLIENTES" />
-        <SectionSub text="Trabajamos con cuentas nuevas y establecidas" />
+        <SectionTitle text="REAL CLIENT RESULTS" />
+        <SectionSub text="We work with new and established accounts" />
 
-        {/* Caso Calvin */}
+        {/* Calvin case */}
         <div style={{ marginBottom: 56 }}>
           <div
             style={{
@@ -802,23 +802,23 @@ export default function Index() {
               marginBottom: 16,
             }}
           >
-            DR. CALVIN, QUIROPRÁCTICO
+            DR. CALVIN, CHIROPRACTOR
           </div>
 
           <div className="calvin-socials">
-            <img src={calvinFb} alt="Dr. Calvin — Facebook, 118K seguidores" loading="lazy" />
-            <img src={calvinTiktok} alt="Dr. Calvin — TikTok, 24.6K seguidores" loading="lazy" />
-            <img src={calvinIg} alt="Dr. Calvin — Instagram, 9.2K seguidores" loading="lazy" />
+            <img src={calvinFb} alt="Dr. Calvin — Facebook, 118K followers" loading="lazy" />
+            <img src={calvinTiktok} alt="Dr. Calvin — TikTok, 24.6K followers" loading="lazy" />
+            <img src={calvinIg} alt="Dr. Calvin — Instagram, 9.2K followers" loading="lazy" />
           </div>
 
           <div className="agency-stats">
             <div className="agency-stat">
               <div className="agency-stat-num">1,200</div>
-              <div className="agency-stat-label">SEGUIDORES ANTES</div>
+              <div className="agency-stat-label">FOLLOWERS BEFORE</div>
             </div>
             <div className="agency-stat">
               <div className="agency-stat-num">+200K</div>
-              <div className="agency-stat-label">SEGUIDORES AHORA</div>
+              <div className="agency-stat-label">FOLLOWERS NOW</div>
             </div>
           </div>
 
@@ -830,7 +830,7 @@ export default function Index() {
               marginTop: 14,
             }}
           >
-            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>200K seguidores</span> nuevos en menos de 12 meses.
+            Over <span style={{ color: "#E8852B", fontWeight: 700 }}>200K new followers</span> in under 12 months.
           </div>
 
           <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
@@ -838,13 +838,13 @@ export default function Index() {
           <img
             className="calvin-text-shot"
             src={calvinFollowers}
-            alt="Dr. Calvin — 206.34K seguidores totales (Facebook, TikTok, Instagram, YouTube)"
+            alt="Dr. Calvin — 206.34K total followers (Facebook, TikTok, Instagram, YouTube)"
             loading="lazy"
             style={{ marginTop: 20, maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
           />
         </div>
 
-        {/* Caso Zigufit */}
+        {/* Zigufit case */}
         <div style={{ marginBottom: 44 }}>
           <div
             style={{
@@ -862,31 +862,31 @@ export default function Index() {
 
           <div className="ba-grid" style={{ marginBottom: 0, maxWidth: 560, margin: "0 auto" }}>
             <div className="ba-card">
-              <img src={zigufitBefore} alt="ZiguFit antes" className="ba-img-portrait" />
+              <img src={zigufitBefore} alt="ZiguFit before" className="ba-img-portrait" />
               <div className="ba-caption">
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
-                  ANTES
+                  BEFORE
                 </div>
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#fff" }}>
-                  500 seguidores
+                  500 followers
                 </div>
               </div>
             </div>
             <div className="ba-card">
-              <img src={zigufitAfter} alt="ZiguFit después" className="ba-img-portrait" />
+              <img src={zigufitAfter} alt="ZiguFit after" className="ba-img-portrait" />
               <div className="ba-caption">
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E8852B", marginBottom: 4 }}>
-                  DESPUÉS
+                  AFTER
                 </div>
                 <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#E8852B" }}>
-                  17.6K seguidores
+                  17.6K followers
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Caso Spencer Barton — Pecan Health */}
+        {/* Spencer Barton case — Pecan Health */}
         <div style={{ marginBottom: 44 }}>
           <div
             style={{
@@ -905,7 +905,7 @@ export default function Index() {
           <img
             className="calvin-text-shot"
             src={spencerProfile}
-            alt="Spencer Barton — perfil de Pecan Health, 11K seguidores"
+            alt="Spencer Barton — Pecan Health profile, 11K followers"
             loading="lazy"
             style={{ maxWidth: 620, background: "#fff", padding: 14, boxSizing: "border-box", marginBottom: 20 }}
           />
@@ -913,7 +913,7 @@ export default function Index() {
           <img
             className="calvin-text-shot"
             src={spencerImpressions}
-            alt="Spencer Barton — 4.26M impresiones"
+            alt="Spencer Barton — 4.26M impressions"
             loading="lazy"
             style={{ maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
           />
@@ -934,10 +934,10 @@ export default function Index() {
         <ApplyBtn onApply={openApply} />
       </Sec>
 
-      {/* ⑤ PARA QUIÉN ES */}
+      {/* ⑤ WHO IT'S FOR */}
       <Sec bg="#121212">
-        <SectionTitle text="PARA QUIÉN ESTÁ HECHO" />
-        <SectionSub text="Negocios de servicios high-ticket listos para escalar" />
+        <SectionTitle text="WHO IT'S FOR" />
+        <SectionSub text="High-ticket service businesses ready to scale" />
 
         <div className="grid-3" style={{ marginBottom: 36, maxWidth: 880, margin: "0 auto 36px" }}>
           {INDUSTRIES.map((i) => {
@@ -973,14 +973,14 @@ export default function Index() {
             margin: "0 auto",
           }}
         >
-          Eres dueño del negocio, vendes servicios high-ticket y estás listo para aparecer en cámara y delegar tu adquisición de clientes.
+          You own the business, you sell high-ticket services, and you're ready to appear on camera and delegate your client acquisition.
         </div>
       </Sec>
 
-      {/* ⑥ PARA QUIÉN NO ES */}
+      {/* ⑥ WHO IT'S NOT FOR */}
       <Sec>
-        <SectionTitle text="PARA QUIÉN NO ESTÁ HECHO" />
-        <SectionSub text="Si te ves en esta lista, este sistema no es para ti" />
+        <SectionTitle text="WHO IT'S NOT FOR" />
+        <SectionSub text="If you see yourself in this list, this system isn't for you" />
 
         <div className="not-for-list">
           {NOT_FOR.map((item, i) => (
@@ -1019,10 +1019,10 @@ export default function Index() {
         </div>
       </Sec>
 
-      {/* ⑦ CÓMO TRABAJAMOS */}
+      {/* ⑦ HOW WE WORK */}
       <Sec bg="#121212">
-        <SectionTitle text="CÓMO TRABAJAMOS" />
-        <SectionSub text="Un proceso de 4 pasos para activar el sistema en tu negocio" />
+        <SectionTitle text="HOW WE WORK" />
+        <SectionSub text="A 4-step process to activate the system in your business" />
 
         <div className="grid-4" style={{ marginBottom: 52 }}>
           {PROCESS.map((s) => (
@@ -1069,9 +1069,9 @@ export default function Index() {
         <ApplyBtn onApply={openApply} />
       </Sec>
 
-      {/* ⑧ SOBRE ROBERTO */}
+      {/* ⑧ ABOUT ROBERTO */}
       <Sec>
-        <SectionTitle text="SOBRE ROBERTO" />
+        <SectionTitle text="ABOUT ROBERTO" />
 
         <div className="roberto-row">
           <div className="roberto-photo-wrap">
@@ -1089,7 +1089,7 @@ export default function Index() {
                 marginBottom: 12,
               }}
             >
-              ROBERTO GAUNA, FUNDADOR
+              ROBERTO GAUNA, FOUNDER
             </div>
             <div
               style={{
@@ -1100,7 +1100,7 @@ export default function Index() {
                 marginBottom: 20,
               }}
             >
-              Lideró la estrategia de contenido y adquisición para Intermountain Immigration, la firma del Abogado Jonathan Shaw, escalando la cuenta a más de 650K seguidores y un flujo constante de clientes. Hoy aplica ese mismo Sistema Híbrido de Adquisición en Connecta para casos como Dr. Calvin y Zigufit.
+              He led content and acquisition strategy for Intermountain Immigration, attorney Jonathan Shaw's firm, scaling the account past 650K followers and a steady flow of clients. Today he applies that same Hybrid Acquisition System at Connecta for cases like Dr. Calvin and Zigufit.
             </div>
             <a
               href="/about"
@@ -1116,7 +1116,7 @@ export default function Index() {
                 paddingBottom: 2,
               }}
             >
-              MÁS SOBRE ROBERTO →
+              MORE ABOUT ROBERTO →
             </a>
           </div>
         </div>
@@ -1142,7 +1142,7 @@ export default function Index() {
             marginBottom: 6,
           }}
         >
-          CONTÁCTANOS
+          CONTACT US
         </div>
         <div
           style={{
@@ -1151,7 +1151,7 @@ export default function Index() {
             color: "rgba(255,255,255,0.6)",
           }}
         >
-          ¿Tienes preguntas? Escríbenos a:{" "}
+          Have questions? Email us at:{" "}
           <a
             href="mailto:admin@connectacreators.com"
             style={{ color: "#E8852B", fontWeight: 700 }}
@@ -1223,12 +1223,12 @@ function BeforeAfterCaption({ platform, before, after }: { platform?: string; be
       ) : null}
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>ANTES</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>BEFORE</div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1 }}>{before}</div>
         </div>
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E8852B", letterSpacing: "0.08em" }}>AHORA</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E8852B", letterSpacing: "0.08em" }}>NOW</div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#E8852B", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
