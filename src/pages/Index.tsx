@@ -569,7 +569,7 @@ export default function Index() {
               margin: "28px auto 36px",
             }}
           >
-            Ads that fill your pipeline, organic content that positions you, and a follow-up that turns your leads into booked appointments — while you run your business.
+            All it takes is about 4 hours of filming a month — and no thousands spent on ads to get traffic to your page. We handle everything else.
           </div>
 
           {/* VSL Video — custom player with click-to-start gate */}
