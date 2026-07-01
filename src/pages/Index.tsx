@@ -431,7 +431,7 @@ export default function Index() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
-            Organic Client Acquisition Funnel
+            Organic Acquisition Funnel
           </div>
 
           <div
@@ -447,7 +447,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Organic Client Acquisition Funnel.
+            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
           </div>
 
           <div
@@ -718,28 +718,28 @@ export default function Index() {
         <div className="grid-4">
           {[
             {
-              phase: "Phase 1",
+              phase: "Step 1",
               icon: "🎯",
-              title: "Strategy & Offer",
-              body: "We define your high-ticket offer, ideal client and core message. The foundation that makes ads and content convert.",
+              title: "We rebuild your offer",
+              body: "We start by sharpening your offer and positioning, so everything we film and publish is built to attract the right clients.",
             },
             {
-              phase: "Phase 2",
-              icon: "📣",
-              title: "Acquisition Engine",
-              body: "We launch ads and organic content with a psychological structure: hooks, narrative and calls to action that generate qualified leads.",
+              phase: "Step 2",
+              icon: "🎬",
+              title: "You film ~4 hrs a month",
+              body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else.",
             },
             {
-              phase: "Phase 3",
-              icon: "🔁",
-              title: "Follow-up System",
-              body: "We install a CRM and ManyChat/email automations that follow up with every lead and turn them into booked appointments.",
+              phase: "Step 3",
+              icon: "📈",
+              title: "We edit, publish & optimize",
+              body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile.",
             },
             {
-              phase: "Phase 4",
-              icon: "🚀",
-              title: "Scaling",
-              body: "We optimize what works and scale ads and content to sustain a consistent volume of views.",
+              phase: "Step 4",
+              icon: "💬",
+              title: "Organic DM acquisition funnel",
+              body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments.",
             },
           ].map((p) => (
             <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
@@ -1100,7 +1100,7 @@ export default function Index() {
                 marginBottom: 20,
               }}
             >
-              He led content and acquisition strategy for Intermountain Immigration, attorney Jonathan Shaw's firm, scaling the account past 650K followers and a steady flow of clients. Today he applies that same Organic Client Acquisition Funnel at Connecta for cases like Dr. Calvin and Zigufit.
+              He led content and acquisition strategy for Intermountain Immigration, attorney Jonathan Shaw's firm, scaling the account past 650K followers and a steady flow of clients. Today he applies that same Organic Acquisition Funnel at Connecta for cases like Dr. Calvin and Zigufit.
             </div>
             <a
               href="/about"
