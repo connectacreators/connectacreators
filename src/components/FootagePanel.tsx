@@ -293,6 +293,24 @@ export default function FootagePanel({
     }
   };
 
+  // Downloads the full-resolution ORIGINAL. A plain <a download> is ignored for
+  // cross-origin signed URLs (the browser just navigates to the link — the
+  // "opens the public link instead of downloading" bug), so sign with a
+  // Content-Disposition: attachment header and click a temporary anchor.
+  const handleDownload = async (f: StorageFile) => {
+    try {
+      const url = await videoUploadService.getDownloadVideoUrl(`${prefix}${f.name}`, f.name);
+      const a = document.createElement('a');
+      a.href = url;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+
   const startUpload = (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
       toast.error(`${file.name}: File too large (max 50 GB)`);
@@ -475,15 +493,14 @@ export default function FootagePanel({
                       className="w-6 h-6 rounded border border-border/50 bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground text-[10px]"
                       title="Copy link"
                     >⧉</button>
-                    <a
-                      href={f.signedUrl}
-                      download={f.name}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDownload(f); }}
                       className="w-6 h-6 rounded border border-border/50 bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground"
                       title="Download"
                     >
                       <Download className="w-3 h-3" />
-                    </a>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.name); }}
@@ -535,13 +552,13 @@ export default function FootagePanel({
                               >
                                 <ExternalLink className="w-3 h-3" /> Open
                               </a>
-                              <a
-                                href={f.signedUrl}
-                                download={f.name}
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(f)}
                                 className="text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
                               >
                                 <Download className="w-3 h-3" /> Download
-                              </a>
+                              </button>
                             </div>
                           </div>
                         );
@@ -554,13 +571,13 @@ export default function FootagePanel({
                             This file can't be previewed in the browser.<br />
                             <span className="text-muted-foreground/60">Large files or unsupported codecs may not stream.</span>
                           </p>
-                          <a
-                            href={f.signedUrl}
-                            download={f.name}
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(f)}
                             className="mt-1 text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
                           >
                             <Download className="w-3 h-3" /> Download to watch
-                          </a>
+                          </button>
                         </div>
                       );
                       return (
@@ -588,11 +605,11 @@ export default function FootagePanel({
                         onClick={() => { navigator.clipboard.writeText(f.signedUrl); toast.success('Link copied'); }}
                         className="text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded px-2 py-1 transition-colors"
                       >⧉ Copy link</button>
-                      <a
-                        href={f.signedUrl}
-                        download={f.name}
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(f)}
                         className="text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded px-2 py-1 transition-colors"
-                      >⬇ Download</a>
+                      >⬇ Download</button>
                     </div>
                   </div>
                 )}
