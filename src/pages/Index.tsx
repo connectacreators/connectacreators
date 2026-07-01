@@ -431,7 +431,7 @@ export default function Index() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
-            Hybrid Acquisition System
+            Organic Client Acquisition Funnel
           </div>
 
           <div
@@ -447,7 +447,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Hybrid Acquisition System.
+            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Organic Client Acquisition Funnel.
           </div>
 
           <div
@@ -1100,7 +1100,7 @@ export default function Index() {
                 marginBottom: 20,
               }}
             >
-              He led content and acquisition strategy for Intermountain Immigration, attorney Jonathan Shaw's firm, scaling the account past 650K followers and a steady flow of clients. Today he applies that same Hybrid Acquisition System at Connecta for cases like Dr. Calvin and Zigufit.
+              He led content and acquisition strategy for Intermountain Immigration, attorney Jonathan Shaw's firm, scaling the account past 650K followers and a steady flow of clients. Today he applies that same Organic Client Acquisition Funnel at Connecta for cases like Dr. Calvin and Zigufit.
             </div>
             <a
               href="/about"
