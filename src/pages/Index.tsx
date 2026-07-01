@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import calvinFb from "@/assets/calvin-fb-118k.png";
 import calvinTiktok from "@/assets/calvin-tiktok-24k.png";
 import calvinIg from "@/assets/calvin-ig-9k.png";
@@ -12,9 +12,6 @@ import spencerProfile from "@/assets/spencer-profile.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
-  Stethoscope,
-  Scale,
-  Briefcase,
   Target,
   Clapperboard,
   TrendingUp,
@@ -106,18 +103,26 @@ function SectionSub({ text }: { text: string }) {
   );
 }
 
-const INDUSTRIES = [
-  { icon: Stethoscope, name: "Doctors & Clinics" },
-  { icon: Scale, name: "Lawyers & Firms" },
-  { icon: Briefcase, name: "Coaches & Consultants" },
+const PROCESS_STEPS = [
+  { icon: Target, phase: "Step 1", title: "We rebuild your offer", body: "We start by sharpening your offer and positioning, so everything we film and publish is built to attract the right clients." },
+  { icon: Clapperboard, phase: "Step 2", title: "You film ~4 hrs a month", body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else." },
+  { icon: TrendingUp, phase: "Step 3", title: "We edit, publish & optimize", body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile." },
+  { icon: MessageCircle, phase: "Step 4", title: "Organic DM acquisition funnel", body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments." },
+];
+
+const FOR_QUALITIES = [
+  "You own the business and you're the expert your clients trust",
+  "You're ready to show up on camera",
+  "You want to delegate your content and client acquisition",
+  "You have the capacity to take on more clients",
 ];
 
 const NOT_FOR = [
-  "Businesses without a clear high-ticket offer",
+  "Businesses without a clear offer or service",
   "Owners who don't want to appear on camera",
   "Anyone looking for just ads or just content, without the full system",
   "Anyone expecting results without filming the content",
-  "Anyone without the capacity to take on more appointments and clients",
+  "Anyone without the capacity to take on more clients",
 ];
 
 const PROCESS = [
@@ -354,6 +359,102 @@ export default function Index() {
           object-fit: cover;
           object-position: center top;
           display: block;
+        }
+
+        /* ── PROCESS TIMELINE ── */
+        .ptl { position: relative; max-width: 920px; margin: 0 auto; padding: 12px 0; }
+        .ptl-spine {
+          position: absolute; top: 0; bottom: 0; left: 50%;
+          transform: translateX(-50%); width: 2px;
+        }
+        .ptl-spine::before {
+          content: ""; position: absolute; inset: 0;
+          background: repeating-linear-gradient(to bottom, rgba(232,133,43,0.35) 0 6px, transparent 6px 14px);
+        }
+        .ptl-spine-fill {
+          position: absolute; top: 0; left: 0; width: 100%; height: 0;
+          background: #E8852B; transition: height 1.6s ease;
+        }
+        .ptl-in .ptl-spine-fill { height: 100%; }
+        .ptl-row {
+          position: relative; display: grid;
+          grid-template-columns: 1fr 96px 1fr; align-items: center;
+          min-height: 190px;
+          opacity: 0; transform: translateY(26px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .ptl-in .ptl-row { opacity: 1; transform: translateY(0); }
+        .ptl-node {
+          grid-column: 2; grid-row: 1; justify-self: center;
+          width: 60px; height: 60px; border-radius: 50%;
+          background: #E8852B; color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 24px;
+          z-index: 2;
+          box-shadow: 0 0 0 8px #0a0a0a, 0 8px 26px rgba(232,133,43,0.4);
+        }
+        .ptl-content { max-width: 440px; }
+        .ptl-right .ptl-content { grid-column: 3; grid-row: 1; text-align: left; justify-self: start; }
+        .ptl-left .ptl-content { grid-column: 1; grid-row: 1; text-align: right; justify-self: end; }
+        .ptl-eyebrow {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 12px;
+          text-transform: uppercase; letter-spacing: 0.1em; color: #E8852B; margin-bottom: 12px;
+        }
+        .ptl-left .ptl-eyebrow { flex-direction: row-reverse; }
+        .ptl-title {
+          font-family: 'Montserrat', sans-serif; font-weight: 700;
+          font-size: clamp(22px, 3vw, 32px); color: #fff;
+          line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 14px;
+        }
+        .ptl-body {
+          font-family: 'Montserrat', sans-serif; font-size: 15px;
+          color: rgba(255,255,255,0.6); line-height: 1.65;
+        }
+
+        /* ── FOR / NOT-FOR COMPARISON ── */
+        .cmp-grid {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+          max-width: 900px; margin: 0 auto; text-align: left;
+        }
+        .cmp-col {
+          background: #161616; border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px; padding: 28px 26px;
+        }
+        .cmp-head {
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px;
+          text-transform: uppercase; letter-spacing: 0.08em;
+          padding-bottom: 16px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .cmp-head-for { color: #7FB58A; }
+        .cmp-head-not { color: #ff6b6b; }
+        .cmp-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
+        .cmp-mark {
+          flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px; margin-top: 1px;
+        }
+        .cmp-mark-for { background: rgba(127,181,138,0.18); color: #7FB58A; }
+        .cmp-mark-not { background: rgba(229,72,77,0.18); color: #ff6b6b; }
+        .cmp-text {
+          font-family: 'Montserrat', sans-serif; font-size: 14px;
+          color: rgba(255,255,255,0.75); line-height: 1.5;
+        }
+        .cmp-text strong { color: #fff; font-weight: 700; }
+
+        @media (max-width: 640px) {
+          .ptl-spine { left: 30px; }
+          .ptl-row { grid-template-columns: 60px 1fr; min-height: 0; margin-bottom: 36px; align-items: start; }
+          .ptl-node { grid-column: 1; width: 52px; height: 52px; font-size: 20px; }
+          .ptl-right .ptl-content, .ptl-left .ptl-content {
+            grid-column: 2; grid-row: 1; text-align: left; justify-self: start; padding-top: 2px;
+          }
+          .ptl-left .ptl-eyebrow { flex-direction: row; }
+          .cmp-grid { grid-template-columns: 1fr; gap: 16px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ptl-row { opacity: 1; transform: none; transition: none; }
+          .ptl-spine-fill { height: 100%; transition: none; }
         }
 
         @media (max-width: 780px) {
@@ -719,76 +820,7 @@ export default function Index() {
         <SectionTitle text="THE PROCESS" />
         <SectionSub text="How I build the complete system" />
 
-        <div className="grid-4">
-          {[
-            {
-              phase: "Step 1",
-              icon: Target,
-              title: "We rebuild your offer",
-              body: "We start by sharpening your offer and positioning, so everything we film and publish is built to attract the right clients.",
-            },
-            {
-              phase: "Step 2",
-              icon: Clapperboard,
-              title: "You film ~4 hrs a month",
-              body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else.",
-            },
-            {
-              phase: "Step 3",
-              icon: TrendingUp,
-              title: "We edit, publish & optimize",
-              body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile.",
-            },
-            {
-              phase: "Step 4",
-              icon: MessageCircle,
-              title: "Organic DM acquisition funnel",
-              body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments.",
-            },
-          ].map((p) => {
-            const Icon = p.icon;
-            return (
-            <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
-              <div style={{ marginBottom: 14, lineHeight: 1 }}><Icon size={30} color="#E8852B" strokeWidth={2} /></div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "#E8852B",
-                  marginBottom: 8,
-                }}
-              >
-                {p.phase}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  color: "#fff",
-                  marginBottom: 10,
-                  lineHeight: 1.25,
-                }}
-              >
-                {p.title}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.6)",
-                  lineHeight: 1.6,
-                }}
-              >
-                {p.body}
-              </div>
-            </div>
-            );
-          })}
-        </div>
+        <ProcessTimeline />
       </Sec>
 
       {/* ④ SUCCESS STORIES */}
@@ -941,88 +973,39 @@ export default function Index() {
         <ApplyBtn onApply={openApply} />
       </Sec>
 
-      {/* ⑤ WHO IT'S FOR */}
+      {/* ⑤ IS THIS FOR YOU? — side-by-side comparison */}
       <Sec bg="#121212">
-        <SectionTitle text="WHO IT'S FOR" />
-        <SectionSub text="Experts and business owners ready to become the go-to name in their field" />
+        <SectionTitle text="IS THIS FOR YOU?" />
+        <SectionSub text="An honest look at who we can — and can't — help" />
 
-        <div className="grid-3" style={{ marginBottom: 36, maxWidth: 880, margin: "0 auto 36px" }}>
-          {INDUSTRIES.map((i) => {
-            const Icon = i.icon;
-            return (
-              <div className="industry-card" key={i.name}>
-                <Icon size={32} color="#E8852B" strokeWidth={2} />
-                <div
-                  style={{
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "#fff",
-                    textAlign: "center",
-                  }}
-                >
-                  {i.name}
-                </div>
+        <div className="cmp-grid">
+          {/* WHO IT'S FOR */}
+          <div className="cmp-col">
+            <div className="cmp-head cmp-head-for">WHO IT'S FOR</div>
+            {FOR_QUALITIES.map((item, i) => (
+              <div className="cmp-item" key={i}>
+                <div className="cmp-mark cmp-mark-for">✓</div>
+                <div className="cmp-text">{item}</div>
               </div>
-            );
-          })}
-        </div>
-
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 15,
-            color: "rgba(255,255,255,0.65)",
-            lineHeight: 1.65,
-            maxWidth: 580,
-            margin: "0 auto",
-          }}
-        >
-          You own the business, you're the expert your clients trust, and you're ready to show up on camera and delegate your client acquisition.
-        </div>
-      </Sec>
-
-      {/* ⑥ WHO IT'S NOT FOR */}
-      <Sec>
-        <SectionTitle text="WHO IT'S NOT FOR" />
-        <SectionSub text="If you see yourself in this list, this system isn't for you" />
-
-        <div className="not-for-list">
-          {NOT_FOR.map((item, i) => (
-            <div className="not-for-item" key={i}>
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: 22,
-                  height: 22,
-                  borderRadius: "50%",
-                  background: "rgba(229,72,77,0.18)",
-                  color: "#ff6b6b",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  marginTop: 2,
-                }}
-              >
-                ×
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: 14,
-                  color: "rgba(255,255,255,0.72)",
-                  lineHeight: 1.55,
-                }}
-              >
-                {item}
+            ))}
+            <div className="cmp-item">
+              <div className="cmp-mark cmp-mark-for">✓</div>
+              <div className="cmp-text">
+                <strong>Doctors, lawyers, coaches, consultants &amp; other professional-service experts.</strong>
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* WHO IT'S NOT FOR */}
+          <div className="cmp-col">
+            <div className="cmp-head cmp-head-not">WHO IT'S NOT FOR</div>
+            {NOT_FOR.map((item, i) => (
+              <div className="cmp-item" key={i}>
+                <div className="cmp-mark cmp-mark-not">×</div>
+                <div className="cmp-text">{item}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </Sec>
 
@@ -1172,6 +1155,55 @@ export default function Index() {
         <LeadForm variant="modal" />
       </ApplyModal>
     </>
+  );
+}
+
+function ProcessTimeline() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setInView(true);
+            io.disconnect();
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div className={inView ? "ptl ptl-in" : "ptl"} ref={ref}>
+      <div className="ptl-spine">
+        <div className="ptl-spine-fill" />
+      </div>
+      {PROCESS_STEPS.map((s, i) => {
+        const Icon = s.icon;
+        return (
+          <div
+            className={i % 2 === 0 ? "ptl-row ptl-right" : "ptl-row ptl-left"}
+            key={s.phase}
+            style={{ transitionDelay: `${i * 0.18}s` }}
+          >
+            <div className="ptl-node">{i + 1}</div>
+            <div className="ptl-content">
+              <div className="ptl-eyebrow">
+                <Icon size={15} strokeWidth={2.5} />
+                {s.phase}
+              </div>
+              <div className="ptl-title">{s.title}</div>
+              <div className="ptl-body">{s.body}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
