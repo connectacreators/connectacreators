@@ -11,8 +11,6 @@ import calvinClinicProfile from "@/assets/dr-calvin-clinic-profile.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
 import djR3Stats from "@/assets/dj-r3-stats.png";
-import LeadForm from "@/components/LeadForm";
-import ApplyModal from "@/components/ApplyModal";
 import {
   Target,
   Clapperboard,
@@ -46,7 +44,7 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
       }}
     >
-      Book your consultation →
+      Book your advisory call →
     </a>
   );
 }
@@ -141,8 +139,19 @@ export default function Index() {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [speed, setSpeed] = useState(1.15);
-  const [applyOpen, setApplyOpen] = useState(false);
-  const openApply = () => setApplyOpen(true);
+  const scrollToBook = () =>
+    document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
+
+  useEffect(() => {
+    const id = "calendly-widget-script";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("script");
+      s.id = id;
+      s.src = "https://assets.calendly.com/assets/external/widget.js";
+      s.async = true;
+      document.body.appendChild(s);
+    }
+  }, []);
 
   const startVideo = () => {
     const v = videoRef.current;
@@ -749,7 +758,7 @@ export default function Index() {
 
           {/* CTA below video */}
           <button
-            onClick={openApply}
+            onClick={scrollToBook}
             style={{
               marginTop: 28,
               display: "inline-block",
@@ -766,7 +775,7 @@ export default function Index() {
               boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
             }}
           >
-            Book your consultation →
+            Book your advisory call →
           </button>
           <div
             style={{
@@ -961,7 +970,7 @@ export default function Index() {
           </div>
         </div>
 
-        <ApplyBtn onApply={openApply} />
+        <ApplyBtn onApply={scrollToBook} />
       </Sec>
 
       {/* ⑤ IS THIS FOR YOU? — side-by-side comparison */}
@@ -1053,6 +1062,19 @@ export default function Index() {
         </div>
       </Sec>
 
+      {/* ⑨ BOOK — Calendly embed */}
+      <div id="book" style={{ background: "#0a0a0a" }}>
+        <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 24px 96px", textAlign: "center" }}>
+          <SectionTitle text="BOOK YOUR ADVISORY CALL" />
+          <SectionSub text="30 minutes to map out exactly what this looks like for your business." />
+          <div
+            className="calendly-inline-widget"
+            data-url="https://calendly.com/robertogaunaj/demo-presentation"
+            style={{ minWidth: 320, height: 700, maxWidth: 1000, margin: "0 auto", borderRadius: 16, overflow: "hidden" }}
+          />
+        </div>
+      </div>
+
       {/* FOOTER */}
       <div
         style={{
@@ -1092,9 +1114,6 @@ export default function Index() {
         </div>
       </div>
 
-      <ApplyModal open={applyOpen} onClose={() => setApplyOpen(false)}>
-        <LeadForm variant="modal" />
-      </ApplyModal>
     </>
   );
 }
