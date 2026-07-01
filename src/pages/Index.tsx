@@ -444,7 +444,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            Ayudamos a dueños de negocios ocupados a generar <span style={{ color: "#E8852B" }}>1 millón de vistas garantizadas</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
+            Ayudamos a expertos en servicios profesionales a generar <span style={{ color: "#E8852B" }}>1 millón de vistas garantizadas</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
           </div>
 
           <div
