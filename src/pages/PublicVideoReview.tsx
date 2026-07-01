@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
-import { videoUploadService } from '@/services/videoUploadService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Play, Pause, Check, Clock } from 'lucide-react';
@@ -83,13 +82,19 @@ export default function PublicVideoReview() {
       .finally(() => setLoading(false));
   }, [videoEditId]);
 
-  // Load signed URL for Supabase videos
+  // Resolve the playback URL through the public edge function so anonymous
+  // viewers get the fast 720p proxy (client-side proxy lookup is blocked by RLS
+  // for anon). The function is ownership-checked and prefers the freshest copy.
   useEffect(() => {
-    if (!isSupabaseVideo || !video?.storage_path) return;
-    videoUploadService.getSignedVideoUrl(video.storage_path)
-      .then(setVideoUrl)
+    if (!isSupabaseVideo || !video?.id || !video?.client_id) return;
+    supabase.functions
+      .invoke('public-calendar-video', { body: { post_id: video.id, client_id: video.client_id } })
+      .then(({ data, error }) => {
+        if (error || !data?.url) { toast.error('Failed to load video'); return; }
+        setVideoUrl(data.url as string);
+      })
       .catch(() => toast.error('Failed to load video'));
-  }, [isSupabaseVideo, video?.storage_path]);
+  }, [isSupabaseVideo, video?.id, video?.client_id]);
 
   const sortedComments = useMemo(() => {
     const public_ = comments.filter(c => !c.internal_only);
