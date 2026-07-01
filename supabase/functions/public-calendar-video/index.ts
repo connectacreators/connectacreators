@@ -103,9 +103,17 @@ serve(async (req) => {
         tsOf("footage-proxies", fullPath),
       ]);
       if (tFootage === null && tProxy === null) return null;
-      // Newer wins; tie (or proxy-only) favours the lighter proxy — UNLESS the
-      // caller explicitly wants the original (downloads), which forces footage first.
       const preferProxy = !preferOriginal && tProxy !== null && (tFootage === null || tProxy >= tFootage);
+      // Playback with no usable proxy yet → enqueue one for next time (idempotent).
+      if (!preferOriginal && tProxy === null) {
+        await service
+          .from("footage_proxies")
+          .upsert(
+            { source_bucket: "footage", source_path: fullPath, status: "queued" },
+            { onConflict: "source_path", ignoreDuplicates: true }
+          )
+          .then(() => {}, () => {}); // best-effort; never block playback
+      }
       const order = preferProxy ? ["footage-proxies", "footage"] : ["footage", "footage-proxies"];
       for (const bucket of order) {
         const { data, error } = await service.storage.from(bucket).createSignedUrl(fullPath, SIGN_TTL);
