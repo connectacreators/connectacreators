@@ -444,7 +444,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            Ayudamos a dueños de negocios ocupados a generar <span style={{ color: "#E8852B" }}>$15k/mes extra</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
+            Ayudamos a dueños de negocios ocupados a llegar a <span style={{ color: "#E8852B" }}>100K seguidores</span> en 90 días con nuestro Sistema Híbrido de Adquisición.
           </div>
 
           <div
@@ -676,7 +676,7 @@ export default function Index() {
         <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
           <div className="qqc-grid">
             {[
-              { k: "Qué hacemos", v: "$15k/mes extra con anuncios y contenido orgánico." },
+              { k: "Qué hacemos", v: "100K seguidores con anuncios y contenido orgánico." },
               { k: "Para quién", v: "Abogados, coaches high ticket y consultores." },
               { k: "Cómo", v: "Sistema de follow-up que convierte tus leads en citas." },
             ].map((b) => (
@@ -703,7 +703,7 @@ export default function Index() {
             margin: "28px auto 0",
           }}
         >
-          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo —anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas— para sumar <span style={{ color: "#E8852B", fontWeight: 700 }}>$15K/mes extra en 90 días</span>.
+          La mayoría apuesta por una sola pieza y se queda corto. Nosotros instalamos el sistema completo —anuncios que llenan tu pipeline, contenido orgánico que te posiciona y un follow-up que convierte esos leads en citas agendadas— para llevarte a <span style={{ color: "#E8852B", fontWeight: 700 }}>100K seguidores en 90 días</span>.
         </div>
       </Sec>
 
@@ -736,7 +736,7 @@ export default function Index() {
               phase: "Fase 4",
               icon: "🚀",
               title: "Escalamiento",
-              body: "Optimizamos lo que funciona y escalamos anuncios y contenido para sostener $15k/mes extra de forma consistente.",
+              body: "Optimizamos lo que funciona y escalamos anuncios y contenido para sostener un crecimiento de seguidores consistente.",
             },
           ].map((p) => (
             <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
@@ -827,7 +827,7 @@ export default function Index() {
               marginTop: 14,
             }}
           >
-            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>$22K</span> generados en ingresos por pacientes.
+            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>152K seguidores</span> nuevos en menos de 12 meses.
           </div>
 
           <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
