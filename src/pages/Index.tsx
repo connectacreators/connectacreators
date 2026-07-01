@@ -8,6 +8,7 @@ import robertoFounder from "@/assets/roberto-founder.png";
 import calvin100kText from "@/assets/calvin-100k-text.png";
 import calvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
+import spencerProfile from "@/assets/spencer-profile.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
@@ -885,12 +886,34 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Caso Spencer — impressions proof */}
+        {/* Caso Spencer Barton — Pecan Health */}
         <div style={{ marginBottom: 44 }}>
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 700,
+              fontSize: 14,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "#fff",
+              marginBottom: 16,
+            }}
+          >
+            SPENCER BARTON, NURSE PRACTITIONER
+          </div>
+
+          <img
+            className="calvin-text-shot"
+            src={spencerProfile}
+            alt="Spencer Barton — perfil de Pecan Health, 11K seguidores"
+            loading="lazy"
+            style={{ maxWidth: 620, background: "#fff", padding: 14, boxSizing: "border-box", marginBottom: 20 }}
+          />
+
           <img
             className="calvin-text-shot"
             src={spencerImpressions}
-            alt="Spencer — 4.26M impresiones"
+            alt="Spencer Barton — 4.26M impresiones"
             loading="lazy"
             style={{ maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
           />

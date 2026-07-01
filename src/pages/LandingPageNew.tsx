@@ -23,6 +23,7 @@ import brainDoodle from "@/assets/brain-doodle.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import drCalvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
+import spencerProfile from "@/assets/spencer-profile.png";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
 import pecanMsgViews from "@/assets/pecan-msg-views.png";
@@ -2134,6 +2135,30 @@ export default function LandingPageNew() {
         >
           {/* hairline divider so it reads as a separate voice */}
           <div style={{ width: 64, height: 1, background: "var(--honey)", opacity: 0.5, margin: "0 auto 56px" }} />
+
+          {/* profile screenshot + name */}
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 16,
+              background: "var(--bone)",
+              border: "1px solid var(--ink)",
+              boxShadow: "4px 4px 0 var(--honey)",
+            }}
+          >
+            <img
+              src={spencerProfile}
+              alt="Spencer Barton — Pecan Health profile, 11K followers"
+              loading="lazy"
+              style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }}
+            />
+          </div>
+          <div style={{ marginTop: 16, marginBottom: 40 }}>
+            <div className="serif" style={{ fontSize: 20, color: "var(--bone)" }}>Spencer Barton</div>
+            <div style={{ fontSize: 13, color: "var(--bone-3)", marginTop: 2 }}>Nurse Practitioner · Pecan Health</div>
+          </div>
+
+          {/* impressions receipts */}
           <div
             style={{
               padding: 12,
@@ -2145,7 +2170,7 @@ export default function LandingPageNew() {
           >
             <img
               src={spencerImpressions}
-              alt="Spencer — 4.26M impressions across Facebook, TikTok and Instagram"
+              alt="Spencer Barton — 4.26M impressions across Facebook, TikTok and Instagram"
               loading="lazy"
               style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }}
             />
