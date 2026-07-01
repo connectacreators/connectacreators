@@ -32,6 +32,7 @@
 | `supabase/functions/public-calendar-video/index.ts` | Modify + deploy (MCP) | Lazy-backfill enqueue when signing the original for anon |
 | `src/pages/PublicVideoReview.tsx` | Modify | Resolve playback URL via the `public-calendar-video` edge fn |
 | `src/components/VideoReviewModal.tsx` | Modify | Default the version tab to the newest entry |
+| `src/components/FootagePanel.tsx` | Modify | Download buttons use an attachment-signed original URL (fix "navigates instead of downloads") |
 
 ---
 
@@ -420,7 +421,156 @@ git commit -m "feat(review): default the version tab to the newest submission"
 
 ---
 
-## Task 8: Integration verification + push
+## Task 8: Fix FootagePanel download (attachment URL, not navigate)
+
+**Files:**
+- Modify: `src/components/FootagePanel.tsx` — add a `handleDownload` helper; convert the four `<a href={f.signedUrl} download={f.name}>` download controls (~lines 479, 539, 558, 592) to buttons that call it. Leave copy-link and the "Open" (`target="_blank"`) anchor unchanged.
+
+**Bug:** the HTML `download` attribute is ignored for cross-origin URLs (a Supabase signed URL is cross-origin), so clicking "Download" navigates to the link instead of saving the file. Fix by signing with `Content-Disposition: attachment` (`getDownloadVideoUrl`, already used by VideoReviewModal) and clicking a temp anchor. Still the full-resolution original.
+
+**Interfaces:**
+- Consumes: `videoUploadService.getDownloadVideoUrl(path, filename)` (already imported at line 9); `prefix` (component scope, `${clientId}/${videoEditId}/${subfolder ? subfolder + '/' : ''}`); `StorageFile` type.
+
+- [ ] **Step 1: Add the `handleDownload` helper** (near the other handlers, e.g. after `handleDeleteFile`)
+
+```tsx
+  // Downloads the full-resolution ORIGINAL. A plain <a download> is ignored for
+  // cross-origin signed URLs (the browser just navigates to the link — the
+  // "opens the public link instead of downloading" bug), so sign with a
+  // Content-Disposition: attachment header and click a temporary anchor.
+  const handleDownload = async (f: StorageFile) => {
+    try {
+      const url = await videoUploadService.getDownloadVideoUrl(`${prefix}${f.name}`, f.name);
+      const a = document.createElement('a');
+      a.href = url;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+```
+
+- [ ] **Step 2: Convert download control #1 — the row icon (~line 479)**
+
+Replace:
+
+```tsx
+                    <a
+                      href={f.signedUrl}
+                      download={f.name}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-6 h-6 rounded border border-border/50 bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                      title="Download"
+                    >
+                      <Download className="w-3 h-3" />
+                    </a>
+```
+
+with:
+
+```tsx
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDownload(f); }}
+                      className="w-6 h-6 rounded border border-border/50 bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                      title="Download"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
+```
+
+- [ ] **Step 3: Convert download control #2 — archive/doc/other (~line 539)**
+
+Replace:
+
+```tsx
+                              <a
+                                href={f.signedUrl}
+                                download={f.name}
+                                className="text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                              >
+                                <Download className="w-3 h-3" /> Download
+                              </a>
+```
+
+with:
+
+```tsx
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(f)}
+                                className="text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                              >
+                                <Download className="w-3 h-3" /> Download
+                              </button>
+```
+
+- [ ] **Step 4: Convert download control #3 — "Download to watch" (~line 558)**
+
+Replace:
+
+```tsx
+                          <a
+                            href={f.signedUrl}
+                            download={f.name}
+                            className="mt-1 text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                          >
+                            <Download className="w-3 h-3" /> Download to watch
+                          </a>
+```
+
+with:
+
+```tsx
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(f)}
+                            className="mt-1 text-xs border border-border/50 rounded px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                          >
+                            <Download className="w-3 h-3" /> Download to watch
+                          </button>
+```
+
+- [ ] **Step 5: Convert download control #4 — bottom action bar (~line 592)**
+
+Replace:
+
+```tsx
+                      <a
+                        href={f.signedUrl}
+                        download={f.name}
+                        className="text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded px-2 py-1 transition-colors"
+                      >⬇ Download</a>
+```
+
+with:
+
+```tsx
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(f)}
+                        className="text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded px-2 py-1 transition-colors"
+                      >⬇ Download</button>
+```
+
+- [ ] **Step 6: Typecheck**
+
+Run: `npx tsc --noEmit; echo "EXIT=$?"`
+Expected: `EXIT=0`, no errors mentioning `FootagePanel`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/components/FootagePanel.tsx
+git commit -m "fix(footage): download button saves the original instead of opening the link"
+```
+
+---
+
+## Task 9: Integration verification + push
 
 **Files:** none (operational)
 
