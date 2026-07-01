@@ -274,9 +274,10 @@ export const videoUploadService = {
   },
 
   // Proxy-aware resolver for PLAYBACK only. Returns the fast 720p web proxy
-  // from `footage-proxies` when one is ready, otherwise the original. Never use
-  // this for downloads — they must pull the full-res original via
-  // getSignedVideoUrl. Mirrors the proxy lookup in FootagePanel.
+  // from `footage-proxies` when one is ready, otherwise the original. On a miss
+  // it fire-and-forget enqueues a proxy job (lazy backfill) so the NEXT view is
+  // fast. Never use this for downloads — those must pull the full-res original
+  // via getSignedVideoUrl / getDownloadVideoUrl.
   async getPlaybackVideoUrl(storagePath: string): Promise<string> {
     try {
       // `footage_proxies` is not in the generated DB types yet — cast to query it.
@@ -292,6 +293,13 @@ export const videoUploadService = {
           .from(proxy.proxy_bucket || 'footage-proxies')
           .createSignedUrl(proxy.proxy_path, 3600);
         if (data?.signedUrl) return data.signedUrl;
+      }
+      // No ready proxy — enqueue one for next time (idempotent, non-blocking).
+      // Only for storage paths (never http/Drive URLs).
+      if (storagePath && !/^https?:\/\//i.test(storagePath)) {
+        void (supabase as any)
+          .rpc('request_footage_proxy', { p_source_path: storagePath })
+          .then(() => {}, () => {});
       }
     } catch {
       // Table missing / proxy not ready / query error — fall back to original.
