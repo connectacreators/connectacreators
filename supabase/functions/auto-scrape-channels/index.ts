@@ -23,6 +23,15 @@ function shouldCacheThumbnail(url: string | null): boolean {
   return /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent|tiktokcdn\.com/.test(url);
 }
 
+// The VPS scraper sometimes returns captions truncated mid-emoji, leaving an
+// unpaired UTF-16 surrogate. Such a string serializes to invalid JSON, so the
+// batch upsert is rejected by Postgres ("invalid input syntax for type json")
+// and ONE poisoned caption drops every video for that channel. Strip unpaired
+// surrogates (and NUL, which Postgres text also rejects) before insert.
+function sanitizeText(s: string): string {
+  return s.replace(/[\x00]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 async function cacheThumbnail(cdnUrl: string, key: string): Promise<string | null> {
   try {
     const res = await fetch(`${VPS_SERVER}/cache-thumbnail`, {
@@ -112,6 +121,17 @@ async function processChannel(
   } catch (e: any) {
     const msg = e.name === "AbortError" ? "VPS timeout (50s)" : e.message;
     console.error(`VPS error for ${channel.username}: ${msg}`);
+    // Rotate this channel to the BACK of the oldest-first queue even on
+    // failure. Otherwise a handful of persistently-failing channels (e.g.
+    // Instagram profiles whose shared login cookie has died) stay pinned at
+    // the front of the `last_scraped_at ASC` queue, are retried first on
+    // every single run, and burn the whole per-run time budget on 50s
+    // timeouts — starving every healthy channel behind them. Record the
+    // error so a real outage is still visible in the DB.
+    await supabase
+      .from("viral_channels")
+      .update({ last_scraped_at: new Date().toISOString(), scrape_error: msg })
+      .eq("id", channel.id);
     return { channel: channel.username, newVideos: 0, error: msg };
   }
 
@@ -119,7 +139,7 @@ async function processChannel(
     console.log(`Channel ${channel.username}: No posts returned from VPS`);
     await supabase
       .from("viral_channels")
-      .update({ last_scraped_at: new Date().toISOString() })
+      .update({ last_scraped_at: new Date().toISOString(), scrape_error: null })
       .eq("id", channel.id);
     return { channel: channel.username, newVideos: 0 };
   }
@@ -152,7 +172,7 @@ async function processChannel(
         platform,
         video_url: post.url || null,
         thumbnail_url: post.thumbnail || null,
-        caption: (post.title ?? "").slice(0, 600),
+        caption: sanitizeText((post.title ?? "").slice(0, 600)),
         views_count: views,
         likes_count: likes,
         comments_count: comments,
@@ -171,12 +191,17 @@ async function processChannel(
     console.log(`Channel ${channel.username}: No videos after filtering`);
     await supabase
       .from("viral_channels")
-      .update({ last_scraped_at: new Date().toISOString() })
+      .update({ last_scraped_at: new Date().toISOString(), scrape_error: null })
       .eq("id", channel.id);
     return { channel: channel.username, newVideos: 0 };
   }
 
-  // Calculate outlier scores based on channel average views
+  // Provisional outlier score (mean over this scrape batch). This is only a
+  // placeholder — after the upsert we call recompute_channel_outliers(), which
+  // replaces it with the real per-video score: views / MEDIAN channel views
+  // over the trailing 90 days (excluding the video itself), computed from the
+  // channel's full stored history rather than this small scrape batch. The
+  // batch mean is kept as a sane fallback if the RPC fails.
   const totalViews = videos.reduce((sum, v) => sum + v.views_count, 0);
   const avgViews = totalViews / videos.length;
 
@@ -204,10 +229,39 @@ async function processChannel(
 
   if (upsertError) {
     console.error(`Upsert error for ${channel.username}:`, upsertError);
+    // Rotate to back of queue + record error (see VPS-error branch above).
+    await supabase
+      .from("viral_channels")
+      .update({
+        last_scraped_at: new Date().toISOString(),
+        scrape_error: `Upsert failed: ${upsertError.message ?? upsertError}`,
+      })
+      .eq("id", channel.id);
     return { channel: channel.username, newVideos: 0, error: "Upsert failed" };
   }
 
   console.log(`Channel ${channel.username}: Upserted ${videos.length} videos`);
+
+  // Recompute real outlier scores for the whole channel from stored history:
+  // views / MEDIAN channel views over the trailing 90 days (exclude self),
+  // falling back to the all-time channel median when the 90-day window is
+  // sparse. This overwrites the provisional batch-mean set above. Delta mode
+  // only fetches ~7 posts, so this MUST run against the DB, not the batch.
+  const { error: outlierErr } = await supabase.rpc("recompute_channel_outliers", {
+    p_channel_id: channel.id,
+  });
+  if (outlierErr) {
+    console.error(`Outlier recompute failed for ${channel.username}: ${outlierErr.message}`);
+  }
+
+  // Compute true row count from viral_videos — videos.length is only the
+  // number of posts in THIS scrape (e.g. 7 in delta mode), not the total
+  // stored for the channel. Setting video_count = videos.length was making
+  // the UI display 4-7 even when the channel actually had 200+ rows.
+  const { count: totalVideoCount } = await supabase
+    .from("viral_videos")
+    .select("id", { count: "exact", head: true })
+    .eq("channel_id", channel.id);
 
   // Update channel stats
   await supabase
@@ -215,7 +269,8 @@ async function processChannel(
     .update({
       last_scraped_at: new Date().toISOString(),
       avg_views: Math.round(avgViews),
-      video_count: videos.length,
+      video_count: totalVideoCount ?? videos.length,
+      scrape_error: null,
     })
     .eq("id", channel.id);
 
@@ -248,19 +303,25 @@ serve(async (req) => {
     }
 
     // mode: "delta" = fetch last 7 posts (fast daily update, keeps thumbnails fresh)
-    //        "full"  = fetch last 100 posts (weekly full stats + outlier recalculation)
+    //        "full"  = fetch last 50 posts (weekly full stats + outlier recalculation)
+    // Note: 100 posts/channel takes ~50s per VPS call, right at the per-call
+    // timeout boundary. 50 posts finishes in ~25-30s with plenty of headroom.
     const body = await req.json().catch(() => ({}));
     const mode = body.mode === "full" ? "full" : "delta";
-    const resultsLimit = mode === "full" ? 100 : 7;
+    const resultsLimit = mode === "full" ? 50 : 7;
 
     console.log(`Running in ${mode} mode (limit=${resultsLimit})`);
 
-    // Fetch all channels that have been scraped before
+    // Fetch all channels that have been scraped before, oldest-stale first.
+    // Sorting by last_scraped_at ASC means if we run out of wall-clock time,
+    // the most-stale channels are always refreshed first — so every channel
+    // eventually gets updated across consecutive cron runs.
     const { data: channels, error: channelsError } = await supabase
       .from("viral_channels")
-      .select("id, username, platform")
+      .select("id, username, platform, last_scraped_at")
       .eq("scrape_status", "done")
-      .not("last_scraped_at", "is", null);
+      .not("last_scraped_at", "is", null)
+      .order("last_scraped_at", { ascending: true });
 
     if (channelsError) {
       console.error("Error fetching channels:", channelsError);
@@ -271,26 +332,41 @@ serve(async (req) => {
       return json({ success: true, mode, processed: 0, new_videos: 0, errors: [] });
     }
 
-    // Process IG/TikTok first (higher priority), YouTube last.
-    // If the edge function hits its wall-clock limit, at least the
-    // high-priority channels have already been processed.
-    const sortedChannels = [
-      ...channels.filter((c: any) => c.platform === "instagram"),
-      ...channels.filter((c: any) => c.platform === "tiktok"),
-      ...channels.filter((c: any) => c.platform === "youtube"),
-      ...channels.filter((c: any) => !["instagram", "tiktok", "youtube"].includes(c.platform ?? "")),
-    ];
+    const sortedChannels = channels;
 
     let totalNewVideos = 0;
+    let processedCount = 0;
+    let skippedCount = 0;
     const errors: string[] = [];
 
-    // Process channels ONE AT A TIME (sequential) to be gentle on VPS resources
-    for (const channel of sortedChannels) {
-      console.log(`Processing: ${channel.username} (${channel.platform})`);
+    // Wall-clock budget: stop scheduling new batches once we estimate the
+    // next batch would push us past Supabase's 150s edge-function timeout.
+    // A batch can take up to 50s (per-VPS-call abort), so we stop at 90s
+    // — worst-case total = 90 + 50 + cleanup ≈ 145s.
+    const startMs = Date.now();
+    const BUDGET_MS = 90_000;
 
-      const result = await processChannel(supabase, channel, resultsLimit);
-      totalNewVideos += result.newVideos;
-      if (result.error) errors.push(`${result.channel}: ${result.error}`);
+    // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
+    // requests trigger occasional connection resets. 6 keeps headroom for
+    // manual scrapes and avoids the reset-by-peer errors.
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < sortedChannels.length; i += BATCH_SIZE) {
+      if (Date.now() - startMs > BUDGET_MS) {
+        skippedCount = sortedChannels.length - i;
+        console.log(`Time budget hit after ${i} channels; ${skippedCount} skipped (will be picked up next run)`);
+        break;
+      }
+      const batch = sortedChannels.slice(i, i + BATCH_SIZE);
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.map((c: any) => c.username).join(", ")}`);
+
+      const results = await Promise.all(
+        batch.map((channel: any) => processChannel(supabase, channel, resultsLimit))
+      );
+      for (const result of results) {
+        totalNewVideos += result.newVideos;
+        processedCount += 1;
+        if (result.error) errors.push(`${result.channel}: ${result.error}`);
+      }
     }
 
     // ── Cleanup: delete videos scraped more than 6 months ago ─────────────
@@ -331,10 +407,13 @@ serve(async (req) => {
     return json({
       success: true,
       mode,
-      processed: sortedChannels.length,
+      total: sortedChannels.length,
+      processed: processedCount,
+      skipped: skippedCount,
       new_videos: totalNewVideos,
       errors,
       cleaned_up: cleanedUp,
+      duration_ms: Date.now() - startMs,
     });
   } catch (e: any) {
     console.error("auto-scrape-channels error:", e);

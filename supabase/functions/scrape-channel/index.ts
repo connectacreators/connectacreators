@@ -307,7 +307,11 @@ async function processPosts(
     return 0;
   }
 
-  // Calculate channel average views for outlier scoring
+  // Provisional outlier score (mean over this scrape batch). This is only a
+  // placeholder — after the upsert we call recompute_channel_outliers(), which
+  // replaces it with the real per-video score: views / MEDIAN channel views over
+  // the trailing 90 days (excluding the video itself), computed from the full
+  // stored history. The batch mean is kept as a sane fallback if the RPC fails.
   const totalViews = recentVideos.reduce((sum, v) => sum + v.views_count, 0);
   const avgViews = totalViews / recentVideos.length;
 
@@ -333,7 +337,7 @@ async function processPosts(
       onConflict: "platform,apify_video_id",
       ignoreDuplicates: false,
     })
-    .select("id, outlier_score, views_count");
+    .select("id");
 
   // A failed batch upsert must NOT be reported as a successful "done" scrape —
   // otherwise the channel card shows "Done" with 0 videos and the error is
@@ -347,19 +351,37 @@ async function processPosts(
     return 0;
   }
 
-  // Trigger analyze-viral-video for qualifying rows (fire-and-forget background job)
-  if (inserted && Array.isArray(inserted)) {
-    for (const row of inserted) {
-      if (row && Number(row.outlier_score ?? 0) >= 5 && Number(row.views_count ?? 0) >= 500000) {
-        void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-viral-video`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({ video_id: row.id }),
-        }).catch((e) => console.warn("[scrape-channel] analyze-viral-video trigger failed:", (e as Error).message));
-      }
+  // Replace the provisional batch-mean scores with the real per-video score
+  // (views / trailing-90d channel median, exclude self) computed from stored
+  // history. Must run against the DB, not the batch.
+  const { error: outlierErr } = await supabase.rpc("recompute_channel_outliers", {
+    p_channel_id: channelId,
+  });
+  if (outlierErr) {
+    console.error(`Outlier recompute failed for ${username}: ${outlierErr.message}`);
+  }
+
+  // Trigger analyze-viral-video for qualifying rows (fire-and-forget). Gate on
+  // the RECOMPUTED outlier scores, so re-read them after the RPC rather than
+  // trusting the provisional values returned by the upsert.
+  const insertedIds = (inserted ?? []).map((r: any) => r.id).filter(Boolean);
+  if (insertedIds.length > 0) {
+    const { data: scored } = await supabase
+      .from("viral_videos")
+      .select("id, outlier_score, views_count")
+      .in("id", insertedIds)
+      .gte("outlier_score", 5)
+      .gte("views_count", 500000);
+
+    for (const row of scored ?? []) {
+      void fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-viral-video`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ video_id: row.id }),
+      }).catch((e) => console.warn("[scrape-channel] analyze-viral-video trigger failed:", (e as Error).message));
     }
   }
 
