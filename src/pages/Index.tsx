@@ -677,7 +677,7 @@ export default function Index() {
           <div className="qqc-grid">
             {[
               { k: "Qué hacemos", v: "1 millón de vistas garantizadas con anuncios y contenido orgánico." },
-              { k: "Para quién", v: "Abogados, coaches high ticket y consultores." },
+              { k: "Para quién", v: "Cualquier experto en servicios profesionales: médicos, abogados, coaches y consultores." },
               { k: "Cómo", v: "Sistema de follow-up que convierte tus leads en citas." },
             ].map((b) => (
               <div className="qqc-card" key={b.k}>
