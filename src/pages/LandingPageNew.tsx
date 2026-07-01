@@ -21,6 +21,7 @@ import logoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
+import drCalvinFollowers from "@/assets/dr-calvin-followers.png";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
 import pecanMsgViews from "@/assets/pecan-msg-views.png";
@@ -1966,6 +1967,26 @@ export default function LandingPageNew() {
               </svg>
               See his Facebook
             </a>
+          </div>
+
+          {/* Follower-count receipts — real proof of the growth */}
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "40px auto 0",
+              padding: 12,
+              borderRadius: 16,
+              background: "var(--bone)",
+              border: "1px solid var(--ink)",
+              boxShadow: "4px 4px 0 var(--honey)",
+            }}
+          >
+            <img
+              src={drCalvinFollowers}
+              alt="Dr. Calvin's follower counts — 206.34K total across Facebook, TikTok, Instagram and YouTube"
+              loading="lazy"
+              style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }}
+            />
           </div>
         </div>
 
