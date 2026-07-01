@@ -3125,7 +3125,14 @@ export default function ViralToday() {
                           if (best) nicheByChannel.set(cid, best);
                         }
                         const q = channelSearch.trim().toLowerCase();
-                        const matched = channels.filter((c) => !q || c.username.toLowerCase().includes(q));
+                        const matched = channels.filter((c) => {
+                          if (!q) return true;
+                          if (c.username.toLowerCase().includes(q)) return true;
+                          // Also match the channel's derived category/niche (the group headers).
+                          const niche = nicheByChannel.get(c.id);
+                          if (niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q))) return true;
+                          return false;
+                        });
                         if (matched.length === 0) {
                           return <p className="text-sm text-muted-foreground py-8 text-center">No channels match “{channelSearch}”.</p>;
                         }
