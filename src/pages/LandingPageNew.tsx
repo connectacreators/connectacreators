@@ -1243,10 +1243,6 @@ export default function LandingPageNew() {
             textAlign: "center",
           }}
         >
-          <div data-reveal="1" style={{ marginBottom: 26 }}>
-            <span className="eyebrow">Personal branding experts · Utah Based</span>
-          </div>
-
           <h1
             className="serif"
             style={{
@@ -1506,7 +1502,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Case studies — real client before/afters ===== */}
-      <section id="work" style={{ padding: "90px 0", position: "relative" }}>
+      <section id="work" style={{ padding: "90px 0 40px", position: "relative" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ textAlign: "center", marginBottom: 44 }}>
             <span className="eyebrow">Proof, not promises</span>
@@ -1528,8 +1524,8 @@ export default function LandingPageNew() {
                 name: "Dr. Calvin's Clinic",
                 imgs: [drCalvin78k, drCalvinTiktok],
                 stats: [
-                  { n: "200K+", l: "followers generated", c: "var(--aqua)" },
-                  { n: "$50K+", l: "revenue generated", c: "var(--honey)" },
+                  { n: "1,200", l: "followers before", c: "var(--bone-2)" },
+                  { n: "200K+", l: "followers now", c: "var(--aqua)" },
                 ],
               },
               {
@@ -1621,7 +1617,7 @@ export default function LandingPageNew() {
 
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
-      <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center", position: "relative", overflow: "visible" }}>
+      <section className="bg-ink" style={{ padding: "56px 0 120px", textAlign: "center", position: "relative", overflow: "visible" }}>
         <div className="scroll-rise" style={{ maxWidth: 920, margin: "0 auto", padding: "0 32px" }}>
           <div
             className="serif"

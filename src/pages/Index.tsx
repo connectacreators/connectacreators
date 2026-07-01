@@ -7,6 +7,7 @@ import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import calvin100kText from "@/assets/calvin-100k-text.png";
 import calvinFollowers from "@/assets/dr-calvin-followers.png";
+import calvinClinicProfile from "@/assets/dr-calvin-clinic-profile.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
 import djR3Stats from "@/assets/dj-r3-stats.png";
@@ -798,24 +799,6 @@ export default function Index() {
         </div>
       </div>
 
-      {/* ③ THE PROBLEM */}
-      <Sec>
-        <SectionTitle text="ADS BRING LEADS. ORGANIC BUILDS TRUST. FOLLOW-UP CLOSES." />
-
-        <div
-          style={{
-            fontFamily: "'Montserrat', sans-serif",
-            fontSize: 17,
-            color: "rgba(255,255,255,0.78)",
-            lineHeight: 1.6,
-            maxWidth: 640,
-            margin: "28px auto 0",
-          }}
-        >
-          Most bet on a single piece and fall short. We install the complete system —ads that fill your pipeline, organic content that positions you and a follow-up that turns those leads into booked appointments— to guarantee you <span style={{ color: "#E8852B", fontWeight: 700 }}>1 million views in 90 days</span>.
-        </div>
-      </Sec>
-
       {/* ③.5 THE PROCESS — how I build the complete system */}
       <Sec>
         <SectionTitle text="THE PROCESS" />
@@ -845,42 +828,12 @@ export default function Index() {
             DR. CALVIN, CHIROPRACTOR
           </div>
 
-          <div className="calvin-socials">
-            <img src={calvinFb} alt="Dr. Calvin — Facebook, 118K followers" loading="lazy" />
-            <img src={calvinTiktok} alt="Dr. Calvin — TikTok, 24.6K followers" loading="lazy" />
-            <img src={calvinIg} alt="Dr. Calvin — Instagram, 9.2K followers" loading="lazy" />
-          </div>
-
-          <div className="agency-stats">
-            <div className="agency-stat">
-              <div className="agency-stat-num">1,200</div>
-              <div className="agency-stat-label">FOLLOWERS BEFORE</div>
-            </div>
-            <div className="agency-stat">
-              <div className="agency-stat-num">+200K</div>
-              <div className="agency-stat-label">FOLLOWERS NOW</div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              fontSize: 13,
-              color: "rgba(255,255,255,0.5)",
-              marginTop: 14,
-            }}
-          >
-            Over <span style={{ color: "#E8852B", fontWeight: 700 }}>200K new followers</span> in under 12 months.
-          </div>
-
-          <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
-
           <img
             className="calvin-text-shot"
-            src={calvinFollowers}
-            alt="Dr. Calvin — 206.34K total followers (Facebook, TikTok, Instagram, YouTube)"
+            src={calvinClinicProfile}
+            alt="Dr. Calvin's Clinic — 158K followers"
             loading="lazy"
-            style={{ marginTop: 20, maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
+            style={{ maxWidth: 620, background: "#fff", padding: 14, boxSizing: "border-box" }}
           />
         </div>
 
@@ -1045,56 +998,6 @@ export default function Index() {
             ))}
           </div>
         </div>
-      </Sec>
-
-      {/* ⑦ HOW WE WORK */}
-      <Sec bg="#121212">
-        <SectionTitle text="HOW WE WORK" />
-        <SectionSub text="A 4-step process to activate the system in your business" />
-
-        <div className="grid-4" style={{ marginBottom: 52 }}>
-          {PROCESS.map((s) => (
-            <div className="step-card" key={s.n}>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 36,
-                  color: "#E8852B",
-                  marginBottom: 12,
-                  lineHeight: 1,
-                }}
-              >
-                {s.n}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: "#fff",
-                  marginBottom: 10,
-                }}
-              >
-                {s.title}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.6)",
-                  lineHeight: 1.6,
-                }}
-              >
-                {s.body}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <ApplyBtn onApply={openApply} />
       </Sec>
 
       {/* ⑧ ABOUT ROBERTO */}
