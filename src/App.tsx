@@ -74,7 +74,6 @@ const Subscribers = lazy(() => import("./pages/Subscribers"));
 const PublicVideoReview = lazy(() => import("./pages/PublicVideoReview"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
-const About = lazy(() => import("./pages/About"));
 const ClientStrategy = lazy(() => import("./pages/ClientStrategy"));
 const CommandCenter = lazy(() => import("./pages/CommandCenter"));
 const CommandCenterPreview = lazy(() => import("./pages/CommandCenterPreview"));
@@ -161,7 +160,7 @@ const App = () => (
             <Route path="/reto" element={<Index />} />
             <Route path="/reto/en" element={<IndexEN />} />
             <Route path="/1mguarantee" element={<OneMillionGuarantee />} />
-            <Route path="/about" element={<About />} />
+            <Route path="/about" element={<ComingSoon />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/onboarding/:clientId" element={<Onboarding />} />
             <Route path="/select-plan" element={<SelectPlan />} />

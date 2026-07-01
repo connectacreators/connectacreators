@@ -15,6 +15,10 @@ import {
   Stethoscope,
   Scale,
   Briefcase,
+  Target,
+  Clapperboard,
+  TrendingUp,
+  MessageCircle,
   Play,
   Pause,
 } from "lucide-react";
@@ -719,31 +723,33 @@ export default function Index() {
           {[
             {
               phase: "Step 1",
-              icon: "🎯",
+              icon: Target,
               title: "We rebuild your offer",
               body: "We start by sharpening your offer and positioning, so everything we film and publish is built to attract the right clients.",
             },
             {
               phase: "Step 2",
-              icon: "🎬",
+              icon: Clapperboard,
               title: "You film ~4 hrs a month",
               body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else.",
             },
             {
               phase: "Step 3",
-              icon: "📈",
+              icon: TrendingUp,
               title: "We edit, publish & optimize",
               body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile.",
             },
             {
               phase: "Step 4",
-              icon: "💬",
+              icon: MessageCircle,
               title: "Organic DM acquisition funnel",
               body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments.",
             },
-          ].map((p) => (
+          ].map((p) => {
+            const Icon = p.icon;
+            return (
             <div className="sys-card" key={p.phase} style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 30, marginBottom: 14, lineHeight: 1 }}>{p.icon}</div>
+              <div style={{ marginBottom: 14, lineHeight: 1 }}><Icon size={30} color="#E8852B" strokeWidth={2} /></div>
               <div
                 style={{
                   fontFamily: "'Montserrat', sans-serif",
@@ -780,7 +786,8 @@ export default function Index() {
                 {p.body}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Sec>
 
