@@ -776,7 +776,7 @@ export default function Index() {
               marginTop: 14,
             }}
           >
-            We accept a maximum of 5 new clients per month.
+            To maintain quality, we accept a maximum of 5 new clients per month.
           </div>
         </div>
       </div>
