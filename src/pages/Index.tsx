@@ -12,8 +12,8 @@ import spencerProfile from "@/assets/spencer-profile.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
+  Stethoscope,
   Scale,
-  TrendingUp,
   Briefcase,
   Play,
   Pause,
@@ -103,9 +103,9 @@ function SectionSub({ text }: { text: string }) {
 }
 
 const INDUSTRIES = [
-  { icon: Scale, name: "Lawyers" },
-  { icon: TrendingUp, name: "High-Ticket Coaches" },
-  { icon: Briefcase, name: "Consultants" },
+  { icon: Stethoscope, name: "Doctors & Clinics" },
+  { icon: Scale, name: "Lawyers & Firms" },
+  { icon: Briefcase, name: "Coaches & Consultants" },
 ];
 
 const NOT_FOR = [
@@ -937,7 +937,7 @@ export default function Index() {
       {/* ⑤ WHO IT'S FOR */}
       <Sec bg="#121212">
         <SectionTitle text="WHO IT'S FOR" />
-        <SectionSub text="High-ticket service businesses ready to scale" />
+        <SectionSub text="Experts and business owners ready to become the go-to name in their field" />
 
         <div className="grid-3" style={{ marginBottom: 36, maxWidth: 880, margin: "0 auto 36px" }}>
           {INDUSTRIES.map((i) => {
@@ -973,7 +973,7 @@ export default function Index() {
             margin: "0 auto",
           }}
         >
-          You own the business, you sell high-ticket services, and you're ready to appear on camera and delegate your client acquisition.
+          You own the business, you're the expert your clients trust, and you're ready to show up on camera and delegate your client acquisition.
         </div>
       </Sec>
 
