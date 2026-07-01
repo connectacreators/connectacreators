@@ -659,7 +659,7 @@ function DemoPlayer() {
           ref={videoRef}
           src={DEMO_VIDEO_URL}
           poster="/assets/tutorial-connecta-es-poster.jpg"
-          preload="metadata"
+          preload="none"
           style={{ width: "100%", display: "block", maxHeight: fullscreen ? "100vh" : "none" }}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
