@@ -6,6 +6,8 @@ import zigufitBefore from "@/assets/zigufit-before.png";
 import zigufitAfter from "@/assets/zigufit-after-new.png";
 import robertoFounder from "@/assets/roberto-founder.png";
 import calvin100kText from "@/assets/calvin-100k-text.png";
+import calvinFollowers from "@/assets/dr-calvin-followers.png";
+import spencerImpressions from "@/assets/spencer-impressions.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
@@ -814,7 +816,7 @@ export default function Index() {
               <div className="agency-stat-label">SEGUIDORES ANTES</div>
             </div>
             <div className="agency-stat">
-              <div className="agency-stat-num">+152K</div>
+              <div className="agency-stat-num">+200K</div>
               <div className="agency-stat-label">SEGUIDORES AHORA</div>
             </div>
           </div>
@@ -827,10 +829,18 @@ export default function Index() {
               marginTop: 14,
             }}
           >
-            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>152K seguidores</span> nuevos en menos de 12 meses.
+            Más de <span style={{ color: "#E8852B", fontWeight: 700 }}>200K seguidores</span> nuevos en menos de 12 meses.
           </div>
 
           <img className="calvin-text-shot" src={calvin100kText} alt="" loading="lazy" style={{ marginTop: 20 }} />
+
+          <img
+            className="calvin-text-shot"
+            src={calvinFollowers}
+            alt="Dr. Calvin — 206.34K seguidores totales (Facebook, TikTok, Instagram, YouTube)"
+            loading="lazy"
+            style={{ marginTop: 20, maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
+          />
         </div>
 
         {/* Caso Zigufit */}
@@ -872,6 +882,29 @@ export default function Index() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Caso Spencer — impressions proof */}
+        <div style={{ marginBottom: 44 }}>
+          <img
+            className="calvin-text-shot"
+            src={spencerImpressions}
+            alt="Spencer — 4.26M impresiones"
+            loading="lazy"
+            style={{ maxWidth: 760, background: "#fff", padding: 14, boxSizing: "border-box" }}
+          />
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: 13,
+              fontStyle: "italic",
+              color: "rgba(255,255,255,0.5)",
+              marginTop: 14,
+              textAlign: "center",
+            }}
+          >
+            (2 weeks after working together)
           </div>
         </div>
 

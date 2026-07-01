@@ -22,6 +22,7 @@ import miroodlesLaptopEye from "@/assets/miroodles-laptop-eye.png";
 import brainDoodle from "@/assets/brain-doodle.png";
 import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import drCalvinFollowers from "@/assets/dr-calvin-followers.png";
+import spencerImpressions from "@/assets/spencer-impressions.png";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
 import pecanMsgViews from "@/assets/pecan-msg-views.png";
@@ -1527,7 +1528,7 @@ export default function LandingPageNew() {
                 name: "Dr. Calvin's Clinic",
                 imgs: [drCalvin78k, drCalvinTiktok],
                 stats: [
-                  { n: "100K+", l: "followers generated", c: "var(--aqua)" },
+                  { n: "200K+", l: "followers generated", c: "var(--aqua)" },
                   { n: "$50K+", l: "revenue generated", c: "var(--honey)" },
                 ],
                 videos: [
@@ -1928,7 +1929,7 @@ export default function LandingPageNew() {
                 <ProxText>Dr Calvin</ProxText>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 2 }}>
-                Chiropractor · Gained over <strong style={{ fontWeight: 700, color: "var(--bone)" }}>110k followers</strong> with Connecta
+                Chiropractor · Gained over <strong style={{ fontWeight: 700, color: "var(--bone)" }}>200k followers</strong> with Connecta
               </div>
             </div>
             <a
@@ -2123,6 +2124,34 @@ export default function LandingPageNew() {
               </svg>
               See their Facebook
             </a>
+          </div>
+        </div>
+
+        {/* ----- Third testimonial — Spencer (impressions proof) ----- */}
+        <div
+          className="scroll-rise"
+          style={{ maxWidth: 720, margin: "112px auto 0", padding: "0 32px", textAlign: "center" }}
+        >
+          {/* hairline divider so it reads as a separate voice */}
+          <div style={{ width: 64, height: 1, background: "var(--honey)", opacity: 0.5, margin: "0 auto 56px" }} />
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 16,
+              background: "var(--bone)",
+              border: "1px solid var(--ink)",
+              boxShadow: "4px 4px 0 var(--honey)",
+            }}
+          >
+            <img
+              src={spencerImpressions}
+              alt="Spencer — 4.26M impressions across Facebook, TikTok and Instagram"
+              loading="lazy"
+              style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }}
+            />
+          </div>
+          <div className="serif-italic" style={{ fontSize: 15, color: "var(--bone-3)", marginTop: 16 }}>
+            (2 weeks after working together)
           </div>
         </div>
       </section>
