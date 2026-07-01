@@ -170,7 +170,7 @@ export const t = {
     editScriptFor: { en: "Edit Script for", es: "Editar Script para" },
     pasteHint: { en: "Paste the script as is — AI will categorize it automatically.", es: "Pega el script tal cual — la IA lo categorizará automáticamente." },
     scriptTitle: { en: "Script title", es: "Título del script" },
-    inspirationUrl: { en: "Inspiration URL (optional)", es: "URL de inspiración (opcional)" },
+    inspirationUrl: { en: "How to film & edit it — link (optional)", es: "Cómo grabarlo y editarlo — enlace (opcional)" },
     format: { en: "Format", es: "Formato" },
     selectFormat: { en: "Select a format", es: "Selecciona un formato" },
     interview: { en: "Interview", es: "Entrevista" },
