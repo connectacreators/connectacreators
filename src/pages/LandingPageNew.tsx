@@ -24,6 +24,7 @@ import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import drCalvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
+import djR3Profile from "@/assets/dj-r3-profile.png";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
 import pecanMsgViews from "@/assets/pecan-msg-views.png";
@@ -1081,12 +1082,12 @@ export default function LandingPageNew() {
       >
         <span style={{ marginRight: 6 }}>
           <Flame size={11} style={{ display: "inline-block", color: "var(--honey)", marginRight: 6, marginBottom: -1 }} />
-          <strong style={{ fontWeight: 700 }}>Viral Today is live.</strong>
+          <strong style={{ fontWeight: 700 }}>1 million views, guaranteed in 90 days.</strong>
         </span>
-        Spot trends before your feed catches on.{" "}
-        <a href="#viral" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
-          See it →
-        </a>
+        We build the brands people can&apos;t stop watching.{" "}
+        <Link to="/reto" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
+          See how →
+        </Link>
       </div>
 
       {/* ===== Floating nav — wisprflow style: bone pill, centered, compact width ===== */}
@@ -1149,8 +1150,8 @@ export default function LandingPageNew() {
               fontWeight: 500,
             }}
           >
-            <a href="#brain" className="scribble-link">The Brain</a>
-            <a href="#viral" className="scribble-link">Viral Today</a>
+            <a href="#work" className="scribble-link">Our work</a>
+            <Link to="/1mguarantee" className="scribble-link">Guarantee</Link>
           </div>
 
           <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1202,8 +1203,8 @@ export default function LandingPageNew() {
               borderBottomRightRadius: 28,
             }}
           >
-            <a href="#brain" onClick={() => setMobileOpen(false)}>The Brain</a>
-            <a href="#viral" onClick={() => setMobileOpen(false)}>Viral Today</a>
+            <a href="#work" onClick={() => setMobileOpen(false)}>Our work</a>
+            <Link to="/1mguarantee" onClick={() => setMobileOpen(false)}>Guarantee</Link>
             <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
               Client login
             </Link>
@@ -1505,7 +1506,7 @@ export default function LandingPageNew() {
       </section>
 
       {/* ===== Case studies — real client before/afters ===== */}
-      <section style={{ padding: "90px 0", position: "relative" }}>
+      <section id="work" style={{ padding: "90px 0", position: "relative" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ textAlign: "center", marginBottom: 44 }}>
             <span className="eyebrow">Proof, not promises</span>
@@ -1521,9 +1522,7 @@ export default function LandingPageNew() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 22, maxWidth: 1080, margin: "0 auto", alignItems: "start" }}>
-            {(() => {
-              const WORK = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/work";
-              return [
+            {[
               {
                 label: "Case study · Chiropractor",
                 name: "Dr. Calvin's Clinic",
@@ -1531,11 +1530,6 @@ export default function LandingPageNew() {
                 stats: [
                   { n: "200K+", l: "followers generated", c: "var(--aqua)" },
                   { n: "$50K+", l: "revenue generated", c: "var(--honey)" },
-                ],
-                videos: [
-                  { src: `${WORK}/calvin-fb1.mp4`, views: "751K" },
-                  { src: `${WORK}/calvin-fb2.mp4`, views: "1.3M" },
-                  { src: `${WORK}/calvin-tt.mp4`, views: "872K" },
                 ],
               },
               {
@@ -1546,13 +1540,26 @@ export default function LandingPageNew() {
                   { n: "500", l: "followers before", c: "var(--bone-2)" },
                   { n: "17.6K", l: "followers after", c: "var(--aqua)" },
                 ],
-                videos: [
-                  { src: `${WORK}/sofia-tt1.mp4`, views: "2.8M" },
-                  { src: `${WORK}/sofia-ig.mp4`, views: "3M" },
-                  { src: `${WORK}/sofia-tt2.mp4`, views: "1M" },
+              },
+              {
+                label: "Case study · Nurse Practitioner",
+                name: "Pecan Health",
+                imgs: [spencerProfile],
+                stats: [
+                  { n: "11K", l: "followers", c: "var(--aqua)" },
+                  { n: "4.26M", l: "impressions", c: "var(--honey)" },
                 ],
               },
-            ]; })().map((cs) => (
+              {
+                label: "Our founder's own channel",
+                name: "DJ R3",
+                imgs: [djR3Profile],
+                stats: [
+                  { n: "11.1M", l: "views generated", c: "var(--honey)" },
+                  { n: "5.15K", l: "subscribers", c: "var(--aqua)" },
+                ],
+              },
+            ].map((cs) => (
               <div
                 key={cs.name}
                 style={{
@@ -1574,12 +1581,12 @@ export default function LandingPageNew() {
                     {cs.name}
                   </h3>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%" }}>
+                <div style={{ display: "grid", gridTemplateColumns: cs.imgs.length === 1 ? "1fr" : "1fr 1fr", gap: 12, width: "100%" }}>
                   {cs.imgs.map((src, i) => (
                     <img
                       key={i}
                       src={src}
-                      alt={`${cs.name} ${i === 0 ? "before" : "after"}`}
+                      alt={cs.imgs.length === 1 ? cs.name : `${cs.name} ${i === 0 ? "before" : "after"}`}
                       loading="lazy"
                       style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", display: "block" }}
                     />
@@ -1592,37 +1599,6 @@ export default function LandingPageNew() {
                       <div style={{ fontSize: 12.5, color: "var(--bone-3)", marginTop: 6 }}>{s.l}</div>
                     </div>
                   ))}
-                </div>
-
-                {/* Our work — playable reels with view counts */}
-                <div style={{ width: "100%", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18 }}>
-                  <p className="eyebrow" style={{ marginBottom: 12 }}>Our work</p>
-                  <div className="our-work-grid">
-                    {cs.videos.map((v) => (
-                      <div
-                        key={v.src}
-                        style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#000", border: "1px solid rgba(255,255,255,0.08)" }}
-                      >
-                        <video
-                          src={`${v.src}#t=0.5`}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          style={{ width: "100%", aspectRatio: "9 / 16", objectFit: "cover", display: "block" }}
-                        />
-                        <span
-                          style={{
-                            position: "absolute", top: 7, left: 7,
-                            background: "rgba(0,0,0,0.72)", color: "#fff",
-                            fontSize: 10.5, fontWeight: 700, padding: "2px 7px",
-                            borderRadius: 999, backdropFilter: "blur(4px)", pointerEvents: "none",
-                          }}
-                        >
-                          {v.views} views
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             ))}
@@ -1643,234 +1619,6 @@ export default function LandingPageNew() {
         </div>
       </section>
 
-      {/* ===== Section 1 — THE BRAIN (Super Canvas) ===== */}
-      <section id="brain" className="bg-ink" style={{ padding: "140px 0", position: "relative", overflow: "visible" }}>
-        {/* Running brain doodle — sits at the bottom of this section,
-            poking down into the gap above the Viral Today panel. */}
-        <InteractiveSticker
-          src={brainDoodle}
-          baseRotation={-6}
-          style={{
-            position: "absolute",
-            bottom: -90,
-            right: "8%",
-            width: 320,
-            height: "auto",
-            zIndex: 6,
-            pointerEvents: "none",
-          }}
-        />
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
-          <div
-            className="scroll-rise"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1.2fr",
-              gap: 80,
-              alignItems: "center",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <span className="eyebrow">The Jarvis</span>
-              <ScrollFloat
-                containerClassName="section-h2"
-                stagger={0.025}
-              >
-                <em className="soft">The brain.</em>
-                <br />
-                It plans before{" "}
-                <span
-                  className="scribble-under aqua"
-                  style={{ display: "inline-block", fontStyle: "italic", color: "var(--aqua)", fontWeight: 500 }}
-                >
-                  you post.
-                </span>
-              </ScrollFloat>
-              <div className="section-lede" style={{ marginBottom: 28, position: "relative" }}>
-                <ProxText>Super Canvas is the engine behind every brand we build. It learns your voice, your audience, what's spiking on the feed, and what your last 50 posts taught it, then maps out your next 30 days of content. The strategy you'd hire a team for, running on your account.</ProxText>
-              </div>
-
-              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 14 }}>
-                {[
-                  ["Brand voice trained on your last 50 posts", "Captions in your tone"],
-                  ["30-day strategy generated in a single click", "Strategy mode"],
-                  ["Live trend overlays from Viral Today", "Trend layer"],
-                  ["Drag, rewrite, regenerate. Every node is editable", "Always interactive"],
-                ].map(([line, tag], i) => (
-                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: "var(--aqua)",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ flex: 1, fontSize: 15, color: "var(--bone)" }}>{line}</span>
-                    <span className="pill pill-aqua" style={{ fontSize: 10 }}>
-                      {tag}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link to="/reto" className="btn btn-aqua">
-                  Work with us <ArrowRight size={15} />
-                </Link>
-                <a href="#viral" className="btn btn-ghost">See trends</a>
-              </div>
-            </div>
-
-            {/* Canvas mini-perspective (different from hero) */}
-            <div style={{ minWidth: 0 }}>
-              <div
-                className="card"
-                style={{
-                  padding: 24,
-                  background: "var(--graphite)",
-                  border: "1px solid var(--ink)",
-                  boxShadow: "5px 5px 0 var(--ink)",
-                  position: "relative",
-                }}
-              >
-                <div className="flex items-center justify-between" style={{ marginBottom: 18 }}>
-                  <span className="eyebrow">Today's plan · auto-drafted</span>
-                  <span className="pill pill-aqua"><span className="pill-dot" />live</span>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[
-                    { time: "MON 9:00 AM", title: "Spring lookbook · Reel", platform: "IG", status: "Scheduled", pill: "aqua" as const },
-                    { time: "MON 7:00 PM", title: "Behind the shoot · day 1", platform: "TikTok", status: "Drafting", pill: "honey" as const },
-                    { time: "TUE 12:00 PM", title: "Skincare partner ask", platform: "Shorts", status: "In review", pill: "honey" as const },
-                    { time: "WED 8:00 PM", title: "\"3 things I wish I knew…\"", platform: "Reel", status: "Hook ready", pill: "aqua" as const },
-                    { time: "THU 6:00 PM", title: "Recurring · weekly recap", platform: "IG", status: "Auto", pill: "aqua" as const },
-                  ].map((row, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "76px 1fr auto",
-                        gap: 14,
-                        alignItems: "center",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        background: "rgba(234,230,220,0.02)",
-                        border: "1px solid var(--line)",
-                        fontSize: 12.5,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: "'Figtree', monospace",
-                          fontSize: 10.5,
-                          color: "var(--bone-3)",
-                          letterSpacing: "0.06em",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {row.time}
-                      </span>
-                      <div>
-                        <div className="serif" style={{ fontSize: 14, color: "var(--bone)" }}>
-                          <ProxText>{row.title}</ProxText>
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--bone-3)", marginTop: 1 }}>
-                          <ProxText>{row.platform}</ProxText>
-                        </div>
-                      </div>
-                      <span className={`pill pill-${row.pill}`} style={{ fontSize: 10 }}>
-                        <ProxText>{row.status}</ProxText>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== Section 2 — VIRAL TODAY (Bone panel) ===== */}
-      <section id="viral" className="panel-bone" style={{ padding: "120px 0", position: "relative", marginTop: 24 }}>
-        <div
-          className="curl curl-hide-mobile scroll-rise"
-          style={{ top: 80, left: "8%", transform: "rotate(-5deg)", color: "rgba(10,14,18,0.32)" }}
-        >
-          before the algorithm catches on
-        </div>
-
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", position: "relative" }}>
-          <div
-            className="scroll-rise"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.1fr 1fr",
-              gap: 80,
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <ViralTodayMock />
-            </div>
-
-            <div>
-              <span className="eyebrow eyebrow-honey">Viral Today</span>
-              <ScrollFloat containerClassName="section-h2" stagger={0.025}>
-                What's working <em style={{ color: "rgba(10,14,18,0.55)", fontStyle: "italic", fontWeight: 400 }}>right now,</em>
-                <br />
-                <span
-                  className="scribble-under honey"
-                  style={{ display: "inline-block", color: "#A85B1F", fontStyle: "italic", fontWeight: 500 }}
-                >
-                  sorted for you.
-                </span>
-              </ScrollFloat>
-              <div className="section-lede" style={{ marginBottom: 28, color: "rgba(10,14,18,0.65)", position: "relative" }}>
-                <ProxText>Connecta scans the feeds your audience is on, flags outlier videos that beat their channel's average by 8× or more, and shows you the hooks before everyone else copies them.</ProxText>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 32 }}>
-                {[
-                  { num: "01", title: "Spot the trend", body: "Sorted by outlier score, not view count." },
-                  { num: "02", title: "Borrow the hook", body: "One-click remix into your voice." },
-                  { num: "03", title: "Ship it", body: "Push to Super Canvas. Done by Tuesday." },
-                ].map((s, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      padding: "20px 18px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      background: "#FBF8EE",
-                      border: "1px solid var(--ink)",
-                      borderRadius: 14,
-                      boxShadow: "3px 3px 0 var(--ink)",
-                    }}
-                  >
-                    <span style={{ fontFamily: "'Figtree', sans-serif", fontSize: 11, color: "#A85B1F", letterSpacing: "0.1em", fontWeight: 700 }}>
-                      {s.num}
-                    </span>
-                    <div className="serif" style={{ fontSize: 17, color: "var(--ink)", letterSpacing: "-0.005em" }}>
-                      <ProxText>{s.title}</ProxText>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "rgba(10,14,18,0.55)", lineHeight: 1.5 }}>
-                      <ProxText>{s.body}</ProxText>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Link to="/reto" className="btn btn-honey">
-                Work with us <ArrowRight size={15} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ===== Section 5 — TESTIMONIAL ===== */}
       <section className="bg-ink" style={{ padding: "120px 0", marginTop: 24, textAlign: "center", position: "relative", overflow: "visible" }}>
@@ -2290,10 +2038,10 @@ export default function LandingPageNew() {
             </div>
             {[
               {
-                title: "Product",
+                title: "Start here",
                 items: [
-                  { label: "Super Canvas", href: "#brain" },
-                  { label: "Viral Today", href: "#viral" },
+                  { label: "Work with us", href: "/reto" },
+                  { label: "Client login", href: "/login" },
                 ],
               },
               {

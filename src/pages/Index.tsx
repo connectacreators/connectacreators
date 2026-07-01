@@ -9,6 +9,8 @@ import calvin100kText from "@/assets/calvin-100k-text.png";
 import calvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
+import djR3Profile from "@/assets/dj-r3-profile.png";
+import djR3Stats from "@/assets/dj-r3-stats.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
 import {
@@ -967,6 +969,51 @@ export default function Index() {
             }}
           >
             (2 weeks after working together)
+          </div>
+        </div>
+
+        {/* DJ R3 case — our founder's own channel */}
+        <div style={{ marginBottom: 44 }}>
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 700,
+              fontSize: 14,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "#fff",
+              marginBottom: 16,
+            }}
+          >
+            DJ R3 — OUR FOUNDER'S OWN CHANNEL
+          </div>
+
+          <img
+            className="calvin-text-shot"
+            src={djR3Profile}
+            alt="DJ R3 — YouTube channel, 5.15K subscribers"
+            loading="lazy"
+            style={{ maxWidth: 620, background: "#161616", padding: 14, boxSizing: "border-box", marginBottom: 20 }}
+          />
+
+          <img
+            className="calvin-text-shot"
+            src={djR3Stats}
+            alt="DJ R3 — 11,102,238 views generated"
+            loading="lazy"
+            style={{ maxWidth: 460, background: "#161616", padding: 14, boxSizing: "border-box" }}
+          />
+          <div
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: 13,
+              fontStyle: "italic",
+              color: "rgba(255,255,255,0.5)",
+              marginTop: 14,
+              textAlign: "center",
+            }}
+          >
+            Over 11M views generated.
           </div>
         </div>
 
