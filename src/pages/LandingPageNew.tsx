@@ -24,7 +24,7 @@ import drCalvinPortrait from "@/assets/dr-calvin-portrait.jpg";
 import drCalvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
-import djR3Profile from "@/assets/dj-r3-profile.png";
+import djR3Stats from "@/assets/dj-r3-stats.png";
 import pecanHealthyPortrait from "@/assets/pecan-healthy-portrait.jpg";
 import pecanMsgFollowers from "@/assets/pecan-msg-followers.png";
 import pecanMsgViews from "@/assets/pecan-msg-views.png";
@@ -1429,7 +1429,7 @@ export default function LandingPageNew() {
                 accent: "honey" as const,
               },
               {
-                num: "100K+",
+                num: "250K+",
                 kicker: "followers grown",
                 body: "Real audiences, built on the back of strategy, not hacks, not bots, not luck.",
                 accent: "aqua" as const,
@@ -1553,7 +1553,7 @@ export default function LandingPageNew() {
               {
                 label: "Our founder's own channel",
                 name: "DJ R3",
-                imgs: [djR3Profile],
+                imgs: [djR3Stats],
                 stats: [
                   { n: "11.1M", l: "views generated", c: "var(--honey)" },
                   { n: "5.15K", l: "subscribers", c: "var(--aqua)" },

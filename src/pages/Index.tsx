@@ -9,7 +9,6 @@ import calvin100kText from "@/assets/calvin-100k-text.png";
 import calvinFollowers from "@/assets/dr-calvin-followers.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
-import djR3Profile from "@/assets/dj-r3-profile.png";
 import djR3Stats from "@/assets/dj-r3-stats.png";
 import LeadForm from "@/components/LeadForm";
 import ApplyModal from "@/components/ApplyModal";
@@ -990,18 +989,10 @@ export default function Index() {
 
           <img
             className="calvin-text-shot"
-            src={djR3Profile}
-            alt="DJ R3 — YouTube channel, 5.15K subscribers"
-            loading="lazy"
-            style={{ maxWidth: 620, background: "#161616", padding: 14, boxSizing: "border-box", marginBottom: 20 }}
-          />
-
-          <img
-            className="calvin-text-shot"
             src={djR3Stats}
             alt="DJ R3 — 11,102,238 views generated"
             loading="lazy"
-            style={{ maxWidth: 460, background: "#161616", padding: 14, boxSizing: "border-box" }}
+            style={{ maxWidth: 620, background: "#161616", padding: 14, boxSizing: "border-box" }}
           />
           <div
             style={{
