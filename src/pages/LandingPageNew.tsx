@@ -358,10 +358,10 @@ function DemoVideoPlayer() {
       <video
         ref={videoRef}
         src={DEMO_VIDEO_URL}
-        // poster shows instantly (no black box); preload="metadata" keeps the
-        // initial payload light while still letting playback start fast.
+        // poster shows instantly (no black box); preload="none" means zero bytes
+        // transfer until the visitor clicks play - minimizes Storage cached egress.
         poster="/demo-poster.jpg"
-        preload="metadata"
+        preload="none"
         muted
         playsInline
         onTimeUpdate={handleTimeUpdate}
