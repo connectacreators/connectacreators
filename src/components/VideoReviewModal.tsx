@@ -145,7 +145,13 @@ export default function VideoReviewModal({
     // player shows a clear "No file submission yet" empty state instead.
 
     setSources(list);
-    setActiveIdx(0);
+    // Version arrays are stored oldest-first, so default to the NEWEST version
+    // (the last entry labelled V#). Ignore trailing external "Link N" items.
+    let defaultIdx = 0;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (/^V\d+$/.test(list[i].label)) { defaultIdx = i; break; }
+    }
+    setActiveIdx(defaultIdx);
     setVideoUrl(null);
     setCurrentTime(0);
     setDuration(0);
