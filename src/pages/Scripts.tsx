@@ -3369,8 +3369,8 @@ export default function Scripts() {
                 </button>
                 {editingFormatReference && (
                   <>
-                    {/* click-away backdrop */}
-                    <div className="fixed inset-0 z-30" onClick={() => setEditingFormatReference(false)} />
+                    {/* click-away backdrop — commit the draft on click-away (matches inspiration onBlur) so a pasted URL isn't silently discarded */}
+                    <div className="fixed inset-0 z-30" onClick={async () => { const v = formatReferenceDraft.trim(); setEditingFormatReference(false); await persistFormatReference(v || null); }} />
                     <div className="absolute left-0 top-full mt-1.5 z-40 w-[340px] max-w-[80vw] rounded-lg border border-border bg-[hsl(var(--graphite))] p-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
                       <Input
                         autoFocus
