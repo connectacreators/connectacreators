@@ -472,6 +472,7 @@ export default function Scripts() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [formato, setFormato] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
+  const [formatReferenceCreate, setFormatReferenceCreate] = useState("");
   const [viewingInspirationUrls, setViewingInspirationUrls] = useState<string[]>([]);
   const [inspirationVideoUrl, setInspirationVideoUrl] = useState<string | null>(null);
   const [editingInspirationIdx, setEditingInspirationIdx] = useState<number | null>(null);
@@ -1204,7 +1205,7 @@ export default function Scripts() {
 
   const handleCtxNewScript = useCallback(() => {
     setCtxMenu(null);
-    setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink("");
+    setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setFormatReferenceCreate("");
     setView("new-script");
   }, []);
 
@@ -1356,6 +1357,9 @@ export default function Scripts() {
         setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
         setViewingMetadata(aiResult.metadata);
         setViewingScriptId(aiResult.scriptId);
+        const frA = formatReferenceCreate.trim();
+        if (frA) await supabase.from("scripts").update({ format_reference_url: frA }).eq("id", aiResult.scriptId);
+        setViewingFormatReferenceUrl(frA || null);
         persistUrl(aiResult.scriptId);
         setView("view-script");
         toast.success(tr({ en: "Script analyzed and saved!", es: "¡Script analizado y guardado!" }, language));
@@ -1396,6 +1400,9 @@ export default function Scripts() {
       setViewingInspirationUrls(inspirationUrl.trim() ? [inspirationUrl.trim()] : []);
       setViewingMetadata(result.metadata);
       setViewingScriptId(result.scriptId);
+      const frB = formatReferenceCreate.trim();
+      if (frB) await supabase.from("scripts").update({ format_reference_url: frB }).eq("id", result.scriptId);
+      setViewingFormatReferenceUrl(frB || null);
       persistUrl(result.scriptId);
       setView("view-script");
       toast.success(tr({ en: "Script saved successfully!", es: "¡Script guardado exitosamente!" }, language));
@@ -1907,6 +1914,7 @@ export default function Scripts() {
       setInspirationUrl("");
       setFormato("");
       setGoogleDriveLink("");
+      setFormatReferenceCreate("");
       setViewingInspirationUrls([]);
       setEditingInspirationIdx(null);
       setInspirationDraft("");
@@ -2326,7 +2334,7 @@ export default function Scripts() {
             <div className="flex flex-wrap items-center gap-2 mb-6">
               {/* Primary CTA */}
               <Button
-                onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setView("new-script"); }}
+                onClick={() => { setScriptTitle(""); setScriptInput(""); setInspirationUrl(""); setFormato(""); setGoogleDriveLink(""); setFormatReferenceCreate(""); setView("new-script"); }}
                 variant="cta"
                 className="gap-2 flex-shrink-0"
               >
@@ -3081,6 +3089,7 @@ export default function Scripts() {
                    className="mb-3"
                  />
                  <Input placeholder={tr(t.scripts.inspirationUrl, language)} value={inspirationUrl} onChange={(e) => setInspirationUrl(e.target.value)} className="mb-3" />
+                 <Input placeholder={tr(t.scripts.formatReferenceCreate, language)} value={formatReferenceCreate} onChange={(e) => setFormatReferenceCreate(e.target.value)} className="mb-3" />
                  
                  {/* Vault Template Toggle */}
                  <div className="editorial-card flex items-center gap-3 mb-3 p-3 rounded-xl">
