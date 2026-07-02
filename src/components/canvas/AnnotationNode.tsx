@@ -37,8 +37,8 @@ type ResizeEdge = "top" | "bottom" | "left" | "right" | "top-left" | "top-right"
 const CURSORS: Record<ResizeEdge, string> = {
   "top": "ns-resize", "bottom": "ns-resize",
   "left": "ew-resize", "right": "ew-resize",
-  "top-left": "nwse-resize", "top-right": "nesw-resize",
-  "bottom-left": "nesw-resize", "bottom-right": "nwse-resize",
+  "top-left": "ew-resize", "top-right": "ew-resize",
+  "bottom-left": "ew-resize", "bottom-right": "ew-resize",
 };
 
 function hexAlpha(hex: string, alpha: number) {
@@ -233,33 +233,20 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
     resizeRef.current = { edge, startX: e.clientX, startY: e.clientY, startW: nodeWidth, startFont: liveFont };
     const onMove = (ev: MouseEvent) => {
       if (!resizeRef.current) return;
-      const { edge: ed, startX, startY, startW, startFont } = resizeRef.current;
+      const { edge: ed, startX, startW } = resizeRef.current;
       const dx = (ev.clientX - startX) / zoom;
-      const dy = (ev.clientY - startY) / zoom;
-      const isCorner = ed.includes("-");
-      if (isCorner) {
-        const signX = ed.includes("right") ? 1 : -1;
-        const signY = ed.includes("bottom") ? 1 : -1;
-        const avgDelta = (dx * signX + dy * signY) / 2;
-        const scale = 1 + avgDelta / startW;
-        const newW = Math.max(60, Math.round(startW * scale));
-        setNodeWidth(newW);
-        updateNode(id, { width: newW });
-        setLiveFont(Math.max(8, Math.min(200, Math.round(startFont * scale))));
-      } else if (ed === "left" || ed === "right") {
-        const sign = ed === "right" ? 1 : -1;
-        const newW = Math.max(60, Math.round(startW + dx * sign));
-        setNodeWidth(newW);
-        updateNode(id, { width: newW });
-      } else {
-        const sign = ed === "bottom" ? 1 : -1;
-        setLiveFont(Math.max(8, Math.min(200, Math.round(startFont + dy * sign * 0.3))));
-      }
+      // Box-only resize: every handle changes the WIDTH; text reflows and keeps its font.
+      // Font size is controlled solely by the −/+ buttons in the toolbar.
+      const sign = ed.includes("right") ? 1 : ed.includes("left") ? -1 : 0;
+      if (sign === 0) return; // pure top/bottom drag — no width change
+      const newW = Math.max(60, Math.round(startW + dx * sign));
+      setNodeWidth(newW);
+      updateNode(id, { width: newW });
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      d.onUpdate?.({ width: liveWidthRef.current, fontSize: liveFontRef.current });
+      d.onUpdate?.({ width: liveWidthRef.current });
       updateNode(id, { width: liveWidthRef.current });
       resizeRef.current = null;
     };
@@ -269,8 +256,6 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
 
   const HT = 6;
   const edges: { edge: ResizeEdge; style: React.CSSProperties }[] = [
-    { edge: "top",    style: { top: -HT/2, left: HT, right: HT, height: HT } },
-    { edge: "bottom", style: { bottom: -HT/2, left: HT, right: HT, height: HT } },
     { edge: "left",   style: { left: -HT/2, top: HT, bottom: HT, width: HT } },
     { edge: "right",  style: { right: -HT/2, top: HT, bottom: HT, width: HT } },
     { edge: "top-left",     style: { top: -9, left: -9, width: 18, height: 18 } },
