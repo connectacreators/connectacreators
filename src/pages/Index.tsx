@@ -153,6 +153,19 @@ export default function Index() {
     }
   }, []);
 
+  // Prebuffer the VSL the moment the page paints: play it muted + inline behind
+  // the poster so tapping "turn on sound" starts instantly instead of waiting a
+  // second for the file to load. Mobile browsers ignore preload="auto" and defer
+  // all video bytes until playback begins, so a muted autoplay is the only way to
+  // warm the buffer without a user gesture. A blocked autoplay is harmless — the
+  // click gate still triggers playback on the user gesture as before.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => {});
+  }, []);
+
   const startVideo = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -161,6 +174,7 @@ export default function Index() {
     v.currentTime = 0;
     v.playbackRate = speed;
     setVideoStarted(true);
+    // Already buffered from the muted autoplay, so this resolves immediately.
     v.play().then(() => setVideoPlaying(true)).catch(() => {});
   };
 
@@ -597,6 +611,8 @@ export default function Index() {
             <video
               ref={videoRef}
               playsInline
+              autoPlay
+              muted
               preload="auto"
               poster="/1m-views-guarantee-poster.jpg"
               onClick={videoStarted ? togglePlay : undefined}
