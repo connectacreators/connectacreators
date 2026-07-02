@@ -100,25 +100,30 @@ async function processQueueRow(
   }
 
   // Claim the video row (same semantics as analyze-viral-video-user, incl.
-  // stale-claim takeover).
+  // stale-claim takeover). Two simple guarded updates instead of one compound
+  // .or() filter — the or() version silently matched nothing and every claim
+  // "failed" as in-progress.
   const staleCutoff = new Date(Date.now() - STALE_CLAIM_MINUTES * 60 * 1000);
-  const { data: claimedRaw } = await admin
-    .from("viral_videos")
-    .update({
-      analysis_status: "analyzing",
-      analysis_error: null,
-      analysis_claimed_at: new Date().toISOString(),
-    })
-    .eq("id", row.id)
-    .or(
-      `analysis_status.in.(pending,failed,analyzed),` +
-        `and(analysis_status.eq.analyzing,analysis_claimed_at.is.null),` +
-        `and(analysis_status.eq.analyzing,analysis_claimed_at.lt.${staleCutoff.toISOString()})`,
-    )
-    .select("*")
-    .single();
-  if (!claimedRaw) {
+  const claimIsStale =
+    row.analysis_status === "analyzing" &&
+    (!row.analysis_claimed_at || new Date(row.analysis_claimed_at) < staleCutoff);
+  if (row.analysis_status === "analyzing" && !claimIsStale) {
     await requeue("video claimed by another analysis");
+    return;
+  }
+  const claimPatch = {
+    analysis_status: "analyzing",
+    analysis_error: null,
+    analysis_claimed_at: new Date().toISOString(),
+  };
+  const claimQuery =
+    row.analysis_status === "analyzing"
+      ? admin.from("viral_videos").update(claimPatch).eq("id", row.id).eq("analysis_status", "analyzing")
+      : admin.from("viral_videos").update(claimPatch).eq("id", row.id).in("analysis_status", ["pending", "failed", "analyzed"]);
+  const { data: claimedRaw, error: claimErr } = await claimQuery.select("*").single();
+  if (claimErr || !claimedRaw) {
+    console.error(`[drain] claim failed for ${row.id}: ${claimErr?.message ?? "no row matched"}`);
+    await requeue(`claim failed: ${claimErr?.message ?? "no row matched"}`);
     return;
   }
   const claimed = claimedRaw as ViralVideoRow & { caption: string | null };
@@ -180,18 +185,23 @@ Deno.serve(async (req) => {
 
     const deadline = Date.now() + DRAIN_DEADLINE_MS;
     let processed = 0;
+    // Rows touched this invocation — a row requeued (e.g. "claimed by another
+    // analysis") must wait for the NEXT drain tick, not be re-claimed in the
+    // same loop (that burned all its attempts within milliseconds).
+    const touched = new Set<string>();
 
     const worker = async () => {
       while (Date.now() < deadline) {
         // Oldest queued candidates; claim one atomically (status flip races
         // are settled by the .eq("status","queued") guard).
-        const { data: candidates } = await admin
+        const { data: rawCandidates } = await admin
           .from("viral_analyze_queue")
           .select("id, viral_video_id, requested_by, attempts")
           .eq("status", "queued")
           .order("created_at", { ascending: true })
-          .limit(5);
-        if (!candidates || candidates.length === 0) return;
+          .limit(10);
+        const candidates = (rawCandidates ?? []).filter((c) => !touched.has(c.id));
+        if (candidates.length === 0) return;
 
         let mine: QueueRow | null = null;
         for (const c of candidates as QueueRow[]) {
@@ -204,6 +214,7 @@ Deno.serve(async (req) => {
             .single();
           if (claimed) {
             mine = claimed as QueueRow;
+            touched.add(mine.id);
             break;
           }
         }

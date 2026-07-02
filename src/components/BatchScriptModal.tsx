@@ -49,18 +49,31 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
   const [loadingClients, setLoadingClients] = useState(false);
   const navigate = useNavigate();
 
-  // Fetch clients on mount
+  // Fetch clients on mount — Connecta+ clients only (same definition as the
+  // sidebar client selector: connecta_plus role holders, no sub-profiles).
   useEffect(() => {
     if (!open) return;
     setLoadingClients(true);
-    supabase
-      .from("clients")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        setClients((data ?? []) as Client[]);
+    (async () => {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "connecta_plus");
+      const userIds = (roleRows ?? []).map((r) => r.user_id);
+      if (userIds.length === 0) {
+        setClients([]);
         setLoadingClients(false);
-      });
+        return;
+      }
+      const { data } = await supabase
+        .from("clients")
+        .select("id, name")
+        .in("user_id", userIds)
+        .is("parent_subscriber_id", null)
+        .order("name");
+      setClients((data ?? []) as Client[]);
+      setLoadingClients(false);
+    })();
   }, [open]);
 
   const videoCount = selectedVideos.size;

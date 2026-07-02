@@ -340,9 +340,38 @@ export default function ViralVideoDetail() {
   }, [video?.id, video?.analysis_status, video?.content_format, video?.primary_niche]);
 
   // ==================== CLIENT OPTIONS ====================
+  // Staff dropdowns (Use in Script / Remix / Vault) list ONLY Connecta+
+  // clients — same definition as the sidebar client selector: users holding
+  // the connecta_plus role, excluding sub-profiles. The full clients table is
+  // mostly test rows and non-content accounts.
   const isStaff = isAdmin;
+  const [plusClients, setPlusClients] = useState<ClientOption[]>([]);
+  useEffect(() => {
+    if (!isStaff) return;
+    let cancelled = false;
+    (async () => {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "connecta_plus");
+      const userIds = (roleRows ?? []).map((r) => r.user_id);
+      if (cancelled || userIds.length === 0) return;
+      const { data } = await supabase
+        .from("clients")
+        .select("id, name")
+        .in("user_id", userIds)
+        .is("parent_subscriber_id", null)
+        .order("name");
+      if (cancelled || !data) return;
+      setPlusClients(data.map((c) => ({ id: c.id, name: c.name || c.id })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isStaff]);
+
   const clientOptions: ClientOption[] = isStaff
-    ? clients.map((c) => ({ id: c.id, name: c.name || c.id }))
+    ? plusClients
     : (() => {
         const own = clients.find((c: Client) => c.user_id === user?.id);
         return own ? [{ id: own.id, name: own.name || own.id }] : [];

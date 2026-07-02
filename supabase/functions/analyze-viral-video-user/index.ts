@@ -92,22 +92,18 @@ Deno.serve(async (req) => {
   }
 
   // Claim the row atomically (from pending/failed/analyzed-but-expired, or a
-  // stale "analyzing" claim whose invocation died).
-  const { data: claimedRaw, error: claimErr } = await admin
-    .from("viral_videos")
-    .update({
-      analysis_status: "analyzing",
-      analysis_error: null,
-      analysis_claimed_at: new Date().toISOString(),
-    })
-    .eq("id", row.id)
-    .or(
-      `analysis_status.in.(pending,failed,analyzed),` +
-        `and(analysis_status.eq.analyzing,analysis_claimed_at.is.null),` +
-        `and(analysis_status.eq.analyzing,analysis_claimed_at.lt.${staleCutoff.toISOString()})`,
-    )
-    .select("*")
-    .single();
+  // stale "analyzing" claim whose invocation died). Two simple guarded
+  // updates instead of one compound .or() filter — the or() version silently
+  // matched nothing, which made every claim fail as "in progress".
+  const claimPatch = {
+    analysis_status: "analyzing",
+    analysis_error: null,
+    analysis_claimed_at: new Date().toISOString(),
+  };
+  const claimQuery = claimIsStale
+    ? admin.from("viral_videos").update(claimPatch).eq("id", row.id).eq("analysis_status", "analyzing")
+    : admin.from("viral_videos").update(claimPatch).eq("id", row.id).in("analysis_status", ["pending", "failed", "analyzed"]);
+  const { data: claimedRaw, error: claimErr } = await claimQuery.select("*").single();
   if (claimErr || !claimedRaw) return json({ error: "claim_failed", message: claimErr?.message }, 409);
   const claimed = claimedRaw as ViralVideoRow & { caption: string | null };
 
