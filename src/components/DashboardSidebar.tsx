@@ -81,7 +81,9 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const selectorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  // Hover affordance ("hovering moves the active mark to the hovered item")
+  // is pure CSS (.sidebar-nav rules in index.css) — React hover state here
+  // re-rendered the whole 800-line sidebar on every pointer move.
   const isOnAi = useLocation().pathname === "/ai";
   const [moreExpanded, setMoreExpanded] = useState(false);
   // /ai surface defaults to a thin Claude-style icon rail. Off-/ai surfaces
@@ -546,7 +548,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         </div>
       )}
 
-      <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onMouseLeave={() => setHoveredItem(null)}>
+      <nav className="sidebar-nav flex-1 py-3 px-1.5 space-y-0.5 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {(() => {
           const allItems = navItems.filter((e): e is NavItem => e.type !== 'group');
           const renderItem = (item: NavItem) => {
@@ -558,15 +560,12 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
               : itemPathname === currentPathname && !allItems.some(
                   other => other !== item && other.path.split("?")[0] === itemPathname && other.path === currentPath
                 );
-            const isHovered = hoveredItem === item.label;
-            const showActive = hoveredItem ? isHovered : isActive;
             return (
               <button
                 key={item.label}
                 onClick={() => navigate(item.path)}
-                onMouseEnter={() => setHoveredItem(item.label)}
                 className={`nav-side-mark w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative ${
-                  showActive ? "text-[#e8e8e8] nav-active" : "text-[#aaaaaa] hover:text-[#cccccc]"
+                  isActive ? "text-[#e8e8e8] nav-active" : "text-[#aaaaaa] hover:text-[#cccccc]"
                 }`}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -591,7 +590,6 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                   <>
                     <button
                       onClick={() => setMoreExpanded((v) => !v)}
-                      onMouseEnter={() => setHoveredItem("__more__")}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#aaaaaa] hover:text-[#cccccc] transition-colors duration-150"
                     >
                       <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${moreExpanded ? 'rotate-180' : ''}`} />

@@ -57,7 +57,7 @@ export function AgendaItem({ item, picUrl }: { item: AgendaItemData; picUrl?: st
   return (
     <Link
       to={item.href}
-      className="flex items-center gap-3 rounded-[13px] transition-all"
+      className="flex items-center gap-3 rounded-[13px] transition-[transform,box-shadow] duration-150"
       style={{
         textDecoration: 'none',
         background: 'rgba(255,255,255,0.62)',

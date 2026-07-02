@@ -24,7 +24,7 @@ export function TriageClientBlock({ client, rows, picUrl }: Props) {
 
   return (
     <article
-      className="group relative rounded-2xl transition-all"
+      className="group relative rounded-2xl transition-[transform,box-shadow,border-color] duration-150"
       style={{
         // Opaque mix instead of translucent white + backdrop-blur: the page
         // behind is flat cream, and per-card backdrop-filter re-blurs on

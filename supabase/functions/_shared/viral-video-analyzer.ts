@@ -4,7 +4,7 @@ import { isValidContentFormat, normalizeNicheSlug, type ContentFormat } from "./
 import { logAnthropicUsage } from "./log-anthropic-usage.ts";
 
 const VPS_BASE = "http://72.62.200.145:3099";
-const VPS_KEY = "ytdlp_connecta_2026_secret";
+const VPS_KEY = Deno.env.get("VPS_API_KEY") ?? "ytdlp_connecta_2026_secret";
 const BUCKET = "viral-videos";
 const FILE_TTL_DAYS = 90;
 

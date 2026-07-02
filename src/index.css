@@ -208,6 +208,18 @@ All colors MUST be HSL for consistency and theming.
     transform: translateY(-50%) scaleY(1);
     background: rgba(255,255,255,0.75);
   }
+  /* Hovering anywhere in the sidebar nav moves the "current" affordance to
+     the hovered item: the route-active item dims unless it's the one hovered.
+     (Used to be React state — re-rendered the whole sidebar per pointer move.) */
+  .sidebar-nav .nav-side-mark:hover {
+    color: #e8e8e8;
+  }
+  .sidebar-nav:hover .nav-side-mark.nav-active:not(:hover) {
+    color: #aaaaaa;
+  }
+  .sidebar-nav:hover .nav-side-mark.nav-active:not(:hover)::before {
+    transform: translateY(-50%) scaleY(0);
+  }
 
   a:hover .scribble-btn,
   button:hover .scribble-btn {

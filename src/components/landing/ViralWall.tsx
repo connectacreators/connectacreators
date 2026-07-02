@@ -25,6 +25,14 @@ const IMAGES = Array.from(
   { length: COUNT },
   (_, i) => `/viral-wall/${String(i + 1).padStart(2, "0")}.jpg`,
 );
+// Background variant uses pre-filtered copies (grayscale/brightness/contrast
+// baked into the JPEGs by scripts — see landing.css note). Applying the same
+// look via CSS `filter` forced the GPU to re-filter the whole hero on every
+// marquee frame.
+const BG_IMAGES = Array.from(
+  { length: COUNT },
+  (_, i) => `/viral-wall/bg-${String(i + 1).padStart(2, "0")}.jpg`,
+);
 
 // Offset each row so the same covers don't stack in a vertical column.
 function rotate<T>(arr: T[], n: number): T[] {
@@ -56,7 +64,7 @@ function ViralWall({
   return (
     <div ref={rootRef} className={`viral-wall viral-wall--${variant}`} aria-hidden="true">
       {Array.from({ length: rows }).map((_, r) => {
-        const imgs = rotate(IMAGES, r * 5);
+        const imgs = rotate(variant === "background" ? BG_IMAGES : IMAGES, r * 5);
         // Slow, calm drift — reads as ambient motion, not a ticker.
         const duration = 64 + r * 9;
         return (
