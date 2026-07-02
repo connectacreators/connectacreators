@@ -1151,21 +1151,6 @@ export default function LandingPageNew() {
             </span>
           </Link>
 
-          <div
-            className="hidden-mobile"
-            style={{
-              display: "flex",
-              gap: 28,
-              fontSize: 14,
-              color: "rgba(10,14,18,0.72)",
-              fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
-              fontWeight: 500,
-            }}
-          >
-            <a href="#work" className="scribble-link">Our work</a>
-            <Link to="/1mguarantee" className="scribble-link">Guarantee</Link>
-          </div>
-
           <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Link
               to="/login"
@@ -1215,8 +1200,6 @@ export default function LandingPageNew() {
               borderBottomRightRadius: 28,
             }}
           >
-            <a href="#work" onClick={() => setMobileOpen(false)}>Our work</a>
-            <Link to="/1mguarantee" onClick={() => setMobileOpen(false)}>Guarantee</Link>
             <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
               Client login
             </Link>
