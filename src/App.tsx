@@ -157,7 +157,8 @@ const App = () => (
             <Route path="/" element={<RootRoute />} />
             <Route path="/p/:slug" element={<PublicLandingPage />} />
             <Route path="/home" element={<Home />} />
-            <Route path="/reto" element={<Index />} />
+            <Route path="/1million" element={<Index />} />
+            <Route path="/reto" element={<Navigate to="/1million" replace />} />
             <Route path="/reto/en" element={<IndexEN />} />
             <Route path="/1mguarantee" element={<OneMillionGuarantee />} />
             <Route path="/about" element={<ComingSoon />} />

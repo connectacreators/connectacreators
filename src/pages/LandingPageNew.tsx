@@ -1085,7 +1085,7 @@ export default function LandingPageNew() {
           <strong style={{ fontWeight: 700 }}>1 million views, guaranteed in 90 days.</strong>
         </span>
         We build the brands people can&apos;t stop watching.{" "}
-        <Link to="/reto" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
+        <Link to="/1million" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
           See how →
         </Link>
       </div>
@@ -1166,7 +1166,7 @@ export default function LandingPageNew() {
             >
               Client login
             </Link>
-            <Link to="/reto" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
+            <Link to="/1million" className="btn btn-aqua" style={{ padding: "9px 18px", fontSize: 13.5 }}>
               Work with us
             </Link>
           </div>
@@ -1208,7 +1208,7 @@ export default function LandingPageNew() {
             <Link to="/login" onClick={() => setMobileOpen(false)} style={{ alignSelf: "flex-start" }}>
               Client login
             </Link>
-            <Link to="/reto" className="btn btn-aqua" style={{ marginTop: 4, alignSelf: "flex-start" }}>
+            <Link to="/1million" className="btn btn-aqua" style={{ marginTop: 4, alignSelf: "flex-start" }}>
               Work with us
             </Link>
           </div>
@@ -1358,7 +1358,7 @@ export default function LandingPageNew() {
               flexWrap: "wrap",
             }}
           >
-            <Link to="/reto" className="btn btn-aqua btn-large">
+            <Link to="/1million" className="btn btn-aqua btn-large">
               Work with us <ArrowRight size={16} />
             </Link>
             <Link to="/login" className="btn btn-ghost btn-large">
@@ -1984,7 +1984,7 @@ export default function LandingPageNew() {
           >
             <ProxText>Hand us your account and we build the brand: scripted, filmed, edited, and posted in English and Spanish. You show up; we handle the rest.</ProxText>
           </div>
-          <Link to="/reto" className="btn btn-honey btn-large">
+          <Link to="/1million" className="btn btn-honey btn-large">
             Work with us <ArrowRight size={16} />
           </Link>
           <div style={{ marginTop: 18, fontSize: 12.5, color: "rgba(10,14,18,0.45)" }}>
@@ -2036,7 +2036,7 @@ export default function LandingPageNew() {
               {
                 title: "Start here",
                 items: [
-                  { label: "Work with us", href: "/reto" },
+                  { label: "Work with us", href: "/1million" },
                   { label: "Client login", href: "/login" },
                 ],
               },

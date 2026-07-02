@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Public routes where lead notifications should never appear
-const PUBLIC_ROUTES = ["/reto", "/reto/en", "/es", "/", "/home", "/about", "/select-plan",
+const PUBLIC_ROUTES = ["/1million", "/reto", "/reto/en", "/es", "/", "/home", "/about", "/select-plan",
   "/signup", "/coming-soon", "/privacy-policy", "/terms-and-conditions"];
 
 function isPublicRoute(): boolean {

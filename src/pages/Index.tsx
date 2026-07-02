@@ -598,7 +598,7 @@ export default function Index() {
               ref={videoRef}
               playsInline
               preload="auto"
-              poster="/vsl-espanol-poster.jpg"
+              poster="/1m-views-guarantee-poster.jpg"
               onClick={videoStarted ? togglePlay : undefined}
               onPlay={(e) => {
                 setVideoPlaying(true);
@@ -621,7 +621,7 @@ export default function Index() {
                 transition: "filter 0.4s ease",
               }}
             >
-              <source src="/VSL_ESPANOL_ROBERTO.mp4" type="video/mp4" />
+              <source src="/1m-views-guarantee.mp4" type="video/mp4" />
             </video>
 
             {/* Click-to-start gate */}
