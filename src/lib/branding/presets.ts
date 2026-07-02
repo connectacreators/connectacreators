@@ -65,8 +65,8 @@ export const PALETTES: Record<PaletteId, Palette> = {
 
 export const FONT_PAIRINGS: Record<FontPairingId, FontPairing> = {
   editorial: {
-    display: '"EB Garamond", Georgia, serif',
-    body:    '"Figtree", -apple-system, BlinkMacSystemFont, sans-serif',
+    display: '"EB Garamond", "EB Garamond Fallback", Georgia, serif',
+    body:    '"Figtree", "Figtree Fallback", -apple-system, BlinkMacSystemFont, sans-serif',
     ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
   modern: {
@@ -75,13 +75,13 @@ export const FONT_PAIRINGS: Record<FontPairingId, FontPairing> = {
     ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
   classic: {
-    display: '"EB Garamond", Georgia, serif',
+    display: '"EB Garamond", "EB Garamond Fallback", Georgia, serif',
     body:    '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
     ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
   bold: {
     display: '"Anton", Impact, sans-serif',
-    body:    '"Figtree", -apple-system, BlinkMacSystemFont, sans-serif',
+    body:    '"Figtree", "Figtree Fallback", -apple-system, BlinkMacSystemFont, sans-serif',
     ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
 };

@@ -164,10 +164,15 @@ export async function resolveUniqueTitle(clientId: string, baseTitle: string): P
 
 export function useScripts() {
   const [loading, setLoading] = useState(false);
+  // True while the per-client script list fetch is in flight. Starts true so
+  // the page shows a loading skeleton (not "No scripts") before the first
+  // fetch resolves.
+  const [listLoading, setListLoading] = useState(true);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [trashedScripts, setTrashedScripts] = useState<Script[]>([]);
 
   const fetchScriptsByClient = async (clientId: string) => {
+    setListLoading(true);
     const { data, error } = await supabase
       .from("scripts")
       .select("*")
@@ -178,6 +183,7 @@ export function useScripts() {
       // scripts (sort_order default 0) at the top.
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
+    setListLoading(false);
     if (error) {
       console.error(error);
       return;
@@ -941,6 +947,7 @@ export function useScripts() {
     scripts,
     trashedScripts,
     loading,
+    listLoading,
     fetchScriptsByClient,
     fetchTrashedScripts,
     directSave,

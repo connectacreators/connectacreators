@@ -419,7 +419,7 @@ export default function Scripts() {
   const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isConnectaPlus, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
-    scripts, trashedScripts, loading: scriptsLoading, fetchScriptsByClient, fetchTrashedScripts,
+    scripts, trashedScripts, loading: scriptsLoading, listLoading: scriptsListLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, directSave, getScriptLines, getScriptBlocks, saveScriptBlocks, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete, persistScriptOrder,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
@@ -2860,7 +2860,19 @@ export default function Scripts() {
                   )}
 
                   {/* ── Script list (filtered by folder or unfiled) ── */}
-                  {filtered.length === 0 ? (
+                  {filtered.length === 0 && scriptsListLoading ? (
+                    /* Fetch in flight: skeleton rows, never the "No scripts"
+                       empty state — it used to flash for ~0.5s on every load. */
+                    <div className="grid gap-3" aria-hidden>
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="animate-pulse rounded-xl"
+                          style={{ height: 72, background: "hsl(var(--bone) / 0.06)" }}
+                        />
+                      ))}
+                    </div>
+                  ) : filtered.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
                       {viewingFolderId !== null ? tr({ en: "No scripts in this folder yet.", es: "Aún no hay scripts en esta carpeta." }, language) : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
                     </p>

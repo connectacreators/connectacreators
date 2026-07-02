@@ -599,7 +599,7 @@ function SuperCanvasMock() {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <span
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
               fontSize: 19,
               fontWeight: 500,
               letterSpacing: "-0.01em",
@@ -610,7 +610,7 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
               fontStyle: "italic",
               fontSize: 15,
               color: "var(--bone-3)",
@@ -656,7 +656,7 @@ function SuperCanvasMock() {
         >
           <span
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
               fontStyle: "italic",
               fontSize: 12,
               color: "var(--honey)",
@@ -673,7 +673,7 @@ function SuperCanvasMock() {
           </span>
           <span
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
               fontStyle: "italic",
               fontSize: 12.5,
               color: "var(--bone-2)",
@@ -687,7 +687,7 @@ function SuperCanvasMock() {
 
         {/* Satellite nodes — softer, more editorial labels */}
         <div className="sc-node" style={{ top: "10%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             her audience
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -697,7 +697,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             her voice
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -707,7 +707,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", left: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--aqua)" }}>
             her best hook
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
@@ -717,7 +717,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "10%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             hot this week
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4, fontStyle: "italic" }}>
@@ -727,7 +727,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "45%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             the calendar
           </span>
           <span className="serif" style={{ fontSize: 15, marginTop: 4 }}>
@@ -737,7 +737,7 @@ function SuperCanvasMock() {
         </div>
 
         <div className="sc-node" style={{ top: "80%", right: "3%", padding: "14px 16px" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
+          <span style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', serif", fontStyle: "italic", fontSize: 11.5, color: "var(--honey)" }}>
             next ask
           </span>
           <span className="serif" style={{ fontSize: 14, marginTop: 4 }}>
@@ -804,7 +804,7 @@ function ViralTodayMock() {
           <Flame size={14} style={{ color: "var(--honey)" }} />
           <span
             style={{
-              fontFamily: "'Figtree', sans-serif",
+              fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: "0.18em",
@@ -927,29 +927,43 @@ export default function LandingPageNew() {
       return { el, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
     };
 
-    const lockWidths = () => {
+    const lockWidths = (force = false) => {
       const targets = root.querySelectorAll<HTMLElement>(".prox-word, .prox-letter");
+      const toLock: HTMLElement[] = [];
       targets.forEach((el) => {
-        if (el.dataset.proxLocked) return;
-        const r = el.getBoundingClientRect();
-        if (r.width === 0) return;
+        if (!force && el.dataset.proxLocked) return;
+        toLock.push(el);
+      });
+      // Batched passes (all writes, all reads, all writes) — interleaving a
+      // read after each write forces one reflow per span.
+      // getComputedStyle().width (not getBoundingClientRect) because the
+      // entrance animations scale the letters: the bounding rect includes the
+      // transform, so locking from it froze mid-animation shrunken widths and
+      // the title visibly re-sized when the lock was corrected.
+      if (force) toLock.forEach((el) => { el.style.width = ""; });
+      const widths = toLock.map((el) => parseFloat(getComputedStyle(el).width) || 0);
+      toLock.forEach((el, i) => {
+        if (widths[i] === 0) return;
         // Body words (.prox-word) get a 1.5px buffer so heavier glyphs don't
         // push the last word to a new line on hover. Title characters
         // (.prox-letter) get NO buffer — that 1.5px × ~30 letters per H2
         // added up to noticeable letter-spacing. Without the buffer, bolder
         // glyphs overflow their slot by ~1px (compositor-only, no layout).
         const buffer = el.classList.contains("prox-letter") ? 0 : 1.5;
-        el.style.width = `${r.width + buffer}px`;
+        el.style.width = `${widths[i] + buffer}px`;
         el.dataset.proxLocked = "true";
       });
       rectsDirty = true;
     };
     if ((document as Document & { fonts?: FontFaceSet }).fonts) {
-      (document as Document & { fonts: FontFaceSet }).fonts.ready.then(lockWidths);
-      setTimeout(lockWidths, 50);
-      setTimeout(lockWidths, 500);
+      // Force a re-lock once fonts are actually loaded: the early opportunistic
+      // locks below measure fallback-font widths, and a span locked at the
+      // wrong width stays wrong forever (glyphs squeeze/overflow on swap).
+      (document as Document & { fonts: FontFaceSet }).fonts.ready.then(() => lockWidths(true));
+      setTimeout(() => lockWidths(), 50);
+      setTimeout(() => lockWidths(), 500);
     } else {
-      setTimeout(lockWidths, 100);
+      setTimeout(() => lockWidths(), 100);
     }
 
     // Track which spans are currently in the viewport. Only those get
@@ -1072,7 +1086,7 @@ export default function LandingPageNew() {
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
-          fontFamily: "'Figtree', sans-serif",
+          fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
           fontWeight: 500,
           margin: "12px 18px 0",
           borderRadius: 999,
@@ -1144,7 +1158,7 @@ export default function LandingPageNew() {
               gap: 28,
               fontSize: 14,
               color: "rgba(10,14,18,0.72)",
-              fontFamily: "'Figtree', sans-serif",
+              fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
               fontWeight: 500,
             }}
           >
@@ -1158,7 +1172,7 @@ export default function LandingPageNew() {
               style={{
                 fontSize: 14,
                 color: "rgba(10,14,18,0.72)",
-                fontFamily: "'Figtree', sans-serif",
+                fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
                 fontWeight: 500,
               }}
             >
@@ -1456,7 +1470,7 @@ export default function LandingPageNew() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "'Figtree', sans-serif",
+                    fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
                     fontSize: 12,
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
@@ -1487,7 +1501,7 @@ export default function LandingPageNew() {
             style={{
               textAlign: "center",
               marginTop: 32,
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
               fontStyle: "italic",
               fontSize: 16,
               color: "rgba(10,14,18,0.50)",
