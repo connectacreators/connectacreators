@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { applyBranding } from '@/lib/branding/apply';
@@ -134,21 +134,20 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
-  return (
-    <BrandingContext.Provider
-      value={{
-        branding,
-        isAvailable: !!user,
-        isLoading,
-        setPalette,
-        setFontPairing,
-        setLogo,
-        resetToDefault,
-      }}
-    >
-      {children}
-    </BrandingContext.Provider>
+  const value = useMemo(
+    () => ({
+      branding,
+      isAvailable: !!user,
+      isLoading,
+      setPalette,
+      setFontPairing,
+      setLogo,
+      resetToDefault,
+    }),
+    [branding, user, isLoading, setPalette, setFontPairing, setLogo, resetToDefault],
   );
+
+  return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }
 
 export function useBrandingContext(): BrandingContextValue {

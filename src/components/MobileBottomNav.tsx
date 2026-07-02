@@ -40,7 +40,7 @@ export default function MobileBottomNav() {
   return (
     <>
       {/* Bottom nav bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card/95 backdrop-blur-md border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border">
         <div className="flex items-end justify-around h-16 px-2 pb-2">
           {BOTTOM_TABS.map((tab) => {
             const isActive = pathname.startsWith(tab.path.split("?")[0]);

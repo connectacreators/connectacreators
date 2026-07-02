@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useMemo, useCallback, ReactNode } from "react";
 
 interface OutOfCreditsContextType {
   isOpen: boolean;
@@ -11,17 +11,15 @@ const OutOfCreditsContext = createContext<OutOfCreditsContextType | null>(null);
 export function OutOfCreditsProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  return (
-    <OutOfCreditsContext.Provider
-      value={{
-        isOpen,
-        showOutOfCreditsModal: () => setIsOpen(true),
-        hideOutOfCreditsModal: () => setIsOpen(false),
-      }}
-    >
-      {children}
-    </OutOfCreditsContext.Provider>
+  const showOutOfCreditsModal = useCallback(() => setIsOpen(true), []);
+  const hideOutOfCreditsModal = useCallback(() => setIsOpen(false), []);
+
+  const value = useMemo(
+    () => ({ isOpen, showOutOfCreditsModal, hideOutOfCreditsModal }),
+    [isOpen, showOutOfCreditsModal, hideOutOfCreditsModal],
   );
+
+  return <OutOfCreditsContext.Provider value={value}>{children}</OutOfCreditsContext.Provider>;
 }
 
 export function useOutOfCredits() {

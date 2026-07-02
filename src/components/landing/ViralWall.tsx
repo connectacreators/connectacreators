@@ -13,7 +13,12 @@
  * so the le-marquee translateX(-50%) loop is seamless. Rows alternate direction
  * and run at slightly different speeds. Frozen under prefers-reduced-motion
  * (see src/landing.css). Decorative only — aria-hidden.
+ *
+ * The marquee pauses (animation-play-state) while the wall is off-screen so
+ * it doesn't keep compositing frames under the rest of the page.
  */
+
+import { memo, useEffect, useRef } from "react";
 
 const COUNT = 21;
 const IMAGES = Array.from(
@@ -29,15 +34,27 @@ function rotate<T>(arr: T[], n: number): T[] {
 
 type Variant = "band" | "background";
 
-export default function ViralWall({
+function ViralWall({
   rows = 2,
   variant = "band",
 }: {
   rows?: number;
   variant?: Variant;
 }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => {
+      el.classList.toggle("viral-wall--paused", !entry.isIntersecting);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <div className={`viral-wall viral-wall--${variant}`} aria-hidden="true">
+    <div ref={rootRef} className={`viral-wall viral-wall--${variant}`} aria-hidden="true">
       {Array.from({ length: rows }).map((_, r) => {
         const imgs = rotate(IMAGES, r * 5);
         // Slow, calm drift — reads as ambient motion, not a ticker.
@@ -70,3 +87,5 @@ export default function ViralWall({
     </div>
   );
 }
+
+export default memo(ViralWall);

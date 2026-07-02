@@ -54,9 +54,12 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   const companionBadge = companionTasks.filter((t) => t.priority === "red" || t.priority === "amber").length;
   // Hydrate from cache so the selected client name appears instantly on
   // navigation; background fetch refreshes if stale.
-  const cachedOwnClient = user ? readCache<{ id: string | null; name: string | null }>(`ownClient_${user.id}`, { id: null, name: null }) : { id: null, name: null };
-  const [ownClientId, setOwnClientId] = useState<string | null>(cachedOwnClient.id);
-  const [ownClientName, setOwnClientName] = useState<string | null>(cachedOwnClient.name);
+  const [ownClientId, setOwnClientId] = useState<string | null>(
+    () => (user ? readCache<{ id: string | null; name: string | null }>(`ownClient_${user.id}`, { id: null, name: null }).id : null),
+  );
+  const [ownClientName, setOwnClientName] = useState<string | null>(
+    () => (user ? readCache<{ id: string | null; name: string | null }>(`ownClient_${user.id}`, { id: null, name: null }).name : null),
+  );
 
   // Client selector state — everyone except editors can switch between their clients
   const isSubscriber = !isAdmin && !isVideographer && !isEditor && !isUser;

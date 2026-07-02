@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useCallback, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -342,8 +342,10 @@ export function LeadNotificationProvider({ children }: { children: React.ReactNo
 
   const resetCount = useCallback(() => setNewLeadCount(0), []);
 
+  const value = useMemo(() => ({ newLeadCount, resetCount }), [newLeadCount, resetCount]);
+
   return (
-    <LeadNotificationContext.Provider value={{ newLeadCount, resetCount }}>
+    <LeadNotificationContext.Provider value={value}>
       {children}
     </LeadNotificationContext.Provider>
   );

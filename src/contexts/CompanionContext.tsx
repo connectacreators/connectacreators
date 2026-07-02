@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -131,8 +131,8 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { if (clientId) refreshTasks(); }, [clientId, refreshTasks]);
 
-  return (
-    <CompanionContext.Provider value={{
+  const value = useMemo(
+    () => ({
       companionName, setCompanionName,
       setupDone, setSetupDone,
       tasks, refreshTasks,
@@ -141,7 +141,21 @@ export function CompanionProvider({ children }: { children: ReactNode }) {
       bubbleHidden, setBubbleHidden,
       loadingTasks,
       autonomyMode, setAutonomyMode,
-    }}>
+    }),
+    [
+      companionName, setCompanionName,
+      setupDone,
+      tasks, refreshTasks,
+      clientId,
+      isOpen,
+      bubbleHidden, setBubbleHidden,
+      loadingTasks,
+      autonomyMode, setAutonomyMode,
+    ],
+  );
+
+  return (
+    <CompanionContext.Provider value={value}>
       {children}
     </CompanionContext.Provider>
   );

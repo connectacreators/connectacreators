@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { getCachedSupabaseUser, readCache, writeCache } from "@/lib/sessionCache";
@@ -58,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("[AuthProvider] onAuthStateChange:", event, "user:", session?.user?.email ?? "null");
         if (!isMounted) return;
 
         if (event === "PASSWORD_RECOVERY") {
@@ -194,29 +193,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearPasswordRecovery = useCallback(() => setIsPasswordRecovery(false), []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role,
-        loading,
-        isAdmin: role === "admin",
-        isUser: role === "user",
-        isVideographer: role === "videographer",
-        isEditor: role === "editor",
-        isConnectaPlus: role === "connecta_plus",
-        isContentStrategist: role === "content_strategist",
-        signOut,
-        signInWithEmail,
-        signUpWithEmail,
-        isPasswordRecovery,
-        clearPasswordRecovery,
-        requiresPasswordChange,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      role,
+      loading,
+      isAdmin: role === "admin",
+      isUser: role === "user",
+      isVideographer: role === "videographer",
+      isEditor: role === "editor",
+      isConnectaPlus: role === "connecta_plus",
+      isContentStrategist: role === "content_strategist",
+      signOut,
+      signInWithEmail,
+      signUpWithEmail,
+      isPasswordRecovery,
+      clearPasswordRecovery,
+      requiresPasswordChange,
+    }),
+    [
+      user,
+      role,
+      loading,
+      signOut,
+      signInWithEmail,
+      signUpWithEmail,
+      isPasswordRecovery,
+      clearPasswordRecovery,
+      requiresPasswordChange,
+    ],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

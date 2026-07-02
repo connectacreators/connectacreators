@@ -154,7 +154,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
           <motion.span
             style={{ display: "inline-block", transformOrigin: "70% 70%" }}
             animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+            transition={{ duration: 1.8, repeat: 1, repeatDelay: 3, ease: "easeInOut" }}
           >
             👋
           </motion.span>
@@ -234,7 +234,7 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
                   >
                     <motion.div
                       animate={{ rotate: [0, -3, 3, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 + idx * 0.5, ease: "easeInOut" }}
+                      transition={{ duration: 4, repeat: 1, repeatDelay: 2 + idx * 0.5, ease: "easeInOut" }}
                     >
                       <Icon size={36} strokeWidth={1.5} color={TEXT} />
                     </motion.div>

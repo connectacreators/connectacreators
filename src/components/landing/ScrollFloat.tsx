@@ -73,6 +73,18 @@ function splitToChars(node: React.ReactNode, keyBase = "0"): React.ReactNode {
   return node;
 }
 
+/** Plain-text content of a node tree — a stable effect key, unlike the
+ *  children reference itself, which changes on every parent re-render. */
+function nodeText(node: React.ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (isValidElement(node)) {
+    return nodeText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children);
+  }
+  return "";
+}
+
 export default function ScrollFloat({
   children,
   scrollContainerRef,
@@ -86,6 +98,7 @@ export default function ScrollFloat({
 }: ScrollFloatProps) {
   const containerRef = useRef<HTMLHeadingElement | null>(null);
   const isMobile = useIsMobile();
+  const childrenKey = nodeText(children);
 
   useEffect(() => {
     if (isMobile) return;
@@ -125,7 +138,8 @@ export default function ScrollFloat({
       tween.scrollTrigger?.kill();
       tween.kill();
     };
-  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger, children, isMobile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- childrenKey stands in for children
+  }, [scrollContainerRef, animationDuration, ease, scrollStart, scrollEnd, stagger, childrenKey, isMobile]);
 
   if (isMobile) {
     return (

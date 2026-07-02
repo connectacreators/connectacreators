@@ -26,12 +26,14 @@ export function TriageClientBlock({ client, rows, picUrl }: Props) {
     <article
       className="group relative rounded-2xl transition-all"
       style={{
-        background: 'rgba(255,255,255,0.55)',
+        // Opaque mix instead of translucent white + backdrop-blur: the page
+        // behind is flat cream, and per-card backdrop-filter re-blurs on
+        // every scroll frame.
+        background: 'color-mix(in srgb, white 55%, hsl(var(--cream)))',
         border: '1px solid hsl(var(--ink-on-cream) / 0.07)',
         boxShadow: '0 1px 0 hsl(var(--ink-on-cream) / 0.03)',
         padding: '20px 24px 22px',
         marginBottom: 14,
-        backdropFilter: 'blur(6px)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = '0 12px 32px hsl(var(--ink-on-cream) / 0.07), 0 2px 0 hsl(var(--ink-on-cream) / 0.04)';

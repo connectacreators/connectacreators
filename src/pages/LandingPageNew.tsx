@@ -190,11 +190,24 @@ function InteractiveSticker({
       }
     };
 
+    // Cache the sticker's center instead of calling getBoundingClientRect on
+    // every mousemove — the prox effect dirties layout each frame, so a sync
+    // read here forced a full-document reflow per pointer frame.
+    let center: { x: number; y: number } | null = null;
+    const invalidateCenter = () => {
+      center = null;
+    };
+    window.addEventListener("scroll", invalidateCenter, { passive: true });
+    window.addEventListener("resize", invalidateCenter);
+
     const onMove = (e: MouseEvent) => {
       if (!ref.current) return;
-      const rect = ref.current.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
+      if (!center) {
+        const rect = ref.current.getBoundingClientRect();
+        center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+      const cx = center.x;
+      const cy = center.y;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const dist = Math.hypot(dx, dy);
@@ -221,6 +234,8 @@ function InteractiveSticker({
     document.addEventListener("mouseleave", onLeave);
     return () => {
       window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("scroll", invalidateCenter);
+      window.removeEventListener("resize", invalidateCenter);
       document.removeEventListener("mouseleave", onLeave);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
@@ -889,7 +904,6 @@ function PipelineCard({
 
 export default function LandingPageNew() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const isMobile = useIsMobile();
 
@@ -1028,22 +1042,6 @@ export default function LandingPageNew() {
       if (raf !== null) cancelAnimationFrame(raf);
     };
   }, [isMobile]);
-
-  // sticky nav state — only flip when the threshold is actually crossed,
-  // so we don't queue React updates on every scroll event.
-  useEffect(() => {
-    let last = window.scrollY > 30;
-    setScrolled(last);
-    const onScroll = () => {
-      const next = window.scrollY > 30;
-      if (next !== last) {
-        last = next;
-        setScrolled(next);
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // scroll-fade-in
   useEffect(() => {

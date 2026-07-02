@@ -131,6 +131,10 @@ html, body, #root { margin: 0; padding: 0; }
 .landing-editorial .viral-wall-row.rev {
   animation-direction: reverse;
 }
+/* Off-screen walls stop compositing frames (toggled via IntersectionObserver). */
+.landing-editorial .viral-wall--paused .viral-wall-row {
+  animation-play-state: paused;
+}
 .landing-editorial .viral-wall-thumb {
   aspect-ratio: 9 / 16;
   object-fit: cover;

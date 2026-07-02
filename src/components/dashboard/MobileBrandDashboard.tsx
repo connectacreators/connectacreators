@@ -211,7 +211,7 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
           <motion.span
             style={{ display: "inline-block", transformOrigin: "70% 70%" }}
             animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+            transition={{ duration: 1.8, repeat: 1, repeatDelay: 3, ease: "easeInOut" }}
           >
             👋
           </motion.span>

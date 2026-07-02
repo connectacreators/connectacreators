@@ -87,11 +87,11 @@ export default function Dashboard() {
   const isSingleBrand = isConnectaPlus || (isUser && !isAdmin);
 
   // Hydrate from cache synchronously so the greeting paints the right name on
-  // the first frame instead of flashing the firstName fallback.
-  const cachedDashboard = readDashboardCache();
-  const [clients, setClients] = useState<Client[]>(cachedDashboard?.clients ?? []);
+  // the first frame instead of flashing the firstName fallback. Lazy
+  // initializers so the localStorage read + JSON.parse run once, not per render.
+  const [clients, setClients] = useState<Client[]>(() => readDashboardCache()?.clients ?? []);
   const [, setClientsLoading] = useState(true);
-  const [ownClient, setOwnClient] = useState<Client | null>(cachedDashboard?.ownClient ?? null);
+  const [ownClient, setOwnClient] = useState<Client | null>(() => readDashboardCache()?.ownClient ?? null);
 
   useEffect(() => {
     if (!user) return;
@@ -463,10 +463,9 @@ function AdminTriageView({ firstName }: { firstName: string }) {
             style={{
               textAlign: "center",
               padding: "48px 32px",
-              background: "rgba(255,255,255,0.45)",
+              background: "color-mix(in srgb, white 45%, hsl(var(--cream)))",
               border: "1px solid hsl(var(--ink-on-cream) / 0.07)",
               borderRadius: 20,
-              backdropFilter: "blur(6px)",
             }}
           >
             <div
