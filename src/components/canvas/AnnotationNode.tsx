@@ -273,10 +273,10 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
     { edge: "bottom", style: { bottom: -HT/2, left: HT, right: HT, height: HT } },
     { edge: "left",   style: { left: -HT/2, top: HT, bottom: HT, width: HT } },
     { edge: "right",  style: { right: -HT/2, top: HT, bottom: HT, width: HT } },
-    { edge: "top-left",     style: { top: -HT/2, left: -HT/2, width: HT*2, height: HT*2 } },
-    { edge: "top-right",    style: { top: -HT/2, right: -HT/2, width: HT*2, height: HT*2 } },
-    { edge: "bottom-left",  style: { bottom: -HT/2, left: -HT/2, width: HT*2, height: HT*2 } },
-    { edge: "bottom-right", style: { bottom: -HT/2, right: -HT/2, width: HT*2, height: HT*2 } },
+    { edge: "top-left",     style: { top: -9, left: -9, width: 18, height: 18 } },
+    { edge: "top-right",    style: { top: -9, right: -9, width: 18, height: 18 } },
+    { edge: "bottom-left",  style: { bottom: -9, left: -9, width: 18, height: 18 } },
+    { edge: "bottom-right", style: { bottom: -9, right: -9, width: 18, height: 18 } },
   ];
 
   // Computed styles
@@ -356,11 +356,11 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
           <div className="w-px h-4 bg-border/50 mx-0.5" />
 
           {/* Font size */}
-          <button onMouseDown={e => { e.preventDefault(); setLiveFont(f => { const nf = Math.max(8, f - 4); d.onUpdate?.({ fontSize: nf }); return nf; }); }} className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Decrease Size">
+          <button onMouseDown={e => { e.preventDefault(); setLiveFont(f => { const nf = Math.max(8, Math.round(f - Math.max(2, f * 0.15))); d.onUpdate?.({ fontSize: nf }); return nf; }); }} className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Decrease Size">
             <Minus className="w-3 h-3" />
           </button>
           <span className="text-[9px] font-mono text-muted-foreground w-5 text-center select-none">{liveFont}</span>
-          <button onMouseDown={e => { e.preventDefault(); setLiveFont(f => { const nf = Math.min(200, f + 4); d.onUpdate?.({ fontSize: nf }); return nf; }); }} className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Increase Size">
+          <button onMouseDown={e => { e.preventDefault(); setLiveFont(f => { const nf = Math.min(200, Math.round(f + Math.max(2, f * 0.15))); d.onUpdate?.({ fontSize: nf }); return nf; }); }} className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Increase Size">
             <Plus className="w-3 h-3" />
           </button>
 
@@ -463,11 +463,18 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       />
 
       {/* Resize handles */}
-      {active && edges.map(({ edge, style }) => (
-        <div key={edge} onMouseDown={(e) => onResize(edge, e)} className="nodrag nopan"
-          style={{ position: "absolute", cursor: CURSORS[edge], zIndex: 11, ...style }}
-        />
-      ))}
+      {active && edges.map(({ edge, style }) => {
+        const isCorner = edge.includes("-");
+        return (
+          <div key={edge} onMouseDown={(e) => onResize(edge, e)} className="nodrag nopan"
+            style={{ position: "absolute", cursor: CURSORS[edge], zIndex: 11, display: "flex", alignItems: "center", justifyContent: "center", ...style }}
+          >
+            {isCorner && (
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "hsl(var(--cream))", border: `2px solid ${color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.3)", pointerEvents: "none" }} />
+            )}
+          </div>
+        );
+      })}
 
       {/* Placeholder styling */}
       <style>{`
