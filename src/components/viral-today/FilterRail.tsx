@@ -15,7 +15,17 @@ import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { isCanonicalNiche, nicheLabel, CONTENT_FORMATS, type ContentFormat } from "@/lib/video-taxonomy";
-import type { FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
+// Filter value model (moved here from the retired FiltersPanel popover).
+export interface FiltersPanelValue {
+  date: string;
+  platform: string;
+  outlier: string;
+  views: string;
+  engagement: string;
+  source: string;
+  featuredOnly: boolean;
+  niches: string[];
+}
 
 interface NicheOption { slug: string; count: number }
 interface ChannelOption { id: string; username: string; video_count: number }

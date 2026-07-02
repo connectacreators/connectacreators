@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Loader2, CheckCircle2, AlertTriangle, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -10,8 +11,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const CREDIT_COST = 50;
 // Hard cap per run, by product decision.
 const MAX_BATCH = 100;
-// Simultaneous in-flight dispatches (mirrors the page categorize semaphore).
-const CONCURRENCY = 4;
+// Queue progress poll cadence while the modal stays open.
+const POLL_MS = 5000;
 
 export interface BulkVideo {
   id: string;
@@ -30,12 +31,20 @@ interface Props {
   onDone?: () => void;
 }
 
-type Phase = "confirm" | "running" | "done";
+type Phase = "confirm" | "enqueueing" | "running" | "done";
 
 // Eligible = never finished and not already in flight. null/"pending"/"failed" run.
 function isEligible(v: BulkVideo): boolean {
   const s = v.analysis_status;
   return s !== "analyzed" && s !== "analyzing";
+}
+
+interface QueueProgress {
+  queued: number;
+  running: number;
+  done: number;
+  failed: number;
+  skipped: number;
 }
 
 export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onDone }: Props) {
@@ -69,68 +78,66 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
   const inputBlocks = hasInput && !validNumber; // typed something invalid
 
   const [phase, setPhase] = useState<Phase>("confirm");
-  const [progress, setProgress] = useState({ done: 0, queued: 0, skipped: 0, failed: 0 });
-  const [stoppedOOC, setStoppedOOC] = useState(false);
-  const cancelRef = useRef(false);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchSize, setBatchSize] = useState(0);
+  const [enqueueSkipped, setEnqueueSkipped] = useState(0);
+  const [progress, setProgress] = useState<QueueProgress>({ queued: 0, running: 0, done: 0, failed: 0, skipped: 0 });
 
-  const total = runCount;
-
-  async function run() {
-    setPhase("running");
-    cancelRef.current = false;
-    let queued = 0;
-    let skipped = 0;
-    let failed = 0;
-    let ooc = false;
-    let idx = 0;
-
-    async function worker() {
-      // Single-threaded JS: `idx++` is atomic before the await, so no two
-      // workers pull the same index.
-      while (!cancelRef.current && !ooc) {
-        const i = idx++;
-        if (i >= toRun.length) return;
-        const v = toRun[i];
-        try {
-          const token = await getAuthToken();
-          const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-viral-video-user`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ viral_video_id: v.id }),
-          });
-          if (res.status === 402) {
-            ooc = true; // out of credits — stop pulling new work
-          } else if (res.status === 409) {
-            skipped++; // already in flight; its card's realtime sub will update it
-          } else if (!res.ok) {
-            failed++;
-          } else {
-            queued++;
-          }
-        } catch {
-          failed++;
-        }
-        setProgress({ done: queued + skipped + failed, queued, skipped, failed });
-      }
+  // Hand the batch to the server-side queue. This returns in ~1s — the actual
+  // analyses run from pg_cron on the backend, so closing the tab loses nothing.
+  async function enqueue() {
+    setPhase("enqueueing");
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/viral-analyze-queue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "enqueue", viral_video_ids: toRun.map((v) => v.id) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `enqueue failed (${res.status})`);
+      setBatchId(data.batch_id);
+      setBatchSize(data.queued ?? 0);
+      setEnqueueSkipped(data.skipped ?? 0);
+      setPhase("running");
+      toast.success(`Queued ${data.queued} video${data.queued === 1 ? "" : "s"} for background analysis`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to queue batch");
+      setPhase("confirm");
     }
-
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, toRun.length) }, () => worker()),
-    );
-
-    setStoppedOOC(ooc);
-    window.dispatchEvent(new Event("credits-updated"));
-    setPhase("done");
-    onDone?.();
-
-    const parts = [`${queued} queued`];
-    if (skipped) parts.push(`${skipped} skipped`);
-    if (failed) parts.push(`${failed} failed`);
-    if (ooc) parts.push("stopped — out of credits");
-    toast.success(`Bulk analyze: ${parts.join(", ")}`);
   }
 
-  const pct = total > 0 ? Math.round((progress.done / total) * 100) : 0;
+  // Poll the queue (RLS lets the requester read their own rows) while open.
+  useEffect(() => {
+    if (phase !== "running" || !batchId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { data } = await supabase
+        .from("viral_analyze_queue")
+        .select("status")
+        .eq("batch_id", batchId);
+      if (cancelled || !data) return;
+      const counts: QueueProgress = { queued: 0, running: 0, done: 0, failed: 0, skipped: 0 };
+      for (const r of data as { status: keyof QueueProgress }[]) {
+        counts[r.status] = (counts[r.status] ?? 0) + 1;
+      }
+      setProgress(counts);
+      if (counts.queued === 0 && counts.running === 0) {
+        setPhase("done");
+        window.dispatchEvent(new Event("credits-updated"));
+        onDone?.();
+      }
+    };
+    tick();
+    const iv = setInterval(tick, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [phase, batchId]);
+
+  const finished = progress.done + progress.failed + progress.skipped;
+  const pct = batchSize > 0 ? Math.round((finished / batchSize) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -147,7 +154,7 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close"
-            title={phase === "running" ? "Close — analyses keep running in the background" : "Close"}
+            title={phase === "running" ? "Close — the queue keeps processing on the server" : "Close"}
           >
             <X className="w-4 h-4" />
           </button>
@@ -239,7 +246,7 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                     </Button>
                     <Button
                       size="sm"
-                      onClick={run}
+                      onClick={enqueue}
                       disabled={runCount === 0 || inputBlocks || !canAfford}
                     >
                       <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -251,12 +258,23 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
             </div>
           )}
 
-          {/* ── Running ── */}
+          {/* ── Enqueueing ── */}
+          {phase === "enqueueing" && (
+            <div className="flex items-center gap-2 py-4 text-sm text-foreground">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Queueing batch…
+            </div>
+          )}
+
+          {/* ── Running (server-side) ── */}
           {phase === "running" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                Dispatching {progress.done} / {total}…
+                Analyzed {finished} / {batchSize}
+                {progress.running > 0 && (
+                  <span className="text-xs text-muted-foreground">· {progress.running} in progress</span>
+                )}
               </div>
 
               <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -267,30 +285,22 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
               </div>
 
               <div className="flex gap-4 text-xs text-muted-foreground">
-                <span>{progress.queued} queued</span>
-                {progress.skipped > 0 && <span>{progress.skipped} skipped</span>}
+                <span>{progress.done} done</span>
+                <span>{progress.queued} waiting</span>
                 {progress.failed > 0 && (
                   <span className="text-destructive">{progress.failed} failed</span>
                 )}
+                {enqueueSkipped > 0 && <span>{enqueueSkipped} skipped</span>}
               </div>
 
               <p className="text-xs text-muted-foreground">
-                You can close this window — analyses keep running in the background, and each card
-                updates itself as it finishes. Or stop dispatching any that haven't started yet.
+                The batch runs on the server — you can close this window or the whole tab and it
+                keeps going. Cards update automatically as each analysis completes.
               </p>
 
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    cancelRef.current = true;
-                  }}
-                >
-                  Stop dispatching
-                </Button>
+              <div className="flex justify-end">
                 <Button size="sm" onClick={onClose}>
-                  Close — keep running
+                  Close — runs in background
                 </Button>
               </div>
             </div>
@@ -302,29 +312,20 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
               <ul className="space-y-1.5 text-sm text-foreground">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  {progress.queued} video{progress.queued === 1 ? "" : "s"} queued for analysis
+                  {progress.done} video{progress.done === 1 ? "" : "s"} analyzed
                 </li>
-                {progress.skipped > 0 && (
+                {(progress.skipped > 0 || enqueueSkipped > 0) && (
                   <li className="flex items-center gap-2 text-muted-foreground text-xs">
-                    {progress.skipped} skipped (already in progress)
+                    {progress.skipped + enqueueSkipped} skipped (already analyzed or in progress)
                   </li>
                 )}
                 {progress.failed > 0 && (
                   <li className="flex items-center gap-2 text-destructive text-xs">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    {progress.failed} failed to start
-                  </li>
-                )}
-                {stoppedOOC && (
-                  <li className="flex items-center gap-2 text-amber-600 text-xs">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    Stopped early — ran out of credits
+                    {progress.failed} failed — their cards show a red "Failed — Retry" badge
                   </li>
                 )}
               </ul>
-              <p className="text-xs text-muted-foreground">
-                Cards update automatically as each analysis completes.
-              </p>
               <div className="flex justify-end">
                 <Button size="sm" onClick={onClose}>
                   Close

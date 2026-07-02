@@ -39,7 +39,7 @@ export class AnalyzerError extends Error {
 export async function acquireVideoFile(
   admin: SupabaseClient,
   row: ViralVideoRow,
-): Promise<{ video_file_url: string; video_file_expires_at: string }> {
+): Promise<{ video_file_url: string | null; video_file_expires_at: string | null; isPhotoPost?: boolean }> {
   // Skip if already cached and not expired.
   if (row.video_file_url && row.video_file_expires_at) {
     if (new Date(row.video_file_expires_at) > new Date()) {
@@ -60,6 +60,14 @@ export async function acquireVideoFile(
       cobaltErr = `proxy ${cobaltRes.status}`;
     } else {
       const cobaltData = await cobaltRes.json();
+      // TikTok photo / slideshow posts: Cobalt returns a "picker" of image URLs
+      // plus an audio track, NOT a single video URL. There is no video to
+      // download — falling through to /stream-reel just 502s ("Could not
+      // resolve video"). Signal the caller to run an audio-only analysis
+      // (transcript via /extract-audio + caption tagging) instead of failing.
+      if (cobaltData.status === "picker" || Array.isArray(cobaltData.picker)) {
+        return { video_file_url: null, video_file_expires_at: null, isPhotoPost: true };
+      }
       const downloadUrl: string | null = cobaltData.url || null;
       if (!downloadUrl) {
         cobaltErr = "no url returned";
@@ -342,8 +350,8 @@ export async function runFullAnalysis(
   supabaseUrl: string,
   serviceRoleKey: string,
 ): Promise<{
-  video_file_url: string;
-  video_file_expires_at: string;
+  video_file_url: string | null;
+  video_file_expires_at: string | null;
   transcript: string;
   hook_text: string | null;
   cta_text: string | null;
@@ -352,17 +360,24 @@ export async function runFullAnalysis(
   content_format: ContentFormat | null;
   primary_niche: string | null;
 }> {
-  // 1. Acquire video file.
+  // 1. Acquire video file. Photo/slideshow posts have no video — `isPhotoPost`
+  //    comes back true and video_file_url is null.
   const fileResult = await acquireVideoFile(admin, row);
+  const isPhotoPost = fileResult.isPhotoPost === true;
   row.video_file_url = fileResult.video_file_url;
   row.video_file_expires_at = fileResult.video_file_expires_at;
 
-  // 2. Acquire transcript.
+  // 2. Acquire transcript. For photo posts this still works — the VPS
+  //    /extract-audio endpoint pulls the post's audio track from the /video/ URL.
   const transcript = await acquireTranscript(row);
   row.transcript = transcript;
 
   // 3. Acquire visual breakdown (may return null on failure — keep going).
-  const structureData = await acquireVisualBreakdown(row, transcript, supabaseUrl, serviceRoleKey);
+  //    Skipped for photo posts: /analyze-video-multimodal needs a real video
+  //    and would just fail, so don't waste the call.
+  const structureData = isPhotoPost
+    ? null
+    : await acquireVisualBreakdown(row, transcript, supabaseUrl, serviceRoleKey);
 
   // 4. Caption-style detection (mirror of cron lines 231-241).
   const transcriptWordCount = transcript.split(/\s+/).filter(Boolean).length;
@@ -427,6 +442,7 @@ export async function runFullAnalysis(
     hook_template: tags.hook_template,
     content_type: detectedFormat,
     is_caption_style: isCaptionStyle,
+    is_photo_post: isPhotoPost,
     visual_pacing: {
       cuts_per_minute: audioFeatures?.bpm_estimate ?? null,
       tempo: audioFeatures?.energy ?? null,

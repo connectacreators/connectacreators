@@ -4,7 +4,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ExternalLink,
   Archive, Wand2, Loader2, CheckCircle2, Pencil, Check, X as XIcon,
+  NotebookPen,
 } from "lucide-react";
+import UseInScriptModal from "@/components/viral-today/UseInScriptModal";
+import { canonicalizeVideoUrl } from "@/lib/canonicalize-video-url";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -157,6 +160,10 @@ export default function ViralVideoDetail() {
 
   // Remix state
   const [remixClientId, setRemixClientId] = useState("");
+
+  // Use-in-Script state: modal open + which scripts already use this video.
+  const [useInScriptOpen, setUseInScriptOpen] = useState(false);
+  const [usedInScripts, setUsedInScripts] = useState<{ id: string; title: string | null }[]>([]);
 
   // Inline-edit state for channel_username + caption (rows scraped from URLs
   // sometimes have unknown handles or no caption — let the user fix it).
@@ -381,6 +388,46 @@ export default function ViralVideoDetail() {
       toast.error(e.message || "Failed to save");
     }
   };
+
+  // ==================== USED-IN-SCRIPTS INDICATOR ====================
+  // Which scripts already reference this video in either inspiration lane.
+  // Matches both the canonicalized URL (what UseInScriptModal writes) and the
+  // raw URL (legacy manual pastes). Re-runs when the modal closes so the
+  // indicator reflects fresh attachments.
+  useEffect(() => {
+    if (!video?.video_url || useInScriptOpen) return;
+    const canonical = canonicalizeVideoUrl(video.video_url)?.normalizedUrl ?? video.video_url;
+    const urls = Array.from(new Set([canonical, video.video_url]));
+    let cancelled = false;
+    (async () => {
+      const queries = [
+        ...urls.map((u) =>
+          supabase
+            .from("scripts")
+            .select("id, title")
+            .contains("inspiration_urls", [u])
+            .is("deleted_at", null)
+            .neq("status", "draft"),
+        ),
+        supabase
+          .from("scripts")
+          .select("id, title")
+          .in("format_reference_url", urls)
+          .is("deleted_at", null)
+          .neq("status", "draft"),
+      ];
+      const results = await Promise.all(queries);
+      if (cancelled) return;
+      const byId = new Map<string, { id: string; title: string | null }>();
+      for (const r of results) {
+        for (const s of (r.data ?? []) as { id: string; title: string | null }[]) byId.set(s.id, s);
+      }
+      setUsedInScripts(Array.from(byId.values()));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [video?.video_url, useInScriptOpen]);
 
   // ==================== REMIX SCRIPT ====================
   const handleRemixScript = () => {
@@ -727,6 +774,25 @@ export default function ViralVideoDetail() {
         {/* ===== Action row: ghost buttons, right-aligned ===== */}
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
 
+          {/* Used-in indicator (left side of the row) */}
+          {usedInScripts.length > 0 && (
+            <span
+              className="mr-auto text-xs text-muted-foreground"
+              title={usedInScripts.map((s) => s.title ?? "Untitled").join("\n")}
+            >
+              Used in {usedInScripts.length} script{usedInScripts.length !== 1 ? "s" : ""}
+            </span>
+          )}
+
+          {/* Use in Script — attach to an existing script (idea / format lane)
+              or create a new script pre-linked to this video. */}
+          {clientOptions.length > 0 && video.video_url && (
+            <Button onClick={() => setUseInScriptOpen(true)} variant="ghost" size="sm" className="gap-2">
+              <NotebookPen className="w-4 h-4" />
+              Use in Script
+            </Button>
+          )}
+
           {/* Save to Vault */}
           {clientOptions.length === 1 ? (
             <Button
@@ -802,6 +868,20 @@ export default function ViralVideoDetail() {
           ) : null}
         </div>
       </div>
+
+      {video.video_url && (
+        <UseInScriptModal
+          open={useInScriptOpen}
+          onClose={() => setUseInScriptOpen(false)}
+          video={{
+            id: video.id,
+            video_url: video.video_url,
+            caption: video.caption,
+            channel_username: video.channel_username,
+          }}
+          clientOptions={clientOptions}
+        />
+      )}
     </PageTransition>
   );
 }

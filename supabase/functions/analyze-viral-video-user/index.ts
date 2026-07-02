@@ -50,7 +50,20 @@ Deno.serve(async (req) => {
     .eq("id", body.viral_video_id)
     .single();
   if (rowErr || !rowRaw) return json({ error: "row_not_found" }, 404);
-  const row = rowRaw as ViralVideoRow & { caption: string | null; transcript_status: string | null };
+  const row = rowRaw as ViralVideoRow & {
+    caption: string | null;
+    transcript_status: string | null;
+    analysis_claimed_at: string | null;
+  };
+
+  // A claim older than this is considered dead (edge fn crashed/timed out
+  // between claim and finalize) and may be re-claimed. Analyses normally
+  // finish in 30-90s.
+  const STALE_CLAIM_MINUTES = 15;
+  const staleCutoff = new Date(Date.now() - STALE_CLAIM_MINUTES * 60 * 1000);
+  const claimIsStale =
+    row.analysis_status === "analyzing" &&
+    (!row.analysis_claimed_at || new Date(row.analysis_claimed_at) < staleCutoff);
 
   // Noop if already fully analyzed and file is still valid.
   if (
@@ -62,8 +75,10 @@ Deno.serve(async (req) => {
     return json({ row, status: "noop_cached" }, 200);
   }
 
-  // 409 if another analyze is in flight.
-  if (row.analysis_status === "analyzing") {
+  // 409 if another analyze is genuinely in flight; stale claims fall through
+  // and get re-claimed below (rows used to stick at "analyzing" forever when
+  // an edge invocation died mid-pipeline).
+  if (row.analysis_status === "analyzing" && !claimIsStale) {
     return json({ error: "in_progress", row }, 409);
   }
 
@@ -76,12 +91,21 @@ Deno.serve(async (req) => {
     return json({ error: "transcribe_in_progress", message: "Auto-transcribe is still running for this video — try again in a few seconds." }, 409);
   }
 
-  // Claim the row atomically (only from pending/failed/analyzed-but-expired).
+  // Claim the row atomically (from pending/failed/analyzed-but-expired, or a
+  // stale "analyzing" claim whose invocation died).
   const { data: claimedRaw, error: claimErr } = await admin
     .from("viral_videos")
-    .update({ analysis_status: "analyzing", analysis_error: null })
+    .update({
+      analysis_status: "analyzing",
+      analysis_error: null,
+      analysis_claimed_at: new Date().toISOString(),
+    })
     .eq("id", row.id)
-    .in("analysis_status", ["pending", "failed", "analyzed"])
+    .or(
+      `analysis_status.in.(pending,failed,analyzed),` +
+        `and(analysis_status.eq.analyzing,analysis_claimed_at.is.null),` +
+        `and(analysis_status.eq.analyzing,analysis_claimed_at.lt.${staleCutoff.toISOString()})`,
+    )
     .select("*")
     .single();
   if (claimErr || !claimedRaw) return json({ error: "claim_failed", message: claimErr?.message }, 409);

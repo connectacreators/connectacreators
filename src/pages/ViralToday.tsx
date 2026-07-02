@@ -21,7 +21,7 @@ import { getAuthToken } from "@/lib/getAuthToken";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 import { FilterRail } from "@/components/viral-today/FilterRail";
 import BulkAnalyzeModal from "@/components/viral-today/BulkAnalyzeModal";
-import { type FiltersPanelValue } from "@/components/viral-today/FiltersPanel";
+import { type FiltersPanelValue } from "@/components/viral-today/FilterRail";
 import { type ContentFormat, nicheLabel } from "@/lib/video-taxonomy";
 import {
   fmtViews,
@@ -251,6 +251,7 @@ interface ViralVideo {
   niche_tags?: string[];
   framework_score?: number;
   analysis_status?: "pending" | "analyzing" | "analyzed" | "failed" | null;
+  analysis_error?: string | null;
   content_format?: string | null;
   primary_niche?: string | null;
 }
@@ -408,104 +409,6 @@ function FilterChip({ label, options, value, onChange, isActive }: FilterChipPro
     </div>
   );
 }
-
-// Multi-select chip for channels
-interface ChannelChipProps {
-  channels: ViralChannel[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
-}
-function ChannelChip({ channels, selected, onChange }: ChannelChipProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const label =
-    selected.length === 0
-      ? `${channels.length} channels`
-      : selected.length === 1
-      ? `@${channels.find((c) => c.id === selected[0])?.username ?? "?"}`
-      : `${selected.length} channels`;
-
-  const isActive = selected.length > 0;
-
-  const toggle = (id: string) => {
-    onChange(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
-  };
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-medium border transition-all whitespace-nowrap",
-          isActive
-            ? "bg-primary/15 border-primary/50 text-primary"
-            : "bg-muted border-border text-muted-foreground hover:text-foreground hover:border-border"
-        )}
-      >
-        {label}
-        <ChevronDown className={cn("w-3 h-3 transition-transform", open && "rotate-180")} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-            transition={{ duration: 0.12 }}
-            className="absolute top-full mt-1.5 left-0 z-50 min-w-[200px] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden"
-          >
-            {channels.length === 0 ? (
-              <p className="px-3.5 py-3 text-xs text-muted-foreground">No channels added yet</p>
-            ) : (
-              <>
-                <button
-                  onClick={() => onChange([])}
-                  className="w-full text-left px-3.5 py-2 text-xs text-foreground hover:bg-muted border-b border-border"
-                >
-                  All channels
-                </button>
-                {channels.map((ch) => (
-                  <button
-                    key={ch.id}
-                    onClick={() => toggle(ch.id)}
-                    className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2 text-foreground hover:bg-muted transition-colors"
-                  >
-                    <span
-                      className={cn(
-                        "w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors",
-                        selected.includes(ch.id)
-                          ? "bg-primary border-primary"
-                          : "border-border bg-transparent"
-                      )}
-                    >
-                      {selected.includes(ch.id) && (
-                        <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 12 12">
-                          <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                        </svg>
-                      )}
-                    </span>
-                    @{ch.username}
-                    <span className="ml-auto text-muted-foreground text-[10px]">{ch.video_count} vids</span>
-                  </button>
-                ))}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // Module-level semaphore — at most 3 concurrent categorize calls page-wide.
 const CATEGORIZE_MAX_CONCURRENT = 3;
 let categorizeInFlight = 0;
@@ -613,22 +516,11 @@ function VideoCard({
     };
   }, [video.id, video.content_format, video.primary_niche, video.analysis_status, localStatus]);
 
-  // Card-level realtime: update analysis_status badge when analysis completes
+  // Analysis status arrives via the page-level realtime subscription (the grid
+  // patches the videos array) — sync the prop into the optimistic local state.
   useEffect(() => {
-    if (!video.id) return;
-    const channel = supabase
-      .channel(`viral_videos_card:${video.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "viral_videos", filter: `id=eq.${video.id}` },
-        (payload) => {
-          const next = payload.new as ViralVideo;
-          setLocalStatus(next.analysis_status);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [video.id]);
+    setLocalStatus(video.analysis_status);
+  }, [video.analysis_status]);
 
   const handleAnalyze = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -842,6 +734,19 @@ function VideoCard({
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Analyzing…</span>
                 </div>
+              );
+            }
+            if (status === "failed") {
+              return (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
+                  title={`Last analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — click to retry`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Failed — Retry</span>
+                </button>
               );
             }
             return (
@@ -1165,6 +1070,7 @@ const getEngagementOpts = (t: any): DropdownOption[] => [
 ];
 
 const getSortOpts = (t: any): DropdownOption[] => [
+  { label: t.forYou, value: "foryou" },
   { label: t.mostRecent, value: "recent" },
   { label: t.highestOutlier, value: "outlier" },
   { label: t.mostViews, value: "views" },
@@ -1387,6 +1293,48 @@ export default function ViralToday() {
   // Data — hydrate from cache for instant render, refetch in background.
   const [videos, setVideos] = useState<ViralVideo[]>(() => readCache<ViralVideo[]>("viral_videos", []));
   const [channels, setChannels] = useState<ViralChannel[]>(() => readCache<ViralChannel[]>("viral_channels", []));
+
+  // ONE page-level realtime subscription keeps analysis/categorize badges live.
+  // (Each card used to open its own postgres_changes channel — 100 websocket
+  // channel joins per page render.) Returns `prev` untouched unless a listed
+  // row actually changed a badge-relevant field, so scrape-time stat updates
+  // don't cause re-renders.
+  useEffect(() => {
+    const channel = supabase
+      .channel("viral_videos_grid_status")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "viral_videos" },
+        (payload) => {
+          const next = payload.new as Partial<ViralVideo> & { id: string };
+          setVideos((prev) => {
+            const idx = prev.findIndex((v) => v.id === next.id);
+            if (idx === -1) return prev;
+            const cur = prev[idx];
+            if (
+              cur.analysis_status === next.analysis_status &&
+              cur.content_format === next.content_format &&
+              cur.primary_niche === next.primary_niche
+            ) {
+              return prev;
+            }
+            const copy = [...prev];
+            copy[idx] = {
+              ...cur,
+              analysis_status: next.analysis_status ?? cur.analysis_status,
+              analysis_error: next.analysis_error ?? null,
+              content_format: next.content_format ?? cur.content_format,
+              primary_niche: next.primary_niche ?? cur.primary_niche,
+            };
+            return copy;
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
@@ -1409,6 +1357,13 @@ export default function ViralToday() {
   // Format tab + niche filters
   const [activeFormat, setActiveFormat] = useState<ContentFormat | "all">(savedFilters.activeFormat ?? "all");
   const [selectedNiches, setSelectedNiches] = useState<string[]>(savedFilters.niches ?? []);
+
+  // Client-side filters narrow the list without a refetch — jump back to page
+  // 1 when they change, or a user on page 3 can land on an empty page.
+  useEffect(() => {
+    setCurrentPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filterSource, filterSort, showOnlyFeatured, activeFormat, selectedNiches]);
 
   // Persist filters so the next visit restores the user's last-used settings.
   useEffect(() => {
@@ -1434,6 +1389,8 @@ export default function ViralToday() {
   );
   useEffect(() => { localStorage.setItem("vt_feed_mode", feedMode); }, [feedMode]);
   useEffect(() => { localStorage.setItem("vt_active_watchlist", activeWatchlistId); }, [activeWatchlistId]);
+  // Feed-mode/watchlist switches also narrow the list client-side — reset paging.
+  useEffect(() => { setCurrentPage(0); }, [feedMode, activeWatchlistId]);
 
   // Load the signed-in user's lists + memberships once.
   useEffect(() => {
@@ -1662,10 +1619,21 @@ export default function ViralToday() {
       let allVideos: ViralVideo[] = [];
       let page = 0;
 
+      // Only the columns the grid renders — `*` also dragged transcript +
+      // framework_meta for 5,000 rows into memory/sessionStorage on every
+      // filter change (heavy egress; the CSV export runs its own targeted
+      // query for those fields, and the detail page fetches its own row).
+      const GRID_COLUMNS =
+        "id, channel_id, channel_username, platform, video_url, thumbnail_url, caption, " +
+        "views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, " +
+        "scraped_at, apify_video_id, hashtag_source, user_submitted, submitted_by, " +
+        "is_featured_framework, niche_tags, framework_score, analysis_status, analysis_error, " +
+        "content_format, primary_niche";
+
       while (allVideos.length < MAX_VIDEOS) {
         let q = supabase
           .from("viral_videos")
-          .select("*")
+          .select(GRID_COLUMNS)
           .order("scraped_at", { ascending: false });
 
         // ── Server-side filters (pushed to Postgres) ──────────────────────────
@@ -1901,6 +1869,23 @@ export default function ViralToday() {
       clicked: true,
       last_seen_at: new Date().toISOString(),
     }, { onConflict: "user_id,video_id" });
+  }, [user]);
+
+  // ── Callback for VideoCard to report "seen" (2s at 50%+ visible) ──────────
+  // Feeds the For You sort's unseen bonus on FUTURE visits (the scorer only
+  // reads the mount-time snapshot). Deduped per session so scrolling doesn't
+  // spam upserts; never overwrites a clicked=true row (upsert would reset it,
+  // so seen-only writes use ignoreDuplicates and clicks stay authoritative).
+  const seenReportedRef = useRef<Set<string>>(new Set());
+  const markSeen = useCallback(async (videoId: string) => {
+    if (!user || seenReportedRef.current.has(videoId)) return;
+    seenReportedRef.current.add(videoId);
+    await supabase.from("viral_video_interactions").upsert({
+      user_id: user.id,
+      video_id: videoId,
+      seen_count: 1,
+      last_seen_at: new Date().toISOString(),
+    }, { onConflict: "user_id,video_id", ignoreDuplicates: true });
   }, [user]);
 
   // Keep channelsRef in sync so the poll interval always reads the latest channels
@@ -2491,29 +2476,19 @@ export default function ViralToday() {
     }
   };
 
-  const hasActiveFilters =
-    filterPlatform !== "all" ||
-    filterDate !== "12months" ||
-    filterOutlier !== "0" ||
-    filterViews !== "0" ||
-    filterEngagement !== "0" ||
-    filterSource !== "all" ||
-    selectedChannelIds.length > 0 ||
-    showOnlyFeatured ||
-    selectedNiches.length > 0 ||
-    activeFormat !== "all";
-
+  // Reset to the same defaults a first visit gets (and the rail's Reset
+  // button) — previously this landed on outlier 0 / views 0, a different
+  // state than every other reset path.
   const clearFilters = () => {
     setFilterDate("12months");
     setFilterPlatform("all");
-    setFilterOutlier("0");
-    setFilterViews("0");
+    setFilterOutlier("5");
+    setFilterViews("100000");
     setFilterEngagement("0");
     setFilterSource("all");
     setFilterSort("recent");
     setSelectedChannelIds([]);
     setSearch("");
-    setShowSeen(false);
     setShowOnlyFeatured(false);
     setSelectedNiches([]);
     setActiveFormat("all");
@@ -2871,6 +2846,7 @@ export default function ViralToday() {
                             selected={selectedVideos.has(v.id)}
                             onToggleSelect={toggleVideoSelect}
                             onClickVideo={reportClick}
+                            onSeen={markSeen}
                             onToggleFeatured={isAdmin ? handleToggleFeatured : undefined}
                           />
                         ))}
