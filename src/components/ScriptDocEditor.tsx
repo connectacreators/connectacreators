@@ -613,14 +613,15 @@ export default function ScriptDocEditor({
   // ── Regenerate hook (same generator as the canvas Hook Generator node) ──
   const [hookDialogOpen, setHookDialogOpen] = useState(false);
 
-  // First content line of the first hook section — the line the regenerated
-  // hook replaces.
+  // The spoken hook = the first ACTOR (voiceover) line of the first hook
+  // section. Filming / editor / text-on-screen lines in the section are
+  // production notes and must never be replaced by a regenerated hook.
   const findHookLine = (list: ScriptLine[]): { headingIdx: number; lineIdx: number } => {
     const headingIdx = list.findIndex((b) => b.block_kind === "heading" && b.section === "hook");
     if (headingIdx === -1) return { headingIdx: -1, lineIdx: -1 };
     for (let i = headingIdx + 1; i < list.length; i++) {
       if (list[i].block_kind === "heading") break;
-      return { headingIdx, lineIdx: i };
+      if (list[i].line_type === "actor") return { headingIdx, lineIdx: i };
     }
     return { headingIdx, lineIdx: -1 };
   };
