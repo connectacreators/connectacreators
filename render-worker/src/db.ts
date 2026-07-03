@@ -55,11 +55,23 @@ export async function reclaimOrphanedJobs(client: SupabaseClient, staleMs = 60_0
   // longer than any real transcode, so a genuine crash still self-heals but a
   // healthy long job is never disturbed.
   const proxyCutoff = new Date(Date.now() - Math.max(staleMs, 1_200_000)).toISOString(); // >= 20 min
+  // Three-strikes rule: attempts is incremented at CLAIM time, so a worker
+  // death mid-transcode still counts. A job that stalled 3 times is dead —
+  // without this cap a doomed job (e.g. a 584MB original that OOMs ffmpeg)
+  // reclaims forever, and every retry re-downloads the original from Supabase
+  // (that loop burned ~1TB of cached egress on Jul 2-3 2026).
+  await client
+    .from("footage_proxies")
+    .update({ status: "error", error: "gave up: worker crashed/stalled 3 times on this source", finished_at: new Date().toISOString() })
+    .eq("status", "processing")
+    .lt("claimed_at", proxyCutoff)
+    .gte("attempts", 3);
   await client
     .from("footage_proxies")
     .update({ status: "queued", claimed_at: null })
     .eq("status", "processing")
-    .lt("claimed_at", proxyCutoff);
+    .lt("claimed_at", proxyCutoff)
+    .lt("attempts", 3);
 }
 
 // Claim the oldest queued job atomically. Returns null if nothing to do.
@@ -281,8 +293,9 @@ export type ProxyJobRow = {
 export async function claimNextProxyJob(client: SupabaseClient): Promise<ProxyJobRow | null> {
   const { data: candidate } = await client
     .from("footage_proxies")
-    .select("id")
+    .select("id, attempts")
     .eq("status", "queued")
+    .lt("attempts", 3)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -290,7 +303,13 @@ export async function claimNextProxyJob(client: SupabaseClient): Promise<ProxyJo
 
   const { data: claimed, error } = await client
     .from("footage_proxies")
-    .update({ status: "processing", claimed_at: new Date().toISOString() })
+    .update({
+      status: "processing",
+      claimed_at: new Date().toISOString(),
+      // Counted at claim (not at error) so a worker death mid-transcode still
+      // uses up a strike — see the reclaim cap above.
+      attempts: ((candidate as { attempts?: number }).attempts ?? 0) + 1,
+    })
     .eq("id", candidate.id)
     .eq("status", "queued")
     .select("id, source_bucket, source_path, proxy_bucket, status")

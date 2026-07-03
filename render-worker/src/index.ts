@@ -166,11 +166,35 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
   await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
 }
 
+// Sources above this size are not proxied on this worker tier — the transcode
+// dies (OOM / >20min) and every retry re-streams the original from Supabase
+// (cached-egress runaway). Playback of un-proxied clips falls back to the
+// original file, which is slower but correct.
+const PROXY_MAX_SOURCE_BYTES = Number(process.env.PROXY_MAX_SOURCE_BYTES ?? 450 * 1024 * 1024);
+
 async function processProxyJob(client: ReturnType<typeof makeClient>, job: ProxyJobRow) {
   const workDir = path.join(WORK_DIR, `proxy-${job.id}`);
   const output = path.join(workDir, "output.mp4");
   await fs.mkdir(workDir, { recursive: true });
   try {
+    // Size guard BEFORE any bytes move.
+    const { data: srcRows } = await client
+      .schema("storage")
+      .from("objects")
+      .select("metadata")
+      .eq("bucket_id", job.source_bucket)
+      .eq("name", job.source_path)
+      .limit(1);
+    const srcBytes = Number((srcRows?.[0]?.metadata as { size?: number } | null)?.size ?? 0);
+    if (srcBytes > PROXY_MAX_SOURCE_BYTES) {
+      await markProxyError(
+        client,
+        job.id,
+        `source too large for proxy (${Math.round(srcBytes / 1024 / 1024)}MB > ${Math.round(PROXY_MAX_SOURCE_BYTES / 1024 / 1024)}MB) — playback uses the original`,
+      );
+      return;
+    }
+
     // Stream the original straight from a signed URL — ffmpeg reads it over
     // HTTP while it encodes, so we NEVER load a multi-GB original into worker
     // memory. The previous download-to-memory path (Blob.arrayBuffer) OOM-
