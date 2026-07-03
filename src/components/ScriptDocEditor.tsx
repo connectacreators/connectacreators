@@ -9,7 +9,9 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import DOMPurify from "dompurify";
-import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading } from "lucide-react";
+import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { RegenerateHookDialog } from "@/components/RegenerateHookDialog";
 import {
   DndContext,
   closestCenter,
@@ -423,9 +425,12 @@ interface HeadingBlockProps {
   dragAttributes?: React.HTMLAttributes<HTMLElement>;
   onRename: (uid: string, label: string) => void;
   onDelete: (uid: string) => void;
+  /** Optional per-section affordance rendered next to the label (e.g. the
+   *  hook section's "Regenerate" button). */
+  action?: React.ReactNode;
 }
 
-function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onRename, onDelete }: HeadingBlockProps) {
+function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onRename, onDelete, action }: HeadingBlockProps) {
   const [editing, setEditing] = useState(!!autoEdit);
   const [draft, setDraft] = useState(block.text || defaultSectionLabel(block.section));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -480,6 +485,7 @@ function HeadingBlock({ block, uid, autoEdit, dragListeners, dragAttributes, onR
           {block.text || defaultSectionLabel(block.section)}
         </span>
       )}
+      {action}
       {/* Rule fills the rest to the right — left-aligned section header (not centered). */}
       <div className="flex-1 h-px bg-[hsl(var(--bone) / 0.14)]" />
       <button
@@ -603,6 +609,56 @@ export default function ScriptDocEditor({
     if (editor) editorMap.current.set(uid, editor);
     else editorMap.current.delete(uid);
   }, []);
+
+  // ── Regenerate hook (same generator as the canvas Hook Generator node) ──
+  const [hookDialogOpen, setHookDialogOpen] = useState(false);
+
+  // First content line of the first hook section — the line the regenerated
+  // hook replaces.
+  const findHookLine = (list: ScriptLine[]): { headingIdx: number; lineIdx: number } => {
+    const headingIdx = list.findIndex((b) => b.block_kind === "heading" && b.section === "hook");
+    if (headingIdx === -1) return { headingIdx: -1, lineIdx: -1 };
+    for (let i = headingIdx + 1; i < list.length; i++) {
+      if (list[i].block_kind === "heading") break;
+      return { headingIdx, lineIdx: i };
+    }
+    return { headingIdx, lineIdx: -1 };
+  };
+
+  const { lineIdx: currentHookIdx } = findHookLine(blocks);
+  const currentHookText = currentHookIdx !== -1 ? (blocks[currentHookIdx].text || "").trim() : "";
+
+  const applyHook = useCallback(
+    (text: string) => {
+      const { headingIdx, lineIdx } = findHookLine(blocks);
+      if (lineIdx !== -1) {
+        const target = blocks[lineIdx];
+        // TipTap editors take content at mount only — push the new text into
+        // the live editor instance, then mirror it into state for saving.
+        if (target.uid) editorMap.current.get(target.uid)?.commands.setContent(plainToHtml(text));
+        onBlocksChange((prev) =>
+          prev.map((b) => (b.uid === target.uid ? { ...b, text, rich_text: plainToHtml(text) } : b)),
+        );
+      } else {
+        const newLine: ScriptLine = {
+          line_number: 0,
+          line_type: "actor",
+          section: "hook",
+          text,
+          rich_text: plainToHtml(text),
+          block_kind: "line",
+          uid: newBlockUid(),
+        };
+        onBlocksChange((prev) => {
+          if (headingIdx === -1) return [newLine, ...prev];
+          return [...prev.slice(0, headingIdx + 1), newLine, ...prev.slice(headingIdx + 1)];
+        });
+      }
+      toast.success("Hook replaced — remember to Save");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [blocks, onBlocksChange],
+  );
 
   const handleFocus = useCallback((uid: string) => {
     setActiveUid(uid);
@@ -1106,6 +1162,19 @@ export default function ScriptDocEditor({
                           dragListeners={listeners}
                           onRename={handleRenameHeading}
                           onDelete={handleDeleteHeading}
+                          action={
+                            (group.heading as ScriptLine).section === "hook" ? (
+                              <button
+                                type="button"
+                                onClick={() => setHookDialogOpen(true)}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-[hsl(var(--bone)/0.20)] text-[11px] text-[hsl(var(--bone)/0.60)] hover:text-foreground hover:border-[hsl(var(--bone)/0.45)] transition-colors"
+                                title="Generate 5 fresh hook variations from the viral formula bank"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                Regenerate hook
+                              </button>
+                            ) : undefined
+                          }
                         />
                       )}
                     </SortableRow>
@@ -1169,6 +1238,14 @@ export default function ScriptDocEditor({
           </button>
         </div>
       </div>
+
+      <RegenerateHookDialog
+        open={hookDialogOpen}
+        onClose={() => setHookDialogOpen(false)}
+        topic={[scriptTitle, currentHookText].filter(Boolean).join(" — ") || currentHookText || "this script"}
+        currentHook={currentHookText || null}
+        onPick={applyHook}
+      />
     </div>
   );
 }
