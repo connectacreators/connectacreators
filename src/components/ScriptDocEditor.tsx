@@ -9,7 +9,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import DOMPurify from "dompurify";
-import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading, Sparkles } from "lucide-react";
+import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { RegenerateHookDialog } from "@/components/RegenerateHookDialog";
 import {
@@ -1171,7 +1171,7 @@ export default function ScriptDocEditor({
                                 className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-[hsl(var(--bone)/0.20)] text-[11px] text-[hsl(var(--bone)/0.60)] hover:text-foreground hover:border-[hsl(var(--bone)/0.45)] transition-colors"
                                 title="Generate 5 fresh hook variations from the viral formula bank"
                               >
-                                <Sparkles className="w-3 h-3" />
+                                <Sun className="w-3 h-3" />
                                 Regenerate hook
                               </button>
                             ) : undefined
