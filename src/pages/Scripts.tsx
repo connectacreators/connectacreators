@@ -3337,12 +3337,13 @@ export default function Scripts() {
             )}
 
             {/* FORMAT — selectable chips + single reference link */}
-            <div className={`editorial-card p-5 mb-2 ${collapsedCards["format"] ? "pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["format"] ? "pb-3 sm:pb-4" : ""}`}>
               <div className={`flex items-start gap-2 ${collapsedCards["format"] ? "" : "mb-3"}`}>
                 <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <div>
+                <div className="min-w-0">
                   <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "How to film & edit it", es: "Cómo grabarlo y editarlo" }, language)}</div>
-                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
+                  {/* Subtitle: gone when collapsed; on phones gone even when expanded. */}
+                  <div className={collapsedCards["format"] ? "hidden" : "hidden sm:block"} style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
                 </div>
                 <div className="ml-auto flex items-center gap-1">{cardToggleButton("format")}</div>
               </div>
@@ -3466,12 +3467,13 @@ export default function Scripts() {
               />
             </div>
 
-            <div className={`editorial-card p-5 mb-2 ${collapsedCards["idea"] ? "pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["idea"] ? "pb-3 sm:pb-4" : ""}`}>
               <div className={`flex items-start gap-2 ${collapsedCards["idea"] ? "" : "mb-3"}`}>
                 <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                <div>
+                <div className="min-w-0">
                   <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
-                  <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
+                  {/* Subtitle: gone when collapsed; on phones gone even when expanded. */}
+                  <div className={collapsedCards["idea"] ? "hidden" : "hidden sm:block"} style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5 shrink-0">
                   {viewingInspirationUrls.length > 0 && (
@@ -3485,7 +3487,8 @@ export default function Scripts() {
                       title={tr({ en: "Write a full draft from this video's analysis, structured like your format reference", es: "Escribe un borrador completo desde el análisis de este video, con la estructura de tu referencia de formato" }, language)}
                     >
                       <Wand2 className="w-3 h-3" />
-                      {tr({ en: "Draft script", es: "Redactar script" }, language)}
+                      <span className="hidden sm:inline">{tr({ en: "Draft script", es: "Redactar script" }, language)}</span>
+                      <span className="sm:hidden">{tr({ en: "Draft", es: "Redactar" }, language)}</span>
                     </button>
                   )}
                   {cardToggleButton("idea")}
@@ -3618,7 +3621,7 @@ export default function Scripts() {
             </div>
 
             {/* Caption */}
-            <div className={`editorial-card p-5 mb-2 ${collapsedCards["caption"] ? "pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["caption"] ? "pb-3 sm:pb-4" : ""}`}>
               <div className={`flex items-center gap-2 ${collapsedCards["caption"] ? "" : "mb-3"}`}>
                 <MessageSquare className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
@@ -3635,7 +3638,7 @@ export default function Scripts() {
                       title={tr({ en: "Generate an Instagram caption from this script with AI", es: "Genera un caption de Instagram a partir de este script con IA" }, language)}
                     >
                       {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      <span>{tr({ en: "Generate", es: "Generar" }, language)}</span>
+                      <span className="hidden sm:inline">{tr({ en: "Generate", es: "Generar" }, language)}</span>
                     </Button>
                   )}
                   {cardToggleButton("caption")}
