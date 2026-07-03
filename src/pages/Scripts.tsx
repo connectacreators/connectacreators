@@ -3647,11 +3647,20 @@ export default function Scripts() {
                     }
                     setSavingScript(true);
                     try {
-                      // Authoritative block save: preserves heading rows, recomputes each
-                      // line's section from its nearest heading, renumbers all.
+                      // SAVE-WHAT-YOU-SEE: the explicit Save button makes the DB match the
+                      // screen exactly. Any DB row not currently visible is deleted — this is
+                      // what kills "deleted lines came back" for good (stale rows can linger in
+                      // the DB from older sessions/tabs; the diff-save alone never removes rows
+                      // this session didn't explicitly delete). Autosave keeps the gentler
+                      // diff-only semantics; the previous state is in version History.
+                      const dbBlocks = await getScriptBlocks(sid);
+                      const visibleIds = new Set(docBlocks.filter((b) => b.id).map((b) => b.id as string));
+                      const staleIds = dbBlocks
+                        .filter((b) => b.id && !visibleIds.has(b.id as string))
+                        .map((b) => b.id as string);
                       const res = await saveScriptBlocks(sid, docBlocks, {
                         baseline: baselineRef.current,
-                        removedIds: Array.from(removedIdsRef.current),
+                        removedIds: Array.from(new Set([...removedIdsRef.current, ...staleIds])),
                         expectedRevision: revisionRef.current,
                       });
                       setDocBlocks(withUids(res.blocks));
