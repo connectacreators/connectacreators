@@ -8,7 +8,7 @@ import {
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
-  Music, File,
+  Music, File, ChevronDown,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -484,6 +484,29 @@ export default function Scripts() {
   // Format reference link (single, mirrors inspiration) + custom-format draft + re-categorize
   const [viewingFormatReferenceUrl, setViewingFormatReferenceUrl] = useState<string | null>(null);
   const [draftFromIdeaOpen, setDraftFromIdeaOpen] = useState(false);
+  // Collapsible setup cards (format / winning idea / caption). Persisted per
+  // user so a tidied editor stays tidy across scripts and sessions.
+  const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem("cac:script-setup-collapsed") || "{}"); } catch { return {}; }
+  });
+  const toggleCard = (key: string) => {
+    setCollapsedCards((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem("cac:script-setup-collapsed", JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  };
+  const cardToggleButton = (key: string) => (
+    <button
+      type="button"
+      onClick={() => toggleCard(key)}
+      className="p-1 rounded transition-colors shrink-0 hover:bg-[hsl(var(--bone)/0.06)]"
+      style={{ color: "hsl(var(--bone) / 0.45)" }}
+      title={collapsedCards[key] ? tr({ en: "Expand", es: "Expandir" }, language) : tr({ en: "Collapse", es: "Colapsar" }, language)}
+    >
+      <ChevronDown className={`w-4 h-4 transition-transform ${collapsedCards[key] ? "-rotate-90" : ""}`} />
+    </button>
+  );
   const [editingFormatReference, setEditingFormatReference] = useState(false);
   const [formatReferenceDraft, setFormatReferenceDraft] = useState("");
   const [formatReferenceVideoUrl, setFormatReferenceVideoUrl] = useState<string | null>(null);
@@ -3314,15 +3337,17 @@ export default function Scripts() {
             )}
 
             {/* FORMAT — selectable chips + single reference link */}
-            <div className="editorial-card p-5 mb-2">
-              <div className="flex items-start gap-2 mb-3">
+            <div className={`editorial-card p-5 mb-2 ${collapsedCards["format"] ? "pb-4" : ""}`}>
+              <div className={`flex items-start gap-2 ${collapsedCards["format"] ? "" : "mb-3"}`}>
                 <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "How to film & edit it", es: "Cómo grabarlo y editarlo" }, language)}</div>
                   <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the style for shooting, editing & script", es: "el estilo de grabación, edición y guion" }, language)}</div>
                 </div>
+                <div className="ml-auto flex items-center gap-1">{cardToggleButton("format")}</div>
               </div>
 
+              {!collapsedCards["format"] && (<>
               {/* Two chips: format-name dropdown + format reference */}
               {(() => {
                 const current = viewingMetadata?.formato?.trim() || "";
@@ -3431,6 +3456,7 @@ export default function Scripts() {
                   </div>
                 );
               })()}
+              </>)}
 
               <VideoBreakdownDialog
                 open={!!formatReferenceVideoUrl}
@@ -3440,28 +3466,32 @@ export default function Scripts() {
               />
             </div>
 
-            <div className="editorial-card p-5 mb-2">
-              <div className="flex items-start gap-2 mb-3">
+            <div className={`editorial-card p-5 mb-2 ${collapsedCards["idea"] ? "pb-4" : ""}`}>
+              <div className={`flex items-start gap-2 ${collapsedCards["idea"] ? "" : "mb-3"}`}>
                 <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
                   <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
                 </div>
-                {viewingInspirationUrls.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setDraftFromIdeaOpen(true)}
-                    className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors shrink-0"
-                    style={{ borderColor: "hsl(var(--bone) / 0.20)", color: "hsl(var(--bone) / 0.70)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone))"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.45)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.70)"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.20)"; }}
-                    title={tr({ en: "Write a full draft from this video's analysis, structured like your format reference", es: "Escribe un borrador completo desde el análisis de este video, con la estructura de tu referencia de formato" }, language)}
-                  >
-                    <Wand2 className="w-3 h-3" />
-                    {tr({ en: "Draft script", es: "Redactar script" }, language)}
-                  </button>
-                )}
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  {viewingInspirationUrls.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDraftFromIdeaOpen(true)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors shrink-0"
+                      style={{ borderColor: "hsl(var(--bone) / 0.20)", color: "hsl(var(--bone) / 0.70)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone))"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.45)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.70)"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.20)"; }}
+                      title={tr({ en: "Write a full draft from this video's analysis, structured like your format reference", es: "Escribe un borrador completo desde el análisis de este video, con la estructura de tu referencia de formato" }, language)}
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      {tr({ en: "Draft script", es: "Redactar script" }, language)}
+                    </button>
+                  )}
+                  {cardToggleButton("idea")}
+                </div>
               </div>
+              {!collapsedCards["idea"] && (
               <div className="flex flex-col gap-2">
                 {viewingInspirationUrls.map((url, idx) =>
                   editingInspirationIdx === idx ? (
@@ -3559,6 +3589,7 @@ export default function Scripts() {
                   </button>
                 )}
               </div>
+              )}
 
               <VideoBreakdownDialog
                 open={!!inspirationVideoUrl}
@@ -3587,26 +3618,30 @@ export default function Scripts() {
             </div>
 
             {/* Caption */}
-            <div className="editorial-card p-5 mb-2">
-              <div className="flex items-center gap-2 mb-3">
+            <div className={`editorial-card p-5 mb-2 ${collapsedCards["caption"] ? "pb-4" : ""}`}>
+              <div className={`flex items-center gap-2 ${collapsedCards["caption"] ? "" : "mb-3"}`}>
                 <MessageSquare className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
                   {tr({ en: "Caption", es: "Caption" }, language)}
                 </span>
-                {(isAdmin || isConnectaPlus) && (
-                  <Button
-                    onClick={handleGenerateCaption}
-                    variant="outline"
-                    size="sm"
-                    className="ml-auto h-7 gap-1.5 text-xs"
-                    disabled={generatingCaption || !viewingScriptId}
-                    title={tr({ en: "Generate an Instagram caption from this script with AI", es: "Genera un caption de Instagram a partir de este script con IA" }, language)}
-                  >
-                    {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                    <span>{tr({ en: "Generate", es: "Generar" }, language)}</span>
-                  </Button>
-                )}
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  {(isAdmin || isConnectaPlus) && (
+                    <Button
+                      onClick={handleGenerateCaption}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs"
+                      disabled={generatingCaption || !viewingScriptId}
+                      title={tr({ en: "Generate an Instagram caption from this script with AI", es: "Genera un caption de Instagram a partir de este script con IA" }, language)}
+                    >
+                      {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span>{tr({ en: "Generate", es: "Generar" }, language)}</span>
+                    </Button>
+                  )}
+                  {cardToggleButton("caption")}
+                </div>
               </div>
+              {!collapsedCards["caption"] && (
               <Textarea
                 value={viewingCaption}
                 onChange={(e) => setViewingCaption(e.target.value)}
@@ -3631,6 +3666,7 @@ export default function Scripts() {
                   }
                 }}
               />
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 mb-4 flex-wrap">
