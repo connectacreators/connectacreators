@@ -103,13 +103,24 @@ const getScriptRevision = async (scriptId: string): Promise<number> => {
 // Save a snapshot of the current persisted script lines into script_versions (history).
 // Throttled to <=1 / 2min / script; prunes to the most recent 50 versions.
 const saveVersionSnapshot = async (scriptId: string) => {
-  try {
-    const now = Date.now();
-    if (!shouldSnapshot(_lastSnapshotMs.get(scriptId), now)) return;
-    // Claim the throttle window BEFORE any await so concurrent autosaves don't both pass
-    // the gate and double-write a snapshot.
-    _lastSnapshotMs.set(scriptId, now);
+  const now = Date.now();
+  if (!shouldSnapshot(_lastSnapshotMs.get(scriptId), now)) return;
+  // Claim the throttle window BEFORE any await so concurrent autosaves don't both pass
+  // the gate and double-write a snapshot.
+  _lastSnapshotMs.set(scriptId, now);
+  await writeVersionSnapshot(scriptId);
+};
 
+// Unthrottled snapshot — for destructive operations (e.g. "Draft from winning
+// idea" replacing the whole document) that must guarantee a History restore
+// point regardless of when the last autosave snapshot ran.
+export const forceVersionSnapshot = async (scriptId: string) => {
+  _lastSnapshotMs.set(scriptId, Date.now());
+  await writeVersionSnapshot(scriptId);
+};
+
+const writeVersionSnapshot = async (scriptId: string) => {
+  try {
     const { data: currentLines } = await supabase
       .from("script_lines")
       .select("line_number, line_type, section, text, rich_text, block_kind")

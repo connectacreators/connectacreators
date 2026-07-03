@@ -45,6 +45,7 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
 import { VideoBreakdownDialog } from "@/components/video/VideoBreakdownDialog";
+import { DraftFromWinningIdeaDialog } from "@/components/DraftFromWinningIdeaDialog";
 import { registerViralVideo } from "@/lib/ensureViralVideo";
 import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
 import { buildBaseline, blockSignature } from "@/lib/scriptBlockDiff";
@@ -482,6 +483,7 @@ export default function Scripts() {
   const [addingInspiration, setAddingInspiration] = useState(false);
   // Format reference link (single, mirrors inspiration) + custom-format draft + re-categorize
   const [viewingFormatReferenceUrl, setViewingFormatReferenceUrl] = useState<string | null>(null);
+  const [draftFromIdeaOpen, setDraftFromIdeaOpen] = useState(false);
   const [editingFormatReference, setEditingFormatReference] = useState(false);
   const [formatReferenceDraft, setFormatReferenceDraft] = useState("");
   const [formatReferenceVideoUrl, setFormatReferenceVideoUrl] = useState<string | null>(null);
@@ -3445,6 +3447,20 @@ export default function Scripts() {
                   <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, color: "hsl(var(--bone) / 0.92)" }}>{tr({ en: "The winning idea", es: "La idea ganadora" }, language)}</div>
                   <div style={{ fontSize: 11.5, lineHeight: 1.35, marginTop: 2, color: "hsl(var(--bone) / 0.46)" }}>{tr({ en: "the proven video this is based on", es: "el video probado en el que se basa" }, language)}</div>
                 </div>
+                {viewingInspirationUrls.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDraftFromIdeaOpen(true)}
+                    className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors shrink-0"
+                    style={{ borderColor: "hsl(var(--bone) / 0.20)", color: "hsl(var(--bone) / 0.70)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone))"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.45)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.70)"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.20)"; }}
+                    title={tr({ en: "Write a full draft from this video's analysis, structured like your format reference", es: "Escribe un borrador completo desde el análisis de este video, con la estructura de tu referencia de formato" }, language)}
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    {tr({ en: "Draft script", es: "Redactar script" }, language)}
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 {viewingInspirationUrls.map((url, idx) =>
@@ -3550,6 +3566,19 @@ export default function Scripts() {
                 url={inspirationVideoUrl}
                 title={tr({ en: "The Winning Idea", es: "La Idea Ganadora" }, language)}
               />
+
+              {viewingScriptId && (
+                <DraftFromWinningIdeaDialog
+                  open={draftFromIdeaOpen}
+                  onClose={() => setDraftFromIdeaOpen(false)}
+                  scriptId={viewingScriptId}
+                  scriptTitle={viewingMetadata?.idea_ganadora ?? ""}
+                  inspirationUrl={viewingInspirationUrls[0] ?? null}
+                  formatReferenceUrl={viewingFormatReferenceUrl}
+                  language={language}
+                  onApply={(lines) => setDocBlocks(withUids(synthesizeBlocksFromLines(lines)))}
+                />
+              )}
             </div>
 
             {/* Caption */}
