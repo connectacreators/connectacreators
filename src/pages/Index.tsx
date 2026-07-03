@@ -614,7 +614,7 @@ export default function Index() {
               autoPlay
               muted
               preload="auto"
-              poster="/video-cache/1m-views-guarantee-poster.jpg?v=2"
+              poster="/1m-views-guarantee-poster.jpg"
               onClick={videoStarted ? togglePlay : undefined}
               onPlay={(e) => {
                 setVideoPlaying(true);
@@ -637,7 +637,7 @@ export default function Index() {
                 transition: "filter 0.4s ease",
               }}
             >
-              <source src="/video-cache/1m-views-guarantee.mp4?v=2" type="video/mp4" />
+              <source src="/1m-views-guarantee.mp4" type="video/mp4" />
             </video>
 
             {/* Click-to-start gate */}
