@@ -66,6 +66,12 @@ export function DraftFromWinningIdeaDialog({
   const [idea, setIdea] = useState<VideoInfo | null>(null);
   const [formatRef, setFormatRef] = useState<VideoInfo | null>(null);
   const [working, setWorking] = useState<string | null>(null);
+  // Free-form user context passed to the generator as extra instructions.
+  // Survives close/reopen for the same script; clears when switching scripts.
+  const [notes, setNotes] = useState("");
+  useEffect(() => {
+    setNotes("");
+  }, [scriptId]);
 
   // Look up both videos' analyses when the dialog opens.
   useEffect(() => {
@@ -98,10 +104,13 @@ export function DraftFromWinningIdeaDialog({
       // 2. Generate: structure from the chosen template, content from the idea.
       setWorking(language === "es" ? "Redactando el borrador…" : "Drafting the script…");
       const structureTranscript = structureSource === "format" ? formatRef!.transcript! : idea!.transcript!;
-      const topic =
+      let topic =
         structureSource === "format"
           ? `${scriptTitle}. Content source — the winning video says: "${(idea!.hook_text ?? "").slice(0, 200)}" — ${idea!.transcript!.slice(0, 600)}`
           : scriptTitle;
+      if (notes.trim()) {
+        topic += `\n\nADDITIONAL CONTEXT / REQUESTS FROM THE USER (follow these): ${notes.trim().slice(0, 800)}`;
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
@@ -197,6 +206,16 @@ export function DraftFromWinningIdeaDialog({
                 {t("Current version is backed up to History first", "La versión actual se respalda primero en el Historial")}
               </li>
             </ul>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder={t(
+                "Add any additional info, notes, requests, context etc…",
+                "Agrega información adicional, notas, peticiones, contexto, etc…",
+              )}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+            />
             <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
               {t(
                 "This REPLACES the whole script document. You can restore the previous version from History at any time.",
