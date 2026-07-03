@@ -145,13 +145,14 @@ const writeVersionSnapshot = async (scriptId: string) => {
       lines_snapshot: currentLines,
     });
 
-    // Prune: keep only the most recent 50 versions.
-    if (nextVersion > 50) {
+    // Prune: keep only the most recent 5 versions (DB-usage cap).
+    const KEEP_VERSIONS = 5;
+    if (nextVersion > KEEP_VERSIONS) {
       await supabase
         .from("script_versions")
         .delete()
         .eq("script_id", scriptId)
-        .lte("version_number", nextVersion - 50);
+        .lte("version_number", nextVersion - KEEP_VERSIONS);
     }
   } catch (e) {
     console.error("saveVersionSnapshot error:", e);
