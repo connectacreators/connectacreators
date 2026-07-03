@@ -12,6 +12,7 @@ import DOMPurify from "dompurify";
 import { Download, Plus, Trash2, GripVertical, Type as TypeIcon, Heading, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { RegenerateHookDialog } from "@/components/RegenerateHookDialog";
+import { scriptBodyLength, SCRIPT_BODY_CHAR_LIMIT } from "@/lib/scriptLength";
 import {
   DndContext,
   closestCenter,
@@ -1237,6 +1238,24 @@ export default function ScriptDocEditor({
           >
             <Plus className="w-3.5 h-3.5" /> Add section
           </button>
+
+          {/* Character counter — bottom-left of the document card. */}
+          {(() => {
+            const bodyLen = scriptBodyLength(blocks);
+            const over = bodyLen > SCRIPT_BODY_CHAR_LIMIT;
+            const near = !over && bodyLen > SCRIPT_BODY_CHAR_LIMIT * 0.9;
+            return (
+              <div className="mt-5 flex justify-start">
+                <span
+                  className="text-[11px] tabular-nums"
+                  style={{ color: over ? "hsl(var(--destructive))" : near ? "hsl(var(--honey))" : "hsl(var(--bone) / 0.40)" }}
+                >
+                  {bodyLen.toLocaleString()} / {SCRIPT_BODY_CHAR_LIMIT.toLocaleString()}
+                  {over ? " · over limit — trim to save" : ""}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

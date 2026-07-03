@@ -3807,22 +3807,8 @@ export default function Scripts() {
                 </Button>
               </div>
             </div>
-            {(() => {
-              const bodyLen = scriptBodyLength(docBlocks);
-              const over = bodyLen > SCRIPT_BODY_CHAR_LIMIT;
-              const near = !over && bodyLen > SCRIPT_BODY_CHAR_LIMIT * 0.9;
-              return (
-                <div className="flex justify-end mb-1">
-                  <span
-                    className="text-[11px] tabular-nums"
-                    style={{ color: over ? "hsl(var(--destructive))" : near ? "hsl(var(--honey))" : "hsl(var(--bone) / 0.45)" }}
-                  >
-                    {bodyLen.toLocaleString()} / {SCRIPT_BODY_CHAR_LIMIT.toLocaleString()}
-                    {over ? ` · ${tr({ en: "over limit — trim to save", es: "excede el límite — recorta para guardar" }, language)}` : ""}
-                  </span>
-                </div>
-              );
-            })()}
+            {/* Character counter now lives INSIDE the document card (bottom-left,
+                rendered by ScriptDocEditor) per design preference. */}
             {/* Unified block document — single source of truth (docBlocks).
                 Renamable/custom sections, inline editing, slash, '# ', drag,
                 line-type bars, empty sections visible. Saving is owned by the
