@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { canonicalizeVideoUrl } from "@/lib/canonicalize-video-url";
+import { canonicalizeVideoUrl, videoUrlLookupVariants } from "@/lib/canonicalize-video-url";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { useLanguage } from "@/hooks/useLanguage";
 import { tr } from "@/i18n/translations";
@@ -52,7 +52,8 @@ export function InspirationVideoEmbed({ url, cachedFileUrl }: InspirationVideoEm
       const { data } = await supabase
         .from("viral_videos")
         .select("video_file_url, video_file_expires_at")
-        .eq("video_url", canonical.normalizedUrl)
+        .in("video_url", videoUrlLookupVariants(url))
+        .order("video_file_url", { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
       if (cancelled) return;

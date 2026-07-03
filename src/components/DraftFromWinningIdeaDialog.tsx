@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { canonicalizeVideoUrl } from "@/lib/canonicalize-video-url";
+import { videoUrlLookupVariants } from "@/lib/canonicalize-video-url";
 import { forceVersionSnapshot, type ScriptLine } from "@/hooks/useScripts";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
@@ -41,18 +41,16 @@ interface Props {
   onApply: (lines: ScriptLine[]) => void;
 }
 
-function canon(url: string | null): string | null {
-  if (!url) return null;
-  return canonicalizeVideoUrl(url)?.normalizedUrl ?? url.trim();
-}
-
 async function fetchVideo(url: string | null): Promise<VideoInfo | null> {
-  const c = canon(url);
-  if (!c) return null;
+  if (!url) return null;
+  // Match every URL spelling the row might be stored under (IG /p/ vs /reel/).
+  const variants = videoUrlLookupVariants(url);
+  if (variants.length === 0) return null;
   const { data } = await supabase
     .from("viral_videos")
     .select("transcript, hook_text, analysis_status")
-    .eq("video_url", c)
+    .in("video_url", variants)
+    .order("transcript", { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
   return (data as VideoInfo) ?? null;

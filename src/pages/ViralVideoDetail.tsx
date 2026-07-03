@@ -7,7 +7,7 @@ import {
   NotebookPen,
 } from "lucide-react";
 import UseInScriptModal from "@/components/viral-today/UseInScriptModal";
-import { canonicalizeVideoUrl } from "@/lib/canonicalize-video-url";
+import { videoUrlLookupVariants } from "@/lib/canonicalize-video-url";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -425,8 +425,8 @@ export default function ViralVideoDetail() {
   // indicator reflects fresh attachments.
   useEffect(() => {
     if (!video?.video_url || useInScriptOpen) return;
-    const canonical = canonicalizeVideoUrl(video.video_url)?.normalizedUrl ?? video.video_url;
-    const urls = Array.from(new Set([canonical, video.video_url]));
+    // Every spelling a script might have stored (IG /p/ vs /reel/, raw paste).
+    const urls = videoUrlLookupVariants(video.video_url);
     let cancelled = false;
     (async () => {
       const queries = [

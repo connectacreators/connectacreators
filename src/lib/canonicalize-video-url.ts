@@ -30,10 +30,14 @@ function matchInstagram(u: URL): CanonicalVideo | null {
   const m = u.pathname.match(/^\/(reel|reels|p)\/([A-Za-z0-9_-]+)\/?/);
   if (!m) return null;
   const postId = m[2];
+  // /p/, /reel/ and /reels/ with the same shortcode are the SAME post —
+  // Instagram serves them interchangeably. Normalize all three to /reel/ so
+  // the shortcode is the identity (a /p/-pasted reference used to miss the
+  // /reel/-stored viral_videos row entirely).
   return {
     platform: "instagram",
     postId,
-    normalizedUrl: `https://www.instagram.com/${m[1] === "reels" ? "reel" : m[1]}/${postId}/`,
+    normalizedUrl: `https://www.instagram.com/reel/${postId}/`,
   };
 }
 
@@ -138,4 +142,26 @@ export function canonicalizeVideoUrl(raw: string): CanonicalVideo | null {
     matchYoutube(u) ||
     matchFacebook(u)
   );
+}
+
+/**
+ * All URL spellings a viral_videos row for this video might be stored under.
+ * DB rows predate canonicalization changes (Instagram rows exist in both
+ * /reel/ and /p/ form), so lookups by video_url should use
+ * `.in("video_url", videoUrlLookupVariants(url))` instead of eq(canonical).
+ * First element is always the canonical form (preferred for writes).
+ */
+export function videoUrlLookupVariants(raw: string): string[] {
+  const canonical = canonicalizeVideoUrl(raw);
+  if (!canonical) {
+    const t = (raw ?? "").trim();
+    return t ? [t] : [];
+  }
+  const variants = [canonical.normalizedUrl];
+  if (canonical.platform === "instagram") {
+    variants.push(`https://www.instagram.com/p/${canonical.postId}/`);
+  }
+  const t = (raw ?? "").trim();
+  if (t && !variants.includes(t)) variants.push(t);
+  return variants;
 }

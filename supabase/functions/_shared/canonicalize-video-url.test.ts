@@ -12,6 +12,8 @@ Deno.test("instagram /p/ URL", () => {
   const r = canonicalizeVideoUrl("https://instagram.com/p/ABC123/");
   assertEquals(r?.platform, "instagram");
   assertEquals(r?.postId, "ABC123");
+  // /p/ and /reel/ are the same post — both normalize to the /reel/ form.
+  assertEquals(r?.normalizedUrl, "https://www.instagram.com/reel/ABC123/");
 });
 
 Deno.test("instagram /reels/ URL", () => {

@@ -26,10 +26,14 @@ function matchInstagram(u: URL): CanonicalVideo | null {
   const m = u.pathname.match(/^\/(reel|reels|p)\/([A-Za-z0-9_-]+)\/?/);
   if (!m) return null;
   const postId = m[2];
+  // /p/, /reel/ and /reels/ with the same shortcode are the SAME post —
+  // Instagram serves them interchangeably. Normalize all three to /reel/ so
+  // the shortcode is the identity (a /p/-pasted reference used to miss the
+  // /reel/-stored viral_videos row entirely).
   return {
     platform: "instagram",
     postId,
-    normalizedUrl: `https://www.instagram.com/${m[1] === "reels" ? "reel" : m[1]}/${postId}/`,
+    normalizedUrl: `https://www.instagram.com/reel/${postId}/`,
   };
 }
 

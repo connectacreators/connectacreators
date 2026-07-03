@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Script Editor — Layout Options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink: #141418; --card: #1c1c21; --card2: #232329; --line: rgba(234,230,220,0.10);
+    --line2: rgba(234,230,220,0.18); --bone: #EAE6DC; --bone-2: rgba(234,230,220,0.62);
+    --bone-3: rgba(234,230,220,0.40); --aqua: #8FD0D5; --honey: #E0A560;
+    --filming: #E0A560; --actor: #7EB8E8; --editor: #7FB58A; --tos: #999;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0e0e11; color: var(--bone); font-family: Figtree, sans-serif; padding: 40px 24px 80px; }
+  h1 { font-family: 'EB Garamond', serif; font-size: 34px; text-align: center; margin-bottom: 6px; }
+  .sub { text-align: center; color: var(--bone-3); font-size: 14px; margin-bottom: 48px; }
+  .option { max-width: 1100px; margin: 0 auto 72px; }
+  .option-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .option-head h2 { font-family: 'EB Garamond', serif; font-size: 24px; }
+  .badge { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line2); color: var(--bone-2); }
+  .badge.rec { border-color: var(--aqua); color: var(--aqua); }
+  .verdict { color: var(--bone-3); font-size: 13.5px; margin-bottom: 16px; max-width: 860px; line-height: 1.55; }
+  .verdict b { color: var(--bone-2); }
+  .frame { background: var(--ink); border: 1px solid var(--line2); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+
+  /* shared bits */
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--card); position: relative; }
+  .topbar .back { color: var(--bone-3); font-size: 13px; }
+  .topbar .title { font-family: 'EB Garamond', serif; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .btn { font-size: 12px; padding: 6px 14px; border-radius: 9px; border: 1px solid var(--line2); color: var(--bone-2); background: transparent; white-space: nowrap; }
+  .btn.primary { background: var(--bone); color: #17171b; font-weight: 600; border-color: transparent; }
+  .chip { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line2); color: var(--bone-2); white-space: nowrap; }
+  .doc { padding: 22px 26px; }
+  .sec { font-family: 'EB Garamond', serif; font-weight: 700; font-size: 15px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; }
+  .sec:first-child { margin-top: 0; }
+  .sec .rule { flex: 1; height: 1px; background: var(--line); }
+  .sec .mini { font-family: Figtree; font-weight: 500; font-size: 10.5px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line2); color: var(--bone-3); }
+  .ln { display: flex; gap: 10px; padding: 5px 0 5px 4px; font-size: 13.5px; line-height: 1.5; }
+  .ln .bar { width: 3px; border-radius: 2px; flex: none; }
+  .ln.f .bar { background: var(--filming); } .ln.f { color: var(--filming); }
+  .ln.a .bar { background: var(--actor); } .ln.a { color: var(--actor); }
+  .ln.e .bar { background: var(--editor); } .ln.e { color: var(--editor); }
+  .addsec { color: var(--bone-3); font-size: 12px; margin-top: 14px; }
+
+  /* Option A: side rail */
+  .split { display: grid; grid-template-columns: 1fr 300px; min-height: 480px; }
+  .rail { border-left: 1px solid var(--line); background: var(--card); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .rcard { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .rcard .rh { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .rcard .rh .act { font-size: 10.5px; color: var(--aqua); font-weight: 500; }
+  .rcard .rc { font-size: 12px; color: var(--bone-3); line-height: 1.5; }
+  .rcard .pill { display: inline-block; font-size: 11px; padding: 3px 9px; border-radius: 7px; background: rgba(234,230,220,0.06); border: 1px solid var(--line); color: var(--bone-2); margin: 2px 3px 0 0; }
+
+  /* Option B: collapsed rows */
+  .rows { border-bottom: 1px solid var(--line); background: var(--card); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 20px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .row:last-child { border-bottom: none; }
+  .row .lbl { font-weight: 600; }
+  .row .val { color: var(--bone-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .row .caret { color: var(--bone-3); }
+
+  /* Option C: tabs */
+  .tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .tab { padding: 10px 16px; font-size: 13px; color: var(--bone-3); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--bone); border-bottom-color: var(--aqua); font-weight: 600; }
+
+  .procon { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; font-size: 12.5px; }
+  .procon > div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; line-height: 1.6; }
+  .procon .p b { color: #7FB58A; } .procon .c b { color: #d98f8f; }
+</style>
+</head>
+<body>
+  <h1>Script Editor — three ways to un-crowd it</h1>
+  <p class="sub">Same script (Bravo Bonetti · "Los 5 estados…") rendered in each layout. Scroll to compare.</p>
+
+  <!-- ============ OPTION A ============ -->
+  <div class="option">
+    <div class="option-head"><h2>A · Side rail</h2><span class="badge rec">Recommended</span></div>
+    <p class="verdict"><b>The script becomes the page.</b> Everything that is *about* the script (format, winning idea, caption, footage) moves into a slim right rail — always visible, never in the way. Save lives in a sticky top bar with the secondary actions folded into a ⋯ menu. This matches how you actually work: 90% of time in the document, glancing at setup.</p>
+    <div class="frame">
+      <div class="topbar">
+        <span class="back">← Bravo Bonetti</span>
+        <span class="title">Los 5 estados donde hay probabilidad de ganar tu caso de asilo</span>
+        <button class="btn primary">Save</button>
+        <button class="btn">⋯</button>
+      </div>
+      <div class="split">
+        <div class="doc">
+          <div class="sec">HOOK <span class="mini">☀ Regenerate</span><span class="rule"></span></div>
+          <div class="ln a"><span class="bar"></span>Estas son las 5 preguntas que debes saber con tu pareja antes de la entrevista con USCIS</div>
+          <div class="ln f"><span class="bar"></span>Deja suficiente espacio al lado izquierdo para colocar las preguntas</div>
+          <div class="sec">BODY<span class="rule"></span></div>
+          <div class="ln a"><span class="bar"></span>1. ¿Qué cenaron anoche?</div>
+          <div class="ln e"><span class="bar"></span>(editor coloca: 1. ¿Qué cenaron? en tiktoksans)</div>
+          <div class="ln a"><span class="bar"></span>2. ¿Quién manejó a la entrevista?</div>
+          <div class="ln a"><span class="bar"></span>3. ¿Qué traía puesto el día de su primera cita?</div>
+          <div class="sec">CTA<span class="rule"></span></div>
+          <div class="ln a"><span class="bar"></span>Agenda tu consulta gratis — link en la bio</div>
+          <div class="addsec">＋ Add section</div>
+        </div>
+        <div class="rail">
+          <div class="rcard">
+            <div class="rh">🎬 How to film & edit <span class="act">edit</span></div>
+            <div class="rc"><span class="pill">Educational</span><span class="pill">▶ Reference ●</span></div>
+          </div>
+          <div class="rcard">
+            <div class="rh">💡 Winning idea <span class="act">✨ Draft script</span></div>
+            <div class="rc"><span class="pill">▶ reel/DaDsoPIDRis</span></div>
+          </div>
+          <div class="rcard">
+            <div class="rh">💬 Caption <span class="act">Generate</span></div>
+            <div class="rc">Las 5 cortes que MÁS niegan asilo ahora mismo: Omaha, Nebraska. Casi 99%…</div>
+          </div>
+          <div class="rcard">
+            <div class="rh">📎 Footage & files <span class="act">view / add</span></div>
+            <div class="rc">2 clips · 1 submission</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="procon">
+      <div class="p"><b>Pros:</b> script above the fold instantly · setup always glanceable (you'll never forget a missing winning idea) · caption editable without scrolling away from the doc · scales well as we add more skills</div>
+      <div class="c"><b>Cons:</b> biggest layout change to build · rail must collapse into an accordion on mobile · caption editing in a narrow column (rail cards expand into a popover for long edits)</div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION B ============ -->
+  <div class="option">
+    <div class="option-head"><h2>B · Collapsed setup rows</h2><span class="badge">Lowest risk</span></div>
+    <p class="verdict"><b>Same single column, 80% less chrome.</b> The three setup cards compress into one-line rows that expand inline when clicked. The doc starts ~450px higher. Cheapest to build, smallest change to learn — but setup content is hidden until clicked, and expanding pushes the doc down while open.</p>
+    <div class="frame">
+      <div class="topbar">
+        <span class="back">← Bravo Bonetti</span>
+        <span class="title">Los 5 estados donde hay probabilidad de ganar tu caso de asilo</span>
+        <button class="btn primary">Save</button>
+        <button class="btn">⋯</button>
+      </div>
+      <div class="rows">
+        <div class="row"><span>🎬</span><span class="lbl">Format</span><span class="val">Educational · Reference ●</span><span class="caret">▾</span></div>
+        <div class="row"><span>💡</span><span class="lbl">Winning idea</span><span class="val">reel/DaDsoPIDRis</span><span class="chip">✨ Draft script</span><span class="caret">▾</span></div>
+        <div class="row"><span>💬</span><span class="lbl">Caption</span><span class="val">Las 5 cortes que MÁS niegan asilo ahora mismo: Omaha…</span><span class="chip">Generate</span><span class="caret">▾</span></div>
+      </div>
+      <div class="doc">
+        <div class="sec">HOOK <span class="mini">☀ Regenerate</span><span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>Estas son las 5 preguntas que debes saber con tu pareja antes de la entrevista con USCIS</div>
+        <div class="ln f"><span class="bar"></span>Deja suficiente espacio al lado izquierdo para colocar las preguntas</div>
+        <div class="sec">BODY<span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>1. ¿Qué cenaron anoche?</div>
+        <div class="ln a"><span class="bar"></span>2. ¿Quién manejó a la entrevista?</div>
+        <div class="sec">CTA<span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>Agenda tu consulta gratis — link en la bio</div>
+        <div class="addsec">＋ Add section</div>
+      </div>
+    </div>
+    <div class="procon">
+      <div class="p"><b>Pros:</b> fastest to ship (a day) · zero relearning · works identically on mobile · doc dramatically higher on the page</div>
+      <div class="c"><b>Cons:</b> setup is hidden (a script with no winning idea looks the same as one with) · expanding a row shoves the doc down · caption preview truncated to one line</div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION C ============ -->
+  <div class="option">
+    <div class="option-head"><h2>C · Tabs</h2><span class="badge">Most focus</span></div>
+    <p class="verdict"><b>One thing on screen at a time.</b> Script is the default tab; Setup (format + winning idea + footage) and Caption get their own spacious views. Cleanest possible writing surface — but out of sight is out of mind, and hopping tabs to check the winning idea while writing gets old fast.</p>
+    <div class="frame">
+      <div class="topbar">
+        <span class="back">← Bravo Bonetti</span>
+        <span class="title">Los 5 estados donde hay probabilidad de ganar tu caso de asilo</span>
+        <button class="btn primary">Save</button>
+        <button class="btn">⋯</button>
+      </div>
+      <div class="tabs">
+        <div class="tab on">Script</div>
+        <div class="tab">Setup</div>
+        <div class="tab">Caption</div>
+      </div>
+      <div class="doc">
+        <div class="sec">HOOK <span class="mini">☀ Regenerate</span><span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>Estas son las 5 preguntas que debes saber con tu pareja antes de la entrevista con USCIS</div>
+        <div class="ln f"><span class="bar"></span>Deja suficiente espacio al lado izquierdo para colocar las preguntas</div>
+        <div class="sec">BODY<span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>1. ¿Qué cenaron anoche?</div>
+        <div class="ln a"><span class="bar"></span>2. ¿Quién manejó a la entrevista?</div>
+        <div class="sec">CTA<span class="rule"></span></div>
+        <div class="ln a"><span class="bar"></span>Agenda tu consulta gratis — link en la bio</div>
+        <div class="addsec">＋ Add section</div>
+      </div>
+    </div>
+    <div class="procon">
+      <div class="p"><b>Pros:</b> maximum focus per view · each tab has room to breathe (caption becomes a proper editor) · easy mental model</div>
+      <div class="c"><b>Cons:</b> setup invisible while writing · "Draft script" button lives two clicks away · tab switching breaks flow when referencing the winning idea mid-write</div>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:-20px">All three keep: the sticky Save + ⋯ menu (Re-categorize · History · Share · Record · Teleprompter),<br>the B/I/U + line-type toolbar directly above the doc, and the Footage/File Submission links.</p>
+</body>
+</html>
