@@ -496,6 +496,19 @@ export default function Scripts() {
       return next;
     });
   };
+  // Collapsed cards expand on click anywhere (not just the chevron). Clicks on
+  // inner buttons (Draft / Generate / the chevron itself) are ignored here so
+  // they keep their own behavior without double-toggling.
+  const cardExpandProps = (key: string) =>
+    collapsedCards[key]
+      ? {
+          onClick: (e: React.MouseEvent) => {
+            if ((e.target as HTMLElement).closest("button")) return;
+            toggleCard(key);
+          },
+          role: "button" as const,
+        }
+      : {};
   const cardToggleButton = (key: string) => (
     <button
       type="button"
@@ -3337,7 +3350,7 @@ export default function Scripts() {
             )}
 
             {/* FORMAT — selectable chips + single reference link */}
-            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["format"] ? "pb-3 sm:pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["format"] ? "pb-3 sm:pb-4 cursor-pointer" : ""}`} {...cardExpandProps("format")}>
               <div className={`flex items-start gap-2 ${collapsedCards["format"] ? "" : "mb-3"}`}>
                 <Clapperboard className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <div className="min-w-0">
@@ -3467,7 +3480,7 @@ export default function Scripts() {
               />
             </div>
 
-            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["idea"] ? "pb-3 sm:pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["idea"] ? "pb-3 sm:pb-4 cursor-pointer" : ""}`} {...cardExpandProps("idea")}>
               <div className={`flex items-start gap-2 ${collapsedCards["idea"] ? "" : "mb-3"}`}>
                 <Eye className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <div className="min-w-0">
@@ -3621,7 +3634,7 @@ export default function Scripts() {
             </div>
 
             {/* Caption */}
-            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["caption"] ? "pb-3 sm:pb-4" : ""}`}>
+            <div className={`editorial-card p-4 sm:p-5 mb-2 ${collapsedCards["caption"] ? "pb-3 sm:pb-4 cursor-pointer" : ""}`} {...cardExpandProps("caption")}>
               <div className={`flex items-center gap-2 ${collapsedCards["caption"] ? "" : "mb-3"}`}>
                 <MessageSquare className="w-3.5 h-3.5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                 <span className="editorial-eyebrow" style={{ letterSpacing: "0.20em", fontSize: 10 }}>
