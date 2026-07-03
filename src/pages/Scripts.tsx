@@ -3576,7 +3576,12 @@ export default function Scripts() {
                   inspirationUrl={viewingInspirationUrls[0] ?? null}
                   formatReferenceUrl={viewingFormatReferenceUrl}
                   language={language}
-                  onApply={(lines) => setDocBlocks(withUids(synthesizeBlocksFromLines(lines)))}
+                  // MUST go through handleBlocksChange (not raw setDocBlocks):
+                  // it diffs prev vs next and registers every replaced block id
+                  // as removed. The save path only deletes explicitly-removed
+                  // ids (non-destructive by design), so a raw replace left the
+                  // old document in the DB and Save resurrected it.
+                  onApply={(lines) => handleBlocksChange(() => withUids(synthesizeBlocksFromLines(lines)))}
                 />
               )}
             </div>
