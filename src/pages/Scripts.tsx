@@ -44,6 +44,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { lifecycleUpdate } from "@/lib/lifecycleStatus";
 import { InspirationVideoEmbed } from "@/components/video/InspirationVideoEmbed";
+import { VideoBreakdownDialog } from "@/components/video/VideoBreakdownDialog";
+import { registerViralVideo } from "@/lib/ensureViralVideo";
 import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBlocks";
 import { buildBaseline, blockSignature } from "@/lib/scriptBlockDiff";
 import { mergeRemoteBlocks } from "@/lib/scriptRemoteMerge";
@@ -1435,6 +1437,9 @@ export default function Scripts() {
   const persistInspirations = async (urls: string[]) => {
     if (!viewingScriptId) return;
     const clean = urls.map((u) => u.trim()).filter(Boolean);
+    // Register any NEW urls in the Viral Today library (fire-and-forget) so
+    // the breakdown dialog + Analyze work on them, same as canvas drops.
+    clean.filter((u) => !viewingInspirationUrls.includes(u)).forEach(registerViralVideo);
     setViewingInspirationUrls(clean);
     await supabase
       .from("scripts")
@@ -1451,6 +1456,7 @@ export default function Scripts() {
   const persistFormatReference = async (url: string | null) => {
     if (!viewingScriptId) return;
     const clean = url?.trim() || null;
+    if (clean && clean !== viewingFormatReferenceUrl) registerViralVideo(clean);
     setViewingFormatReferenceUrl(clean);
     await supabase.from("scripts").update({ format_reference_url: clean }).eq("id", viewingScriptId);
     setScripts((prev) => prev.map((s) => s.id === viewingScriptId ? { ...s, format_reference_url: clean } : s));
@@ -3424,16 +3430,12 @@ export default function Scripts() {
                 );
               })()}
 
-              <Dialog open={!!formatReferenceVideoUrl} onOpenChange={(open) => { if (!open) setFormatReferenceVideoUrl(null); }}>
-                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
-                  <DialogHeader className="p-4 pb-0">
-                    <DialogTitle className="text-sm">{tr({ en: "Format Reference", es: "Referencia de Formato" }, language)}</DialogTitle>
-                  </DialogHeader>
-                  <div className="p-4 pt-2">
-                    {formatReferenceVideoUrl && <InspirationVideoEmbed url={formatReferenceVideoUrl} />}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <VideoBreakdownDialog
+                open={!!formatReferenceVideoUrl}
+                onClose={() => setFormatReferenceVideoUrl(null)}
+                url={formatReferenceVideoUrl}
+                title={tr({ en: "Format Reference", es: "Referencia de Formato" }, language)}
+              />
             </div>
 
             <div className="editorial-card p-5 mb-2">
@@ -3542,16 +3544,12 @@ export default function Scripts() {
                 )}
               </div>
 
-              <Dialog open={!!inspirationVideoUrl} onOpenChange={(open) => { if (!open) setInspirationVideoUrl(null); }}>
-                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden">
-                  <DialogHeader className="p-4 pb-0">
-                    <DialogTitle className="text-sm">{tr({ en: "Inspiration Video", es: "Video de Inspiración" }, language)}</DialogTitle>
-                  </DialogHeader>
-                  <div className="p-4 pt-2">
-                    {inspirationVideoUrl && <InspirationVideoEmbed url={inspirationVideoUrl} />}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <VideoBreakdownDialog
+                open={!!inspirationVideoUrl}
+                onClose={() => setInspirationVideoUrl(null)}
+                url={inspirationVideoUrl}
+                title={tr({ en: "The Winning Idea", es: "La Idea Ganadora" }, language)}
+              />
             </div>
 
             {/* Caption */}

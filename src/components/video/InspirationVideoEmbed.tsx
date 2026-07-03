@@ -9,25 +9,36 @@ import { tr } from "@/i18n/translations";
 
 interface InspirationVideoEmbedProps {
   url: string;
+  /** Already-resolved cached file URL (e.g. from VideoBreakdownDialog) —
+   *  skips the viral_videos lookup so playback starts immediately. */
+  cachedFileUrl?: string | null;
 }
 
 const VPS_API = "https://connectacreators.com/api";
 
 /** Cobalt-backed VPS proxy that streams the raw reel bytes (no permanent
- *  download) — the same path Viral Today uses for un-cached videos. */
+ *  download) — the same path Viral Today uses for un-cached videos. The VPS
+ *  caches resolved reels; forcing nocache=1 here made EVERY playback re-run
+ *  yt-dlp from scratch (5-15s of spinner instead of instant cache hits). */
 const streamReelUrl = (originalUrl: string) =>
-  `${VPS_API}/stream-reel?url=${encodeURIComponent(originalUrl)}&nocache=1`;
+  `${VPS_API}/stream-reel?url=${encodeURIComponent(originalUrl)}`;
 
 type LookupState =
   | { status: "loading" }
   | { status: "playable"; videoFileUrl: string }
   | { status: "fallback" };
 
-export function InspirationVideoEmbed({ url }: InspirationVideoEmbedProps) {
+export function InspirationVideoEmbed({ url, cachedFileUrl }: InspirationVideoEmbedProps) {
   const { language } = useLanguage();
-  const [state, setState] = useState<LookupState>({ status: "loading" });
+  const [state, setState] = useState<LookupState>(
+    cachedFileUrl ? { status: "playable", videoFileUrl: cachedFileUrl } : { status: "loading" },
+  );
 
   useEffect(() => {
+    if (cachedFileUrl) {
+      setState({ status: "playable", videoFileUrl: cachedFileUrl });
+      return;
+    }
     let cancelled = false;
     setState({ status: "loading" });
 
@@ -61,7 +72,7 @@ export function InspirationVideoEmbed({ url }: InspirationVideoEmbedProps) {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, cachedFileUrl]);
 
   if (state.status === "loading") {
     return (
