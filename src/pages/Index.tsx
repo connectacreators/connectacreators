@@ -44,7 +44,7 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
       }}
     >
-      Book your advisory call →
+      Book Your Free Strategy Session →
     </a>
   );
 }
@@ -104,7 +104,7 @@ function SectionSub({ text }: { text: string }) {
 }
 
 const PROCESS_STEPS = [
-  { icon: Target, phase: "Step 1", title: "We rebuild your offer", body: "We start by sharpening your offer and positioning, so everything we film and publish is built to attract the right clients." },
+  { icon: Target, phase: "Step 1", title: "We build your strategy", body: "Before anything gets filmed, we study your market, your competitors and what makes your ideal client actually buy. Then we build a content plan that positions you as the go-to in your space, with video ideas drawn from what's already proven in your niche." },
   { icon: Clapperboard, phase: "Step 2", title: "You film ~4 hrs a month", body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else." },
   { icon: TrendingUp, phase: "Step 3", title: "We edit, publish & optimize", body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile." },
   { icon: MessageCircle, phase: "Step 4", title: "Organic DM acquisition funnel", body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments." },
@@ -118,11 +118,9 @@ const FOR_QUALITIES = [
 ];
 
 const NOT_FOR = [
-  "Businesses without a clear offer or service",
-  "Owners who don't want to appear on camera",
-  "Anyone looking for just ads or just content, without the full system",
-  "Anyone expecting results without filming the content",
-  "Anyone without the capacity to take on more clients",
+  "Don't have a proven offer",
+  "Expecting overnight results",
+  "Can't commit 4 hours/month to recording",
 ];
 
 const PROCESS = [
@@ -791,7 +789,7 @@ export default function Index() {
               boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
             }}
           >
-            Book your advisory call →
+            Book Your Free Strategy Session →
           </button>
           <div
             style={{
@@ -1081,7 +1079,7 @@ export default function Index() {
       {/* ⑨ BOOK — Calendly embed */}
       <div id="book" style={{ background: "#0a0a0a" }}>
         <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 24px 96px", textAlign: "center" }}>
-          <SectionTitle text="BOOK YOUR ADVISORY CALL" />
+          <SectionTitle text="BOOK YOUR FREE STRATEGY SESSION" />
           <SectionSub text="30 minutes to map out exactly what this looks like for your business." />
           <div
             className="calendly-inline-widget"

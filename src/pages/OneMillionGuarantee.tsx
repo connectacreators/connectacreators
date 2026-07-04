@@ -121,30 +121,31 @@ const INDUSTRIES = [
 const PROCESS = [
   {
     n: "01",
-    title: "We build your strategy",
-    body: "Before anything gets filmed, we study your market, your competitors, and what makes your ideal client actually buy. Then we build a content plan that positions you as the go-to in your space, with video ideas drawn from what's already proven in your niche.",
+    title: "Apply",
+    body: "Tell us about your business and your market. Takes ~2 minutes.",
   },
   {
     n: "02",
-    title: "You film ~4 hrs a month",
-    body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else.",
+    title: "Strategy Call",
+    body: "30-minute call. We show exactly what the system looks like in your business.",
   },
   {
     n: "03",
-    title: "We edit, publish & optimize",
-    body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile.",
+    title: "Install",
+    body: "Within 2–3 weeks: research, scripts, first shoot day, ads, and ManyChat live.",
   },
   {
     n: "04",
-    title: "Organic DM acquisition funnel",
-    body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments.",
+    title: "Scale",
+    body: "We run the engine monthly. You show up on camera. Views and leads compound.",
   },
 ];
 
 const NOT_FOR = [
-  "Don't have a proven offer",
-  "Expecting overnight results",
-  "Can't commit 4 hours/month to recording",
+  "Businesses with no Utah local market to serve",
+  "Owners who refuse to appear on camera",
+  "People shopping for just editing or just ads — we run the whole system",
+  "Anyone expecting results without committing to a shoot day",
 ];
 
 const FAQS = [
@@ -974,7 +975,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div className="hero-cta-row">
-            <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" inverted glow onApply={openApply} />
+            <ApplyBtn label="APPLY NOW" inverted glow onApply={openApply} />
             <span className="hero-cta-meta">
               <CheckCircle2 size={16} color={GOLD} />
               Only 5 client slots a month
@@ -1176,10 +1177,10 @@ export default function OneMillionGuarantee() {
         <div className="section section-center">
           <div className="section-eyebrow">How it works</div>
           <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
-            A done-for-you content engine in four steps.
+            From application to live system in under 3 weeks.
           </h2>
           <p className="section-sub">
-            You bring the expertise. We run everything else.
+            Four steps. We move fast — we accept five new clients per month.
           </p>
           <div className="timeline">
             {PROCESS.map((s) => (
@@ -1193,7 +1194,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div style={{ marginTop: 56 }}>
-            <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" onApply={openApply} />
+            <ApplyBtn label="START WITH STEP 1" onApply={openApply} />
           </div>
         </div>
       </section>
@@ -1268,7 +1269,7 @@ export default function OneMillionGuarantee() {
         <p>
           We've got space for 5 new businesses this month. Application takes ~2 minutes — strategy call is free.
         </p>
-        <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" inverted glow onApply={openApply} />
+        <ApplyBtn label="APPLY TO WORK WITH US" inverted glow onApply={openApply} />
         <div className="scarcity">★ Only 5 client slots per month</div>
       </section>
 
