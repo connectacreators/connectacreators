@@ -121,23 +121,23 @@ const INDUSTRIES = [
 const PROCESS = [
   {
     n: "01",
-    title: "Apply",
-    body: "Tell us about your business and your market. Takes ~2 minutes.",
+    title: "We build your strategy",
+    body: "Before anything gets filmed, we study your market, your competitors, and what makes your ideal client actually buy. Then we build a content plan that positions you as the go-to in your space, with video ideas drawn from what's already proven in your niche.",
   },
   {
     n: "02",
-    title: "Strategy Call",
-    body: "30-minute call. We show exactly what the system looks like in your business.",
+    title: "You film ~4 hrs a month",
+    body: "We write your scripts, prep the entire shoot and coach you on camera. You're busy running your business — so all we need is about 4 hours of filming a month. We handle everything else.",
   },
   {
     n: "03",
-    title: "Install",
-    body: "Within 2–3 weeks: research, scripts, first shoot day, ads, and ManyChat live.",
+    title: "We edit, publish & optimize",
+    body: "We edit and publish your content for you, then optimize the strategy month over month based on the data and your ideal client profile.",
   },
   {
     n: "04",
-    title: "Scale",
-    body: "We run the engine monthly. You show up on camera. Views and leads compound.",
+    title: "Organic DM acquisition funnel",
+    body: "We install an organic DM acquisition funnel that captures and nurtures every lead that comes in — turning conversations into booked appointments.",
   },
 ];
 
@@ -1176,10 +1176,10 @@ export default function OneMillionGuarantee() {
         <div className="section section-center">
           <div className="section-eyebrow">How it works</div>
           <h2 className="section-title" style={{ marginLeft: "auto", marginRight: "auto" }}>
-            From application to live system in under 3 weeks.
+            A done-for-you content engine in four steps.
           </h2>
           <p className="section-sub">
-            Four steps. We move fast — we accept five new clients per month.
+            You bring the expertise. We run everything else.
           </p>
           <div className="timeline">
             {PROCESS.map((s) => (
@@ -1193,7 +1193,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div style={{ marginTop: 56 }}>
-            <ApplyBtn label="START WITH STEP 1" onApply={openApply} />
+            <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" onApply={openApply} />
           </div>
         </div>
       </section>
