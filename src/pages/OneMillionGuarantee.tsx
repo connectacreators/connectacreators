@@ -974,7 +974,7 @@ export default function OneMillionGuarantee() {
             ))}
           </div>
           <div className="hero-cta-row">
-            <ApplyBtn label="APPLY NOW" inverted glow onApply={openApply} />
+            <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" inverted glow onApply={openApply} />
             <span className="hero-cta-meta">
               <CheckCircle2 size={16} color={GOLD} />
               Only 5 client slots a month
@@ -1268,7 +1268,7 @@ export default function OneMillionGuarantee() {
         <p>
           We've got space for 5 new businesses this month. Application takes ~2 minutes — strategy call is free.
         </p>
-        <ApplyBtn label="APPLY TO WORK WITH US" inverted glow onApply={openApply} />
+        <ApplyBtn label="BOOK YOUR FREE STRATEGY SESSION" inverted glow onApply={openApply} />
         <div className="scarcity">★ Only 5 client slots per month</div>
       </section>
 
