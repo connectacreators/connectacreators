@@ -7,7 +7,7 @@ import PageTransition from "@/components/PageTransition";
 import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
-import { monthWindow } from "@/lib/strategy/pace";
+import { monthWindow, pacePct, paceState, expectedByToday, fulfillmentScore } from "@/lib/strategy/pace";
 
 interface ClientStrategy {
   id?: string;
@@ -90,24 +90,18 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   audience_analyzed_at: null,
 };
 
-function calcScore(strategy: ClientStrategy, counts: MonthCounts): number {
-  const scriptsPct = Math.min(100, (counts.scripts / Math.max(1, strategy.scripts_per_month)) * 100);
-  const videosPct = Math.min(100, (counts.videos_edited / Math.max(1, strategy.videos_edited_per_month)) * 100);
-  const calendarPct = Math.min(100, (counts.posts_scheduled / Math.max(1, strategy.posts_per_month)) * 100);
-  const manchatPct = strategy.manychat_active ? 100 : 0;
-  const audiencePct = ((strategy.audience_score + strategy.uniqueness_score) / 2) * 10;
-  return Math.round(scriptsPct * 0.25 + videosPct * 0.25 + calendarPct * 0.20 + manchatPct * 0.15 + audiencePct * 0.15);
-}
-
 function scoreColor(score: number): string {
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#f59e0b";
   return "#ef4444";
 }
 
-function scoreLabel(score: number, en: boolean): string {
+function scoreLabel(score: number, en: boolean, isCurrent: boolean, dayOf: number): string {
   if (score >= 80) return en ? "On Track" : "En Camino";
-  if (score >= 50) return en ? "Needs Attention" : "Necesita Atención";
+  if (score >= 50) {
+    if (isCurrent && dayOf <= 7) return en ? "Tracking — early in month" : "En seguimiento — inicio de mes";
+    return en ? "Needs Attention" : "Necesita Atención";
+  }
   return en ? "Action Required" : "Acción Requerida";
 }
 
@@ -147,10 +141,15 @@ function StatusCard({ status, title, badge, children }: { status: StatusLevel; t
   );
 }
 
-function ProgressBar({ pct, color }: { pct: number; color: string }) {
+function ProgressBar({ pct, color, tickPct }: { pct: number; color: string; tickPct?: number }) {
   return (
-    <div className="h-[7px] rounded-full bg-white/[0.07] overflow-hidden mt-2">
-      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+    <div className="relative h-1.5 rounded-full bg-white/10 mt-1.5">
+      <div className="absolute inset-y-0 left-0 rounded-full transition-all"
+        style={{ width: `${pct}%`, background: color }} />
+      {tickPct !== undefined && (
+        <div className="absolute -top-1 -bottom-1 w-0.5 rounded-sm bg-white/55"
+          style={{ left: `${Math.min(100, tickPct)}%` }} />
+      )}
     </div>
   );
 }
@@ -326,15 +325,21 @@ export default function ClientStrategy() {
   }
 
   const s = (editing ? draft : strategy) || { client_id: clientId || "", ...DEFAULTS };
-  const score = calcScore(s, counts);
+  const score = strategy ? fulfillmentScore({
+    scripts: counts.scripts, edited: counts.videos_edited, scheduled: counts.posts_scheduled,
+    scriptsTarget: s.scripts_per_month, editedTarget: s.videos_edited_per_month,
+    scheduledTarget: s.posts_per_month,
+    manychatActive: s.manychat_active, audienceScore: s.audience_score, uniquenessScore: s.uniqueness_score,
+  }, win) : 0;
   const scoreC = scoreColor(score);
 
-  const paceMin = Math.min(
-    counts.scripts / Math.max(1, s.scripts_per_month),
-    counts.videos_edited / Math.max(1, s.videos_edited_per_month),
-    counts.posts_scheduled / Math.max(1, s.posts_per_month)
-  );
-  const paceStatus: StatusLevel = paceMin >= 0.7 ? "green" : paceMin >= 0.3 ? "yellow" : "red";
+  const behind = [
+    paceState(counts.scripts, s.scripts_per_month, win),
+    paceState(counts.videos_edited, s.videos_edited_per_month, win),
+    paceState(counts.videos_published, s.videos_edited_per_month, win),
+    paceState(counts.posts_scheduled, s.posts_per_month, win),
+  ].filter(st => st === "behind").length;
+  const paceStatus: StatusLevel = behind === 0 ? "green" : behind <= 2 ? "yellow" : "red";
   const manchatStatus: StatusLevel = s.manychat_active && s.manychat_keyword ? "green" : s.manychat_active ? "yellow" : "red";
   const audienceAvg = (s.audience_score + s.uniqueness_score) / 2;
   const audienceStatus: StatusLevel = audienceAvg >= 7 ? "green" : audienceAvg >= 4 ? "yellow" : "red";
@@ -467,14 +472,18 @@ export default function ClientStrategy() {
           </div>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold" style={{ color: scoreC }}>{scoreLabel(score, en)}</p>
-          <p className="text-xs text-muted-foreground mt-1 mb-2">{en ? "Robby tracks your content pace, mix, and automation health." : "Robby monitorea tu ritmo de contenido, mezcla y automatizaciones."}</p>
+          <p className="text-sm font-bold" style={{ color: scoreC }}>{scoreLabel(score, en, win.isCurrent, win.dayOf)}</p>
+          <p className="text-xs text-muted-foreground mt-1 mb-2">
+            {win.isCurrent
+              ? (en ? "Scored against where the month should be by today." : "Calificado contra dónde debería ir el mes hoy.")
+              : (en ? "Final score for this month." : "Puntaje final de este mes.")}
+          </p>
           <div className="flex flex-col gap-1">
             {[
-              { label: en ? "Scripts" : "Guiones", pct: Math.round(Math.min(100, (counts.scripts / Math.max(1, s.scripts_per_month)) * 100)) },
-              { label: en ? "Videos edited" : "Videos editados", pct: Math.round(Math.min(100, (counts.videos_edited / Math.max(1, s.videos_edited_per_month)) * 100)) },
-              { label: en ? "Published" : "Publicados", pct: Math.round(Math.min(100, (counts.videos_published / Math.max(1, s.videos_edited_per_month)) * 100)) },
-              { label: en ? "Posts scheduled" : "Posts programados", pct: Math.round(Math.min(100, (counts.posts_scheduled / Math.max(1, s.posts_per_month)) * 100)) },
+              { label: en ? "Scripts" : "Guiones", pct: pacePct(counts.scripts, s.scripts_per_month, win) },
+              { label: en ? "Videos edited" : "Videos editados", pct: pacePct(counts.videos_edited, s.videos_edited_per_month, win) },
+              { label: en ? "Published" : "Publicados", pct: pacePct(counts.videos_published, s.videos_edited_per_month, win) },
+              { label: en ? "Posts scheduled" : "Posts programados", pct: pacePct(counts.posts_scheduled, s.posts_per_month, win) },
               { label: "ManyChat", pct: s.manychat_active ? 100 : 0 },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-2">
@@ -490,7 +499,20 @@ export default function ClientStrategy() {
       <div className="flex flex-col gap-3">
 
         {/* Monthly Pace */}
-        <StatusCard status={paceStatus} title={en ? "Monthly Pace" : "Ritmo Mensual"} badge={paceStatus === "green" ? (en ? "On Track" : "En Camino") : paceStatus === "yellow" ? (en ? "Needs Work" : "Necesita Trabajo") : (en ? "Behind" : "Atrasado")}>
+        <StatusCard
+          status={paceStatus}
+          title={en ? "Monthly Pace" : "Ritmo Mensual"}
+          badge={
+            win.isCurrent
+              ? (behind === 0 ? (en ? "On pace" : "Al día") : (en ? `${behind} behind pace` : `${behind} atrasados`))
+              : (behind === 0 ? (en ? "Hit all targets" : "Todas las metas") : (en ? `${4 - behind}/4 targets` : `${4 - behind}/4 metas`))
+          }
+        >
+          {win.isCurrent && (
+            <p className="text-[10px] mb-3 text-[hsl(var(--aqua))]">
+              {en ? "tick = where you should be today" : "marca = dónde deberías ir hoy"}
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {([
               { label: en ? "Scripts" : "Guiones", count: counts.scripts, target: s.scripts_per_month, field: "scripts_per_month" },
@@ -498,8 +520,10 @@ export default function ClientStrategy() {
               { label: en ? "Published" : "Publicados", count: counts.videos_published, target: s.videos_edited_per_month, field: null },
               { label: en ? "Posts Scheduled" : "Posts Programados", count: counts.posts_scheduled, target: s.posts_per_month, field: "posts_per_month" },
             ] as { label: string; count: number; target: number; field: keyof ClientStrategy | null }[]).map(item => {
-              const pct = Math.min(100, (item.count / Math.max(1, item.target)) * 100);
-              const c = pct >= 70 ? "#22c55e" : pct >= 30 ? "#f59e0b" : "#ef4444";
+              const exp = expectedByToday(item.target, win);
+              const st = paceState(item.count, item.target, win);
+              const c = st === "ahead" ? "#22c55e" : st === "close" ? "#f59e0b" : "#ef4444";
+              const fillPct = Math.min(100, (item.count / Math.max(1, item.target)) * 100);
               return (
                 <div key={item.label}>
                   <div className="text-[9px] font-bold uppercase tracking-wider text-white/30 mb-1">{item.label}</div>
@@ -507,7 +531,17 @@ export default function ClientStrategy() {
                     {item.count} <span className="text-xs font-normal text-white/25">/ {item.target}</span>
                   </div>
                   {editing && item.field && <div className="mt-1">{input(item.field, "number")}</div>}
-                  <ProgressBar pct={pct} color={c} />
+                  <ProgressBar pct={fillPct} color={c}
+                    tickPct={win.isCurrent ? (exp / Math.max(1, item.target)) * 100 : undefined} />
+                  <div className="text-[10px] mt-1" style={{ color: c }}>
+                    {win.isCurrent
+                      ? (st === "ahead"
+                          ? (en ? `ahead — expected ~${exp} by today` : `adelantado — esperado ~${exp} hoy`)
+                          : (en ? `behind — expected ~${exp} by today` : `atrasado — esperado ~${exp} hoy`))
+                      : (item.count >= item.target
+                          ? (en ? "target hit" : "meta cumplida")
+                          : (en ? `finished at ${item.count} of ${item.target}` : `terminó en ${item.count} de ${item.target}`))}
+                  </div>
                 </div>
               );
             })}
