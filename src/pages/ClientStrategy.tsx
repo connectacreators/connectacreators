@@ -318,6 +318,25 @@ export default function ClientStrategy() {
     }
   }, [clientId, strategy, en]);
 
+  // Multi-field variant of persistField: one upsert for related fields that
+  // must land together (e.g. Done flow writes pipeline_state + the date field).
+  // Two sequential persistField calls would both close over the same stale
+  // `strategy` snapshot and the second write would erase the first.
+  const persistFields = useCallback(async (patch: Partial<ClientStrategy>) => {
+    if (!clientId || !strategy) return;
+    const next: ClientStrategy = { ...strategy, ...patch };
+    try {
+      const { error } = await supabase
+        .from("client_strategies")
+        .upsert({ ...next, client_id: clientId }, { onConflict: "client_id" });
+      if (error) throw error;
+      setStrategy(next);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (en ? "Error saving" : "Error al guardar");
+      toast.error(msg);
+    }
+  }, [clientId, strategy, en]);
+
   if (loading) {
     return (
       <PageTransition className="flex-1 flex items-center justify-center">
@@ -593,6 +612,7 @@ export default function ClientStrategy() {
           editing={editing}
           set={set as any}
           onPersistField={persistField as any}
+          onPersistFields={persistFields as any}
           en={en}
         />
 

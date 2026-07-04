@@ -11,7 +11,7 @@
 //   2. Inline edit (parent.editing=false) — click the calendar/edit button
 //      (or "+ Set date" for unset rows) to edit just that one field. Enter
 //      or blur persists immediately via onPersistField; Escape cancels.
-//      ads_active flips on click.
+//      ads_active flips on double-click.
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -43,6 +43,10 @@ interface Props {
   editing: boolean;
   set: <K extends keyof PipelineFields>(field: K, value: PipelineFields[K]) => void;
   onPersistField?: <K extends keyof PipelineFields>(field: K, value: PipelineFields[K]) => Promise<void>;
+  /** Persist several fields in ONE write. Required by the Done flow: two
+   *  sequential onPersistField calls share a stale parent snapshot, so the
+   *  second write would erase the first's pipeline_state update. */
+  onPersistFields?: (patch: Partial<PipelineFields>) => Promise<void>;
   en: boolean;
 }
 
@@ -60,7 +64,7 @@ const ROWS: Array<{ field: keyof PipelineFields; labelEn: string; labelEs: strin
 const editableSpanClass =
   "cursor-text border-b border-dashed border-white/0 hover:border-white/30 transition-colors select-none";
 
-export function ProductionPipelineSection({ s, editing, set, onPersistField, en }: Props) {
+export function ProductionPipelineSection({ s, editing, set, onPersistField, onPersistFields, en }: Props) {
   // Tracks which row is currently in inline-edit mode (global editing=false).
   // value holds the in-progress input text so Escape can cancel cleanly.
   const [inline, setInline] = useState<
@@ -131,10 +135,10 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
   const markDone = (field: keyof PipelineFields) => setPrompting(field);
 
   const finishDone = async (field: keyof PipelineFields, nextIso: string | null) => {
-    if (!onPersistField) return;
     const state = { ...doneMap, [field]: { done_at: new Date().toISOString() } };
-    await onPersistField('pipeline_state' as keyof PipelineFields, state as never);
-    await onPersistField(field, nextIso as never); // nextIso null → field becomes unset
+    // Single write: nextIso null → field becomes unset. Two sequential
+    // single-field persists would clobber each other (stale parent snapshot).
+    await onPersistFields?.({ pipeline_state: state, [field]: nextIso } as Partial<PipelineFields>);
     setPrompting(null);
     setInline(null);
   };
@@ -158,7 +162,7 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
             className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
             style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
           >
-            {overdueCount} {en ? 'overdue' : 'atrasados'}
+            {overdueCount} {en ? 'overdue' : (overdueCount === 1 ? 'atrasado' : 'atrasados')}
           </span>
         )}
       </div>
@@ -232,7 +236,7 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
                       </span>
                       {bucket === 'overdue' && (
                         <span className="text-[11px]" style={{ color: '#ef4444' }}>
-                          {overdueDays}{en ? 'd overdue' : 'd atrasado'}
+                          {overdueDays}{en ? 'd overdue' : (overdueDays === 1 ? 'd atrasado' : 'd atrasados')}
                         </span>
                       )}
 
