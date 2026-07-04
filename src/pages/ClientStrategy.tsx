@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PageTransition from "@/components/PageTransition";
 import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
+import { StrategySetupCard } from "@/components/strategy/StrategySetupCard";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
 import { monthWindow, pacePct, paceState, expectedByToday, fulfillmentScore } from "@/lib/strategy/pace";
@@ -361,12 +362,8 @@ export default function ClientStrategy() {
     paceState(counts.posts_scheduled, s.posts_per_month, win),
   ].filter(st => st === "behind").length;
   const paceStatus: StatusLevel = behind === 0 ? "green" : behind <= 2 ? "yellow" : "red";
-  const manchatStatus: StatusLevel = s.manychat_active && s.manychat_keyword ? "green" : s.manychat_active ? "yellow" : "red";
   const audienceAvg = (s.audience_score + s.uniqueness_score) / 2;
   const audienceStatus: StatusLevel = audienceAvg >= 7 ? "green" : audienceAvg >= 4 ? "yellow" : "red";
-  const adsStatus: StatusLevel = s.ads_active ? "green" : "yellow";
-  const revPct = s.monthly_revenue_goal > 0 ? Math.min(100, (s.monthly_revenue_actual / s.monthly_revenue_goal) * 100) : 0;
-  const revStatus: StatusLevel = revPct >= 70 ? "green" : revPct >= 30 ? "yellow" : "red";
 
   const input = (field: keyof ClientStrategy, type: "text" | "number" | "boolean" = "text") => {
     if (!editing) return null;
@@ -569,32 +566,6 @@ export default function ClientStrategy() {
           </div>
         </StatusCard>
 
-        {/* Content Mix */}
-        <StatusCard status="green" title={en ? "Content Mix" : "Mezcla de Contenido"} badge={en ? "Configured" : "Configurado"}>
-          <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-2">
-            <div style={{ width: `${s.mix_reach}%`, background: "hsl(var(--aqua))", borderRadius: "999px" }} />
-            <div style={{ width: `${s.mix_trust}%`, background: "#F0BC7D", borderRadius: "999px" }} />
-            <div style={{ width: `${s.mix_convert}%`, background: "#f59e0b", borderRadius: "999px" }} />
-          </div>
-          <div className="flex gap-4 flex-wrap mb-2">
-            {[
-              { label: en ? "Reach" : "Alcance", value: s.mix_reach, color: "hsl(var(--aqua))", field: "mix_reach" as keyof ClientStrategy },
-              { label: en ? "Trust" : "Confianza", value: s.mix_trust, color: "#F0BC7D", field: "mix_trust" as keyof ClientStrategy },
-              { label: en ? "Convert" : "Conversión", value: s.mix_convert, color: "#f59e0b", field: "mix_convert" as keyof ClientStrategy },
-            ].map(item => (
-              <div key={String(item.field)} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full" style={{ background: item.color }} />
-                <span className="text-[10px] text-white/40">{item.label}:</span>
-                {editing
-                  ? <input type="number" value={item.value} onChange={e => set(item.field, Number(e.target.value))} className="bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5 text-[11px] text-white w-12 outline-none" />
-                  : <span className="text-[11px] font-bold" style={{ color: item.color }}>{item.value}%</span>
-                }
-              </div>
-            ))}
-          </div>
-          {editing && <p className="text-[10px] text-white/25">{en ? "Percentages must add up to 100" : "Los porcentajes deben sumar 100"}</p>}
-        </StatusCard>
-
         {/* Production Pipeline */}
         <ProductionPipelineSection
           s={{
@@ -719,81 +690,15 @@ export default function ClientStrategy() {
           </div>
         </StatusCard>
 
-        {/* ManyChat & CTAs */}
-        <StatusCard status={manchatStatus} title="ManyChat & CTAs" badge={s.manychat_active ? (en ? "Active" : "Activo") : (en ? "Not Set Up" : "No Configurado")}>
-          <div className="flex flex-col gap-2">
-            {[
-              { label: en ? "ManyChat active" : "ManyChat activo", field: "manychat_active" as keyof ClientStrategy, type: "boolean" as const },
-              { label: en ? "Automation keyword" : "Palabra clave", field: "manychat_keyword" as keyof ClientStrategy, type: "text" as const },
-              { label: en ? "CTA goal" : "Objetivo del CTA", field: "cta_goal" as keyof ClientStrategy, type: "text" as const },
-            ].map(item => (
-              <div key={String(item.field)} className="flex items-center justify-between text-[12px]">
-                <span className="text-white/45">{item.label}</span>
-                {editing
-                  ? input(item.field, item.type)
-                  : <span className="font-semibold text-white">{item.type === "boolean" ? (s[item.field] ? (en ? "Yes" : "Sí") : "No") : (String(s[item.field] || "—"))}</span>
-                }
-              </div>
-            ))}
-          </div>
-        </StatusCard>
-
-        {/* Stories + Ads */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatusCard status="yellow" title={en ? "Stories" : "Historias"} badge={en ? "Target Set" : "Meta Definida"}>
-            <div className="text-[11px] text-white/40 mb-1">{en ? "Target per week" : "Meta por semana"}</div>
-            {editing
-              ? input("stories_per_week", "number")
-              : <div className="text-2xl font-black text-foreground">{s.stories_per_week}<span className="text-xs font-normal text-white/25"> / {en ? "week" : "semana"}</span></div>
-            }
-          </StatusCard>
-
-          <StatusCard status={adsStatus} title={en ? "Ads" : "Anuncios"} badge={s.ads_active ? (en ? "Running" : "Activos") : (en ? "Not Running" : "No Activos")}>
-            <div className="flex flex-col gap-2">
-              {[
-                { label: en ? "Running ads" : "Corriendo anuncios", field: "ads_active" as keyof ClientStrategy, type: "boolean" as const },
-                { label: en ? "Monthly budget" : "Presupuesto mensual", field: "ads_budget" as keyof ClientStrategy, type: "number" as const },
-              ].map(item => (
-                <div key={String(item.field)} className="flex items-center justify-between text-[12px]">
-                  <span className="text-white/45">{item.label}</span>
-                  {editing
-                    ? input(item.field, item.type)
-                    : <span className="font-semibold text-white">{item.type === "boolean" ? (s[item.field] ? (en ? "Yes" : "Sí") : "No") : (item.field === "ads_budget" ? `$${(s.ads_budget || 0).toLocaleString()}` : String(s[item.field] || "—"))}</span>
-                  }
-                </div>
-              ))}
-            </div>
-          </StatusCard>
-        </div>
-
-        {/* Monetization */}
-        {(s.monthly_revenue_goal > 0 || editing) && (
-          <StatusCard status={revStatus} title={en ? "Monetization" : "Monetización"} badge={revStatus === "green" ? (en ? "On Track" : "En Camino") : revStatus === "yellow" ? (en ? "Needs Work" : "Necesita Trabajo") : (en ? "Behind" : "Atrasado")}>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-white/30 mb-1">{en ? "Monthly Goal" : "Meta Mensual"}</div>
-                {editing
-                  ? input("monthly_revenue_goal", "number")
-                  : <div className="text-lg font-black text-foreground">${s.monthly_revenue_goal.toLocaleString()}</div>
-                }
-              </div>
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-white/30 mb-1">{en ? "This Month" : "Este Mes"}</div>
-                {editing
-                  ? input("monthly_revenue_actual", "number")
-                  : <div className="text-lg font-black" style={{ color: STATUS_COLORS[revStatus] }}>${s.monthly_revenue_actual.toLocaleString()}</div>
-                }
-              </div>
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-white/30 mb-1">{en ? "Gap" : "Diferencia"}</div>
-                <div className="text-lg font-black" style={{ color: s.monthly_revenue_actual >= s.monthly_revenue_goal ? "#22c55e" : "#ef4444" }}>
-                  {s.monthly_revenue_actual >= s.monthly_revenue_goal ? "✓" : "-$" + (s.monthly_revenue_goal - s.monthly_revenue_actual).toLocaleString()}
-                </div>
-              </div>
-            </div>
-            <ProgressBar pct={revPct} color={STATUS_COLORS[revStatus]} />
-          </StatusCard>
-        )}
+        {/* Strategy setup (Content Mix, ManyChat & CTAs, Stories, Ads, Monetization, Monthly targets) */}
+        <StrategySetupCard
+          s={s}
+          editing={editing}
+          en={en}
+          onPersistField={persistField as any}
+          onPersistFields={persistFields as any}
+          setDraftField={set as any}
+        />
 
       </div>
     </PageTransition>
