@@ -41,6 +41,7 @@ interface CalendarPost {
   upload_source?: string | null;
   storage_path?: string | null;
   script_url?: string | null;
+  script_id?: string | null;
   revision_notes?: string | null;
   caption?: string | null;
   client_name?: string;
@@ -396,6 +397,7 @@ export default function ContentCalendar() {
         upload_source: v.upload_source,
         storage_path: v.storage_path,
         script_url: v.script_url,
+        script_id: v.script_id,
         revision_notes: v.revisions ?? null,
         caption: v.caption,
       }));
@@ -1104,6 +1106,7 @@ interface PostDetailProps {
 }
 
 function PostDetailContent({ post, language, updatingStatus, revisionNotes, onApprove, onRevision, isEditor, isAdmin, onChangeStatus, onChangeDate }: PostDetailProps) {
+  const navigate = useNavigate();
   // The post's *deliverable* is the final submission (file_submission_url) when
   // present; the raw main footage (storage_path) is only a fallback. This
   // mirrors the download handler, which already prefers the submission. A
@@ -1348,13 +1351,23 @@ function PostDetailContent({ post, language, updatingStatus, revisionNotes, onAp
         <div className="flex items-center justify-between gap-2 text-xs pt-4 border-t border-border/40 flex-wrap">
           {/* Left: Script (Download moved to the header, next to Share) */}
           <div className="flex items-center gap-4">
-            {post.script_url && (
+            {post.script_id ? (
+              // Internal script detail page (Scripts.tsx auto-opens via ?scriptId=),
+              // not the public /s/ share link stored in script_url.
+              <button
+                type="button"
+                onClick={() => navigate(`/clients/${post.client_id}/scripts?scriptId=${post.script_id}`)}
+                className="inline-flex items-center gap-1 text-primary hover:underline">
+                <ExternalLink className="w-3 h-3" />
+                {language === "en" ? "View Script" : "Ver Guión"}
+              </button>
+            ) : post.script_url ? (
               <a href={post.script_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-primary hover:underline">
                 <ExternalLink className="w-3 h-3" />
                 {language === "en" ? "View Script" : "Ver Guión"}
               </a>
-            )}
+            ) : null}
           </div>
 
           {/* Right: Approve + Revisions (hidden for editors) */}
