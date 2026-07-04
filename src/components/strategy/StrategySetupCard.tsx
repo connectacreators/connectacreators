@@ -379,7 +379,7 @@ export function StrategySetupCard({ s, editing, en, onPersistField, onPersistFie
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); closePopover(); }} />
                   <div
                     className="glass-card absolute left-0 top-full mt-2 z-20 w-72 max-w-[90vw] rounded-xl p-4"
-                    style={{ border: "1px solid rgba(255,255,255,0.14)", background: "rgba(20,20,20,0.98)" }}
+                    style={{ border: "1px solid rgba(255,255,255,0.14)", background: "hsl(var(--graphite))" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {renderFields(id, popGet, popSet)}
