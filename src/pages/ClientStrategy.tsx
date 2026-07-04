@@ -525,11 +525,6 @@ export default function ClientStrategy() {
               : (behind === 0 ? (en ? "Hit all targets" : "Todas las metas") : (en ? `${4 - behind}/4 targets` : `${4 - behind}/4 metas`))
           }
         >
-          {win.isCurrent && (
-            <p className="text-[10px] mb-3 text-[hsl(var(--aqua))]">
-              {en ? "tick = where you should be today" : "marca = dónde deberías ir hoy"}
-            </p>
-          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {([
               { label: en ? "Scripts" : "Guiones", count: counts.scripts, target: s.scripts_per_month, field: "scripts_per_month" },
