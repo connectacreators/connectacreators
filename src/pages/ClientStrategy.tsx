@@ -225,10 +225,13 @@ export default function ClientStrategy() {
 
   const loadCounts = useCallback(async (w: { startIso: string; endIso: string }) => {
     if (!clientId) return;
-    const [{ count: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
-      supabase.from("scripts").select("id", { count: "exact", head: true })
-        .eq("client_id", clientId).neq("status", "draft")
-        .gte("created_at", w.startIso).lt("created_at", w.endIso),
+    const [{ data: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
+      // Scripts follow their video: counted in the month the linked video is
+      // scheduled/published, falling back to the script's creation month
+      // (count_scripts_attributed RPC — a join PostgREST filters can't express).
+      supabase.rpc("count_scripts_attributed", {
+        p_client_id: clientId, p_start: w.startIso, p_end: w.endIso,
+      }),
       supabase.from("video_edits").select("id", { count: "exact", head: true })
         .eq("client_id", clientId).is("deleted_at", null)
         .gte("file_submitted_at", w.startIso).lt("file_submitted_at", w.endIso),
