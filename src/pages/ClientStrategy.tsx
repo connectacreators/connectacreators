@@ -7,6 +7,7 @@ import PageTransition from "@/components/PageTransition";
 import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
+import { monthWindow } from "@/lib/strategy/pace";
 
 interface ClientStrategy {
   id?: string;
@@ -169,6 +170,13 @@ export default function ClientStrategy() {
   const [analyzing, setAnalyzing] = useState(false);
   const analyzingRef = useRef(false);
 
+  const now = new Date();
+  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>({
+    year: now.getFullYear(), month: now.getMonth(),
+  });
+  const [firstActive, setFirstActive] = useState<{ year: number; month: number } | null>(null);
+  const win = monthWindow(viewMonth.year, viewMonth.month);
+
   const load = useCallback(async () => {
     if (!clientId) return;
     setLoading(true);
@@ -191,23 +199,43 @@ export default function ClientStrategy() {
         .maybeSingle();
       setClientOnboarding(clientData?.onboarding_data || {});
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const iso = monthStart.toISOString();
-
-      const [{ count: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
-        supabase.from("scripts").select("id", { count: "exact", head: true }).eq("client_id", clientId).gte("created_at", iso),
-        supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("status", "Done").is("deleted_at", null).gte("created_at", iso),
-        supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("post_status", "Published").is("deleted_at", null).gte("created_at", iso),
-        supabase.from("video_edits").select("id", { count: "exact", head: true }).eq("client_id", clientId).gte("schedule_date", iso.slice(0, 10)).is("deleted_at", null),
-      ]);
-
-      setCounts({ scripts: scriptCount || 0, videos_edited: videoCount || 0, videos_published: publishedCount || 0, posts_scheduled: calCount || 0 });
+      const { data: firstScript } = await supabase
+        .from("scripts").select("created_at").eq("client_id", clientId)
+        .neq("status", "draft")
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+      if (firstScript?.created_at) {
+        const d = new Date(firstScript.created_at);
+        setFirstActive({ year: d.getFullYear(), month: d.getMonth() });
+      }
     } finally {
       setLoading(false);
     }
   }, [clientId]);
+
+  const loadCounts = useCallback(async (w: { startIso: string; endIso: string }) => {
+    const [{ count: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
+      supabase.from("scripts").select("id", { count: "exact", head: true })
+        .eq("client_id", clientId).neq("status", "draft")
+        .gte("created_at", w.startIso).lt("created_at", w.endIso),
+      supabase.from("video_edits").select("id", { count: "exact", head: true })
+        .eq("client_id", clientId).is("deleted_at", null)
+        .gte("file_submitted_at", w.startIso).lt("file_submitted_at", w.endIso),
+      supabase.from("video_edits").select("id", { count: "exact", head: true })
+        .eq("client_id", clientId).is("deleted_at", null)
+        .gte("published_at", w.startIso).lt("published_at", w.endIso),
+      supabase.from("video_edits").select("id", { count: "exact", head: true })
+        .eq("client_id", clientId).is("deleted_at", null)
+        .gte("schedule_date", w.startIso).lt("schedule_date", w.endIso),
+    ]);
+    setCounts({
+      scripts: scriptCount || 0,
+      videos_edited: videoCount || 0,
+      videos_published: publishedCount || 0,
+      posts_scheduled: calCount || 0,
+    });
+  }, [clientId]);
+
+  useEffect(() => { loadCounts(monthWindow(viewMonth.year, viewMonth.month)); }, [viewMonth, loadCounts]);
 
   const runAnalysis = useCallback(async () => {
     if (!clientId || analyzingRef.current) return;
@@ -372,6 +400,35 @@ export default function ClientStrategy() {
             )}
           </div>
         </div>
+        {(() => {
+          const monthNames = en
+            ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
+            : ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const atCurrent = viewMonth.year === now.getFullYear() && viewMonth.month === now.getMonth();
+          const atFirst = !!firstActive && viewMonth.year === firstActive.year && viewMonth.month === firstActive.month;
+          const shift = (d: number) => setViewMonth(v => {
+            const m = new Date(v.year, v.month + d, 1);
+            return { year: m.getFullYear(), month: m.getMonth() };
+          });
+          return (
+            <div className="flex items-center gap-0.5 rounded-full border border-white/10 bg-white/5 px-1 py-1">
+              <button onClick={() => shift(-1)} disabled={atFirst}
+                className="w-7 h-7 rounded-full text-white/60 hover:bg-white/10 disabled:opacity-25"
+                aria-label={en ? "Previous month" : "Mes anterior"}>‹</button>
+              <div className="min-w-[120px] text-center">
+                <div className="text-[13px] font-semibold leading-tight">{monthNames[viewMonth.month]} {viewMonth.year}</div>
+                <div className="text-[9px] uppercase tracking-widest text-white/35">
+                  {win.isCurrent
+                    ? (en ? `day ${win.dayOf} of ${win.daysInMonth}` : `día ${win.dayOf} de ${win.daysInMonth}`)
+                    : (en ? "final" : "final")}
+                </div>
+              </div>
+              <button onClick={() => shift(1)} disabled={atCurrent}
+                className="w-7 h-7 rounded-full text-white/60 hover:bg-white/10 disabled:opacity-25"
+                aria-label={en ? "Next month" : "Mes siguiente"}>›</button>
+            </div>
+          );
+        })()}
         <div className="flex items-center gap-2">
           {editing ? (
             <>
