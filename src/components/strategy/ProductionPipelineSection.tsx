@@ -1,17 +1,29 @@
 // src/components/strategy/ProductionPipelineSection.tsx
 //
-// "Production pipeline" section on /clients/:id/strategy. Six date inputs
-// + ads_active toggle + ads_budget input + free-text notes. Anchored at
-// #pipeline so the dashboard can deep-link here.
+// "Production pipeline" section on /clients/:id/strategy. Urgency-sorted
+// date rows (Done → schedule-next prompt) + ads_active toggle + ads_budget
+// input + free-text notes. Anchored at #pipeline so the dashboard can
+// deep-link here.
 //
 // Two edit modes:
 //   1. Global edit (parent.editing=true) — every field renders as an input,
 //      writes go to the parent draft, parent's Save button persists.
-//   2. Inline edit (parent.editing=false) — double-click any field to edit
-//      just that one. Blur or Enter persists immediately via onPersistField;
-//      Escape cancels. ads_active flips on double-click.
+//   2. Inline edit (parent.editing=false) — click the calendar/edit button
+//      (or "+ Set date" for unset rows) to edit just that one field. Enter
+//      or blur persists immediately via onPersistField; Escape cancels.
+//      ads_active flips on click.
 
 import { useEffect, useRef, useState } from "react";
+import {
+  pipelineBucket,
+  startOfDay,
+  formatAbsolute,
+  toInputValue,
+  fromInputValue,
+  nextSameWeekday,
+  sortByUrgency,
+  PIPELINE_BUCKET_COLOR,
+} from "./pipelineDates";
 
 export interface PipelineFields {
   onboarding_call_at: string | null;
@@ -21,6 +33,7 @@ export interface PipelineFields {
   boosting_at:        string | null;
   posting_at:         string | null;
   pipeline_notes:     string | null;
+  pipeline_state:     Record<string, { done_at: string }>;
   ads_active:         boolean;
   ads_budget:         number;
 }
@@ -42,80 +55,6 @@ const ROWS: Array<{ field: keyof PipelineFields; labelEn: string; labelEs: strin
   { field: 'posting_at',         labelEn: 'Posting',         labelEs: 'Publicación',            withTime: false },
 ];
 
-// Traffic-light coloring for pipeline dates, by how far away the date is:
-//   red    → overdue (date already passed)
-//   yellow → due within the next 7 days
-//   green  → 7+ days away
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-type PipelineBucket = 'overdue' | 'soon' | 'far';
-
-const PIPELINE_BUCKET_COLOR: Record<PipelineBucket, string> = {
-  overdue: '#ef4444', // red
-  soon:    '#f59e0b', // amber/yellow
-  far:     '#22c55e', // green
-};
-
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-/** red = overdue, yellow = within 7 days, green = further out. Date-only
- *  fields compare at calendar-day granularity so "due today" isn't overdue. */
-function pipelineBucket(iso: string, withTime: boolean, now: Date = new Date()): PipelineBucket {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'far';
-  if (withTime) {
-    if (d.getTime() < now.getTime()) return 'overdue';
-    const days = (d.getTime() - now.getTime()) / 86_400_000;
-    return days <= 7 ? 'soon' : 'far';
-  }
-  const dDay = startOfDay(d).getTime();
-  const today = startOfDay(now).getTime();
-  if (dDay < today) return 'overdue';
-  const days = Math.round((dDay - today) / 86_400_000);
-  return days <= 7 ? 'soon' : 'far';
-}
-
-function formatTime(d: Date): string {
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const period = h >= 12 ? 'pm' : 'am';
-  const h12 = ((h + 11) % 12) + 1;
-  const mm = m === 0 ? '' : `:${m.toString().padStart(2, '0')}`;
-  return `${h12}${mm}${period}`;
-}
-
-/** Absolute date label, e.g. "Mon Jun 14" — adds time for timed fields
- *  that carry a non-midnight time, e.g. "Mon Jun 14, 5:17pm". */
-function formatAbsolute(iso: string, withTime: boolean): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  const base = `${WEEKDAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
-  return withTime && hasTime ? `${base}, ${formatTime(d)}` : base;
-}
-
-/** Convert a `timestamptz` string to the `<input type="datetime-local">` / `date` value. */
-function toInputValue(iso: string | null, withTime: boolean): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  if (!withTime) return date;
-  return `${date}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** Convert an input value back to ISO; empty → null. */
-function fromInputValue(v: string, withTime: boolean): string | null {
-  if (!v) return null;
-  const d = withTime ? new Date(v) : new Date(`${v}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
 // Hover affordance for double-clickable read-only fields. Subtle dashed
 // underline that brightens on hover so users know the field is editable.
 const editableSpanClass =
@@ -128,6 +67,9 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
     | { field: keyof PipelineFields; value: string }
     | null
   >(null);
+
+  // Which date row is showing the "Schedule next?" prompt after ✓ Done.
+  const [prompting, setPrompting] = useState<keyof PipelineFields | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -153,8 +95,14 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
     const row = ROWS.find((r) => r.field === inline.field);
     if (row) {
       const next = fromInputValue(inline.value, row.withTime);
-      const current = s[inline.field] as string | null;
-      if (next !== current) await onPersistField(inline.field, next as never);
+      // A pick-date input opened from the "Schedule next?" prompt commits
+      // via finishDone (persists pipeline_state too) instead of a bare set.
+      if (prompting === row.field) {
+        await finishDone(row.field, next);
+      } else {
+        const current = s[inline.field] as string | null;
+        if (next !== current) await onPersistField(inline.field, next as never);
+      }
     } else if (inline.field === 'ads_budget') {
       const num = Number(inline.value);
       const next = Number.isFinite(num) ? Math.max(0, num) : 0;
@@ -178,63 +126,186 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
     }
   };
 
+  const doneMap = s.pipeline_state ?? {};
+
+  const markDone = (field: keyof PipelineFields) => setPrompting(field);
+
+  const finishDone = async (field: keyof PipelineFields, nextIso: string | null) => {
+    if (!onPersistField) return;
+    const state = { ...doneMap, [field]: { done_at: new Date().toISOString() } };
+    await onPersistField('pipeline_state' as keyof PipelineFields, state as never);
+    await onPersistField(field, nextIso as never); // nextIso null → field becomes unset
+    setPrompting(null);
+    setInline(null);
+  };
+
+  const dated = sortByUrgency(
+    ROWS.map((r) => ({ ...r, iso: (s[r.field] as string | null) })),
+  );
+
+  const overdueCount = dated.filter(
+    (r) => r.iso && pipelineBucket(r.iso, r.withTime) === 'overdue',
+  ).length;
+
   return (
     <section id="pipeline" className="rounded-[14px] p-[18px_20px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <h3 className="text-[11px] font-bold tracking-[1.5px] uppercase mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
-        {en ? 'Production pipeline' : 'Pipeline de producción'}
-      </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-[11px] font-bold tracking-[1.5px] uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          {en ? 'Production pipeline' : 'Pipeline de producción'}
+        </h3>
+        {overdueCount > 0 && (
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+          >
+            {overdueCount} {en ? 'overdue' : 'atrasados'}
+          </span>
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-4">
-        {ROWS.map((row) => {
-          const value = s[row.field] as string | null;
-          const bucket = value ? pipelineBucket(value, row.withTime) : null;
-          const inputType = row.withTime ? 'datetime-local' : 'date';
-          const isInline = inline?.field === row.field;
-          const showInput = editing || isInline;
-          return (
-            <div key={row.field} className="flex items-center gap-3">
-              <label className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                {en ? row.labelEn : row.labelEs}
-              </label>
-              {showInput ? (
+      {editing ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-4">
+          {ROWS.map((row) => {
+            const value = s[row.field] as string | null;
+            const inputType = row.withTime ? 'datetime-local' : 'date';
+            return (
+              <div key={row.field} className="flex items-center gap-3">
+                <label className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  {en ? row.labelEn : row.labelEs}
+                </label>
                 <input
-                  ref={isInline ? inputRef : undefined}
                   type={inputType}
-                  value={isInline ? inline.value : toInputValue(value, row.withTime)}
-                  onChange={(e) => {
-                    if (isInline) setInline({ field: row.field, value: e.target.value });
-                    else set(row.field, fromInputValue(e.target.value, row.withTime) as never);
-                  }}
-                  onBlur={isInline ? () => { void commitInline(); } : undefined}
-                  onKeyDown={isInline ? handleInlineKeyDown : undefined}
+                  value={toInputValue(value, row.withTime)}
+                  onChange={(e) => set(row.field, fromInputValue(e.target.value, row.withTime) as never)}
                   className="text-[12px] px-2 py-1 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
                 />
-              ) : (
-                <span
-                  className={canInline ? editableSpanClass : undefined}
-                  style={{
-                    color: bucket ? PIPELINE_BUCKET_COLOR[bucket] : 'rgba(255,255,255,0.35)',
-                    fontSize: 12,
-                  }}
-                  title={canInline ? inlineTitle : undefined}
-                  onDoubleClick={canInline ? () => setInline({ field: row.field, value: toInputValue(value, row.withTime) }) : undefined}
-                >
-                  {value ? formatAbsolute(value, row.withTime) : '—'}
-                </span>
-              )}
-              {editing && value && (
-                <button
-                  type="button"
-                  onClick={() => set(row.field, null as never)}
-                  className="text-[11px] text-white/40 hover:text-white/70"
-                >
-                  {en ? 'Clear' : 'Borrar'}
-                </button>
-              )}
-            </div>
-          );
-        })}
+                {value && (
+                  <button
+                    type="button"
+                    onClick={() => set(row.field, null as never)}
+                    className="text-[11px] text-white/40 hover:text-white/70"
+                  >
+                    {en ? 'Clear' : 'Borrar'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 mb-4">
+          {dated.map((row) => {
+            const bucket = row.iso ? pipelineBucket(row.iso, row.withTime) : null;
+            const dotColor = bucket ? PIPELINE_BUCKET_COLOR[bucket] : 'rgba(255,255,255,0.2)';
+            const overdueDays = bucket === 'overdue'
+              ? Math.max(1, Math.round((startOfDay(new Date()).getTime() - startOfDay(new Date(row.iso!)).getTime()) / 86_400_000))
+              : 0;
+            const isInline = inline?.field === row.field;
+            const inputType = row.withTime ? 'datetime-local' : 'date';
+            const label = en ? row.labelEn : row.labelEs;
 
+            return (
+              <div key={row.field} className="flex flex-col">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor }} />
+                  <span className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    {label}
+                  </span>
+
+                  {isInline ? (
+                    <input
+                      ref={inputRef}
+                      type={inputType}
+                      value={inline.value}
+                      onChange={(e) => setInline({ field: row.field, value: e.target.value })}
+                      onBlur={() => { void commitInline(); }}
+                      onKeyDown={handleInlineKeyDown}
+                      className="text-[12px] px-2 py-1 rounded bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
+                    />
+                  ) : (
+                    <>
+                      <span
+                        className="text-[12px]"
+                        style={{ color: bucket === 'overdue' ? '#ef4444' : 'rgba(255,255,255,0.85)' }}
+                      >
+                        {row.iso ? formatAbsolute(row.iso, row.withTime) : (en ? '— unset' : '— sin fecha')}
+                      </span>
+                      {bucket === 'overdue' && (
+                        <span className="text-[11px]" style={{ color: '#ef4444' }}>
+                          {overdueDays}{en ? 'd overdue' : 'd atrasado'}
+                        </span>
+                      )}
+
+                      <span className="ml-auto flex items-center gap-2">
+                        {row.iso && canInline && (
+                          <button
+                            type="button"
+                            onClick={() => markDone(row.field)}
+                            className="text-[11px] font-semibold px-2 py-0.5 rounded"
+                            style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
+                          >
+                            ✓ {en ? 'Done' : 'Hecho'}
+                          </button>
+                        )}
+                        {canInline && (
+                          row.iso ? (
+                            <button
+                              type="button"
+                              onClick={() => setInline({ field: row.field, value: toInputValue(row.iso, row.withTime) })}
+                              className="text-[11px] text-white/40 hover:text-white/70"
+                              title={en ? 'Edit date' : 'Editar fecha'}
+                            >
+                              ✎
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setInline({ field: row.field, value: '' })}
+                              className="text-[11px] text-white/40 hover:text-white/70 underline decoration-dashed"
+                            >
+                              + {en ? 'Set date' : 'Poner fecha'}
+                            </button>
+                          )
+                        )}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {prompting === row.field && !isInline && (
+                  <div className="ml-5 mt-1 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <span>{en ? `Schedule next ${label}?` : `¿Programar próximo ${label}?`}</span>
+                    <button
+                      type="button"
+                      onClick={() => { void finishDone(row.field, nextSameWeekday(row.iso!)); }}
+                      className="px-2 py-0.5 rounded font-semibold"
+                      style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
+                    >
+                      {formatAbsolute(nextSameWeekday(row.iso!), row.withTime)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInline({ field: row.field, value: '' })}
+                      className="underline decoration-dashed hover:text-white/80"
+                    >
+                      {en ? 'pick…' : 'elegir…'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { void finishDone(row.field, null); }}
+                      className="underline decoration-dashed hover:text-white/80"
+                    >
+                      {en ? 'skip' : 'omitir'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-4">
         <div className="flex items-center gap-3">
           <label className="text-[12px] w-[110px] shrink-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
             {en ? 'Ads active' : 'Anuncios activos'}
@@ -338,6 +409,19 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, en 
           );
         })()}
       </div>
+
+      {Object.entries(doneMap).length > 0 && (
+        <div className="mt-3 pt-2 border-t border-dashed border-white/10 text-[11px] text-white/30">
+          {Object.entries(doneMap).map(([f, v]) => {
+            const row = ROWS.find((r) => r.field === f);
+            return row ? (
+              <span key={f} className="mr-4">
+                ✓ {en ? row.labelEn : row.labelEs} · {formatAbsolute(v.done_at, false)}
+              </span>
+            ) : null;
+          })}
+        </div>
+      )}
     </section>
   );
 }

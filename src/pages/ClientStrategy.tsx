@@ -39,6 +39,7 @@ interface ClientStrategy {
   boosting_at:        string | null;
   posting_at:         string | null;
   pipeline_notes:     string | null;
+  pipeline_state:     Record<string, { done_at: string }>;
   audience_analysis?: {
     summary: string;
     audience_detail: string;
@@ -86,6 +87,7 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   boosting_at:        null,
   posting_at:         null,
   pipeline_notes:     null,
+  pipeline_state:     {},
   audience_analysis: null,
   audience_analyzed_at: null,
 };
@@ -584,6 +586,7 @@ export default function ClientStrategy() {
             boosting_at:        s.boosting_at,
             posting_at:         s.posting_at,
             pipeline_notes:     s.pipeline_notes,
+            pipeline_state:     s.pipeline_state,
             ads_active:         s.ads_active,
             ads_budget:         s.ads_budget,
           }}
