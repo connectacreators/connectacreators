@@ -201,12 +201,21 @@ export default function ClientStrategy() {
         .maybeSingle();
       setClientOnboarding(clientData?.onboarding_data || {});
 
-      const { data: firstScript } = await supabase
-        .from("scripts").select("created_at").eq("client_id", clientId)
-        .neq("status", "draft")
-        .order("created_at", { ascending: true }).limit(1).maybeSingle();
-      if (firstScript?.created_at) {
-        const d = new Date(firstScript.created_at);
+      const [{ data: firstScript }, { data: firstVideo }] = await Promise.all([
+        supabase
+          .from("scripts").select("created_at").eq("client_id", clientId)
+          .neq("status", "draft")
+          .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+        supabase
+          .from("video_edits").select("created_at").eq("client_id", clientId)
+          .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+      ]);
+      const candidateDates = [firstScript?.created_at, firstVideo?.created_at].filter(
+        (v): v is string => !!v,
+      );
+      if (candidateDates.length > 0) {
+        const minIso = candidateDates.reduce((a, b) => (new Date(a) < new Date(b) ? a : b));
+        const d = new Date(minIso);
         setFirstActive({ year: d.getFullYear(), month: d.getMonth() });
       }
     } finally {
@@ -215,6 +224,7 @@ export default function ClientStrategy() {
   }, [clientId]);
 
   const loadCounts = useCallback(async (w: { startIso: string; endIso: string }) => {
+    if (!clientId) return;
     const [{ count: scriptCount }, { count: videoCount }, { count: publishedCount }, { count: calCount }] = await Promise.all([
       supabase.from("scripts").select("id", { count: "exact", head: true })
         .eq("client_id", clientId).neq("status", "draft")
@@ -301,24 +311,6 @@ export default function ClientStrategy() {
 
   const set = (field: keyof ClientStrategy, value: unknown) => setDraft(prev => prev ? { ...prev, [field]: value } : prev);
 
-  // Inline edit (production pipeline): persist a single field immediately
-  // without entering global edit mode. Used by double-click-to-edit on the
-  // pipeline rows. Silent on success; toasts only on error.
-  const persistField = useCallback(async <K extends keyof ClientStrategy>(field: K, value: ClientStrategy[K]) => {
-    if (!clientId || !strategy) return;
-    const next: ClientStrategy = { ...strategy, [field]: value };
-    try {
-      const { error } = await supabase
-        .from("client_strategies")
-        .upsert({ ...next, client_id: clientId }, { onConflict: "client_id" });
-      if (error) throw error;
-      setStrategy(next);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : (en ? "Error saving" : "Error al guardar");
-      toast.error(msg);
-    }
-  }, [clientId, strategy, en]);
-
   // Multi-field variant of persistField: one upsert for related fields that
   // must land together (e.g. Done flow writes pipeline_state + the date field).
   // Two sequential persistField calls would both close over the same stale
@@ -337,6 +329,13 @@ export default function ClientStrategy() {
       toast.error(msg);
     }
   }, [clientId, strategy, en]);
+
+  // Inline edit (production pipeline): persist a single field immediately
+  // without entering global edit mode. Used by double-click-to-edit on the
+  // pipeline rows. Silent on success; toasts only on error.
+  const persistField = useCallback(async <K extends keyof ClientStrategy>(field: K, value: ClientStrategy[K]) => {
+    return persistFields({ [field]: value } as Partial<ClientStrategy>);
+  }, [persistFields]);
 
   if (loading) {
     return (

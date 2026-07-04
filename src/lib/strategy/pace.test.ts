@@ -51,6 +51,24 @@ describe("pacePct / paceState", () => {
   });
 });
 
+describe("pacePct / paceState edge cases", () => {
+  const cur = monthWindow(2026, 6, NOW);
+  it("guards against a zero target via Math.max(1, …)", () => {
+    expect(pacePct(0, 0, cur)).toBe(0);
+    expect(Number.isNaN(pacePct(0, 0, cur))).toBe(false);
+    expect(paceState(0, 0, cur)).toBe("behind");
+  });
+});
+
+describe("monthWindow leap year", () => {
+  it("counts 29 days in Feb 2028 (leap year), non-current month", () => {
+    const w = monthWindow(2028, 1, new Date(2028, 0, 15)); // now = Jan 2028
+    expect(w.isCurrent).toBe(false);
+    expect(w.daysInMonth).toBe(29);
+    expect(w.dayOf).toBe(29);
+  });
+});
+
 describe("fulfillmentScore", () => {
   const inputs = {
     scripts: 8, edited: 0, scheduled: 2,

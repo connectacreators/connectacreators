@@ -89,7 +89,7 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, onP
     }
   }, [inline]);
 
-  const canInline = !editing && !!onPersistField;
+  const canInline = !editing && !!onPersistField && !!onPersistFields;
   const inlineTitle = en ? 'Double-click to edit' : 'Doble clic para editar';
 
   // Persist the current inline-mode field, then exit inline mode. Used by
@@ -135,6 +135,7 @@ export function ProductionPipelineSection({ s, editing, set, onPersistField, onP
   const markDone = (field: keyof PipelineFields) => setPrompting(field);
 
   const finishDone = async (field: keyof PipelineFields, nextIso: string | null) => {
+    if (!onPersistFields) return;
     const state = { ...doneMap, [field]: { done_at: new Date().toISOString() } };
     // Single write: nextIso null → field becomes unset. Two sequential
     // single-field persists would clobber each other (stale parent snapshot).
