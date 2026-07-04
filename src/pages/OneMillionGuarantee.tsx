@@ -142,10 +142,9 @@ const PROCESS = [
 ];
 
 const NOT_FOR = [
-  "Businesses with no Utah local market to serve",
-  "Owners who refuse to appear on camera",
-  "People shopping for just editing or just ads — we run the whole system",
-  "Anyone expecting results without committing to a shoot day",
+  "Don't have a proven offer",
+  "Expecting overnight results",
+  "Can't commit 4 hours/month to recording",
 ];
 
 const FAQS = [
