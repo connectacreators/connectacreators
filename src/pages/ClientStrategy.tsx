@@ -36,6 +36,8 @@ interface ClientStrategy {
   monthly_revenue_goal: number;
   monthly_revenue_actual: number;
   content_pillars: string[];
+  views_goal: number;
+  views_goal_started_at: string | null;
   // Production pipeline (Task 1 migration)
   onboarding_call_at: string | null;
   script_due_at:      string | null;
@@ -86,6 +88,8 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   monthly_revenue_goal: 0,
   monthly_revenue_actual: 0,
   content_pillars: [],
+  views_goal: 1_000_000,
+  views_goal_started_at: null,
   onboarding_call_at: null,
   script_due_at:      null,
   editing_due_at:     null,
@@ -541,6 +545,10 @@ export default function ClientStrategy() {
           banner={viralLinkBanner}
           addingPlatforms={addingPlatforms}
           onAdd={addChannels}
+          viewsGoal={s.views_goal ?? 1_000_000}
+          viewsGoalStartedAt={s.views_goal_started_at ?? null}
+          fallbackStart={s.onboarding_call_at}
+          onPersistGoal={isTeam ? (patch) => persistFields(patch as Partial<ClientStrategy>) : undefined}
         />
       ) : (
       <>
