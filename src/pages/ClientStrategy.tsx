@@ -193,7 +193,7 @@ export default function ClientStrategy() {
   const analyzingRef = useRef(false);
 
   // Viral Today channel link (Performance tab + Audience Alignment banner)
-  const { linked, missing, addingPlatforms, addChannels } = useClientViralChannels(clientOnboarding);
+  const { links, missing, addingPlatforms, addChannels } = useClientViralChannels(clientOnboarding);
   const dismissKey = `cac:viral-link-dismissed:${clientId}`;
   const [linkDismissed, setLinkDismissed] = useState(() => sessionStorage.getItem(dismissKey) === "1");
 
@@ -535,11 +535,12 @@ export default function ClientStrategy() {
 
       {tab === "performance" ? (
         <ContentPerformanceTab
-          linked={linked}
+          links={links}
           isTeam={isTeam}
           en={en}
           banner={viralLinkBanner}
-          onRescrape={(t) => addChannels([t])}
+          addingPlatforms={addingPlatforms}
+          onAdd={addChannels}
         />
       ) : (
       <>
