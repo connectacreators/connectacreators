@@ -654,21 +654,30 @@ export function useScripts() {
         `${ve.client_id}/${ve.id}/`,
         `${ve.client_id}/${ve.id}/submission/`,
       ];
-      const paths: string[] = [];
-      for (const prefix of prefixes) {
-        const { data: objects } = await supabase.storage
-          .from("footage")
-          .list(prefix, { limit: 1000 });
-        for (const obj of objects ?? []) {
-          // `.list()` returns immediate children; skip the nested folder placeholder.
-          if (obj.name && !obj.name.endsWith("/")) paths.push(`${prefix}${obj.name}`);
+      // The 720p web proxies mirror the footage paths in `footage-proxies`.
+      for (const bucket of ["footage", "footage-proxies"]) {
+        const paths: string[] = [];
+        for (const prefix of prefixes) {
+          const { data: objects } = await supabase.storage
+            .from(bucket)
+            .list(prefix, { limit: 1000 });
+          for (const obj of objects ?? []) {
+            // `.list()` returns immediate children; skip the nested folder placeholder.
+            if (obj.name && !obj.name.endsWith("/")) paths.push(`${prefix}${obj.name}`);
+          }
+        }
+        if (paths.length > 0) {
+          const { error: storageError } = await supabase.storage.from(bucket).remove(paths);
+          // Non-fatal: log and still delete the rows so the script can be removed.
+          if (storageError) console.error(`${bucket} storage cleanup failed:`, storageError);
         }
       }
-      if (paths.length > 0) {
-        const { error: storageError } = await supabase.storage.from("footage").remove(paths);
-        // Non-fatal: log and still delete the rows so the script can be removed.
-        if (storageError) console.error("Footage storage cleanup failed:", storageError);
-      }
+      // Drop the proxy tracking rows too, or they'd keep pointing at deleted files.
+      // `footage_proxies` is not in the generated DB types yet — cast to query it.
+      await (supabase as any)
+        .from("footage_proxies")
+        .delete()
+        .like("source_path", `${ve.client_id}/${ve.id}/%`);
     }
 
     // Cascade: also permanently delete linked video_edit

@@ -31,30 +31,59 @@ serve(async (req) => {
   const errors: string[] = [];
   let scriptsDeleted = 0;
   let videoEditsDeleted = 0;
+  let filesDeleted = 0;
 
-  // 1. Delete expired video_edits (clean up storage files first)
+  // 1. Delete expired video_edits (clean up storage files first).
+  // Footage lives under `${client_id}/${video_edit_id}/` (plus a `submission/`
+  // subfolder) in the `footage` bucket, with 720p proxies mirroring the same
+  // paths in `footage-proxies`. Deleting only `storage_path` would leak every
+  // other file in the folder, so wipe the whole prefix in both buckets.
   try {
     const { data: expiredVideos } = await supabase
       .from("video_edits")
-      .select("id, storage_path")
+      .select("id, client_id")
       .not("deleted_at", "is", null)
       .lt("deleted_at", cutoffDate);
 
-    if (expiredVideos && expiredVideos.length > 0) {
-      // Clean up storage files
-      const storagePaths = expiredVideos
-        .filter((v: any) => v.storage_path)
-        .map((v: any) => v.storage_path);
+    for (const ve of expiredVideos ?? []) {
+      try {
+        if (ve.client_id && ve.id) {
+          const prefixes = [
+            `${ve.client_id}/${ve.id}/`,
+            `${ve.client_id}/${ve.id}/submission/`,
+          ];
+          for (const bucket of ["footage", "footage-proxies"]) {
+            const paths: string[] = [];
+            for (const prefix of prefixes) {
+              const { data: objects } = await supabase.storage
+                .from(bucket)
+                .list(prefix, { limit: 1000 });
+              for (const obj of objects ?? []) {
+                if (obj.name && !obj.name.endsWith("/")) paths.push(`${prefix}${obj.name}`);
+              }
+            }
+            if (paths.length > 0) {
+              const { error: storageErr } = await supabase.storage.from(bucket).remove(paths);
+              if (storageErr) {
+                errors.push(`${bucket} cleanup failed for ${ve.id}: ${storageErr.message}`);
+              } else {
+                filesDeleted += paths.length;
+              }
+            }
+          }
+          // Drop proxy tracking rows so nothing points at the deleted files.
+          await supabase
+            .from("footage_proxies")
+            .delete()
+            .like("source_path", `${ve.client_id}/${ve.id}/%`);
+        }
 
-      if (storagePaths.length > 0) {
-        await supabase.storage.from("footage").remove(storagePaths);
+        const { error } = await supabase.from("video_edits").delete().eq("id", ve.id);
+        if (error) throw error;
+        videoEditsDeleted++;
+      } catch (e: any) {
+        errors.push(`video_edit ${ve.id} cleanup: ${e.message}`);
       }
-
-      // Delete records
-      const ids = expiredVideos.map((v: any) => v.id);
-      const { error } = await supabase.from("video_edits").delete().in("id", ids);
-      if (error) throw error;
-      videoEditsDeleted = ids.length;
     }
   } catch (e: any) {
     errors.push(`video_edits cleanup: ${e.message}`);
@@ -82,6 +111,7 @@ serve(async (req) => {
     JSON.stringify({
       scripts_deleted: scriptsDeleted,
       video_edits_deleted: videoEditsDeleted,
+      files_deleted: filesDeleted,
       errors,
     }),
     {
