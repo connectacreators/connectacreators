@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Play, Pause, Check, Clock } from 'lucide-react';
+import { Send, Play, Pause, Check, Clock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 
@@ -22,6 +22,19 @@ function parseTimestamp(input: string): number | null {
     if (!isNaN(mins) && !isNaN(secs)) return mins * 60 + secs;
   }
   return null;
+}
+
+// "1:23-1:45", "1:23 – 1:45", "1:23 to 1:45" → { start, end }. Falls back to
+// a single timestamp with end=null. End must be after start to count.
+function parseTimestampRange(input: string): { start: number; end: number | null } | null {
+  const m = input.trim().match(/^(.+?)\s*(?:-|–|—|\bto\b)\s*(.+)$/i);
+  if (m) {
+    const start = parseTimestamp(m[1]);
+    const end = parseTimestamp(m[2]);
+    if (start != null) return { start, end: end != null && end > start ? end : null };
+  }
+  const single = parseTimestamp(input);
+  return single != null ? { start: single, end: null } : null;
 }
 
 function extractGoogleDriveFileId(url: string): string | null {
@@ -49,6 +62,10 @@ export default function PublicVideoReview() {
   const [isPaused, setIsPaused] = useState(true);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Range mode: double-click the timestamp chip locks the start; the end chip
+  // follows the playhead until clicked (rangeEnd null = still following).
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
 
   const isSupabaseVideo = video?.upload_source === 'supabase' && video?.storage_path;
   const isDriveVideo = video?.upload_source === 'gdrive' && video?.file_submission;
@@ -114,20 +131,32 @@ export default function PublicVideoReview() {
     if (!newComment.trim() || !videoEditId) return;
 
     let timestampSeconds: number | null = null;
+    let endTimestampSeconds: number | null = null;
     let commentBody = newComment.trim();
 
-    if (isSupabaseVideo && isPaused) {
+    if (isSupabaseVideo && rangeStart !== null) {
+      // Range mode: locked end wins; otherwise take the current playhead.
+      // An end that isn't past the start degrades to a plain point note.
+      timestampSeconds = rangeStart;
+      const endCandidate = rangeEnd ?? Math.floor(currentTime);
+      endTimestampSeconds = endCandidate > rangeStart ? endCandidate : null;
+    } else if (isSupabaseVideo && isPaused) {
       timestampSeconds = Math.floor(currentTime);
     } else if (isDriveVideo) {
       if (manualTimestamp.trim()) {
-        timestampSeconds = parseTimestamp(manualTimestamp);
+        const range = parseTimestampRange(manualTimestamp);
+        if (range) {
+          timestampSeconds = range.start;
+          endTimestampSeconds = range.end;
+        }
       }
       if (timestampSeconds == null) {
-        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2})\b[\s\-—:,.]*/i);
+        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2}(?:\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2}){1,2})?)\b[\s\-—:,.]*/i);
         if (leading) {
-          const parsed = parseTimestamp(leading[1]);
-          if (parsed != null) {
-            timestampSeconds = parsed;
+          const range = parseTimestampRange(leading[1]);
+          if (range) {
+            timestampSeconds = range.start;
+            endTimestampSeconds = range.end;
             commentBody = commentBody.slice(leading[0].length).trim();
           }
         }
@@ -139,6 +168,7 @@ export default function PublicVideoReview() {
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
         timestamp_seconds: timestampSeconds,
+        end_timestamp_seconds: endTimestampSeconds,
         comment: commentBody,
         author_name: clientName,
         author_role: 'client',
@@ -146,6 +176,8 @@ export default function PublicVideoReview() {
       setComments(prev => [...prev, created]);
       setNewComment('');
       setManualTimestamp('');
+      setRangeStart(null);
+      setRangeEnd(null);
     } catch {
       toast.error('Failed to add comment');
     }
@@ -239,6 +271,19 @@ export default function PublicVideoReview() {
                   <div className="w-full h-1.5 bg-muted rounded-full">
                     <div className="h-full bg-primary rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
                   </div>
+                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
+                    <div
+                      key={`range-${c.id}`}
+                      className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full cursor-pointer"
+                      style={{
+                        left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
+                        width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
+                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+                        opacity: 0.45,
+                      }}
+                      onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
+                    />
+                  ))}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
                     <div
                       key={c.id}
@@ -278,25 +323,70 @@ export default function PublicVideoReview() {
 
             {/* Comment input */}
             <div className="mt-3 flex gap-2 items-center">
-              {isSupabaseVideo && isPaused && (
-                <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono">
-                  {formatTimestamp(currentTime)}
-                </span>
+              {isSupabaseVideo && (isPaused || rangeStart !== null) && (
+                rangeStart === null ? (
+                  <button
+                    type="button"
+                    className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono whitespace-nowrap select-none"
+                    title="Double-click to mark a start–end range"
+                    onDoubleClick={() => { setRangeStart(Math.floor(currentTime)); setRangeEnd(null); }}
+                  >
+                    {formatTimestamp(currentTime)}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono" title="Range start">
+                      {formatTimestamp(rangeStart)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <button
+                      type="button"
+                      className={`text-xs px-2 py-0.5 rounded font-mono border transition-colors ${
+                        rangeEnd !== null
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-primary/60 text-primary animate-pulse'
+                      }`}
+                      title={rangeEnd !== null ? 'End locked — click to follow the playhead again' : 'Following playhead — play/scrub to the end, then click to lock it'}
+                      onClick={() => {
+                        if (rangeEnd !== null) { setRangeEnd(null); return; }
+                        const t = Math.floor(currentTime);
+                        if (t > rangeStart) setRangeEnd(t);
+                        else toast.info('Play or scrub past the start point, then lock the end');
+                      }}
+                    >
+                      {formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground p-0.5"
+                      title="Clear range"
+                      onClick={() => { setRangeStart(null); setRangeEnd(null); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )
               )}
               {isDriveVideo && (
                 <div className="relative">
                   <Clock className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none" />
                   <Input
-                    placeholder="1:23"
+                    placeholder="1:23-1:45"
                     value={manualTimestamp}
                     onChange={(e) => setManualTimestamp(e.target.value)}
-                    className="w-20 h-8 text-xs font-mono pl-6"
-                    title="Optional — type the time from Drive (MM:SS), or prefix your note with 1:23."
+                    className="w-24 h-8 text-xs font-mono pl-6"
+                    title="Optional — type the time from Drive (MM:SS), or a range like 1:23-1:45. You can also prefix your note with it."
                   />
                 </div>
               )}
               <Input
-                placeholder={isDriveVideo ? "Add your note (prefix with 1:23 to set a time)" : "Add your revision note..."}
+                placeholder={
+                  isDriveVideo
+                    ? "Add your note (prefix with 1:23 or 1:23-1:45 to set a time)"
+                    : rangeStart !== null
+                      ? `Add note for ${formatTimestamp(rangeStart)} – ${formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}...`
+                      : "Add your revision note..."
+                }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
@@ -331,7 +421,7 @@ export default function PublicVideoReview() {
                         style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
                         onClick={() => isSupabaseVideo && seekTo(c.timestamp_seconds!)}
                       >
-                        {formatTimestamp(c.timestamp_seconds)} {isSupabaseVideo ? '— Jump' : ''}
+                        {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''} {isSupabaseVideo ? '— Jump' : ''}
                       </button>
                     ) : (
                       <span className="text-xs font-semibold text-muted-foreground">General note</span>

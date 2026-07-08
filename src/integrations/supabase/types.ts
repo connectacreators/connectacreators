@@ -1968,6 +1968,7 @@ export type Database = {
           author_role: string
           comment: string
           created_at: string | null
+          end_timestamp_seconds: number | null
           id: string
           internal_only: boolean
           resolved: boolean | null
@@ -1981,6 +1982,7 @@ export type Database = {
           author_role?: string
           comment: string
           created_at?: string | null
+          end_timestamp_seconds?: number | null
           id?: string
           internal_only?: boolean
           resolved?: boolean | null
@@ -1994,6 +1996,7 @@ export type Database = {
           author_role?: string
           comment?: string
           created_at?: string | null
+          end_timestamp_seconds?: number | null
           id?: string
           internal_only?: boolean
           resolved?: boolean | null

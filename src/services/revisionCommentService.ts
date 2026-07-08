@@ -4,6 +4,7 @@ export interface RevisionComment {
   id: string;
   video_edit_id: string;
   timestamp_seconds: number | null;
+  end_timestamp_seconds: number | null;
   comment: string;
   author_name: string;
   author_role: 'admin' | 'editor' | 'client';
@@ -17,6 +18,7 @@ export interface RevisionComment {
 export interface CreateCommentInput {
   video_edit_id: string;
   timestamp_seconds: number | null;
+  end_timestamp_seconds?: number | null;
   comment: string;
   author_name: string;
   author_role: 'admin' | 'editor' | 'client';

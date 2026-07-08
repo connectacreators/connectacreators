@@ -51,6 +51,19 @@ function parseTimestamp(input: string): number | null {
   return null;
 }
 
+// "1:23-1:45", "1:23 – 1:45", "1:23 to 1:45" → { start, end }. Falls back to
+// a single timestamp with end=null. End must be after start to count.
+function parseTimestampRange(input: string): { start: number; end: number | null } | null {
+  const m = input.trim().match(/^(.+?)\s*(?:-|–|—|\bto\b)\s*(.+)$/i);
+  if (m) {
+    const start = parseTimestamp(m[1]);
+    const end = parseTimestamp(m[2]);
+    if (start != null) return { start, end: end != null && end > start ? end : null };
+  }
+  const single = parseTimestamp(input);
+  return single != null ? { start: single, end: null } : null;
+}
+
 function extractGoogleDriveFileId(url: string): string | null {
   const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (m1) return m1[1];
@@ -106,6 +119,10 @@ export default function VideoReviewModal({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [internalOnly, setInternalOnly] = useState(false);
+  // Range mode: double-click the timestamp chip locks the start; the end chip
+  // follows the playhead until clicked (rangeEnd null = still following).
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
 
   // Multi-source
   const [sources, setSources] = useState<VideoSource[]>([]);
@@ -156,6 +173,8 @@ export default function VideoReviewModal({
     setCurrentTime(0);
     setDuration(0);
     setIsPaused(true);
+    setRangeStart(null);
+    setRangeEnd(null);
     setMobileTab('video');
   }, [open, fileSubmissionUrl, storagePath]);
 
@@ -174,6 +193,8 @@ export default function VideoReviewModal({
     setCurrentTime(0);
     setDuration(0);
     setIsPaused(true);
+    setRangeStart(null);
+    setRangeEnd(null);
   };
 
   // Load comments
@@ -245,23 +266,38 @@ export default function VideoReviewModal({
     if (!newComment.trim()) return;
 
     let timestampSeconds: number | null = null;
+    let endTimestampSeconds: number | null = null;
     let commentBody = newComment.trim();
 
     if (canSeek) {
-      timestampSeconds = isPaused ? Math.floor(currentTime) : null;
+      if (rangeStart !== null) {
+        // Range mode: locked end wins; otherwise take the current playhead.
+        // An end that isn't past the start degrades to a plain point note.
+        timestampSeconds = rangeStart;
+        const endCandidate = rangeEnd ?? Math.floor(currentTime);
+        endTimestampSeconds = endCandidate > rangeStart ? endCandidate : null;
+      } else {
+        timestampSeconds = isPaused ? Math.floor(currentTime) : null;
+      }
     } else {
-      // First try the dedicated timestamp input.
+      // First try the dedicated timestamp input ("1:23" or "1:23-1:45").
       if (manualTimestamp.trim()) {
-        timestampSeconds = parseTimestamp(manualTimestamp);
+        const range = parseTimestampRange(manualTimestamp);
+        if (range) {
+          timestampSeconds = range.start;
+          endTimestampSeconds = range.end;
+        }
       }
       // If no explicit timestamp but the comment STARTS with a time token,
-      // extract it. Supported: "1:23", "@1:23", "at 1:23", "01:23:45".
+      // extract it. Supported: "1:23", "@1:23", "at 1:23", "01:23:45",
+      // and ranges like "1:23-1:45" / "1:23 to 1:45".
       if (timestampSeconds == null) {
-        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2})\b[\s\-—:,.]*/i);
+        const leading = commentBody.match(/^\s*(?:@|at\s+)?(\d{1,2}(?::\d{2}){1,2}(?:\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2}){1,2})?)\b[\s\-—:,.]*/i);
         if (leading) {
-          const parsed = parseTimestamp(leading[1]);
-          if (parsed != null) {
-            timestampSeconds = parsed;
+          const range = parseTimestampRange(leading[1]);
+          if (range) {
+            timestampSeconds = range.start;
+            endTimestampSeconds = range.end;
             commentBody = commentBody.slice(leading[0].length).trim();
           }
         }
@@ -278,6 +314,7 @@ export default function VideoReviewModal({
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
         timestamp_seconds: timestampSeconds,
+        end_timestamp_seconds: endTimestampSeconds,
         comment: commentBody,
         author_name: authorName,
         author_role: 'admin',
@@ -289,6 +326,8 @@ export default function VideoReviewModal({
       setNewComment('');
       setManualTimestamp('');
       setInternalOnly(false);
+      setRangeStart(null);
+      setRangeEnd(null);
       if (isMobile) setMobileTab('notes'); // surface the note that just landed
       await supabase.from('video_edits').update({ status: 'Needs Revision' }).eq('id', videoEditId);
       onStatusChanged?.('Needs Revision');
@@ -360,6 +399,25 @@ export default function VideoReviewModal({
 
   const progressOverlay = duration > 0 ? (
     <>
+      {/* Range segments — behind the dots */}
+      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
+        <div
+          key={`range-${c.id}`}
+          style={{
+            position: 'absolute',
+            left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
+            width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
+            top: '50%', transform: 'translateY(-50%)',
+            height: 6, borderRadius: 3,
+            cursor: 'pointer',
+            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+            opacity: 0.45,
+            zIndex: 1,
+          }}
+          title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
+          onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
+        />
+      ))}
       {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={c.id}
@@ -483,30 +541,71 @@ export default function VideoReviewModal({
 
             {/* Note input */}
             <div className="mt-3 flex gap-2 items-center">
-              {canSeek && isPaused && (
-                <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono whitespace-nowrap">
-                  {formatTimestamp(currentTime)}
-                </span>
+              {canSeek && (isPaused || rangeStart !== null) && (
+                rangeStart === null ? (
+                  <button
+                    type="button"
+                    className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono whitespace-nowrap select-none"
+                    title="Double-click to mark a start–end range"
+                    onDoubleClick={() => { setRangeStart(Math.floor(currentTime)); setRangeEnd(null); }}
+                  >
+                    {formatTimestamp(currentTime)}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-mono" title="Range start">
+                      {formatTimestamp(rangeStart)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <button
+                      type="button"
+                      className={`text-xs px-2 py-0.5 rounded font-mono border transition-colors ${
+                        rangeEnd !== null
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-primary/60 text-primary animate-pulse'
+                      }`}
+                      title={rangeEnd !== null ? 'End locked — click to follow the playhead again' : 'Following playhead — play/scrub to the end, then click to lock it'}
+                      onClick={() => {
+                        if (rangeEnd !== null) { setRangeEnd(null); return; }
+                        const t = Math.floor(currentTime);
+                        if (t > rangeStart) setRangeEnd(t);
+                        else toast.info('Play or scrub past the start point, then lock the end');
+                      }}
+                    >
+                      {formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground p-0.5"
+                      title="Clear range"
+                      onClick={() => { setRangeStart(null); setRangeEnd(null); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )
               )}
               {(!canSeek) && (
                 <div className="relative">
                   <Clock className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none" />
                   <Input
-                    placeholder="1:23"
+                    placeholder="1:23-1:45"
                     value={manualTimestamp}
                     onChange={(e) => setManualTimestamp(e.target.value)}
-                    className="w-20 h-8 text-xs font-mono pl-6"
-                    title="Optional — type the time from the Drive player (MM:SS). You can also prefix your note with 1:23."
+                    className="w-24 h-8 text-xs font-mono pl-6"
+                    title="Optional — type the time from the Drive player (MM:SS), or a range like 1:23-1:45. You can also prefix your note with it."
                   />
                 </div>
               )}
               <Input
                 placeholder={
-                  canSeek && isPaused
-                    ? `Add note at ${formatTimestamp(currentTime)}...`
-                    : !canSeek
-                      ? `Add revision note (prefix with 1:23 to set a time)`
-                      : 'Add revision note...'
+                  canSeek && rangeStart !== null
+                    ? `Add note for ${formatTimestamp(rangeStart)} – ${formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}...`
+                    : canSeek && isPaused
+                      ? `Add note at ${formatTimestamp(currentTime)}...`
+                      : !canSeek
+                        ? `Add revision note (prefix with 1:23 or 1:23-1:45 to set a time)`
+                        : 'Add revision note...'
                 }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -577,7 +676,7 @@ export default function VideoReviewModal({
                             style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
                             onClick={() => canSeek && c.source_ref === (sources.length > 1 ? activeSource?.label : c.source_ref) && seekTo(c.timestamp_seconds!)}
                           >
-                            {formatTimestamp(c.timestamp_seconds)} {canSeek ? '— Jump' : ''}
+                            {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''} {canSeek ? '— Jump' : ''}
                           </button>
                         ) : (
                           <span className="text-xs font-semibold text-muted-foreground">General note</span>
