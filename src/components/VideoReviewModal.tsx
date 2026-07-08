@@ -123,6 +123,9 @@ export default function VideoReviewModal({
   // follows the playhead until clicked (rangeEnd null = still following).
   const [rangeStart, setRangeStart] = useState<number | null>(null);
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
+  // Double-clicking a saved note's timestamp picks/updates its END point:
+  // the note's end chip follows the playhead until clicked to save.
+  const [pickingEndFor, setPickingEndFor] = useState<string | null>(null);
 
   // Multi-source
   const [sources, setSources] = useState<VideoSource[]>([]);
@@ -175,6 +178,7 @@ export default function VideoReviewModal({
     setIsPaused(true);
     setRangeStart(null);
     setRangeEnd(null);
+    setPickingEndFor(null);
     setMobileTab('video');
   }, [open, fileSubmissionUrl, storagePath]);
 
@@ -195,6 +199,7 @@ export default function VideoReviewModal({
     setIsPaused(true);
     setRangeStart(null);
     setRangeEnd(null);
+    setPickingEndFor(null);
   };
 
   // Load comments
@@ -333,6 +338,21 @@ export default function VideoReviewModal({
       onStatusChanged?.('Needs Revision');
       onCommentsChanged?.();
     } catch { toast.error('Failed to add comment'); }
+  };
+
+  const handleSaveEnd = async (c: RevisionComment) => {
+    const start = c.timestamp_seconds ?? 0;
+    const end = Math.floor(currentTime);
+    if (end <= start) {
+      toast.info('Play or scrub past the start point, then click to save the end');
+      return;
+    }
+    try {
+      await revisionCommentService.updateEndTimestamp(c.id, end);
+      setComments(prev => prev.map(x => x.id === c.id ? { ...x, end_timestamp_seconds: end } : x));
+      setPickingEndFor(null);
+      onCommentsChanged?.();
+    } catch { toast.error('Failed to set end point'); }
   };
 
   const handleResolve = async (commentId: string, resolved: boolean) => {
@@ -670,11 +690,34 @@ export default function VideoReviewModal({
                             <Lock className="h-2.5 w-2.5" /> Internal
                           </span>
                         )}
-                        {c.timestamp_seconds !== null ? (
+                        {c.timestamp_seconds !== null && pickingEndFor === c.id ? (
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            <span className="text-xs font-semibold font-mono" style={{ color: ROLE_COLORS[c.author_role] || '#888' }}>
+                              {formatTimestamp(c.timestamp_seconds)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">→</span>
+                            <button
+                              className="text-xs px-1.5 py-0.5 rounded font-mono border border-primary/60 text-primary animate-pulse"
+                              title="Following playhead — play/scrub to the end, then click to save it"
+                              onClick={() => handleSaveEnd(c)}
+                            >
+                              {formatTimestamp(Math.max(currentTime, c.timestamp_seconds))}
+                            </button>
+                            <button
+                              className="text-muted-foreground hover:text-foreground p-0.5"
+                              title="Cancel"
+                              onClick={() => setPickingEndFor(null)}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : c.timestamp_seconds !== null ? (
                           <button
                             className="text-xs font-semibold font-mono hover:underline whitespace-nowrap"
                             style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
+                            title={canSeek ? 'Click to jump · double-click to set the end point' : undefined}
                             onClick={() => canSeek && c.source_ref === (sources.length > 1 ? activeSource?.label : c.source_ref) && seekTo(c.timestamp_seconds!)}
+                            onDoubleClick={() => canSeek && setPickingEndFor(c.id)}
                           >
                             {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''} {canSeek ? '— Jump' : ''}
                           </button>

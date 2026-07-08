@@ -59,6 +59,15 @@ export const revisionCommentService = {
     if (error) throw error;
   },
 
+  async updateEndTimestamp(commentId: string, endSeconds: number | null): Promise<void> {
+    const { error } = await supabase
+      .from('revision_comments')
+      .update({ end_timestamp_seconds: endSeconds })
+      .eq('id', commentId);
+
+    if (error) throw error;
+  },
+
   async updateComment(commentId: string, comment: string): Promise<void> {
     const { error } = await supabase
       .from('revision_comments')
