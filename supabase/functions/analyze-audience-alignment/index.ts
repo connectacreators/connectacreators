@@ -54,6 +54,9 @@ interface ScrapedPost {
   /** The reel/post URL on the source platform — used as the playback source
    *  via the stream-reel proxy so the FE can play the video inline. */
   video_url: string | null;
+  /** Only populated on the Viral Today fast-path — the live scrape has neither. */
+  comments?: number;
+  outlier?: number;
 }
 interface ScrapeResult {
   posts: ScrapedPost[];
@@ -179,28 +182,90 @@ serve(async (req) => {
       instagramHandle.toLowerCase() !== onboardingHandle.toLowerCase()
     );
 
+    // ── Viral Today fast-path ──────────────────────────────────────────────
+    // If the profile is already tracked on Viral Today with a fresh scrape,
+    // build the posts payload from viral_videos instead of re-scraping: richer
+    // signal (comments + 90d-median outlier scores) and no duplicate VPS load.
+    const VIRAL_FRESH_MS = 7 * 24 * 60 * 60 * 1000;
+    let viralClient: ScrapeResult | null = null;
+    let viralAvatarUrl: string | null = null;
+    try {
+      const { data: channel } = await adminClient
+        .from("viral_channels")
+        .select("id, avatar_url, follower_count, last_scraped_at, scrape_status")
+        .eq("platform", "instagram")
+        .eq("username", parseUsername(instagramHandle))
+        .maybeSingle();
+      const fresh = channel?.scrape_status === "done" && channel.last_scraped_at &&
+        (Date.now() - new Date(channel.last_scraped_at).getTime()) < VIRAL_FRESH_MS;
+      if (channel && fresh) {
+        const { data: vids } = await adminClient
+          .from("viral_videos")
+          .select("apify_video_id, caption, views_count, likes_count, comments_count, outlier_score, thumbnail_url, video_url, posted_at")
+          .eq("channel_id", channel.id)
+          .order("posted_at", { ascending: false, nullsFirst: false })
+          .limit(10);
+        if (vids && vids.length >= 3) {
+          viralClient = {
+            posts: vids.map((v, i) => ({
+              id: String(v.apify_video_id || `viral-${i}`),
+              caption: String(v.caption || "").slice(0, 300),
+              views: Number(v.views_count) || 0,
+              likes: Number(v.likes_count) || 0,
+              thumbnail: v.thumbnail_url || null,
+              video_url: v.video_url || null,
+              comments: Number(v.comments_count) || 0,
+              outlier: Number(v.outlier_score) || 0,
+            })),
+            profilePicUrl: null,
+            followers: channel.follower_count ? Number(channel.follower_count) : null,
+          };
+          viralAvatarUrl = channel.avatar_url || null;
+        }
+      }
+    } catch (err) {
+      console.warn("[analyze-audience-alignment] viral fast-path failed, falling back to live scrape:", err);
+    }
+    const dataSource: "viral_today" | "live_scrape" = viralClient ? "viral_today" : "live_scrape";
+
     const competitorsRequested = include_competitors && emulationProfiles.length > 0;
     const [clientResult, ...emulationResults] = await Promise.all([
-      scrapeProfile(instagramHandle, 10),
+      viralClient ? Promise.resolve(viralClient) : scrapeProfile(instagramHandle, 10),
       ...(competitorsRequested
         ? emulationProfiles.map((handle) => scrapeProfile(handle, 10))
         : []),
     ]);
 
     const clientPosts = clientResult.posts;
-    const followers = clientResult.followers;
+    // On the fast path there's no fresh scrape to pull profile meta from:
+    // keep the previously stored pic/followers rather than dropping them.
+    let prevAnalysis: Record<string, unknown> = {};
+    if (viralClient && !isCompetitor) {
+      const { data: prevStrat } = await adminClient
+        .from("client_strategies")
+        .select("audience_analysis")
+        .eq("client_id", client_id)
+        .maybeSingle();
+      prevAnalysis = (prevStrat?.audience_analysis as Record<string, unknown>) || {};
+    }
+    const followers = clientResult.followers ?? (prevAnalysis.followers as number | undefined) ?? null;
     // Proxy the profile pic through VPS and store as base64 so it's browser-safe
     const profilePicUrl = clientResult.profilePicUrl
       ? await proxyImageAsBase64(clientResult.profilePicUrl)
-      : null;
+      : ((prevAnalysis.profilePicUrl as string | undefined) || viralAvatarUrl || null);
     const emulationPostArrays = emulationResults.map(r => r.posts);
     const totalEmulationPosts = emulationPostArrays.reduce((sum, arr) => sum + arr.length, 0);
 
     const clientPostsText = clientPosts.length > 0
       ? clientPosts.map((p, i) =>
-          `Post ${i + 1}: "${p.caption}" — ${p.views.toLocaleString()} views, ${p.likes.toLocaleString()} likes`
+          `Post ${i + 1}: "${p.caption}" — ${p.views.toLocaleString()} views, ${p.likes.toLocaleString()} likes` +
+          (p.comments != null ? `, ${p.comments.toLocaleString()} comments` : "") +
+          (p.outlier ? `, ${p.outlier}x outlier` : "")
         ).join("\n")
       : "No posts found.";
+    const outlierNote = dataSource === "viral_today"
+      ? "\n(Outlier = views ÷ the channel's trailing-90-day median. 1x = typical post; 5x+ = breakout.)"
+      : "";
 
     const emulationText = emulationProfiles.map((profile, i) => {
       const posts = emulationPostArrays[i] || [];
@@ -229,7 +294,7 @@ CLIENT PROFILE:
 - Unique offer: ${uniqueOffer}
 - Instagram: @${instagramHandle}
 
-MOST RECENT POSTS (last ${clientPosts.length} — ordered newest first):
+MOST RECENT POSTS (last ${clientPosts.length} — ordered newest first):${outlierNote}
 ${clientPostsText}
 
 EMULATION PROFILES (accounts they want to model):
@@ -366,6 +431,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
       ...(extended ? extended : {}),
       handle: instagramHandle,
       platform: "instagram" as const,
+      data_source: dataSource,
     };
 
     // Only overwrite the client's own analysis when this scrape IS the
@@ -388,8 +454,11 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
     // (a) any future analyze_my_profile call for this handle can pull
     // the posts from DB instead of re-scraping, and (b) the profile
     // shows up in /viral-today's reference corpus for find_viral_videos.
+    // Skipped on the viral_today fast-path: those posts came FROM
+    // viral_videos, and writing them back would replace the 90d-median
+    // outlier scores with a 10-post median and fake a fresh scrape.
     // Best-effort: errors here must NOT fail the analysis response.
-    try {
+    if (dataSource === "live_scrape") try {
       const { data: channelRow } = await adminClient
         .from("viral_channels")
         .upsert({

@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PageTransition from "@/components/PageTransition";
 import { ProductionPipelineSection } from "@/components/strategy/ProductionPipelineSection";
 import { StrategySetupCard } from "@/components/strategy/StrategySetupCard";
+import { AddToViralTodayBanner } from "@/components/strategy/AddToViralTodayBanner";
+import { ContentPerformanceTab } from "@/components/strategy/ContentPerformanceTab";
+import { useClientViralChannels } from "@/hooks/useClientViralChannels";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
 import { monthWindow, pacePct, paceState, expectedByToday, fulfillmentScore } from "@/lib/strategy/pace";
@@ -50,6 +54,7 @@ interface ClientStrategy {
     emulation_profiles: string[];
     analyzed_at: string;
     language?: string;
+    data_source?: "viral_today" | "live_scrape";
   } | null;
   audience_analyzed_at?: string | null;
 }
@@ -157,10 +162,25 @@ function ProgressBar({ pct, color, tickPct }: { pct: number; color: string; tick
   );
 }
 
+const TEAM_ROLES = ["admin", "editor", "videographer", "content_strategist"];
+
 export default function ClientStrategy() {
   const { clientId } = useParams<{ clientId: string }>();
   const { language } = useLanguage();
   const en = language === "en";
+  const { role } = useAuth();
+  const isTeam = TEAM_ROLES.includes(role);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: "strategy" | "performance" = searchParams.get("tab") === "performance" ? "performance" : "strategy";
+  const setTab = (t: "strategy" | "performance") => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (t === "performance") p.set("tab", "performance");
+      else p.delete("tab");
+      return p;
+    }, { replace: true });
+  };
 
   const [strategy, setStrategy] = useState<ClientStrategy | null>(null);
   const [counts, setCounts] = useState<MonthCounts>({ scripts: 0, videos_edited: 0, videos_published: 0, posts_scheduled: 0 });
@@ -171,6 +191,11 @@ export default function ClientStrategy() {
   const [clientOnboarding, setClientOnboarding] = useState<Record<string, unknown>>({});
   const [analyzing, setAnalyzing] = useState(false);
   const analyzingRef = useRef(false);
+
+  // Viral Today channel link (Performance tab + Audience Alignment banner)
+  const { linked, missing, addingPlatforms, addChannels } = useClientViralChannels(clientOnboarding);
+  const dismissKey = `cac:viral-link-dismissed:${clientId}`;
+  const [linkDismissed, setLinkDismissed] = useState(() => sessionStorage.getItem(dismissKey) === "1");
 
   const now = new Date();
   const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>({
@@ -367,6 +392,18 @@ export default function ClientStrategy() {
   const audienceAvg = (s.audience_score + s.uniqueness_score) / 2;
   const audienceStatus: StatusLevel = audienceAvg >= 7 ? "green" : audienceAvg >= 4 ? "yellow" : "red";
 
+  // Team-only nudge to track the client's onboarding handles on Viral Today.
+  // Session-dismissable; reappears next visit while channels are missing.
+  const viralLinkBanner = isTeam && !linkDismissed && missing.length > 0 ? (
+    <AddToViralTodayBanner
+      missing={missing}
+      adding={addingPlatforms.length > 0}
+      en={en}
+      onAdd={addChannels}
+      onDismiss={() => { sessionStorage.setItem(dismissKey, "1"); setLinkDismissed(true); }}
+    />
+  ) : null;
+
   const input = (field: keyof ClientStrategy, type: "text" | "number" | "boolean" = "text") => {
     if (!editing) return null;
     if (type === "boolean") {
@@ -425,7 +462,7 @@ export default function ClientStrategy() {
             )}
           </div>
         </div>
-        {(() => {
+        {tab === "strategy" && (() => {
           const monthNames = en
             ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
             : ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -454,7 +491,7 @@ export default function ClientStrategy() {
             </div>
           );
         })()}
-        <div className="flex items-center gap-2">
+        {tab === "strategy" && <div className="flex items-center gap-2">
           {editing ? (
             <>
               <button onClick={cancelEdit} className="text-xs font-semibold px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-colors">{en ? "Cancel" : "Cancelar"}</button>
@@ -473,9 +510,39 @@ export default function ClientStrategy() {
               {en ? "Edit Strategy" : "Editar Estrategia"}
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-5 border-b border-white/[0.08]">
+        {([
+          { key: "strategy" as const, label: en ? "Strategy" : "Estrategia" },
+          { key: "performance" as const, label: en ? "Performance" : "Rendimiento" },
+        ]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className="text-xs font-semibold px-4 py-2.5 -mb-px transition-colors"
+            style={{
+              color: tab === t.key ? "hsl(var(--aqua))" : "rgba(255,255,255,0.4)",
+              borderBottom: tab === t.key ? "2px solid hsl(var(--aqua))" : "2px solid transparent",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "performance" ? (
+        <ContentPerformanceTab
+          linked={linked}
+          isTeam={isTeam}
+          en={en}
+          banner={viralLinkBanner}
+          onRescrape={(t) => addChannels([t])}
+        />
+      ) : (
+      <>
       {/* Fulfillment Score */}
       <div className="glass-card rounded-xl p-5 mb-4 flex items-center gap-6">
         <div className="relative w-20 h-20 flex-shrink-0">
@@ -605,6 +672,7 @@ export default function ClientStrategy() {
                 : "Agrega tu usuario de Instagram en el onboarding para activar el análisis."}
             </p>
           )}
+          {viralLinkBanner}
           {clientOnboarding.instagram && toProfilesArray(clientOnboarding.top3Profiles).length === 0 && (
             <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg" style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)" }}>
               <span style={{ color: "#f59e0b", fontSize: 13, lineHeight: 1.2, marginTop: 1 }}>⚠</span>
@@ -664,6 +732,9 @@ export default function ClientStrategy() {
                 {Math.floor((Date.now() - new Date(s.audience_analyzed_at).getTime()) / 86400000)}
                 {en ? "d ago" : "d atrás"}{" "}
                 · {s.audience_analysis?.client_posts_analyzed ?? 0} posts
+                {s.audience_analysis?.data_source === "viral_today"
+                  ? (en ? " · tracked on Viral Today" : " · monitoreados en Viral Today")
+                  : ""}
               </span>
             ) : (
               <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -698,6 +769,8 @@ export default function ClientStrategy() {
         />
 
       </div>
+      </>
+      )}
     </PageTransition>
   );
 }

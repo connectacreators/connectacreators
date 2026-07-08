@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { detectPlatformAndUsername } from "@/lib/viral/channelHandle";
 const BatchScriptModal = lazy(() => import("@/components/BatchScriptModal"));
 import { FilterRail } from "@/components/viral-today/FilterRail";
 import BulkAnalyzeModal from "@/components/viral-today/BulkAnalyzeModal";
@@ -257,37 +258,6 @@ interface ViralVideo {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-// Detect platform and extract clean username from full URL or @handle
-function detectPlatformAndUsername(raw: string): { username: string; platform: "instagram" | "tiktok" | "youtube" } {
-  const s = raw.trim();
-
-  // TikTok URL
-  const tiktokMatch = s.match(/tiktok\.com\/@?([^/?#\s]+)/i);
-  if (tiktokMatch) {
-    return { username: tiktokMatch[1].replace(/\/$/, "").toLowerCase(), platform: "tiktok" };
-  }
-
-  // Instagram URL
-  const instaMatch = s.match(/instagram\.com\/([^/?#\s]+)/i);
-  if (instaMatch) {
-    return { username: instaMatch[1].replace(/\/$/, "").toLowerCase(), platform: "instagram" };
-  }
-
-  // YouTube URL variants
-  if (s.includes("youtube.com") || s.includes("youtu.be")) {
-    const handleMatch = s.match(/youtube\.com\/@([^/?#\s]+)/i);
-    const customMatch = s.match(/youtube\.com\/c\/([^/?#\s]+)/i);
-    const channelMatch = s.match(/youtube\.com\/channel\/([^/?#\s]+)/i);
-    const username =
-      handleMatch?.[1] ?? customMatch?.[1] ?? channelMatch?.[1] ?? s.replace(/^.*youtube\.com\//i, "").split(/[/?#]/)[0];
-    return { username: username.replace(/\/$/, ""), platform: "youtube" };
-  }
-
-  // @handle with no URL — assume Instagram
-  const clean = s.replace(/^@/, "").trim().toLowerCase();
-  return { username: clean, platform: "instagram" };
-}
 
 // ── Feed score algorithm ─────────────────────────────────────────────────────
 // Used by "For You" sort. Higher = shown first. Ranking philosophy:
