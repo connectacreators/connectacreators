@@ -457,6 +457,26 @@ export default function VideoReviewModal({
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
+      {/* End dots for ranged notes */}
+      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
+        <div
+          key={`end-${c.id}`}
+          style={{
+            position: 'absolute',
+            left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`,
+            top: '50%', transform: 'translateY(-50%)',
+            width: 10, height: 10, borderRadius: '50%',
+            border: '2px solid rgba(0,0,0,0.6)',
+            cursor: 'pointer',
+            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+            zIndex: 2,
+          }}
+          title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%) scale(1.3)'; }}
+          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%)'; }}
+          onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
+        />
+      ))}
     </>
   ) : undefined;
 
@@ -719,7 +739,7 @@ export default function VideoReviewModal({
                             onClick={() => canSeek && c.source_ref === (sources.length > 1 ? activeSource?.label : c.source_ref) && seekTo(c.timestamp_seconds!)}
                             onDoubleClick={() => canSeek && setPickingEndFor(c.id)}
                           >
-                            {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''} {canSeek ? '— Jump' : ''}
+                            {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''}
                           </button>
                         ) : (
                           <span className="text-xs font-semibold text-muted-foreground">General note</span>

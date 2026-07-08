@@ -295,6 +295,17 @@ export default function PublicVideoReview() {
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
                     />
                   ))}
+                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
+                    <div
+                      key={`end-${c.id}`}
+                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-background cursor-pointer hover:scale-125 transition-transform"
+                      style={{
+                        left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`,
+                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+                      }}
+                      onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
+                    />
+                  ))}
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <Button variant="ghost" size="sm" onClick={() => {
@@ -421,7 +432,7 @@ export default function PublicVideoReview() {
                         style={{ color: ROLE_COLORS[c.author_role] || '#888' }}
                         onClick={() => isSupabaseVideo && seekTo(c.timestamp_seconds!)}
                       >
-                        {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''} {isSupabaseVideo ? '— Jump' : ''}
+                        {formatTimestamp(c.timestamp_seconds)}{c.end_timestamp_seconds !== null ? ` – ${formatTimestamp(c.end_timestamp_seconds)}` : ''}
                       </button>
                     ) : (
                       <span className="text-xs font-semibold text-muted-foreground">General note</span>
