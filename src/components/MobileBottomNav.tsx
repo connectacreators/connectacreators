@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Flame, FileText, Clapperboard, MoreHorizontal,
   Users, Archive, CalendarDays, UserCheck, GraduationCap,
-  CreditCard, Settings, Globe, LogOut, X,
+  CreditCard, Settings, Globe, LogOut, X, TrendingUp, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { readCache } from "@/lib/sessionCache";
 
 const BOTTOM_TABS = [
   { icon: Home, label: "Home", path: "/dashboard" },
@@ -28,9 +29,34 @@ const MORE_NAV_ITEMS = [
 export default function MobileBottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const { language, toggleLanguage } = useLanguage();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  // Resolve the selected client the same way DashboardSidebar does: the URL
+  // wins, then the persisted client-selector viewMode ("master" has no
+  // client-scoped pages, "me" maps to the user's own client).
+  const [, bumpViewMode] = useState(0);
+  useEffect(() => {
+    const onChange = () => bumpViewMode((n) => n + 1);
+    window.addEventListener("viewModeChanged", onChange);
+    return () => window.removeEventListener("viewModeChanged", onChange);
+  }, []);
+  const viewMode = typeof window !== "undefined" ? localStorage.getItem("dashboard_viewMode") : null;
+  const urlClientId = pathname.match(/^\/clients\/([^/]+)/)?.[1] ?? null;
+  const ownClientId = user
+    ? readCache<{ id: string | null; name: string | null }>(`ownClient_${user.id}`, { id: null, name: null }).id
+    : null;
+  const selectedClientId =
+    urlClientId ?? (viewMode === "master" || !viewMode ? null : viewMode === "me" ? ownClientId : viewMode);
+
+  const moreItems = [
+    ...(selectedClientId
+      ? [{ icon: TrendingUp, label: language === "es" ? "Estrategia" : "Strategy", path: `/clients/${selectedClientId}/strategy` }]
+      : []),
+    ...(isAdmin ? [{ icon: DollarSign, label: language === "es" ? "Finanzas" : "Finances", path: "/finances" }] : []),
+    ...MORE_NAV_ITEMS,
+  ];
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -119,7 +145,7 @@ export default function MobileBottomNav() {
 
             {/* Nav items */}
             <div className="px-2 pb-8">
-              {MORE_NAV_ITEMS.map((item) => (
+              {moreItems.map((item) => (
                 <button
                   key={item.path}
                   onClick={() => handleNav(item.path)}
