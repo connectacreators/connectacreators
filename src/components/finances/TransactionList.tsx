@@ -125,7 +125,8 @@ function Row({
         <span className={`text-sm font-semibold tabular-nums ${kind === "income" ? "text-emerald-400" : "text-foreground"}`}>
           {formatUsd(t.amount)}
         </span>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ml-2">
+        {/* Always visible below lg — hover never fires on touch */}
+        <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ml-2">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
             <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>

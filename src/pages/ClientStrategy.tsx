@@ -438,9 +438,9 @@ export default function ClientStrategy() {
 
   return (
     <PageTransition className="flex-1 px-4 sm:px-6 py-6 max-w-3xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
+      {/* Header — title takes its own row on phones; month pill + edit share row 2 */}
+      <div className="flex flex-wrap items-center justify-between gap-y-3 mb-5">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           {/* Instagram profile picture */}
           {(s.audience_analysis as any)?.profilePicUrl ? (
             <img
@@ -550,7 +550,7 @@ export default function ClientStrategy() {
       ) : (
       <>
       {/* Fulfillment Score */}
-      <div className="glass-card rounded-xl p-5 mb-4 flex items-center gap-6">
+      <div className="glass-card rounded-xl p-4 sm:p-5 mb-4 flex items-center gap-4 sm:gap-6">
         <div className="relative w-20 h-20 flex-shrink-0">
           <svg width="80" height="80" viewBox="0 0 80 80" className="rotate-[-90deg]">
             <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />

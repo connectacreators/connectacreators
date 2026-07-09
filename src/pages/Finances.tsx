@@ -176,13 +176,13 @@ export default function Finances() {
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3">
+        {/* Header — wraps on narrow screens so the month selector stays reachable */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Finances</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-0 rounded-xl border border-border/60 bg-card/60 p-1">
               <Button
                 variant={view === "cards" ? "cta" : "ghost"}
@@ -222,6 +222,29 @@ export default function Finances() {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Mobile totals strip — the full Summary card sits below the lists on
+            phones, so surface the three headline numbers up top. Mirrors the
+            Summary card's math (collected excludes A/R). */}
+        <div className="grid grid-cols-3 gap-2 lg:hidden">
+          {(() => {
+            const totalIncome = income.reduce((a, t) => a + t.amount, 0);
+            const collected = totalIncome - income.filter((t) => t.is_ar).reduce((a, t) => a + t.amount, 0);
+            const totalExpenses = expenses.reduce((a, t) => a + t.amount, 0);
+            const gross = collected - totalExpenses;
+            const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+            return ([
+              { label: "Income", value: fmt(totalIncome), cls: "text-emerald-400" },
+              { label: "Expenses", value: fmt(totalExpenses), cls: "text-red-400" },
+              { label: "Gross", value: fmt(gross), cls: gross >= 0 ? "text-emerald-400" : "text-red-400" },
+            ]).map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-border/60 bg-card/60 px-3 py-2 min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</div>
+                <div className={`text-sm font-semibold tabular-nums truncate ${stat.cls}`}>{stat.value}</div>
+              </div>
+            ));
+          })()}
         </div>
 
         {/* Two-column layout */}
