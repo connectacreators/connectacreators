@@ -18,7 +18,7 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
-  Film, TrendingUp,
+  Film, TrendingUp, ClipboardList,
 } from "lucide-react";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
@@ -295,20 +295,28 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
-        { label: language === "en" ? "Content Ideas" : "Ideas de Contenido", icon: FileText, path: contentIdeasPath, tier: 'essential' },
+        // Client group — pages scoped to the client picked in the selector.
+        // Hidden in Master mode (no client to scope to); header shows the
+        // client's name so the dropdown↔shortcut link is obvious.
+        ...(selectedClientId ? [
+          { type: 'group', label: selectedClientName } as NavGroup,
+          { label: language === "en" ? "Strategy" : "Estrategia", icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem,
+          { label: "Onboarding", icon: ClipboardList, path: `/onboarding/${selectedClientId}` } as NavItem,
+        ] : []),
         { type: 'group', label: 'Create' },
+        { label: language === "en" ? "Content Ideas" : "Ideas de Contenido", icon: FileText, path: contentIdeasPath, tier: 'essential' },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { label: "Vault", icon: Archive, path: "/vault" },
-        { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { type: 'group', label: 'Editing' },
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
+        { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
         { type: 'group', label: 'Growth' },
-        ...(selectedClientId ? [{ label: language === "en" ? "Strategy" : "Estrategia", icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem] : []),
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
+        { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { type: 'group', label: 'Business' },
         { label: "Finances", icon: DollarSign, path: "/finances" },
         { label: "API Usage", icon: BarChart3, path: "/api-usage" },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
         { type: 'group', label: 'Agency' },
         { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
         { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
@@ -609,7 +617,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
             if (entry.type === 'group') {
               return (
                 <div key={`group-${idx}`} className="px-3 pt-4 pb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#555]">
+                  <span className="block truncate text-[10px] font-semibold uppercase tracking-widest text-[#555]">
                     {entry.label}
                   </span>
                 </div>
