@@ -198,7 +198,7 @@ export default function ClientStrategy() {
   const analyzingRef = useRef(false);
 
   // Viral Today channel link (Performance tab + Audience Alignment banner)
-  const { links, missing, addingPlatforms, addChannels } = useClientViralChannels(clientOnboarding);
+  const { links, missing, addingPlatforms, addChannels } = useClientViralChannels(clientOnboarding, clientId);
   const dismissKey = `cac:viral-link-dismissed:${clientId}`;
   const [linkDismissed, setLinkDismissed] = useState(() => sessionStorage.getItem(dismissKey) === "1");
 

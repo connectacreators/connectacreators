@@ -1,4 +1,4 @@
-import { Instagram, Youtube } from "lucide-react";
+import { Instagram, Youtube, Facebook } from "lucide-react";
 import type React from "react";
 
 export function fmtViews(n: number): string {
@@ -108,6 +108,7 @@ export const PLATFORM_ICON: Record<string, React.ElementType> = {
   instagram: Instagram,
   tiktok: TikTokIcon,
   youtube: Youtube,
+  facebook: Facebook,
 };
 
 const GRID_PALETTES = [

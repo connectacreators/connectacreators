@@ -2,7 +2,7 @@
 // add-channel flow and the Strategy page's channel-link detection so both
 // normalize usernames identically.
 
-export type ViralPlatform = "instagram" | "tiktok" | "youtube";
+export type ViralPlatform = "instagram" | "tiktok" | "youtube" | "facebook";
 
 // Detect platform and extract clean username from full URL or @handle
 export function detectPlatformAndUsername(raw: string): { username: string; platform: ViralPlatform } {

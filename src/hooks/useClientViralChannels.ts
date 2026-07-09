@@ -27,18 +27,37 @@ export interface ClientChannelLink {
 /** Match the client's onboarding handles (IG/TikTok/YouTube) against
  *  viral_channels, and add missing ones via the same insert + scrape-channel
  *  flow Viral Today uses. Polls while any linked channel is scraping. */
-export function useClientViralChannels(onboarding: Record<string, unknown>) {
+export function useClientViralChannels(onboarding: Record<string, unknown>, clientId?: string) {
   const { user } = useAuth();
   const [links, setLinks] = useState<ClientChannelLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingPlatforms, setAddingPlatforms] = useState<ViralPlatform[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fbFetchedRef = useRef(false);
 
   const handles = onboardingSocialChannels(onboarding);
   const handlesKey = handles.map(h => `${h.platform}:${h.username}`).join(",");
 
   const refresh = useCallback(async () => {
-    const wanted = onboardingSocialChannels(onboarding);
+    const wanted: { platform: ViralPlatform; username: string }[] = onboardingSocialChannels(onboarding);
+
+    // Facebook is sourced from the scheduler's social_connections (official
+    // Graph API via page token) — NOT onboarding handles — because FB pages
+    // can't be scraped. The channel row is keyed by the connection's label.
+    if (clientId) {
+      const { data: fb } = await supabase
+        .from("social_connections")
+        .select("account_label")
+        .eq("client_id", clientId)
+        .eq("platform", "facebook")
+        .eq("status", "active")
+        .maybeSingle();
+      if (fb?.account_label) {
+        const fbUser = String(fb.account_label).replace(/^@/, "");
+        if (!wanted.some(w => w.platform === "facebook")) wanted.push({ platform: "facebook", username: fbUser });
+      }
+    }
+
     if (wanted.length === 0) {
       setLinks([]);
       setLoading(false);
@@ -55,9 +74,20 @@ export function useClientViralChannels(onboarding: Record<string, unknown>) {
     })));
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handlesKey]);
+  }, [handlesKey, clientId]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Refresh the client's Facebook page videos once per mount via the Graph API
+  // (persists into viral_videos), then re-read so the FB channel appears.
+  useEffect(() => {
+    if (!clientId || fbFetchedRef.current) return;
+    fbFetchedRef.current = true;
+    supabase.functions
+      .invoke("fetch-facebook-videos", { body: { client_id: clientId, persist: true } })
+      .then(() => refresh())
+      .catch(() => {});
+  }, [clientId, refresh]);
 
   // Poll while any channel is mid-scrape so status flips to done/error live.
   const anyRunning = links.some(l => l.channel?.scrape_status === "running");

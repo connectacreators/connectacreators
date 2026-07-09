@@ -144,7 +144,7 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, fallbackS
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 flex-wrap">
-          {(["instagram", "tiktok", "youtube"] as const).filter(p => (byPlatform?.[p] ?? 0) > 0 || linked.some(l => l.platform === p)).map(p => {
+          {(["instagram", "tiktok", "youtube", "facebook"] as const).filter(p => (byPlatform?.[p] ?? 0) > 0 || linked.some(l => l.platform === p)).map(p => {
             const Icon = PLATFORM_ICON[p];
             return (
               <span key={p} className="flex items-center gap-1.5 text-[11px] text-white/60">

@@ -3,6 +3,7 @@ import type { ClientChannelLink } from "@/hooks/useClientViralChannels";
 import type { ViralPlatform } from "@/lib/viral/channelHandle";
 
 const PLATFORM_LABEL: Record<ViralPlatform, string> = {
+  facebook: "Facebook",
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
