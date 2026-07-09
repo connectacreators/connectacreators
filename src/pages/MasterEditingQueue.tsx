@@ -253,12 +253,17 @@ export default function MasterEditingQueue() {
   const [showTrash, setShowTrash] = useState(false);
   const [trashedItems, setTrashedItems] = useState<EditingQueueItem[]>([]);
   const [fetchingTrash, setFetchingTrash] = useState(false);
+  const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set());
+  const [permDeleteItems, setPermDeleteItems] = useState<EditingQueueItem[] | null>(null);
+  const [permDeleting, setPermDeleting] = useState(false);
 
   // Archive
   const [showArchive, setShowArchive] = useState(false);
   const [archivedItems, setArchivedItems] = useState<EditingQueueItem[]>([]);
   const [fetchingArchive, setFetchingArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [selectedArchiveIds, setSelectedArchiveIds] = useState<Set<string>>(new Set());
+  const [trashingArchived, setTrashingArchived] = useState(false);
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -854,19 +859,28 @@ export default function MasterEditingQueue() {
     }
   };
 
-  const handleTrashArchivedItem = async (item: EditingQueueItem) => {
+  const handleTrashArchivedItems = async (toTrash: EditingQueueItem[]) => {
+    if (toTrash.length === 0) return;
+    setTrashingArchived(true);
     try {
       const now = new Date().toISOString();
-      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).eq("id", item.id);
+      const ids = toTrash.map(i => i.id);
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).in("id", ids);
       if (error) throw error;
-      // Also trash the linked script (same cascade as deleting from the queue)
-      if (item.script_id) {
-        await supabase.from("scripts").update({ deleted_at: now }).eq("id", item.script_id);
+      // Also trash the linked scripts (same cascade as deleting from the queue)
+      const scriptIds = toTrash.filter(i => i.script_id).map(i => i.script_id!);
+      if (scriptIds.length > 0) {
+        await supabase.from("scripts").update({ deleted_at: now }).in("id", scriptIds);
       }
-      setArchivedItems(prev => prev.filter(i => i.id !== item.id));
-      toast.success(language === "en" ? "Moved to trash" : "Movido a la papelera");
+      setArchivedItems(prev => prev.filter(i => !ids.includes(i.id)));
+      setSelectedArchiveIds(new Set());
+      toast.success(language === "en"
+        ? (ids.length === 1 ? "Moved to trash" : `${ids.length} items moved to trash`)
+        : (ids.length === 1 ? "Movido a la papelera" : `${ids.length} elementos movidos a la papelera`));
     } catch {
       toast.error(language === "en" ? "Failed to move to trash" : "Error al mover a la papelera");
+    } finally {
+      setTrashingArchived(false);
     }
   };
 
@@ -926,22 +940,32 @@ export default function MasterEditingQueue() {
     }
   };
 
-  const handlePermanentDelete = async (itemId: string) => {
-    if (!window.confirm(language === "en" ? "Permanently delete this item and its footage files? This cannot be undone." : "¿Eliminar permanentemente este elemento y sus archivos de metraje? No se puede deshacer.")) return;
+  const handlePermanentDelete = async () => {
+    if (!permDeleteItems || permDeleteItems.length === 0) return;
+    setPermDeleting(true);
     try {
-      const item = trashedItems.find(i => i.id === itemId);
-      // Free the storage first — once the row is gone the files can't be found.
-      if (item) await wipeVideoEditStorage(item.clientId, item.id);
-      const { error } = await supabase.from("video_edits").delete().eq("id", itemId);
-      if (error) throw error;
-      // Also permanently delete the linked script
-      if (item?.script_id) {
-        await supabase.from("scripts").delete().eq("id", item.script_id);
+      // Free the storage first — once the rows are gone the files can't be found.
+      for (const item of permDeleteItems) {
+        await wipeVideoEditStorage(item.clientId, item.id);
       }
-      setTrashedItems(prev => prev.filter(i => i.id !== itemId));
-      toast.success(language === "en" ? "Permanently deleted" : "Eliminado permanentemente");
+      const ids = permDeleteItems.map(i => i.id);
+      const { error } = await supabase.from("video_edits").delete().in("id", ids);
+      if (error) throw error;
+      // Also permanently delete the linked scripts
+      const scriptIds = permDeleteItems.filter(i => i.script_id).map(i => i.script_id!);
+      if (scriptIds.length > 0) {
+        await supabase.from("scripts").delete().in("id", scriptIds);
+      }
+      setTrashedItems(prev => prev.filter(i => !ids.includes(i.id)));
+      setSelectedTrashIds(new Set());
+      setPermDeleteItems(null);
+      toast.success(language === "en"
+        ? (ids.length === 1 ? "Permanently deleted" : `${ids.length} items permanently deleted`)
+        : (ids.length === 1 ? "Eliminado permanentemente" : `${ids.length} elementos eliminados permanentemente`));
     } catch {
       toast.error(language === "en" ? "Failed to delete" : "Error al eliminar");
+    } finally {
+      setPermDeleting(false);
     }
   };
 
@@ -1127,6 +1151,8 @@ export default function MasterEditingQueue() {
                   if (!showArchive) fetchArchivedItems();
                   setShowArchive(!showArchive);
                   setShowTrash(false);
+                  setSelectedArchiveIds(new Set());
+                  setSelectedTrashIds(new Set());
                 }}
                 className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm border transition-all ${
                   showArchive
@@ -1144,6 +1170,8 @@ export default function MasterEditingQueue() {
                   if (!showTrash) fetchTrashedItems();
                   setShowTrash(!showTrash);
                   setShowArchive(false);
+                  setSelectedArchiveIds(new Set());
+                  setSelectedTrashIds(new Set());
                 }}
                 className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm border transition-all ${
                   showTrash
@@ -1207,7 +1235,13 @@ export default function MasterEditingQueue() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
             >
-              <div className="px-4 py-3 border-b border-border/50">
+              <div className="px-4 py-3 border-b border-border/50 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="checkbox-clean"
+                  checked={archivedItems.length > 0 && archivedItems.every(i => selectedArchiveIds.has(i.id))}
+                  onChange={(e) => setSelectedArchiveIds(e.target.checked ? new Set(archivedItems.map(i => i.id)) : new Set())}
+                />
                 <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <Archive className="w-4 h-4" />
                   {language === "en" ? "Archived items are moved to trash after 30 days" : "Los elementos archivados se mueven a la papelera después de 30 días"}
@@ -1228,6 +1262,18 @@ export default function MasterEditingQueue() {
                     const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - archivedDate.getTime()) / (1000 * 60 * 60 * 24)));
                     return (
                       <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                        <input
+                          type="checkbox"
+                          className="checkbox-clean flex-shrink-0"
+                          checked={selectedArchiveIds.has(item.id)}
+                          onChange={(e) => {
+                            setSelectedArchiveIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(item.id); else next.delete(item.id);
+                              return next;
+                            });
+                          }}
+                        />
                         <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-muted-foreground truncate">{item.title}</p>
@@ -1248,7 +1294,7 @@ export default function MasterEditingQueue() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleTrashArchivedItem(item)}
+                            onClick={() => handleTrashArchivedItems([item])}
                             title={language === "en" ? "Move to trash" : "Mover a la papelera"}
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           >
@@ -1269,11 +1315,28 @@ export default function MasterEditingQueue() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
             >
-              <div className="px-4 py-3 border-b border-border/50">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" />
+              <div className="px-4 py-3 border-b border-border/50 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="checkbox-clean"
+                  checked={trashedItems.length > 0 && trashedItems.every(i => selectedTrashIds.has(i.id))}
+                  onChange={(e) => setSelectedTrashIds(e.target.checked ? new Set(trashedItems.map(i => i.id)) : new Set())}
+                />
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 flex-1 min-w-0">
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
                   {language === "en" ? "Items are automatically deleted after 90 days in trash" : "Los elementos se eliminan automáticamente después de 90 días en la papelera"}
                 </h3>
+                {isAdmin && trashedItems.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPermDeleteItems(trashedItems)}
+                    className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {language === "en" ? "Empty trash" : "Vaciar papelera"}
+                  </Button>
+                )}
               </div>
               {fetchingTrash ? (
                 <div className="flex items-center justify-center py-16">
@@ -1290,6 +1353,18 @@ export default function MasterEditingQueue() {
                     const daysLeft = Math.max(0, 90 - Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24)));
                     return (
                       <div key={item.id} className="flex items-center gap-3 px-4 py-3 opacity-70 hover:opacity-90 transition-opacity">
+                        <input
+                          type="checkbox"
+                          className="checkbox-clean flex-shrink-0"
+                          checked={selectedTrashIds.has(item.id)}
+                          onChange={(e) => {
+                            setSelectedTrashIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(item.id); else next.delete(item.id);
+                              return next;
+                            });
+                          }}
+                        />
                         <Clapperboard className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-muted-foreground truncate line-through">{item.title}</p>
@@ -1311,7 +1386,7 @@ export default function MasterEditingQueue() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handlePermanentDelete(item.id)}
+                              onClick={() => setPermDeleteItems([item])}
                               title={language === "en" ? "Delete permanently" : "Eliminar permanentemente"}
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                             >
@@ -1625,8 +1700,61 @@ export default function MasterEditingQueue() {
         </div>
       </PageTransition>
 
+      {/* Archive bulk action bar */}
+      {showArchive && selectedArchiveIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <span className="text-sm font-medium text-foreground">{selectedArchiveIds.size} {language === "en" ? "selected" : "seleccionados"}</span>
+          <div className="w-px h-4 bg-border" />
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedArchiveIds(new Set(archivedItems.map(i => i.id)))}>
+            {language === "en" ? "Select All" : "Seleccionar Todo"}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedArchiveIds(new Set())}>
+            {language === "en" ? "Deselect All" : "Deseleccionar"}
+          </Button>
+          <div className="w-px h-4 bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+            onClick={() => handleTrashArchivedItems(archivedItems.filter(i => selectedArchiveIds.has(i.id)))}
+            disabled={trashingArchived}
+          >
+            {trashingArchived ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            {language === "en" ? "Move to Trash" : "Mover a Papelera"}
+          </Button>
+        </div>
+      )}
+
+      {/* Trash bulk action bar */}
+      {showTrash && selectedTrashIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <span className="text-sm font-medium text-foreground">{selectedTrashIds.size} {language === "en" ? "selected" : "seleccionados"}</span>
+          <div className="w-px h-4 bg-border" />
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedTrashIds(new Set(trashedItems.map(i => i.id)))}>
+            {language === "en" ? "Select All" : "Seleccionar Todo"}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setSelectedTrashIds(new Set())}>
+            {language === "en" ? "Deselect All" : "Deseleccionar"}
+          </Button>
+          {isAdmin && (
+            <>
+              <div className="w-px h-4 bg-border" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                onClick={() => setPermDeleteItems(trashedItems.filter(i => selectedTrashIds.has(i.id)))}
+              >
+                <Trash2 className="w-3 h-3" />
+                {language === "en" ? "Delete Permanently" : "Eliminar Permanentemente"}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
+      {!showArchive && !showTrash && selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
           <span className="text-sm font-medium text-foreground">{selectedIds.size} {language === "en" ? "selected" : "seleccionados"}</span>
           <div className="w-px h-4 bg-border" />
@@ -1895,6 +2023,35 @@ export default function MasterEditingQueue() {
             <Button variant="destructive" size="sm" onClick={handleDeleteItem} disabled={deleting} className="gap-1.5">
               {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               {language === "en" ? "Move to Trash" : "Mover a Papelera"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog open={!!permDeleteItems} onOpenChange={(v) => { if (!v && !permDeleting) setPermDeleteItems(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              {language === "en" ? "Delete Permanently" : "Eliminar Permanentemente"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {permDeleteItems?.length === 1
+                ? (language === "en"
+                    ? `Permanently delete "${permDeleteItems[0].title}" and its footage files? This cannot be undone.`
+                    : `¿Eliminar permanentemente "${permDeleteItems[0].title}" y sus archivos de metraje? No se puede deshacer.`)
+                : (language === "en"
+                    ? `Permanently delete ${permDeleteItems?.length ?? 0} items and their footage files? This cannot be undone.`
+                    : `¿Eliminar permanentemente ${permDeleteItems?.length ?? 0} elementos y sus archivos de metraje? No se puede deshacer.`)}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setPermDeleteItems(null)} disabled={permDeleting}>
+              {language === "en" ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handlePermanentDelete} disabled={permDeleting} className="gap-1.5">
+              {permDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {language === "en" ? "Delete Permanently" : "Eliminar Permanentemente"}
             </Button>
           </DialogFooter>
         </DialogContent>
