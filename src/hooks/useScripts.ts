@@ -5,6 +5,7 @@ import { computeBlockDiff } from "@/lib/scriptBlockDiff";
 import { toast } from "sonner";
 import { shouldSnapshot } from "@/lib/versionSnapshotThrottle";
 import { scriptBodyLength, SCRIPT_BODY_CHAR_LIMIT } from "@/lib/scriptLength";
+import { wipeVideoEditStorage } from "@/lib/wipeVideoEditStorage";
 
 export type ScriptLine = {
   line_number: number;
@@ -637,47 +638,15 @@ export function useScripts() {
   };
 
   const permanentlyDeleteScript = async (scriptId: string) => {
-    // Clean up footage from storage BEFORE deleting the rows. Footage lives in the
-    // `footage` bucket under `${client_id}/${videoEditId}/` (plus a `submission/`
-    // subfolder). Deleting the video_edits rows does NOT remove the storage objects,
-    // and once the rows are gone the expiry-cleanup crons can never find the paths —
-    // so without this they orphan in the bucket forever.
+    // Free the storage BEFORE deleting the rows — once the video_edits rows are
+    // gone the paths can't be found and the files orphan in the bucket forever.
     const { data: linkedEdits } = await supabase
       .from("video_edits")
       .select("id, client_id")
       .eq("script_id", scriptId);
 
     for (const ve of linkedEdits ?? []) {
-      // Guard: never build a broad/root prefix from missing ids.
-      if (!ve.client_id || !ve.id) continue;
-      const prefixes = [
-        `${ve.client_id}/${ve.id}/`,
-        `${ve.client_id}/${ve.id}/submission/`,
-      ];
-      // The 720p web proxies mirror the footage paths in `footage-proxies`.
-      for (const bucket of ["footage", "footage-proxies"]) {
-        const paths: string[] = [];
-        for (const prefix of prefixes) {
-          const { data: objects } = await supabase.storage
-            .from(bucket)
-            .list(prefix, { limit: 1000 });
-          for (const obj of objects ?? []) {
-            // `.list()` returns immediate children; skip the nested folder placeholder.
-            if (obj.name && !obj.name.endsWith("/")) paths.push(`${prefix}${obj.name}`);
-          }
-        }
-        if (paths.length > 0) {
-          const { error: storageError } = await supabase.storage.from(bucket).remove(paths);
-          // Non-fatal: log and still delete the rows so the script can be removed.
-          if (storageError) console.error(`${bucket} storage cleanup failed:`, storageError);
-        }
-      }
-      // Drop the proxy tracking rows too, or they'd keep pointing at deleted files.
-      // `footage_proxies` is not in the generated DB types yet — cast to query it.
-      await (supabase as any)
-        .from("footage_proxies")
-        .delete()
-        .like("source_path", `${ve.client_id}/${ve.id}/%`);
+      await wipeVideoEditStorage(ve.client_id, ve.id);
     }
 
     // Cascade: also permanently delete linked video_edit

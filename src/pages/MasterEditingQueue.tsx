@@ -3,6 +3,7 @@ import PageTransition from "@/components/PageTransition";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { wipeVideoEditStorage } from "@/lib/wipeVideoEditStorage";
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
 import { Loader2, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, MessageSquare, Save, Clapperboard, Trash2, Archive, Calendar, CalendarPlus, HelpCircle, X, Share2, Pencil, RotateCcw, MoreHorizontal, UserCircle, ArrowUpRight } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -853,6 +854,22 @@ export default function MasterEditingQueue() {
     }
   };
 
+  const handleTrashArchivedItem = async (item: EditingQueueItem) => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).eq("id", item.id);
+      if (error) throw error;
+      // Also trash the linked script (same cascade as deleting from the queue)
+      if (item.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", item.script_id);
+      }
+      setArchivedItems(prev => prev.filter(i => i.id !== item.id));
+      toast.success(language === "en" ? "Moved to trash" : "Movido a la papelera");
+    } catch {
+      toast.error(language === "en" ? "Failed to move to trash" : "Error al mover a la papelera");
+    }
+  };
+
   const fetchTrashedItems = async () => {
     if (!user) return;
     setFetchingTrash(true);
@@ -910,9 +927,11 @@ export default function MasterEditingQueue() {
   };
 
   const handlePermanentDelete = async (itemId: string) => {
-    if (!window.confirm(language === "en" ? "Permanently delete this item? This cannot be undone." : "¿Eliminar permanentemente? No se puede deshacer.")) return;
+    if (!window.confirm(language === "en" ? "Permanently delete this item and its footage files? This cannot be undone." : "¿Eliminar permanentemente este elemento y sus archivos de metraje? No se puede deshacer.")) return;
     try {
       const item = trashedItems.find(i => i.id === itemId);
+      // Free the storage first — once the row is gone the files can't be found.
+      if (item) await wipeVideoEditStorage(item.clientId, item.id);
       const { error } = await supabase.from("video_edits").delete().eq("id", itemId);
       if (error) throw error;
       // Also permanently delete the linked script
@@ -1225,6 +1244,15 @@ export default function MasterEditingQueue() {
                             className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-400"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleTrashArchivedItem(item)}
+                            title={language === "en" ? "Move to trash" : "Mover a la papelera"}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>

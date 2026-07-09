@@ -781,6 +781,22 @@ export default function EditingQueue() {
     }
   };
 
+  const handleTrashArchivedItem = async (item: EditingQueueItem) => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("video_edits").update({ deleted_at: now }).eq("id", item.id);
+      if (error) throw error;
+      // Also trash the linked script (same cascade as deleting from the queue)
+      if (item.script_id) {
+        await supabase.from("scripts").update({ deleted_at: now }).eq("id", item.script_id);
+      }
+      setArchivedItems(prev => prev.filter(i => i.id !== item.id));
+      toast.success(language === "en" ? "Moved to trash" : "Movido a la papelera");
+    } catch {
+      toast.error(language === "en" ? "Failed to move to trash" : "Error al mover a la papelera");
+    }
+  };
+
   const handleSchedulePost = async () => {
     if (!scheduleItem || !scheduleDate) return;
     setScheduling(true);
@@ -1029,6 +1045,16 @@ export default function EditingQueue() {
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           {language === "en" ? "Restore" : "Restaurar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTrashArchivedItem(item)}
+                          title={language === "en" ? "Move to trash" : "Mover a la papelera"}
+                          className="h-8 gap-1 text-destructive hover:text-destructive text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {language === "en" ? "Trash" : "Papelera"}
                         </Button>
                       </div>
                     );
