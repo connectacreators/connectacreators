@@ -61,7 +61,11 @@ export function useClientViralChannels(onboarding: Record<string, unknown>, clie
     }
 
     if (wanted.length === 0) {
-      setLinks([]);
+      // An empty `wanted` here almost always means onboarding hasn't loaded yet
+      // (clientOnboarding starts as {}), NOT that the client genuinely has zero
+      // handles. Do not wipe already-resolved channels — that's what made the
+      // linked channel flicker away on the Strategy page.
+      setLinks(prev => (prev.length ? prev : []));
       setLoading(false);
       return;
     }
@@ -88,6 +92,14 @@ export function useClientViralChannels(onboarding: Record<string, unknown>, clie
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handlesKey, clientId]);
 
+  // Always hold the LATEST refresh so the once-per-mount FB effect below doesn't
+  // fire a stale closure. That effect is guarded by fbFetchedRef so it never
+  // re-subscribes — without this ref it would keep calling the first render's
+  // refresh (captured when clientOnboarding was still {} → wanted empty), and
+  // when the async FB fetch resolved after good links were set it wiped them.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   useEffect(() => { refresh(); }, [refresh]);
 
   // Refresh the client's Facebook page videos once per mount via the Graph API
@@ -97,9 +109,9 @@ export function useClientViralChannels(onboarding: Record<string, unknown>, clie
     fbFetchedRef.current = true;
     supabase.functions
       .invoke("fetch-facebook-videos", { body: { client_id: clientId, persist: true } })
-      .then(() => refresh())
+      .then(() => refreshRef.current())
       .catch(() => {});
-  }, [clientId, refresh]);
+  }, [clientId]);
 
   // Poll while any channel is mid-scrape so status flips to done/error live.
   const anyRunning = links.some(l => l.channel?.scrape_status === "running");
