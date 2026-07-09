@@ -22,7 +22,7 @@ const MORE_NAV_ITEMS = (es: boolean) => [
   { icon: Archive, label: "Vault", path: "/vault" },
   { icon: CalendarDays, label: es ? "Calendario de Contenido" : "Content Calendar", path: "/content-calendar" },
   { icon: UserCheck, label: es ? "Equipo" : "Team Members", path: "/team-members" },
-  { icon: GraduationCap, label: es ? "Capacitaciones" : "Trainings", path: "/trainings" },
+  { icon: GraduationCap, label: es ? "Entrenamientos" : "Trainings", path: "/trainings" },
   { icon: CreditCard, label: es ? "Suscriptores" : "Subscribers", path: "/subscribers" },
 ];
 
