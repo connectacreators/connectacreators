@@ -31,10 +31,11 @@ export function detectPlatformAndUsername(raw: string): { username: string; plat
   }
 
   // Facebook URL — page/profile slug (drop trailing tabs like /reels, /videos).
-  // FB slugs are case-sensitive-ish, so we do NOT lowercase them.
+  // FB slugs resolve case-insensitively, so lowercase them for stable matching
+  // between onboarding handles, the picker, and the scraper.
   if (/facebook\.com|fb\.watch/i.test(s)) {
     const fbMatch = s.match(/facebook\.com\/([^/?#\s]+)/i);
-    return { username: (fbMatch?.[1] ?? "").replace(/\/$/, ""), platform: "facebook" };
+    return { username: (fbMatch?.[1] ?? "").replace(/\/$/, "").toLowerCase(), platform: "facebook" };
   }
 
   // @handle with no URL — assume Instagram

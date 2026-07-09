@@ -146,7 +146,8 @@ serve(async (req) => {
     const ytHandleMatch = username.match(/youtube\.com\/@([^/?#\s]+)/i);
     const ytCustomMatch = username.match(/youtube\.com\/c\/([^/?#\s]+)/i);
     const ytChannelMatch = username.match(/youtube\.com\/channel\/([^/?#\s]+)/i);
-    // Facebook page/profile slug — not lowercased (FB slugs are case-sensitive).
+    // Facebook page/profile slug — lowercased (FB slugs resolve case-insensitively)
+    // so it matches the username stored by the picker / onboarding link.
     const facebookMatch = username.match(/facebook\.com\/([^/?#\s]+)/i);
 
     // Reject single YouTube video URLs
@@ -163,7 +164,7 @@ serve(async (req) => {
       : ytHandleMatch ? ytHandleMatch[1].replace(/\/$/, "")
       : ytCustomMatch ? ytCustomMatch[1].replace(/\/$/, "")
       : ytChannelMatch ? ytChannelMatch[1].replace(/\/$/, "")
-      : facebookMatch ? facebookMatch[1].replace(/\/$/, "")
+      : facebookMatch ? facebookMatch[1].replace(/\/$/, "").toLowerCase()
       : username.replace(/^@/, "").trim();
 
     const limit =
