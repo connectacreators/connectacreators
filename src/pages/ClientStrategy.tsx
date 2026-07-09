@@ -9,6 +9,7 @@ import { ProductionPipelineSection } from "@/components/strategy/ProductionPipel
 import { StrategySetupCard } from "@/components/strategy/StrategySetupCard";
 import { AddToViralTodayBanner } from "@/components/strategy/AddToViralTodayBanner";
 import { ContentPerformanceTab } from "@/components/strategy/ContentPerformanceTab";
+import { ViewsGuaranteeCard } from "@/components/strategy/ViewsGuaranteeCard";
 import { useClientViralChannels } from "@/hooks/useClientViralChannels";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
@@ -545,10 +546,6 @@ export default function ClientStrategy() {
           banner={viralLinkBanner}
           addingPlatforms={addingPlatforms}
           onAdd={addChannels}
-          viewsGoal={s.views_goal ?? 1_000_000}
-          viewsGoalStartedAt={s.views_goal_started_at ?? null}
-          fallbackStart={s.onboarding_call_at}
-          onPersistGoal={isTeam ? (patch) => persistFields(patch as Partial<ClientStrategy>) : undefined}
         />
       ) : (
       <>
@@ -593,6 +590,16 @@ export default function ClientStrategy() {
       </div>
 
       <div className="flex flex-col gap-3">
+
+        {/* Views guarantee tracker — all platforms combined */}
+        <ViewsGuaranteeCard
+          linked={links.filter(l => l.channel)}
+          en={en}
+          viewsGoal={s.views_goal ?? 1_000_000}
+          startedAt={s.views_goal_started_at ?? null}
+          fallbackStart={s.onboarding_call_at}
+          onPersistGoal={isTeam ? (patch) => persistFields(patch as Partial<ClientStrategy>) : undefined}
+        />
 
         {/* Monthly Pace */}
         <StatusCard
