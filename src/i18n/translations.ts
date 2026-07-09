@@ -5,7 +5,7 @@ export const t = {
     question: { en: "What do you want to do today?", es: "¿Qué quieres hacer hoy?" },
     signOut: { en: "Sign out", es: "Cerrar sesión" },
     home: { en: "Home", es: "Inicio" },
-    scripts: { en: "Content Ideas", es: "Ideas de Contenido" },
+    scripts: { en: "Scripts", es: "Guiones" },
     leadTracker: { en: "Lead Tracker", es: "Lead Tracker" },
     leadCalendar: { en: "Lead Calendar", es: "Lead Calendar" },
     settings: { en: "Settings", es: "Configuración" },
@@ -62,7 +62,7 @@ export const t = {
     // Tool sub-cards (shared by SingleBrandDashboard + ToolFolders)
     tools: {
       superCanvas: { label: { en: "Super Canvas", es: "Super Canvas" }, desc: { en: "AI-powered script planning canvas", es: "Lienzo de planificación de guiones con IA" } },
-      scripts: { label: { en: "Scripts", es: "Scripts" }, desc: { en: "View and manage scripts", es: "Ver y gestionar scripts" } },
+      scripts: { label: { en: "Scripts", es: "Guiones" }, desc: { en: "View and manage scripts", es: "Ver y gestionar guiones" } },
       vault: { label: { en: "Vault", es: "Vault" }, desc: { en: "Script templates from viral videos", es: "Plantillas de guiones de videos virales" } },
       editingQueue: { label: { en: "Editing Queue", es: "Cola de Edición" }, desc: { en: "Track video production status", es: "Sigue el estado de producción de video" } },
       contentCalendar: { label: { en: "Content Calendar", es: "Calendario de Contenido" }, desc: { en: "Schedule & approve posts", es: "Programa y aprueba publicaciones" } },

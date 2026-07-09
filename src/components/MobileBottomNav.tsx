@@ -10,20 +10,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { readCache } from "@/lib/sessionCache";
 
-const BOTTOM_TABS = [
-  { icon: Home, label: "Home", path: "/dashboard" },
+const BOTTOM_TABS = (es: boolean) => [
+  { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
   { icon: Flame, label: "Viral", path: "/viral-today" },
-  { icon: FileText, label: "Scripts", path: "/scripts", hero: true as const },
-  { icon: Clapperboard, label: "Queue", path: "/editing-queue" },
+  { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts", hero: true as const },
+  { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
 ];
 
-const MORE_NAV_ITEMS = [
-  { icon: Users, label: "Clients", path: "/clients" },
+const MORE_NAV_ITEMS = (es: boolean) => [
+  { icon: Users, label: es ? "Clientes" : "Clients", path: "/clients" },
   { icon: Archive, label: "Vault", path: "/vault" },
-  { icon: CalendarDays, label: "Content Calendar", path: "/content-calendar" },
-  { icon: UserCheck, label: "Team Members", path: "/team-members" },
-  { icon: GraduationCap, label: "Trainings", path: "/trainings" },
-  { icon: CreditCard, label: "Subscribers", path: "/subscribers" },
+  { icon: CalendarDays, label: es ? "Calendario de Contenido" : "Content Calendar", path: "/content-calendar" },
+  { icon: UserCheck, label: es ? "Equipo" : "Team Members", path: "/team-members" },
+  { icon: GraduationCap, label: es ? "Capacitaciones" : "Trainings", path: "/trainings" },
+  { icon: CreditCard, label: es ? "Suscriptores" : "Subscribers", path: "/subscribers" },
 ];
 
 export default function MobileBottomNav() {
@@ -55,7 +55,7 @@ export default function MobileBottomNav() {
       ? [{ icon: TrendingUp, label: language === "es" ? "Estrategia" : "Strategy", path: `/clients/${selectedClientId}/strategy` }]
       : []),
     ...(isAdmin ? [{ icon: DollarSign, label: language === "es" ? "Finanzas" : "Finances", path: "/finances" }] : []),
-    ...MORE_NAV_ITEMS,
+    ...MORE_NAV_ITEMS(language === "es"),
   ];
 
   const handleNav = (path: string) => {
@@ -68,7 +68,7 @@ export default function MobileBottomNav() {
       {/* Bottom nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border">
         <div className="flex items-end justify-around h-16 px-2 pb-2">
-          {BOTTOM_TABS.map((tab) => {
+          {BOTTOM_TABS(language === "es").map((tab) => {
             const isActive = pathname.startsWith(tab.path.split("?")[0]);
 
             if (tab.hero) {
@@ -113,7 +113,7 @@ export default function MobileBottomNav() {
             )}
           >
             <MoreHorizontal className="w-5 h-5" />
-            <span className="text-[10px] font-medium">More</span>
+            <span className="text-[10px] font-medium">{language === "es" ? "Más" : "More"}</span>
           </button>
         </div>
       </nav>
@@ -165,7 +165,7 @@ export default function MobileBottomNav() {
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted/50 transition-colors text-left"
               >
                 <Settings className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm font-medium text-foreground">Settings</span>
+                <span className="text-sm font-medium text-foreground">{language === "es" ? "Configuración" : "Settings"}</span>
               </button>
 
               {/* Language toggle */}
@@ -175,7 +175,7 @@ export default function MobileBottomNav() {
               >
                 <Globe className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm font-medium text-foreground">
-                  Language: {language === "en" ? "English" : "Español"}
+                  {language === "en" ? "Language: English" : "Idioma: Español"}
                 </span>
                 <span className="ml-auto text-xs font-bold text-primary">
                   {language === "en" ? "ES" : "EN"}
@@ -188,7 +188,7 @@ export default function MobileBottomNav() {
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 transition-colors text-left"
               >
                 <LogOut className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-sm font-semibold text-red-400">Sign Out</span>
+                <span className="text-sm font-semibold text-red-400">{language === "es" ? "Cerrar sesión" : "Sign Out"}</span>
               </button>
             </div>
           </div>

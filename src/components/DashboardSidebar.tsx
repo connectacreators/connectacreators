@@ -265,8 +265,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
 
   const selectedClientName =
     viewMode === "master" ? "Master"
-    : viewMode === "me" ? (ownClientName || clients.find(c => c.id === ownClientId)?.name || "My Brand")
-    : (clients.find(c => c.id === viewMode)?.name ?? ownClientName ?? "Client");
+    : viewMode === "me" ? (ownClientName || clients.find(c => c.id === ownClientId)?.name || (language === "en" ? "My Brand" : "Mi Marca"))
+    : (clients.find(c => c.id === viewMode)?.name ?? ownClientName ?? (language === "en" ? "Client" : "Cliente"));
 
   const getInitials = (name: string) =>
     name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
@@ -290,37 +290,39 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   // tier: 'essential' = surfaced above the More expander on /ai.
   // Off /ai, the group headers below render normally and tier is ignored.
   const getNavItems = (): NavEntry[] => {
+    // Every label/group below must render in both languages.
+    const L = (en: string, esLabel: string) => (language === "en" ? en : esLabel);
     if (isAdmin) {
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
-        { label: "Home", icon: Home, path: "/dashboard" },
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
         // Client group — pages scoped to the client picked in the selector.
         // Hidden in Master mode (no client to scope to); header shows the
         // client's name so the dropdown↔shortcut link is obvious.
         ...(selectedClientId ? [
           { type: 'group', label: selectedClientName } as NavGroup,
-          { label: language === "en" ? "Strategy" : "Estrategia", icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem,
+          { label: L("Strategy", "Estrategia"), icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem,
           { label: "Onboarding", icon: ClipboardList, path: `/onboarding/${selectedClientId}` } as NavItem,
         ] : []),
-        { type: 'group', label: 'Create' },
-        { label: language === "en" ? "Content Ideas" : "Ideas de Contenido", icon: FileText, path: contentIdeasPath, tier: 'essential' },
+        { type: 'group', label: L('Create', 'Crear') },
+        { label: tr(t.dashboard.scripts, language), icon: FileText, path: contentIdeasPath, tier: 'essential' },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { label: "Vault", icon: Archive, path: "/vault" },
-        { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        { type: 'group', label: L('Editing', 'Edición') },
+        { label: tr(t.dashboard.tools.editingQueue.label, language), icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
-        { label: "Content Calendar", icon: Calendar, path: "/content-calendar" },
-        { type: 'group', label: 'Growth' },
+        { label: tr(t.dashboard.tools.contentCalendar.label, language), icon: Calendar, path: "/content-calendar" },
+        { type: 'group', label: L('Growth', 'Crecimiento') },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
-        { type: 'group', label: 'Business' },
-        { label: "Finances", icon: DollarSign, path: "/finances" },
-        { label: "API Usage", icon: BarChart3, path: "/api-usage" },
-        { type: 'group', label: 'Agency' },
-        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
-        { label: language === "en" ? "Team Members" : "Equipo", icon: Video, path: "/videographers" },
-        { label: "Subscribers", icon: UserCheck, path: "/subscribers" },
+        { label: L("Trainings", "Capacitaciones"), icon: BookOpen, path: "/trainings" },
+        { type: 'group', label: L('Business', 'Negocio') },
+        { label: L("Finances", "Finanzas"), icon: DollarSign, path: "/finances" },
+        { label: L("API Usage", "Uso de API"), icon: BarChart3, path: "/api-usage" },
+        { type: 'group', label: L('Agency', 'Agencia') },
+        { label: L("Clients", "Clientes"), icon: Users, path: "/clients" },
+        { label: L("Team Members", "Equipo"), icon: Video, path: "/videographers" },
+        { label: L("Subscribers", "Suscriptores"), icon: UserCheck, path: "/subscribers" },
         { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -328,29 +330,29 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isVideographer) {
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
-        { label: "Home", icon: Home, path: "/dashboard" },
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
-        { type: 'group', label: 'Create' },
+        { type: 'group', label: L('Create', 'Crear') },
         { label: "Super Canvas", icon: Layers, path: connectaAIPath, tier: 'essential' },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts", tier: 'essential' },
-        { type: 'group', label: 'Editing' },
-        { label: language === "en" ? "Clients" : "Clientes", icon: Users, path: "/clients" },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        { type: 'group', label: L('Editing', 'Edición') },
+        { label: L("Clients", "Clientes"), icon: Users, path: "/clients" },
+        { label: tr(t.dashboard.tools.editingQueue.label, language), icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
-        { type: 'group', label: 'Growth' },
+        { type: 'group', label: L('Growth', 'Crecimiento') },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
+        { label: L("Trainings", "Capacitaciones"), icon: BookOpen, path: "/trainings" },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
     }
     if (isEditor) {
       return [
-        { label: "Home", icon: Home, path: "/dashboard" },
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
-        { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
+        { type: 'group', label: L('Editing', 'Edición') },
+        { label: tr(t.dashboard.tools.editingQueue.label, language), icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
-        { label: "Content Calendar", icon: Calendar, path: "/content-calendar", tier: 'essential' },
+        { label: tr(t.dashboard.tools.contentCalendar.label, language), icon: Calendar, path: "/content-calendar", tier: 'essential' },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: tr(t.dashboard.settings, language), icon: Settings, path: "/settings" },
       ];
@@ -358,56 +360,56 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     if (isUser) {
       const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
-        { label: "Home", icon: Home, path: "/dashboard" },
+        { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
-        { type: 'group', label: 'Create' },
+        { type: 'group', label: L('Create', 'Crear') },
         { label: "Super Canvas", icon: Layers, path: selectedClientId ? `/clients/${selectedClientId}/scripts?view=canvas` : "/scripts?view=canvas", tier: 'essential' },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts" },
         { label: "Vault", icon: Archive, path: selectedClientId ? `/clients/${selectedClientId}/vault` : "/vault" },
-        { type: 'group', label: 'Editing' },
-        { label: "Editing Queue", icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
+        { type: 'group', label: L('Editing', 'Edición') },
+        { label: tr(t.dashboard.tools.editingQueue.label, language), icon: Clapperboard, path: selectedClientId ? `/clients/${selectedClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
-        { label: "Content Calendar", icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
-        { type: 'group', label: 'Sales' },
-        { label: "Public Calendar", icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
+        { label: tr(t.dashboard.tools.contentCalendar.label, language), icon: Calendar, path: selectedClientId ? `/clients/${selectedClientId}/content-calendar` : "/content-calendar" },
+        { type: 'group', label: L('Sales', 'Ventas') },
+        { label: L("Public Calendar", "Calendario Público"), icon: Globe, path: selectedClientId ? `/clients/${selectedClientId}/booking-settings` : "/dashboard" },
         { label: tr(t.dashboard.leadTracker, language), icon: Target, path: selectedClientId ? `/clients/${selectedClientId}/leads` : "/leads", tier: 'essential' },
         { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: selectedClientId ? `/clients/${selectedClientId}/lead-calendar` : "/lead-calendar" },
-        { type: 'group', label: 'Resources' },
+        { type: 'group', label: L('Resources', 'Recursos') },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
-        { label: "Trainings", icon: BookOpen, path: "/trainings" },
-        { label: "Contracts", icon: ScrollText, path: selectedClientId ? `/clients/${selectedClientId}/contracts` : "/dashboard" },
-        { type: 'group', label: 'Manage' },
-        { label: language === "en" ? "Strategy" : "Estrategia", icon: BarChart3, path: selectedClientId ? `/clients/${selectedClientId}/strategy` : "/dashboard" },
-        { label: language === "en" ? "My Clients" : "Mis Clientes", icon: Users, path: "/clients" },
-        { label: "Subscription", icon: CreditCard, path: "/subscription" },
-        { label: "Account", icon: Settings, path: "/settings" },
+        { label: L("Trainings", "Capacitaciones"), icon: BookOpen, path: "/trainings" },
+        { label: tr(t.dashboard.tools.contracts.label, language), icon: ScrollText, path: selectedClientId ? `/clients/${selectedClientId}/contracts` : "/dashboard" },
+        { type: 'group', label: L('Manage', 'Gestión') },
+        { label: L("Strategy", "Estrategia"), icon: BarChart3, path: selectedClientId ? `/clients/${selectedClientId}/strategy` : "/dashboard" },
+        { label: L("My Clients", "Mis Clientes"), icon: Users, path: "/clients" },
+        { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+        { label: L("Account", "Cuenta"), icon: Settings, path: "/settings" },
       ];
     }
     // Subscriber / Client / Connecta Plus
     return [
-      { label: "Home", icon: Home, path: "/dashboard" },
+      { label: tr(t.dashboard.home, language), icon: Home, path: "/dashboard" },
       { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
-      { type: 'group', label: 'Create' },
+      { type: 'group', label: L('Create', 'Crear') },
       { label: "Super Canvas", icon: Layers, path: ownClientId ? `/clients/${ownClientId}/scripts?view=canvas` : "/scripts?view=canvas", tier: 'essential' },
       { label: tr(t.dashboard.scripts, language), icon: FileText, path: ownClientId ? `/clients/${ownClientId}/scripts` : "/scripts" },
       { label: "Vault", icon: Archive, path: ownClientId ? `/clients/${ownClientId}/vault` : "/vault" },
-      { type: 'group', label: 'Editing' },
-      { label: "Editing Queue", icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
+      { type: 'group', label: L('Editing', 'Edición') },
+      { label: tr(t.dashboard.tools.editingQueue.label, language), icon: Clapperboard, path: ownClientId ? `/clients/${ownClientId}/editing-queue` : "/editing-queue", tier: 'essential' },
       ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
-      { label: "Content Calendar", icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
-      { type: 'group', label: 'Sales' },
-      { label: "Public Calendar", icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
+      { label: tr(t.dashboard.tools.contentCalendar.label, language), icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
+      { type: 'group', label: L('Sales', 'Ventas') },
+      { label: L("Public Calendar", "Calendario Público"), icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
       { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads", tier: 'essential' },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
-      { type: 'group', label: 'Resources' },
+      { type: 'group', label: L('Resources', 'Recursos') },
       { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
-      { label: "Trainings", icon: BookOpen, path: "/trainings" },
-      { label: "Contracts", icon: ScrollText, path: ownClientId ? `/clients/${ownClientId}/contracts` : "/dashboard" },
-      { type: 'group', label: 'Manage' },
-      { label: language === "en" ? "Strategy" : "Estrategia", icon: BarChart3, path: ownClientId ? `/clients/${ownClientId}/strategy` : "/dashboard" },
-      { label: "Clients", icon: Users, path: "/clients" },
-      { label: "Subscription", icon: CreditCard, path: "/subscription" },
-      { label: "Account", icon: Settings, path: "/settings" },
+      { label: L("Trainings", "Capacitaciones"), icon: BookOpen, path: "/trainings" },
+      { label: tr(t.dashboard.tools.contracts.label, language), icon: ScrollText, path: ownClientId ? `/clients/${ownClientId}/contracts` : "/dashboard" },
+      { type: 'group', label: L('Manage', 'Gestión') },
+      { label: L("Strategy", "Estrategia"), icon: BarChart3, path: ownClientId ? `/clients/${ownClientId}/strategy` : "/dashboard" },
+      { label: L("Clients", "Clientes"), icon: Users, path: "/clients" },
+      { label: tr(t.subscription.navLabel, language), icon: CreditCard, path: "/subscription" },
+      { label: L("Account", "Cuenta"), icon: Settings, path: "/settings" },
     ];
   };
 
@@ -639,7 +641,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           return (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-semibold text-amber-400/80 mt-1">
               <Clock className="w-3 h-3" />
-              Trial — {daysLeft}d left
+              {language === "en" ? `Trial — ${daysLeft}d left` : `Prueba — ${daysLeft}d restantes`}
             </div>
           );
         })()}
@@ -713,7 +715,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
                   </div>
                 }
               />
-              <span className="text-sm font-medium text-foreground flex-1">{ownClientName || (isUser ? "My Brand" : "Me")}</span>
+              <span className="text-sm font-medium text-foreground flex-1">{ownClientName || (isUser ? (language === "en" ? "My Brand" : "Mi Marca") : (language === "en" ? "Me" : "Yo"))}</span>
               {viewMode === "me" && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
           )}
