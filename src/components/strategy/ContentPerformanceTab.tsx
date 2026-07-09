@@ -116,8 +116,8 @@ export function ContentPerformanceTab({ links, isTeam, en, banner, addingPlatfor
           </p>
           <p className="text-xs text-muted-foreground">
             {en
-              ? "Add Instagram, TikTok, or YouTube handles in the client's onboarding to track performance."
-              : "Agrega usuarios de Instagram, TikTok o YouTube en el onboarding del cliente para monitorear el rendimiento."}
+              ? "Add Instagram, TikTok, YouTube, or Facebook handles in the client's onboarding to track performance."
+              : "Agrega usuarios de Instagram, TikTok, YouTube o Facebook en el onboarding del cliente para monitorear el rendimiento."}
           </p>
         </div>
       </div>

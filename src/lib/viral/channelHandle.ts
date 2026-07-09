@@ -30,12 +30,19 @@ export function detectPlatformAndUsername(raw: string): { username: string; plat
     return { username: username.replace(/\/$/, ""), platform: "youtube" };
   }
 
+  // Facebook URL — page/profile slug (drop trailing tabs like /reels, /videos).
+  // FB slugs are case-sensitive-ish, so we do NOT lowercase them.
+  if (/facebook\.com|fb\.watch/i.test(s)) {
+    const fbMatch = s.match(/facebook\.com\/([^/?#\s]+)/i);
+    return { username: (fbMatch?.[1] ?? "").replace(/\/$/, ""), platform: "facebook" };
+  }
+
   // @handle with no URL — assume Instagram
   const clean = s.replace(/^@/, "").trim().toLowerCase();
   return { username: clean, platform: "instagram" };
 }
 
-const HAS_URL = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i;
+const HAS_URL = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch/i;
 
 /** Resolve one onboarding social field to a (platform, username) pair.
  *  Bare handles inherit the field's platform; URLs win over the field. */
@@ -47,13 +54,15 @@ export function parseOnboardingHandle(raw: unknown, fieldPlatform: ViralPlatform
   return { username: detected.username, platform: HAS_URL.test(s) ? detected.platform : fieldPlatform };
 }
 
-/** All scrapeable channels declared in onboarding_data (Facebook excluded —
- *  no scraper exists for it). Deduped by platform+username. */
+/** All scrapeable channels declared in onboarding_data. Deduped by
+ *  platform+username. Facebook is included now that the VPS Puppeteer
+ *  scraper can enumerate a page's reels. */
 export function onboardingSocialChannels(onboarding: Record<string, unknown>): { username: string; platform: ViralPlatform }[] {
   const fields: [ViralPlatform, unknown][] = [
     ["instagram", onboarding.instagram],
     ["tiktok", onboarding.tiktok],
     ["youtube", onboarding.youtube],
+    ["facebook", onboarding.facebook],
   ];
   const seen = new Set<string>();
   const out: { username: string; platform: ViralPlatform }[] = [];

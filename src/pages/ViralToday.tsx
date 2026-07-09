@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Sparkles, Download,
+  Sparkles, Download, Facebook,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,7 @@ const VT_PLATFORM_OPTS = [
   { value: "instagram", label: "Instagram" },
   { value: "tiktok", label: "TikTok" },
   { value: "youtube", label: "YouTube" },
+  { value: "facebook", label: "Facebook" },
 ];
 const VT_OUTLIER_OPTS = [
   { value: "0", label: "Any outlier" },
@@ -109,6 +110,7 @@ const TRANSLATIONS = {
     instagram: "Instagram",
     tiktok: "TikTok",
     youtube: "YouTube",
+    facebook: "Facebook",
     outlier: "Outlier",
     anyOutlier: "Any outlier",
     views: "Views",
@@ -162,6 +164,7 @@ const TRANSLATIONS = {
     instagram: "Instagram",
     tiktok: "TikTok",
     youtube: "YouTube",
+    facebook: "Facebook",
     outlier: "Outlier",
     anyOutlier: "Cualquier outlier",
     views: "Vistas",
@@ -1009,6 +1012,7 @@ const getPlatformOpts = (t: any): DropdownOption[] => [
   { label: t.instagram, value: "instagram" },
   { label: t.tiktok, value: "tiktok" },
   { label: t.youtube, value: "youtube" },
+  { label: t.facebook, value: "facebook" },
 ];
 
 const getOutlierOpts = (t: any): DropdownOption[] => [
@@ -1500,7 +1504,7 @@ export default function ViralToday() {
   // Add channel form
   const [newUsername, setNewUsername] = useState("");
   const [addingChannel, setAddingChannel] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<"instagram" | "tiktok" | "youtube">("instagram");
+  const [selectedPlatform, setSelectedPlatform] = useState<"instagram" | "tiktok" | "youtube" | "facebook">("instagram");
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
 
   // Sequential scrape queue — the VPS scrapes one profile at a time, so added
@@ -2009,7 +2013,7 @@ export default function ViralToday() {
 
   const handleAddChannel = async () => {
     const detected = detectPlatformAndUsername(newUsername);
-    const hasUrlPattern = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(newUsername.trim());
+    const hasUrlPattern = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch/i.test(newUsername.trim());
     const platform = hasUrlPattern ? detected.platform : selectedPlatform;
     const username = detected.username;
     if (!username) {
@@ -2942,13 +2946,14 @@ export default function ViralToday() {
                 {(isAdmin || isVideographer || hasSubscription) && (
                   <div className="flex flex-col gap-2 mb-5">
                     {(() => {
-                      const hasUrl = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(newUsername.trim());
+                      const hasUrl = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch/i.test(newUsername.trim());
                       const autoDetected = newUsername.trim() && hasUrl ? detectPlatformAndUsername(newUsername).platform : null;
                       const activePlatform = autoDetected ?? selectedPlatform;
                       const PLATFORMS = [
                         { value: "instagram" as const, label: "Instagram Reels", icon: Instagram, color: "text-pink-400",   bg: "bg-pink-500/10" },
                         { value: "tiktok"    as const, label: "TikTok",          icon: TikTokIcon, color: "text-orange-400", bg: "bg-orange-500/10" },
                         { value: "youtube"   as const, label: "YouTube Shorts",  icon: Youtube,   color: "text-red-400",    bg: "bg-red-500/10" },
+                        { value: "facebook"  as const, label: "Facebook Reels",  icon: Facebook,  color: "text-blue-400",   bg: "bg-blue-500/10" },
                       ];
                       const activeCfg = PLATFORMS.find(p => p.value === activePlatform)!;
                       const ActiveIcon = activeCfg.icon;

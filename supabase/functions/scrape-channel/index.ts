@@ -65,6 +65,11 @@ const MAX_RESULTS_PER_CHANNEL = 100;
 // proxy throughput. Raise this once the VPS uses --flat-playlist or a faster /
 // rotating proxy.
 const MAX_RESULTS_YOUTUBE = 25;
+// Facebook is scraped by loading the page's /reels tab in a headless browser
+// (logged-in FB session) to enumerate reel IDs, then resolving each reel's
+// metrics with yt-dlp individually. That per-reel resolve is the bottleneck, so
+// we cap FB well below IG to keep the synchronous scrape under the wall-clock.
+const MAX_RESULTS_FACEBOOK = 30;
 
 // ── VPS retry helper: retry up to `retries` times on 503 (server busy) ──────
 async function fetchVpsWithRetry(
@@ -141,6 +146,8 @@ serve(async (req) => {
     const ytHandleMatch = username.match(/youtube\.com\/@([^/?#\s]+)/i);
     const ytCustomMatch = username.match(/youtube\.com\/c\/([^/?#\s]+)/i);
     const ytChannelMatch = username.match(/youtube\.com\/channel\/([^/?#\s]+)/i);
+    // Facebook page/profile slug — not lowercased (FB slugs are case-sensitive).
+    const facebookMatch = username.match(/facebook\.com\/([^/?#\s]+)/i);
 
     // Reject single YouTube video URLs
     if (platform === "youtube" && /youtube\.com\/shorts\/[^/]+\/?$/.test(username)) {
@@ -156,9 +163,13 @@ serve(async (req) => {
       : ytHandleMatch ? ytHandleMatch[1].replace(/\/$/, "")
       : ytCustomMatch ? ytCustomMatch[1].replace(/\/$/, "")
       : ytChannelMatch ? ytChannelMatch[1].replace(/\/$/, "")
+      : facebookMatch ? facebookMatch[1].replace(/\/$/, "")
       : username.replace(/^@/, "").trim();
 
-    const limit = platform === "youtube" ? MAX_RESULTS_YOUTUBE : MAX_RESULTS_PER_CHANNEL;
+    const limit =
+      platform === "youtube" ? MAX_RESULTS_YOUTUBE
+      : platform === "facebook" ? MAX_RESULTS_FACEBOOK
+      : MAX_RESULTS_PER_CHANNEL;
 
     // ── Mark channel as running ────────────────────────────────────────────
     await supabase

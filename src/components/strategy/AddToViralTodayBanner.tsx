@@ -10,7 +10,7 @@ const PLATFORM_LABEL: Record<ViralPlatform, string> = {
 };
 
 // IG first — it's the priority platform for the "only one" quick action.
-const PRIORITY: ViralPlatform[] = ["instagram", "tiktok", "youtube"];
+const PRIORITY: ViralPlatform[] = ["instagram", "tiktok", "youtube", "facebook"];
 
 interface Props {
   missing: ClientChannelLink[];
