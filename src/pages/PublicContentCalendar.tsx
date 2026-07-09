@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import ThemedVideoPlayer from "@/components/ThemedVideoPlayer";
 import { LIFECYCLE_STYLE, deriveFromLegacy, type LifecycleStatus } from "@/lib/lifecycleStatus";
 
 interface CalendarPost {
@@ -146,9 +147,11 @@ function VideoBlock({ url, postId, clientId }: { url: string; postId: string; cl
 
   const playableUrl = signedUrl ?? (isHttp && looksPlayable(url) ? url : null);
   if (playableUrl) {
+    // Same custom player the private calendar and revision modals use, so the
+    // public share feels continuous with the rest of the app.
     return (
       <div className={VIDEO_BOX}>
-        <video src={playableUrl} controls playsInline preload="metadata" className="w-full h-full object-contain" />
+        <ThemedVideoPlayer src={playableUrl} className="h-full" maxHeight="100%" />
       </div>
     );
   }
