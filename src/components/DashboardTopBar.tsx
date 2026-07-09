@@ -1,8 +1,6 @@
-import { useLanguage } from "@/hooks/useLanguage";
-import { useAuth } from "@/hooks/useAuth";
-import { t, tr } from "@/i18n/translations";
 import LanguageToggle from "@/components/LanguageToggle";
-import { ChevronRight, LogOut } from "lucide-react";
+import MobileClientSwitcher from "@/components/MobileClientSwitcher";
+import { ChevronRight } from "lucide-react";
 
 interface Props {
   sidebarOpen: boolean;
@@ -11,9 +9,6 @@ interface Props {
 }
 
 export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMobile }: Props) {
-  const { language } = useLanguage();
-  const { signOut } = useAuth();
-
   return (
     <>
       {/* Mobile top bar — keeps the wordmark + controls because
@@ -32,15 +27,10 @@ export default function DashboardTopBar({ sidebarOpen, setSidebarOpen, hideOnMob
               Connecta
             </span>
           </button>
-          <div className="ml-auto flex items-center gap-2">
+          {/* Client switcher replaces Sign out here — signing out lives in the More sheet */}
+          <div className="ml-auto flex items-center gap-2 min-w-0">
             <LanguageToggle />
-            <button
-              onClick={signOut}
-              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-              title={tr(t.dashboard.signOut, language)}
-            >
-              <LogOut className="w-4 h-4 text-red-400" />
-            </button>
+            <MobileClientSwitcher />
           </div>
         </div>
       )}

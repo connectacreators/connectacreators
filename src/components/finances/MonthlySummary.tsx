@@ -55,7 +55,8 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card/60 p-5 space-y-4 sticky top-4">
+    // Sticky only on desktop — on phones it's in the normal flow above the bottom nav
+    <div className="rounded-2xl border border-border bg-card/60 p-5 space-y-4 lg:sticky lg:top-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground/80">Summary</h2>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingSettings(!editingSettings)}>
