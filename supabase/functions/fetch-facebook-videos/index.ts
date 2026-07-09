@@ -32,8 +32,8 @@ interface FbVideo {
 async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { client_id, limit = 24, persist = false } = await req.json() as {
-      client_id: string; limit?: number; persist?: boolean;
+    const { client_id, limit = 24, persist = false, reels_only = false } = await req.json() as {
+      client_id: string; limit?: number; persist?: boolean; reels_only?: boolean;
     };
     if (!client_id) return json({ error: "client_id required" }, 400);
 
@@ -73,19 +73,30 @@ async function handler(req: Request): Promise<Response> {
       "picture", "views",
       "likes.summary(true)", "comments.summary(true)",
     ].join(",");
-    const url = `${GRAPH}/${pageId}/videos?fields=${encodeURIComponent(fields)}&limit=${Math.min(50, limit)}&access_token=${encodeURIComponent(token)}`;
+    const fetchEdge = async (edge: string) => {
+      const u = `${GRAPH}/${pageId}/${edge}?fields=${encodeURIComponent(fields)}&limit=${Math.min(50, limit)}&access_token=${encodeURIComponent(token)}`;
+      const r = await fetch(u);
+      const b = await r.json().catch(() => null);
+      return { ok: r.ok && b && !b.error, status: r.status, body: b as { data?: FbVideo[]; error?: { message?: string } } | null };
+    };
 
-    const res = await fetch(url);
-    const body = await res.json().catch(() => null);
-    if (!res.ok || !body || body.error) {
+    // reels_only → the dedicated /video_reels edge; fall back to /videos
+    // (filtered to reel permalinks) if the reels edge rejects a field.
+    let result = reels_only ? await fetchEdge("video_reels") : await fetchEdge("videos");
+    let usedFallback = false;
+    if (reels_only && !result.ok) { result = await fetchEdge("videos"); usedFallback = true; }
+    if (!result.ok) {
       return json({
         error: "graph_error",
-        status: res.status,
-        detail: body?.error?.message ?? "unknown",
+        status: result.status,
+        detail: result.body?.error?.message ?? "unknown",
       }, 502);
     }
 
-    const raw = (body.data ?? []) as FbVideo[];
+    let raw = (result.body?.data ?? []) as FbVideo[];
+    if (reels_only && usedFallback) {
+      raw = raw.filter((v) => /\/reel\//.test(v.permalink_url || ""));
+    }
     // Page follower count (best-effort).
     let followers: number | null = null;
     try {
