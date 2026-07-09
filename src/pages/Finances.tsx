@@ -173,45 +173,51 @@ export default function Finances() {
     URL.revokeObjectURL(url);
   }
 
+  // View switcher — header on desktop, actions row on mobile (keeps the
+  // phone header to a single clean row: title + month).
+  const viewToggle = (display: string) => (
+    <div className={`${display} items-center gap-0 rounded-xl border border-border/60 bg-card/60 p-1`}>
+      <Button
+        variant={view === "cards" ? "cta" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("cards")}
+        title="Card view"
+      >
+        <LayoutList className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        variant={view === "table" ? "cta" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("table")}
+        title="Table view (grouped by category)"
+      >
+        <Table2 className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        variant={view === "charts" ? "cta" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("charts")}
+        title="Charts view"
+      >
+        <PieChart className="w-3.5 h-3.5" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        {/* Header — wraps on narrow screens so the month selector stays reachable */}
+        {/* Header — phone: title + month only; desktop adds the view toggle */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Finances</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-0 rounded-xl border border-border/60 bg-card/60 p-1">
-              <Button
-                variant={view === "cards" ? "cta" : "ghost"}
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={() => setView("cards")}
-                title="Card view"
-              >
-                <LayoutList className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                variant={view === "table" ? "cta" : "ghost"}
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={() => setView("table")}
-                title="Table view (grouped by category)"
-              >
-                <Table2 className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                variant={view === "charts" ? "cta" : "ghost"}
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={() => setView("charts")}
-                title="Charts view"
-              >
-                <PieChart className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+            {viewToggle("hidden sm:flex")}
             <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/60 p-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMonth((m) => shiftMonth(m, -1))}>
                 <ChevronLeft className="w-4 h-4" />
@@ -275,7 +281,8 @@ export default function Finances() {
             )}
 
             {!showManual && !pendingEntry && (
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between sm:justify-end">
+                {viewToggle("flex sm:hidden")}
                 <Button variant="ghost" size="sm" onClick={() => setShowManual(true)}>
                   <PlusCircle className="w-4 h-4 mr-1.5" /> Add manually
                 </Button>

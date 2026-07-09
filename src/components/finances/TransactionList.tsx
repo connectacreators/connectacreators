@@ -17,6 +17,8 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const total = transactions.reduce((a, t) => a + t.amount, 0);
+
   if (transactions.length === 0) {
     return (
       <section className="space-y-2">
@@ -30,7 +32,7 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
 
   return (
     <section className="space-y-2">
-      <Heading kind={kind}>{title}</Heading>
+      <Heading kind={kind} total={total}>{title}</Heading>
       <div className="space-y-2">
         {transactions.map((t) => (
           <div key={t.id}>
@@ -69,7 +71,7 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
   );
 }
 
-function Heading({ kind, children }: { kind: "income" | "expense"; children: React.ReactNode }) {
+function Heading({ kind, total, children }: { kind: "income" | "expense"; total?: number; children: React.ReactNode }) {
   const Icon = kind === "income" ? ArrowUpRight : ArrowDownRight;
   const color = kind === "income" ? "text-emerald-400" : "text-red-400";
   return (
@@ -77,6 +79,9 @@ function Heading({ kind, children }: { kind: "income" | "expense"; children: Rea
       <Icon className={`w-4 h-4 ${color}`} />
       <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground/80">{children}</h2>
       <div className="flex-1 h-px bg-border/60" />
+      {total != null && total > 0 && (
+        <span className={`text-xs font-semibold tabular-nums ${color}`}>{formatUsd(total)}</span>
+      )}
     </div>
   );
 }
@@ -95,7 +100,12 @@ function Row({
   const isFoodDeductible = t.category === "Food & Meals" && t.deductible_amount != null;
 
   return (
-    <div className="group flex items-center gap-3 rounded-xl border border-border/70 bg-card/60 hover:bg-card transition-colors p-3">
+    // Whole row opens the edit form — on phones it's the only edit affordance
+    // (the pencil is desktop-only to keep rows uncluttered).
+    <div
+      onClick={onEdit}
+      className="group flex items-center gap-3 rounded-xl border border-border/70 bg-card/60 hover:bg-card transition-colors p-3 cursor-pointer"
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium text-foreground text-sm truncate">{primary}</p>
@@ -116,21 +126,25 @@ function Row({
           )}
         </div>
         <p className="text-[11px] text-muted-foreground truncate">
-          {t.category}
-          {t.description && t.description !== primary ? ` · ${t.description}` : ""}
-          {" · "}{new Date(t.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {[
+            t.category,
+            // Skip the description when it just repeats the title or category
+            t.description && t.description !== primary && t.description !== t.category ? t.description : null,
+            new Date(t.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          ].filter(Boolean).join(" · ")}
         </p>
       </div>
       <div className="flex items-center gap-1">
         <span className={`text-sm font-semibold tabular-nums ${kind === "income" ? "text-emerald-400" : "text-foreground"}`}>
           {formatUsd(t.amount)}
         </span>
-        {/* Always visible below lg — hover never fires on touch */}
-        <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ml-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+        {/* Trash always reachable (hover never fires on touch); pencil is
+            desktop-only — on phones tapping the row edits. */}
+        <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ml-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7 hidden lg:inline-flex" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
             <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete} disabled={deleting}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onDelete(); }} disabled={deleting}>
             {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 text-red-400" />}
           </Button>
         </div>
