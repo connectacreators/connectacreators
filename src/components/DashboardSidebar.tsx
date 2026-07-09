@@ -18,7 +18,7 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
-  Film,
+  Film, TrendingUp,
 } from "lucide-react";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
@@ -247,7 +247,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
     const feature = clientPathMatch ? clientPathMatch[1] : pathname.replace(/^\//, "");
 
     // Only auto-navigate for features that have client-specific routes
-    const clientFeatures = ["vault", "scripts", "editing-queue", "content-calendar", "leads", "booking-settings", "lead-calendar"];
+    const clientFeatures = ["vault", "scripts", "editing-queue", "content-calendar", "leads", "booking-settings", "lead-calendar", "strategy", "contracts"];
     if (!clientFeatures.includes(feature)) return;
 
     const targetClientId = mode === "master" ? null : mode === "me" ? ownClientId : mode;
@@ -291,6 +291,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   // Off /ai, the group headers below render normally and tier is ignored.
   const getNavItems = (): NavEntry[] => {
     if (isAdmin) {
+      const selectedClientId = viewMode === "master" ? null : viewMode === "me" ? ownClientId : viewMode;
       return [
         { label: "Home", icon: Home, path: "/dashboard" },
         { label: companionName, icon: Bot, path: "/ai", badge: companionBadge, tier: 'essential' },
@@ -303,6 +304,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: "Editing Queue", icon: Clapperboard, path: "/editing-queue", tier: 'essential' },
         ...(IS_VIDEO_EDITOR_ENABLED ? [{ label: "Editor", icon: Film, path: "/editor", tier: 'essential' } as NavItem] : []),
         { type: 'group', label: 'Growth' },
+        ...(selectedClientId ? [{ label: language === "en" ? "Strategy" : "Estrategia", icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem] : []),
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: "Finances", icon: DollarSign, path: "/finances" },
         { label: "API Usage", icon: BarChart3, path: "/api-usage" },
