@@ -76,10 +76,11 @@ interface VpsResponse {
 async function scrapeProfile(
   platform: string,
   username: string,
-  limit: number
+  limit: number,
+  timeoutMs = 50_000
 ): Promise<VpsResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 50_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${VPS_SERVER}/scrape-profile`, {
@@ -110,16 +111,17 @@ async function scrapeProfile(
 async function processChannel(
   supabase: ReturnType<typeof createClient>,
   channel: { id: string; username: string; platform: string | null },
-  resultsLimit: number
+  resultsLimit: number,
+  timeoutMs = 50_000
 ): Promise<{ channel: string; newVideos: number; error?: string }> {
   const platform = channel.platform ?? "instagram";
   const cleanUsername = channel.username.replace(/^@/, "").trim().toLowerCase();
 
   let vpsData: VpsResponse;
   try {
-    vpsData = await scrapeProfile(platform, cleanUsername, resultsLimit);
+    vpsData = await scrapeProfile(platform, cleanUsername, resultsLimit, timeoutMs);
   } catch (e: any) {
-    const msg = e.name === "AbortError" ? "VPS timeout (50s)" : e.message;
+    const msg = e.name === "AbortError" ? `VPS timeout (${Math.round(timeoutMs / 1000)}s)` : e.message;
     console.error(`VPS error for ${channel.username}: ${msg}`);
     // Rotate this channel to the BACK of the oldest-first queue even on
     // failure. Otherwise a handful of persistently-failing channels (e.g.
@@ -307,8 +309,8 @@ serve(async (req) => {
     // Note: 100 posts/channel takes ~50s per VPS call, right at the per-call
     // timeout boundary. 50 posts finishes in ~25-30s with plenty of headroom.
     const body = await req.json().catch(() => ({}));
-    const mode = body.mode === "full" ? "full" : "delta";
-    const resultsLimit = mode === "full" ? 50 : 7;
+    const mode = body.mode === "full" ? "full" : body.mode === "facebook" ? "facebook" : "delta";
+    const resultsLimit = mode === "full" ? 50 : mode === "facebook" ? 12 : 7;
 
     console.log(`Running in ${mode} mode (limit=${resultsLimit})`);
 
@@ -344,34 +346,68 @@ serve(async (req) => {
     // A batch can take up to 50s (per-VPS-call abort), so we stop at 90s
     // — worst-case total = 90 + 50 + cleanup ≈ 145s.
     const startMs = Date.now();
-    const BUDGET_MS = 90_000;
 
-    // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
-    // requests trigger occasional connection resets. 6 keeps headroom for
-    // manual scrapes and avoids the reset-by-peer errors.
-    const BATCH_SIZE = 6;
-    for (let i = 0; i < sortedChannels.length; i += BATCH_SIZE) {
-      if (Date.now() - startMs > BUDGET_MS) {
-        skippedCount = sortedChannels.length - i;
-        console.log(`Time budget hit after ${i} channels; ${skippedCount} skipped (will be picked up next run)`);
-        break;
-      }
-      const batch = sortedChannels.slice(i, i + BATCH_SIZE);
-      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.map((c: any) => c.username).join(", ")}`);
-
-      const results = await Promise.all(
-        batch.map((channel: any) => processChannel(supabase, channel, resultsLimit))
-      );
-      for (const result of results) {
+    if (mode === "facebook") {
+      // ── Facebook-only lane ────────────────────────────────────────────────
+      // FB is scraped with a headless browser per reel (reactions/comments
+      // aren't in yt-dlp), so one FB channel takes ~40-60s — it always times out
+      // inside the 6-way concurrent batch used for IG/TikTok/YT. So FB runs on
+      // its OWN cron (mode=facebook): one channel at a time, a longer per-call
+      // timeout, oldest-stale first, with the whole budget to itself. The
+      // regular delta/full runs skip FB entirely (below).
+      const fbChannels = sortedChannels.filter((c: any) => (c.platform ?? "") === "facebook");
+      // One FB scrape (dual-tab enumerate + browser-per-reel) runs ~60-90s, and
+      // Supabase kills the edge function at 150s. So only START a channel while
+      // there's room for its FULL timeout: budget 40s + timeout 90s + cleanup
+      // headroom ≈ 140s worst case. In practice ~1 FB channel per run; oldest
+      // first, so they rotate across runs.
+      const FB_TIMEOUT_MS = 90_000;
+      const FB_BUDGET_MS = 40_000;
+      const FB_LIMIT = Math.min(resultsLimit, 12);
+      for (let i = 0; i < fbChannels.length; i++) {
+        if (Date.now() - startMs > FB_BUDGET_MS) {
+          skippedCount = fbChannels.length - i;
+          console.log(`FB budget hit after ${i} channels; ${skippedCount} skipped (next run)`);
+          break;
+        }
+        const result = await processChannel(supabase, fbChannels[i], FB_LIMIT, FB_TIMEOUT_MS);
         totalNewVideos += result.newVideos;
         processedCount += 1;
         if (result.error) errors.push(`${result.channel}: ${result.error}`);
       }
+    } else {
+      // ── Fast lane (delta/full): everyone EXCEPT Facebook ──────────────────
+      const otherChannels = sortedChannels.filter((c: any) => (c.platform ?? "") !== "facebook");
+      const BUDGET_MS = 90_000;
+      // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
+      // requests trigger occasional connection resets. 6 keeps headroom for
+      // manual scrapes and avoids the reset-by-peer errors.
+      const BATCH_SIZE = 6;
+      for (let i = 0; i < otherChannels.length; i += BATCH_SIZE) {
+        if (Date.now() - startMs > BUDGET_MS) {
+          skippedCount = otherChannels.length - i;
+          console.log(`Time budget hit after ${i} channels; ${skippedCount} skipped (will be picked up next run)`);
+          break;
+        }
+        const batch = otherChannels.slice(i, i + BATCH_SIZE);
+        console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.map((c: any) => c.username).join(", ")}`);
+
+        const results = await Promise.all(
+          batch.map((channel: any) => processChannel(supabase, channel, resultsLimit))
+        );
+        for (const result of results) {
+          totalNewVideos += result.newVideos;
+          processedCount += 1;
+          if (result.error) errors.push(`${result.channel}: ${result.error}`);
+        }
+      }
     }
 
     // ── Cleanup: delete videos scraped more than 6 months ago ─────────────
+    // Skipped in the FB lane — that run is already near the wall-clock budget
+    // and the delta/full runs handle cleanup.
     let cleanedUp = 0;
-    try {
+    if (mode !== "facebook") try {
       const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
       const { data: staleRows, error: deleteErr } = await supabase
         .from("viral_videos")

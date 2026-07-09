@@ -66,8 +66,11 @@ export function ContentPerformanceTab({ links, isTeam, en, banner, addingPlatfor
       .eq("channel_id", channel.id)
       .order("posted_at", { ascending: false, nullsFirst: false })
       .limit(50)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
+        // Keep the last good videos on a transient RLS/auth blip rather than
+        // blanking the list.
+        if (error) { setLoadingVideos(false); return; }
         setVideos((data || []) as PerfVideo[]);
         setLoadingVideos(false);
       });

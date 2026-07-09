@@ -41,9 +41,11 @@ export function useClientViralChannels(onboarding: Record<string, unknown>, clie
   const refresh = useCallback(async () => {
     const wanted: { platform: ViralPlatform; username: string }[] = onboardingSocialChannels(onboarding);
 
-    // Facebook is sourced from the scheduler's social_connections (official
-    // Graph API via page token) — NOT onboarding handles — because FB pages
-    // can't be scraped. The channel row is keyed by the connection's label.
+    // Facebook now also comes from onboarding handles (onboardingSocialChannels
+    // includes it) since FB pages are scrapeable via the VPS. This
+    // social_connections lookup stays as a fallback for clients whose FB page is
+    // OAuth-connected but not declared in onboarding; the guard below keeps the
+    // onboarding handle whenever both exist.
     if (clientId) {
       const { data: fb } = await supabase
         .from("social_connections")
@@ -63,10 +65,20 @@ export function useClientViralChannels(onboarding: Record<string, unknown>, clie
       setLoading(false);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("viral_channels")
       .select("id, username, platform, display_name, avatar_url, follower_count, avg_views, video_count, last_scraped_at, scrape_status, scrape_error")
       .in("username", wanted.map(h => h.username));
+    // viral_channels reads require auth.uid() (RLS). A transient auth blip — most
+    // often the multi-tab token-refresh rotation race — makes this error and
+    // return no rows. Do NOT wipe already-resolved channels to null on failure,
+    // or the linked channels flicker away and the Strategy cards flash "no
+    // channels found" / 0 views. Keep the last good links; the next refresh (or
+    // the 8s poll) recovers them.
+    if (error) {
+      setLoading(false);
+      return;
+    }
     const rows = (data || []) as ViralChannelRow[];
     setLinks(wanted.map(h => ({
       ...h,

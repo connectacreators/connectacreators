@@ -46,8 +46,11 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, fallbackS
       .gte("posted_at", start.toISOString())
       .lt("posted_at", end.toISOString())
       .limit(2000)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
+        // A transient RLS/auth blip returns no rows — keep the last good totals
+        // instead of flashing 0 views.
+        if (error) return;
         const sums: Record<string, number> = {};
         for (const v of (data || []) as { platform: string; views_count: number }[]) {
           sums[v.platform] = (sums[v.platform] || 0) + (v.views_count || 0);
