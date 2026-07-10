@@ -10,6 +10,7 @@ import { StrategySetupCard } from "@/components/strategy/StrategySetupCard";
 import { AddToViralTodayBanner } from "@/components/strategy/AddToViralTodayBanner";
 import { ContentPerformanceTab } from "@/components/strategy/ContentPerformanceTab";
 import { ViewsGuaranteeCard } from "@/components/strategy/ViewsGuaranteeCard";
+import { PLATFORM_ICON, fmtViews } from "@/lib/viral-card-utils";
 import { useClientViralChannels } from "@/hooks/useClientViralChannels";
 import { Loader2, Save } from "lucide-react";
 import { toProfilesArray } from "@/lib/onboarding/richText";
@@ -193,6 +194,7 @@ export default function ClientStrategy() {
   const [counts, setCounts] = useState<MonthCounts>({ scripts: 0, videos_edited: 0, videos_published: 0, posts_scheduled: 0 });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [showFollowerBreakdown, setShowFollowerBreakdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<ClientStrategy | null>(null);
   const [clientOnboarding, setClientOnboarding] = useState<Record<string, unknown>>({});
@@ -460,10 +462,33 @@ export default function ClientStrategy() {
           <div>
             <h1 className="text-xl font-black text-foreground font-serif">{en ? "Content Strategy" : "Estrategia de Contenido"}</h1>
             {clientOnboarding.instagram ? (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                @{String(clientOnboarding.instagram).replace(/^@/, "")}
-                {(s.audience_analysis as any)?.followers ? ` · ${((s.audience_analysis as any).followers as number).toLocaleString()} followers` : ""}
-              </p>
+              <>
+                <p
+                  className="text-xs text-muted-foreground mt-0.5 select-none cursor-pointer"
+                  onDoubleClick={() => setShowFollowerBreakdown(v => !v)}
+                  title={en ? "Double-click for per-platform breakdown" : "Doble clic para ver el desglose por plataforma"}
+                >
+                  @{String(clientOnboarding.instagram).replace(/^@/, "")}
+                  {(() => {
+                    const linkedWithChannel = links.filter(l => l.channel);
+                    const totalFollowers = linkedWithChannel.reduce((sum, l) => sum + (l.channel?.follower_count ?? 0), 0);
+                    return totalFollowers > 0 ? ` · ${fmtViews(totalFollowers)} followers` : "";
+                  })()}
+                </p>
+                {showFollowerBreakdown && (
+                  <div className="flex items-center gap-3 flex-wrap mt-1">
+                    {links.filter(l => l.channel && (l.channel.follower_count ?? 0) > 0).map(l => {
+                      const Icon = PLATFORM_ICON[l.platform];
+                      return (
+                        <span key={l.platform} className="flex items-center gap-1.5 text-[11px] text-white/60">
+                          {Icon && <Icon className="w-3.5 h-3.5 text-white/35" />}
+                          <span className="font-semibold text-white/80">{fmtViews(l.channel!.follower_count ?? 0)}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-xs text-muted-foreground mt-0.5">{en ? "Robby reads this before every content decision" : "Robby lee esto antes de cada decisión de contenido"}</p>
             )}
