@@ -5,6 +5,7 @@ interface VSLPlayerProps {
   src: string;
   poster: string;
   accent?: string;
+  autoPlay?: boolean;
 }
 
 /**
@@ -12,7 +13,7 @@ interface VSLPlayerProps {
  * delay), so the thumbnail is visible the moment the page paints. The actual
  * <video> sits behind it and only takes over once playback starts.
  */
-export default function VSLPlayer({ src, poster, accent = "#F5C265" }: VSLPlayerProps) {
+export default function VSLPlayer({ src, poster, accent = "#F5C265", autoPlay = true }: VSLPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -112,8 +113,8 @@ export default function VSLPlayer({ src, poster, accent = "#F5C265" }: VSLPlayer
       <video
         ref={videoRef}
         playsInline
-        autoPlay
-        muted
+        autoPlay={autoPlay}
+        muted={autoPlay}
         preload="auto"
         poster={poster}
         style={{

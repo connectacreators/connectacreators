@@ -15,7 +15,7 @@ const TESTIMONIALS = [
     poster: `${ASSETS}/testimonial-dr-calvin-poster.jpg`,
   },
   {
-    name: "Saratoga",
+    name: "Dr. Jaromy Bell",
     video: `${ASSETS}/testimonial-saratoga.mp4`,
     poster: `${ASSETS}/testimonial-saratoga-poster.jpg`,
   },
@@ -52,7 +52,7 @@ export default function ThankYou() {
           <div className="ty-cards ty-cards--testimonials">
             {TESTIMONIALS.map((t) => (
               <article className="ty-card ty-card--testimonial" key={t.name}>
-                <VSLPlayer src={t.video} poster={t.poster} accent="#2E9E6B" />
+                <VSLPlayer src={t.video} poster={t.poster} accent="#2E9E6B" autoPlay={false} />
                 <p className="ty-card-name">{t.name}</p>
               </article>
             ))}

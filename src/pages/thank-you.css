@@ -100,8 +100,7 @@
 }
 .ty-cards--testimonials {
   grid-template-columns: repeat(2, 1fr);
-  max-width: 640px;
-  margin: 0 auto;
+  gap: 28px;
 }
 .ty-card {
   background: var(--ty-card);
