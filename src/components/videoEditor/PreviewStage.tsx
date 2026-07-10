@@ -19,15 +19,29 @@ type Props = {
   onMoveOverlay?: (overlayId: string, x_pct: number, y_pct: number) => void;
   onResizeOverlay?: (overlayId: string, size: number) => void;
   onEditOverlayText?: (overlayId: string, newText: string) => void;
+  // Preview-only mute toggles. None of these affect the rendered export
+  // (worker uses the EDL directly); they let the user hear individual
+  // tracks in isolation while editing.
+  muteVideoAudio?: boolean;
+  muteMusic?: boolean;
+  muteBRoll?: boolean;
+  hideCaptions?: boolean;
 };
 
 // Find which clip the EDL output time `edlMs` is inside, and how far in.
+// Boundary rule: at the exact end of clip i (edlMs == acc + len), resolve to
+// clip i+1 with sourceMs at its source_start_ms. Using strict `<` here is
+// what lets playback advance past a Remove-all-silences cut — with `<=`,
+// RAF would emit edlMs == clip-end on the first frame after the layer swap,
+// snap currentClipIdx back to the old clip, and the sync effect would yank
+// the video back to the boundary. Past the last clip we still return the
+// last clip's end (so onEnded fires naturally).
 function locateClip(edl: EDL, edlMs: number): { clipIdx: number; sourceMs: number } | null {
   let acc = 0;
   for (let i = 0; i < edl.clips.length; i++) {
     const c = edl.clips[i];
     const len = Math.max(0, c.source_end_ms - c.source_start_ms);
-    if (edlMs <= acc + len) {
+    if (edlMs < acc + len) {
       return { clipIdx: i, sourceMs: c.source_start_ms + (edlMs - acc) };
     }
     acc += len;
@@ -36,7 +50,11 @@ function locateClip(edl: EDL, edlMs: number): { clipIdx: number; sourceMs: numbe
   return last ? { clipIdx: edl.clips.length - 1, sourceMs: last.source_end_ms } : null;
 }
 
-export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded, onMoveCaption, onResizeCaption, onMoveOverlay, onResizeOverlay, onEditOverlayText }: Props) {
+export function PreviewStage({
+  sourceUrl, edl, playheadMs, playing, onPlayheadChange, onEnded,
+  onMoveCaption, onResizeCaption, onMoveOverlay, onResizeOverlay, onEditOverlayText,
+  muteVideoAudio = false, muteMusic = false, muteBRoll = false, hideCaptions = false,
+}: Props) {
   // Two-layer playback. Two <video> elements alternate as "active" (visible
   // and playing) and "standby" (hidden and pre-seeked to the next clip's
   // start). At a clip boundary we just pause active and play standby, then
@@ -97,13 +115,16 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
   const currentClipIdx = playheadInfo?.clipIdx ?? 0;
   const currentSourceMs = playheadInfo?.sourceMs ?? 0;
 
-  // Sync the active <video>'s currentTime with the playhead. Skip tiny
-  // diffs to avoid re-triggering seeks on every RAF tick.
+  // Sync the active <video>'s currentTime with the playhead. The threshold
+  // exists to avoid re-triggering seeks on every RAF tick (RAF emits the
+  // current source position; we mustn't loop-seek it back). 30ms is roughly
+  // one frame at 30fps — small enough that a user-initiated nudge always
+  // moves the video, large enough that RAF's frame-to-frame drift won't.
   useEffect(() => {
     const v = activeLayer === "A" ? videoARef.current : videoBRef.current;
     if (!v) return;
     const desiredSec = currentSourceMs / 1000;
-    if (Math.abs(v.currentTime - desiredSec) > 0.1) {
+    if (Math.abs(v.currentTime - desiredSec) > 0.03) {
       try { v.currentTime = desiredSec; } catch { /* before metadata */ }
     }
   }, [activeLayer, currentSourceMs]);
@@ -172,6 +193,20 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         if (Math.abs(standby.currentTime - targetSec) > 0.05) {
           try { standby.currentTime = targetSec; } catch { /* ignore */ }
         }
+        // Advance the EDL playhead to the start of the next clip BEFORE
+        // flipping activeLayer. React 18 batches both state updates, so
+        // the next render has currentClipIdx already pointing at the new
+        // clip — otherwise RAF reads new-active.currentTime (now at
+        // next.source_start_ms) while currentClipIdx is stale, the
+        // "sourceMs in [c.source_start, c.source_end]" check fails, and
+        // edlMs collapses to the start of the old clip — snapping
+        // playback back. locateClip's strict `<` resolves the exact
+        // boundary to clip i+1.
+        let nextEdlMs = 0;
+        for (let i = 0; i <= currentClipIdx; i++) {
+          nextEdlMs += Math.max(0, edl.clips[i].source_end_ms - edl.clips[i].source_start_ms);
+        }
+        onPlayheadChange(nextEdlMs);
         active.pause();
         void standby.play().catch(() => {});
         setActiveLayer((l) => (l === "A" ? "B" : "A"));
@@ -185,7 +220,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       active.removeEventListener("seeked", schedule);
       active.removeEventListener("ratechange", schedule);
     };
-  }, [activeLayer, currentClipIdx, edl.clips, playing, onEnded]);
+  }, [activeLayer, currentClipIdx, edl.clips, playing, onEnded, onPlayheadChange]);
 
   // RAF: emit EDL playhead based on the active video's currentTime. We do
   // this every frame instead of relying solely on setTimeout so scrubs,
@@ -197,17 +232,22 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
     let raf = 0;
     const tick = () => {
       const active = activeLayer === "A" ? videoARef.current : videoBRef.current;
-      if (active && !active.paused) {
+      // Skip emission while a seek is in flight or while currentTime is
+      // still outside the clip we think we're in — both indicate the
+      // video hasn't caught up to a fresh controlled playhead, and
+      // emitting now would derive edlMs from a stale currentTime and
+      // snap the playhead backward.
+      if (active && !active.paused && !active.seeking) {
         const sourceMs = active.currentTime * 1000;
-        let edlMs = 0;
-        for (let i = 0; i < currentClipIdx; i++) {
-          edlMs += Math.max(0, edl.clips[i].source_end_ms - edl.clips[i].source_start_ms);
-        }
         const c = edl.clips[currentClipIdx];
         if (c && sourceMs >= c.source_start_ms && sourceMs <= c.source_end_ms) {
+          let edlMs = 0;
+          for (let i = 0; i < currentClipIdx; i++) {
+            edlMs += Math.max(0, edl.clips[i].source_end_ms - edl.clips[i].source_start_ms);
+          }
           edlMs += sourceMs - c.source_start_ms;
+          onPlayheadChange(edlMs);
         }
-        onPlayheadChange(edlMs);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -223,6 +263,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       <video
         ref={videoARef}
         src={sourceUrl}
+        muted={muteVideoAudio}
         className="absolute max-h-full max-w-full"
         style={{
           visibility: activeLayer === "A" ? "visible" : "hidden",
@@ -236,6 +277,7 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
       <video
         ref={videoBRef}
         src={sourceUrl}
+        muted={muteVideoAudio}
         className="absolute max-h-full max-w-full"
         style={{
           visibility: activeLayer === "B" ? "visible" : "hidden",
@@ -247,25 +289,29 @@ export function PreviewStage({ sourceUrl, edl, playheadMs, playing, onPlayheadCh
         controls={false}
       />
       {musicUrl && (
-        <audio ref={audioRef} src={musicUrl} preload="auto" className="hidden" />
+        <audio ref={audioRef} src={musicUrl} muted={muteMusic} preload="auto" className="hidden" />
       )}
-      <BRollPreview
-        brolls={edl.b_roll ?? []}
-        playheadMs={playheadMs}
-        playing={playing}
-        videoBox={videoBox}
-      />
-      <CaptionOverlay
-        captions={edl.captions ?? []}
-        overlays={edl.text_overlays ?? []}
-        sourceMs={currentSourceMs}
-        videoBox={videoBox}
-        onMoveCaption={onMoveCaption}
-        onResizeCaption={onResizeCaption}
-        onMoveOverlay={onMoveOverlay}
-        onResizeOverlay={onResizeOverlay}
-        onEditOverlayText={onEditOverlayText}
-      />
+      {!muteBRoll && (
+        <BRollPreview
+          brolls={edl.b_roll ?? []}
+          playheadMs={playheadMs}
+          playing={playing}
+          videoBox={videoBox}
+        />
+      )}
+      {!hideCaptions && (
+        <CaptionOverlay
+          captions={edl.captions ?? []}
+          overlays={edl.text_overlays ?? []}
+          sourceMs={currentSourceMs}
+          videoBox={videoBox}
+          onMoveCaption={onMoveCaption}
+          onResizeCaption={onResizeCaption}
+          onMoveOverlay={onMoveOverlay}
+          onResizeOverlay={onResizeOverlay}
+          onEditOverlayText={onEditOverlayText}
+        />
+      )}
     </div>
   );
 }

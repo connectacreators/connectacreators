@@ -15,6 +15,7 @@ import { TextOverlaysPanel } from "@/components/videoEditor/TextOverlaysPanel";
 import { MusicPanel } from "@/components/videoEditor/MusicPanel";
 import { BRollPanel } from "@/components/videoEditor/BRollPanel";
 import { ExportDialog } from "@/components/videoEditor/ExportDialog";
+import { PublishComposer } from "@/components/scheduler/PublishComposer";
 import { useTranscript, type TranscriptWord } from "@/hooks/useTranscript";
 import {
   captionsFromTranscript,
@@ -30,7 +31,7 @@ import {
 } from "@/lib/videoEditor/edl";
 import { TEXT_OVERLAY_PRESETS } from "@/lib/videoEditor/textOverlayPresets";
 
-type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string };
+type SourceMeta = { storagePath: string; signedUrl: string; durationMs: number; title: string; clientId: string | null };
 
 // Storage bucket confirmed from codebase: FootagePanel.tsx + videoUrl.ts both use "footage".
 // The plan guessed "video-edits" — that bucket does not exist.
@@ -68,11 +69,14 @@ async function loadSourceMeta(videoEditId: string): Promise<SourceMeta | null> {
   const isPlaceholder = !raw || raw === "Sin titulo" || raw === "Sin título";
   const title = isPlaceholder ? `Edit ${videoEditId.slice(0, 8)}` : raw;
 
+  const clientId: string | null = (data as any).client_id ?? null;
+
   return {
     storagePath,
     signedUrl: signed.signedUrl,
     durationMs,
     title,
+    clientId,
   };
 }
 
@@ -99,6 +103,14 @@ export default function VideoEditor() {
   const [playing, setPlaying] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [resultSignedUrl, setResultSignedUrl] = useState<string | null>(null);
+  // Preview-only mute toggles — never written to the EDL; the export always
+  // honours the underlying tracks. Lets the user solo a track while editing.
+  const [muteVideoAudio, setMuteVideoAudio] = useState(false);
+  const [muteMusic, setMuteMusic] = useState(false);
+  const [muteBRoll, setMuteBRoll] = useState(false);
+  const [hideCaptions, setHideCaptions] = useState(false);
+  // Scheduler modal — opens after export with the rendered URL pre-filled.
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   // Right-panel tab: Transcript / Captions / Text / Music / B-roll.
   const [rightTab, setRightTab] = useState<
     "transcript" | "captions" | "text" | "music" | "broll"
@@ -135,7 +147,7 @@ export default function VideoEditor() {
     [source],
   );
 
-  const { state: projState, setEdl } = useEditorProject({
+  const { state: projState, setEdl, undo, redo, canUndo, canRedo } = useEditorProject({
     videoEditId: id!,
     initialSource: initialSource ?? { storage_path: "", duration_ms: 0 },
   });
@@ -378,6 +390,48 @@ export default function VideoEditor() {
           : c,
       ),
     });
+  };
+
+  // Reorder a V1 clip based on the cumulative OUTPUT-time delta the user
+  // dragged. Finds the clip's current center, projects (center + delta)
+  // forward, and inserts the dragged clip BEFORE the clip whose center
+  // sits past the projected position. Net effect: drag a clip far enough
+  // right past the midpoint of the next clip → swap them.
+  const handleReorderClip = (clipId: string, deltaOutputMs: number) => {
+    if (projState.phase !== "ready") return;
+    const clips = projState.edl.clips;
+    const fromIdx = clips.findIndex((c) => c.id === clipId);
+    if (fromIdx === -1) return;
+    // Build cumulative-output start times so we can find centers.
+    const starts: number[] = [];
+    let acc = 0;
+    for (const c of clips) {
+      starts.push(acc);
+      const speed = c.playback_speed && c.playback_speed > 0 ? c.playback_speed : 1;
+      acc += Math.max(0, c.source_end_ms - c.source_start_ms) / speed;
+    }
+    const fromCenter = starts[fromIdx]
+      + (clips[fromIdx].source_end_ms - clips[fromIdx].source_start_ms)
+        / (2 * (clips[fromIdx].playback_speed ?? 1));
+    const targetCenter = fromCenter + deltaOutputMs;
+    // Find new insertion index: first clip whose center is > targetCenter.
+    // Compare against centers (not starts) so a half-clip drag is enough to
+    // swap with the neighbour.
+    let toIdx = clips.length;
+    for (let i = 0; i < clips.length; i++) {
+      const ci = clips[i];
+      const center = starts[i]
+        + (ci.source_end_ms - ci.source_start_ms) / (2 * (ci.playback_speed ?? 1));
+      if (center > targetCenter) { toIdx = i; break; }
+    }
+    // Splice the moved clip into place. Account for the removed slot when
+    // moving forward (toIdx > fromIdx).
+    const next = [...clips];
+    const [moved] = next.splice(fromIdx, 1);
+    const insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
+    if (insertAt === fromIdx) return; // unchanged
+    next.splice(insertAt, 0, moved);
+    setEdl({ ...projState.edl, clips: next });
   };
 
   // Delete a single video clip. The EDL must always have at least one clip;
@@ -760,13 +814,16 @@ export default function VideoEditor() {
       if (mod && key === "v") { e.preventDefault(); runPaste(); return; }
       if (mod && key === "d") { e.preventDefault(); runDuplicate(); return; }
       if (!mod && key === "s") { e.preventDefault(); runSplit(); return; }
+      // Cmd/Ctrl-Z = undo, Cmd/Ctrl-Shift-Z (or Cmd/Ctrl-Y) = redo.
+      if (mod && key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if (mod && ((key === "z" && e.shiftKey) || key === "y")) { e.preventDefault(); redo(); return; }
       // Space toggles play/pause from anywhere on the editor — matches
       // every NLE convention. preventDefault stops the page from scrolling.
       if (!mod && e.key === " ") { e.preventDefault(); setPlaying((p) => !p); return; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [timelineSelection, projState, playheadMs]);
+  }, [timelineSelection, projState, playheadMs, undo, redo]);
 
   // ===== EARLY-RETURN GUARDS (must come AFTER every hook above) =====
   if (!id) return <Navigate to="/editing-queue" replace />;
@@ -809,6 +866,10 @@ export default function VideoEditor() {
           if (jobState.phase === "done" || jobState.phase === "error") resetJob();
           setExportOpen(true);
         }}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -825,17 +886,47 @@ export default function VideoEditor() {
             onMoveOverlay={handleMoveOverlay}
             onResizeOverlay={handleResizeOverlay}
             onEditOverlayText={(id, text) => handleChangeOverlay(id, { text })}
+            muteVideoAudio={muteVideoAudio}
+            muteMusic={muteMusic}
+            muteBRoll={muteBRoll}
+            hideCaptions={hideCaptions}
           />
-          <div className="flex justify-center gap-3 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
+          <div className="flex items-center justify-center gap-2 py-2 bg-neutral-950 border-t border-neutral-900 text-xs">
             <button
               onClick={() => setPlaying((p) => !p)}
               className="px-3 py-1 bg-neutral-800 rounded"
             >
               {playing ? "Pause" : "Play"}
             </button>
-            <span className="text-neutral-500 self-center">
+            <span className="text-neutral-500 self-center w-12 text-center">
               {(playheadMs / 1000).toFixed(1)}s
             </span>
+            {/* Preview-only solo/mute. None of these touch the EDL — they
+                let the user listen to a single track in isolation while
+                editing. Disabled when the underlying track is absent. */}
+            <span className="text-neutral-700 mx-1">|</span>
+            <MuteToggle label="V" title="Video audio" active={!muteVideoAudio} onToggle={() => setMuteVideoAudio((v) => !v)} />
+            <MuteToggle
+              label="M"
+              title="Music"
+              active={!muteMusic}
+              disabled={!projState.edl.music}
+              onToggle={() => setMuteMusic((v) => !v)}
+            />
+            <MuteToggle
+              label="B"
+              title="B-roll"
+              active={!muteBRoll}
+              disabled={(projState.edl.b_roll?.length ?? 0) === 0}
+              onToggle={() => setMuteBRoll((v) => !v)}
+            />
+            <MuteToggle
+              label="C"
+              title="Captions + text overlays"
+              active={!hideCaptions}
+              disabled={(projState.edl.captions?.length ?? 0) === 0 && (projState.edl.text_overlays?.length ?? 0) === 0}
+              onToggle={() => setHideCaptions((v) => !v)}
+            />
           </div>
         </div>
         <div className="w-[280px] shrink-0 flex flex-col bg-neutral-950 border-l border-neutral-800 overflow-hidden">
@@ -935,6 +1026,72 @@ export default function VideoEditor() {
         </div>
       </div>
 
+      {/* Selected-clip inspector — shows speed slider + outgoing-transition
+          picker when a V1 clip is selected. Sits between the right panel
+          row and the timeline so it's visible whenever a clip is selected. */}
+      {timelineSelection?.kind === "video" && (() => {
+        const c = projState.edl.clips.find((x) => x.id === timelineSelection.id);
+        if (!c) return null;
+        const isLast = projState.edl.clips[projState.edl.clips.length - 1]?.id === c.id;
+        const speed = c.playback_speed ?? 1;
+        const transOut = c.transition_out;
+        const patchClip = (patch: Partial<typeof c>) => {
+          setEdl({
+            ...projState.edl,
+            clips: projState.edl.clips.map((x) => x.id === c.id ? { ...x, ...patch } : x),
+          });
+        };
+        return (
+          <div className="shrink-0 bg-neutral-925 border-t border-neutral-800 px-3 py-1.5 flex items-center gap-4 text-[10px]">
+            <span className="text-neutral-400 uppercase tracking-wider">Clip</span>
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500">Speed</span>
+              <input
+                type="range" min={0.25} max={4} step={0.05}
+                value={speed}
+                onChange={(e) => patchClip({ playback_speed: parseFloat(e.target.value) })}
+                className="w-32 accent-blue-500"
+              />
+              <span className="text-neutral-300 w-10 tabular-nums">{speed.toFixed(2)}×</span>
+              <button
+                onClick={() => patchClip({ playback_speed: undefined })}
+                className="text-neutral-500 hover:text-neutral-300 text-[9px]"
+                title="Reset to 1.0×"
+              >
+                reset
+              </button>
+            </div>
+            {!isLast && (
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-500">Transition to next</span>
+                <select
+                  value={transOut?.kind ?? "cut"}
+                  onChange={(e) => {
+                    if (e.target.value === "cut") patchClip({ transition_out: undefined });
+                    else patchClip({ transition_out: { kind: "fade", duration_ms: transOut?.duration_ms ?? 400 } });
+                  }}
+                  className="bg-neutral-800 text-neutral-200 px-1 py-0.5 rounded border-0 text-[10px]"
+                >
+                  <option value="cut">Cut</option>
+                  <option value="fade">Fade</option>
+                </select>
+                {transOut && (
+                  <>
+                    <input
+                      type="range" min={100} max={1500} step={50}
+                      value={transOut.duration_ms}
+                      onChange={(e) => patchClip({ transition_out: { kind: "fade", duration_ms: parseInt(e.target.value, 10) } })}
+                      className="w-24 accent-blue-500"
+                    />
+                    <span className="text-neutral-300 w-10 tabular-nums">{(transOut.duration_ms / 1000).toFixed(2)}s</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="shrink-0">
         <MultiTrackTimeline
           edl={projState.edl}
@@ -942,7 +1099,9 @@ export default function VideoEditor() {
           selection={timelineSelection}
           onSelect={setTimelineSelection}
           onSeek={handleSeekFromTranscript}
+          onSeekOutput={setPlayheadMs}
           onChangeTrim={handleChangeTrim}
+          onReorderClip={handleReorderClip}
           onShiftCaption={handleShiftCaption}
           onTrimCaption={handleTrimCaption}
           onChangeOverlay={handleChangeOverlay}
@@ -972,7 +1131,54 @@ export default function VideoEditor() {
         pollingProgress={exportPolling}
         resultUrl={exportResultUrl}
         errorMessage={exportError}
+        onSchedulePost={exportResultUrl ? () => setScheduleOpen(true) : undefined}
       />
+
+      {/* Publish to scheduler — opens with the rendered MP4 URL pre-filled.
+          Only mounted when we have a clientId on the video row (scheduler
+          is per-client) and a fresh export URL. */}
+      {source.clientId && (
+        <PublishComposer
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          clientId={source.clientId}
+          editingQueueId={id!}
+          videoUrl={exportResultUrl ?? ""}
+          initialCaption=""
+        />
+      )}
     </div>
+  );
+}
+
+// Preview-only mute pill. Single letter + tooltip; dim/strike when off.
+function MuteToggle({
+  label,
+  title,
+  active,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  title: string;
+  active: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      title={`${title} — ${active ? "click to mute" : "click to unmute"}`}
+      className={`w-6 h-6 rounded text-[10px] font-semibold transition-colors ${
+        disabled
+          ? "bg-neutral-900 text-neutral-700 cursor-not-allowed"
+          : active
+          ? "bg-neutral-800 text-neutral-100"
+          : "bg-neutral-900 text-neutral-600 line-through"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

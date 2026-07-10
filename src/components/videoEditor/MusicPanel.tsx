@@ -82,6 +82,36 @@ export function MusicPanel({ music, videoEditId, onSet }: Props) {
               {Math.round(music.volume * 100)}%
             </span>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-neutral-500 w-12">Fade in</span>
+            <input
+              type="range"
+              min={0}
+              max={5000}
+              step={100}
+              value={music.fade_in_ms ?? 0}
+              onChange={(e) => onSet({ ...music, fade_in_ms: parseInt(e.target.value, 10) })}
+              className="flex-1 accent-blue-500"
+            />
+            <span className="text-[9px] text-neutral-400 w-8 text-right tabular-nums">
+              {((music.fade_in_ms ?? 0) / 1000).toFixed(1)}s
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-neutral-500 w-12">Fade out</span>
+            <input
+              type="range"
+              min={0}
+              max={5000}
+              step={100}
+              value={music.fade_out_ms ?? 0}
+              onChange={(e) => onSet({ ...music, fade_out_ms: parseInt(e.target.value, 10) })}
+              className="flex-1 accent-blue-500"
+            />
+            <span className="text-[9px] text-neutral-400 w-8 text-right tabular-nums">
+              {((music.fade_out_ms ?? 0) / 1000).toFixed(1)}s
+            </span>
+          </div>
           <div className="flex gap-1">
             <button
               onClick={() => fileRef.current?.click()}

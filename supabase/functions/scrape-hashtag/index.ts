@@ -28,6 +28,15 @@ function buildCacheKey(tags: string[]): string {
   return [...tags].sort().join(",");
 }
 
+// The VPS scraper sometimes returns captions truncated mid-emoji, leaving an
+// unpaired UTF-16 surrogate. Such a string serializes to invalid JSON, so the
+// batch upsert is rejected by Postgres ("invalid input syntax for type json")
+// and ONE poisoned caption drops every video in the batch. Strip unpaired
+// surrogates (and NUL, which Postgres text also rejects) before insert.
+function sanitizeText(s: string): string {
+  return s.replace(/[\x00]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 // ── VPS helpers ──────────────────────────────────────────────────────────────
 
 /**
@@ -344,7 +353,7 @@ serve(async (req) => {
       platform: "instagram",
       video_url: p.postUrl,
       thumbnail_url: p.thumbnail,
-      caption: p.caption,
+      caption: sanitizeText(p.caption ?? ""),
       views_count: p.views,
       likes_count: p.likes,
       comments_count: p.comments,

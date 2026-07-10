@@ -33,11 +33,27 @@ export type TextOverlay = {
   size?: number;
 };
 
-export type Clip = { source_start_ms: number; source_end_ms: number };
+export type Clip = {
+  source_start_ms: number;
+  source_end_ms: number;
+  // Optional playback_speed (1.0 default) — affects source→output time
+  // mapping. A 2x clip's source-time word at 4s lands at output 2s.
+  playback_speed?: number;
+};
 
-// ASS uses centiseconds (1/100s). Output dimensions inform x/y placement.
-const PLAYRES_W = 1920;
-const PLAYRES_H = 1080;
+// Aspect-ratio → ASS PlayRes table. libass scales the layout to fit the
+// real canvas, so picking the matching PlayRes avoids the non-uniform
+// squash/stretch that happens when a 1080×1920 portrait canvas tries to
+// host a 1920×1080 layout. "source" falls back to 1920×1080 since we
+// don't know the real source dims at ASS-build time (worker substitutes
+// after ffprobe — see render.ts).
+type AssAspect = "source" | "9:16" | "1:1" | "16:9";
+const PLAY_RES: Record<AssAspect, { w: number; h: number }> = {
+  source: { w: 1920, h: 1080 },
+  "9:16":  { w: 1080, h: 1920 },
+  "1:1":   { w: 1080, h: 1080 },
+  "16:9":  { w: 1920, h: 1080 },
+};
 
 // PrimaryColour / OutlineColour / BackColour in ASS are BGR with optional
 // alpha byte (00 = opaque, FF = fully transparent). Encoded as
@@ -173,11 +189,16 @@ const OVERLAY_STYLES: Record<TextOverlayPreset, {
     backColour: cssHexToAssBGR("#000000", 0),
     alignment: 5, // center, since user wants center anchoring for text on screen
   },
-  // Helvetica, white on translucent black box, no shadow/outline.
+  // "Helvetica" preset: actually rendered with Inter to stay license-clean
+  // AND to match the browser preview (which also serves Inter from
+  // /fonts/Inter-Bold.ttf). Helvetica.ttf isn't bundled — when the worker
+  // asked libass for "Helvetica Neue" it silently fell back to Liberation
+  // Sans on the Linux VPS, producing a different face from the macOS
+  // preview. Inter-700 is metric-close and shipped.
   helvetica: {
-    fontName: "Helvetica Neue",
+    fontName: "Inter",
     fontSize: 45,
-    bold: 1,
+    bold: 1,                              // libass picks Inter-Bold via fontsdir
     uppercase: false,
     primaryColour: cssHexToAssBGR("#ffffff"),
     outlineColour: cssHexToAssBGR("#000000"),
@@ -207,16 +228,20 @@ const OVERLAY_STYLES: Record<TextOverlayPreset, {
 
 // Map a source-time millisecond to an output-time millisecond by walking the
 // clips. Returns null if the source time falls inside a removed (silence)
-// segment — caller should drop those words from the caption.
+// segment — caller should drop those words from the caption. Per-clip
+// `playback_speed` (default 1.0) shrinks/stretches output time inside the
+// clip: a word at source 4s in a 2x clip lands at output 2s.
 function sourceMsToOutputMs(sourceMs: number, clips: Clip[]): number | null {
   let acc = 0;
   for (const c of clips) {
     if (sourceMs < c.source_start_ms) return null;
-    const len = Math.max(0, c.source_end_ms - c.source_start_ms);
+    const sourceLen = Math.max(0, c.source_end_ms - c.source_start_ms);
+    const speed = c.playback_speed && c.playback_speed > 0 ? c.playback_speed : 1;
+    const outLen = sourceLen / speed;
     if (sourceMs <= c.source_end_ms) {
-      return acc + (sourceMs - c.source_start_ms);
+      return acc + (sourceMs - c.source_start_ms) / speed;
     }
-    acc += len;
+    acc += outLen;
   }
   return null;
 }
@@ -245,16 +270,19 @@ export function buildAssFile(
   clips: Clip[],
   outputDurationMs: number,
   overlays: TextOverlay[] = [],
+  aspect: AssAspect = "source",
 ): string {
-  // Header: define PlayResX/Y so positioning math agrees with the renderer.
-  // Most TikTok-style content is 9:16 (1080x1920), and even 1080p horizontal
-  // benefits from these as a default canvas.
+  // Pick PlayResX/Y to match the actual export canvas. libass uniformly
+  // scales its layout to fit the canvas, so a 1920×1080 layout on a
+  // 1080×1920 canvas would render text at ~56% the intended size. Matching
+  // the aspect keeps the preview-vs-export sizing 1:1.
+  const playRes = PLAY_RES[aspect];
   const header = [
     "[Script Info]",
     "Title: connecta-captions",
     "ScriptType: v4.00+",
-    `PlayResX: ${PLAYRES_W}`,
-    `PlayResY: ${PLAYRES_H}`,
+    `PlayResX: ${playRes.w}`,
+    `PlayResY: ${playRes.h}`,
     "WrapStyle: 0",
     "ScaledBorderAndShadow: yes",
     "",
@@ -304,11 +332,14 @@ export function buildAssFile(
     // `{\k<centisecs>}` tags. The `\k` value is the word's duration; ASS
     // advances the highlight word by word. We also use \pos to anchor the
     // text at the requested x_pct/y_pct.
-    const x = Math.round((cap.position.x_pct / 100) * PLAYRES_W);
-    const y = Math.round((cap.position.y_pct / 100) * PLAYRES_H);
+    const x = Math.round((cap.position.x_pct / 100) * playRes.w);
+    const y = Math.round((cap.position.y_pct / 100) * playRes.h);
 
     // Per-caption size multiplier is applied via a \fs<int> override at the
-    // start of the line. ASS doesn't support floats here so we round.
+    // start of the line. ASS doesn't support floats here so we round. The
+    // x/y positions are recomputed against the current PlayRes (not the
+    // hard-coded 1920×1080) so a 50% x_pct lands at the canvas center
+    // regardless of aspect.
     const presetSpec = PRESET_STYLES[cap.preset];
     const sizeMult = cap.size ?? 1;
     const scaledFs = Math.max(8, Math.round(presetSpec.fontSize * sizeMult));
@@ -353,8 +384,8 @@ export function buildAssFile(
     const effectivePresetName = (OVERLAY_STYLES[ov.preset] ? ov.preset : "tiktok") as TextOverlayPreset;
     const sizeMult = ov.size ?? 1;
     const scaledFs = Math.max(8, Math.round(ovSpec.fontSize * sizeMult));
-    const x = Math.round((ov.position.x_pct / 100) * PLAYRES_W);
-    const y = Math.round((ov.position.y_pct / 100) * PLAYRES_H);
+    const x = Math.round((ov.position.x_pct / 100) * playRes.w);
+    const y = Math.round((ov.position.y_pct / 100) * playRes.h);
     const text = ovSpec.uppercase ? ov.text.toUpperCase() : ov.text;
     const styleName = `overlay_${effectivePresetName}`;
     const line = `Dialogue: 1,${msToAssTime(startOut)},${msToAssTime(endOut)},${styleName},,0,0,0,,{\\pos(${x},${y})\\fs${scaledFs}}${escapeAss(text)}`;
@@ -370,11 +401,12 @@ export async function writeAssFile(
   clips: Clip[],
   outputDurationMs: number,
   overlays: TextOverlay[] = [],
+  aspect: AssAspect = "source",
 ): Promise<{ path: string; hadCaptions: boolean }> {
   if (captions.length === 0 && overlays.length === 0) {
     return { path: outputPath, hadCaptions: false };
   }
-  const ass = buildAssFile(captions, clips, outputDurationMs, overlays);
+  const ass = buildAssFile(captions, clips, outputDurationMs, overlays, aspect);
   await fs.writeFile(outputPath, ass, "utf-8");
   return { path: outputPath, hadCaptions: true };
 }

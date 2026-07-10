@@ -19,6 +19,9 @@ type Props = {
   pollingProgress: number | null;
   resultUrl: string | null;
   errorMessage: string | null;
+  // Fires when the user clicks "Schedule this post" after a successful
+  // render. Parent opens the PublishComposer with the export URL.
+  onSchedulePost?: () => void;
 };
 
 export function ExportDialog(props: Props) {
@@ -34,14 +37,22 @@ export function ExportDialog(props: Props) {
         {props.resultUrl ? (
           <div className="space-y-3">
             <p className="text-sm">Render complete.</p>
-            <div className="grid grid-cols-2 gap-2">
+            {/* Inline preview — strip the ?download= query param so the
+                browser plays the file instead of treating it as an
+                attachment. */}
+            <video
+              src={props.resultUrl.replace(/[?&]download=[^&]*/, "")}
+              controls
+              className="w-full max-h-[55vh] bg-black rounded"
+            />
+            <div className={`grid ${props.onSchedulePost ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
               <a
                 href={props.resultUrl.replace(/[?&]download=[^&]*/, "")}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-2 bg-neutral-800 text-neutral-100 rounded text-sm text-center"
               >
-                Preview in tab
+                Open in tab
               </a>
               <a
                 href={props.resultUrl}
@@ -49,6 +60,14 @@ export function ExportDialog(props: Props) {
               >
                 Download
               </a>
+              {props.onSchedulePost && (
+                <button
+                  onClick={props.onSchedulePost}
+                  className="px-3 py-2 bg-blue-900 text-blue-100 rounded text-sm"
+                >
+                  Schedule post
+                </button>
+              )}
             </div>
           </div>
         ) : props.errorMessage ? (

@@ -8,9 +8,14 @@ type Props = {
   saveStatus: "saved" | "saving" | "error";
   onExportClick: () => void;
   exportDisabled?: boolean;
+  // Undo/redo controls. When omitted, the buttons are hidden.
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 };
 
-export function EditorTopBar({ title, saveStatus, onExportClick, exportDisabled }: Props) {
+export function EditorTopBar({ title, saveStatus, onExportClick, exportDisabled, onUndo, onRedo, canUndo, canRedo }: Props) {
   return (
     <div className="h-11 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 text-neutral-200">
       <div className="flex items-center gap-3 text-xs">
@@ -31,9 +36,31 @@ export function EditorTopBar({ title, saveStatus, onExportClick, exportDisabled 
           {saveStatus === "saved" ? "Saved" : saveStatus === "saving" ? "Saving…" : "Save error"}
         </span>
       </div>
-      <Button size="sm" onClick={onExportClick} disabled={exportDisabled}>
-        Export
-      </Button>
+      <div className="flex items-center gap-2">
+        {onUndo && (
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (⌘Z)"
+            className={`px-2 py-1 text-xs rounded ${canUndo ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-neutral-900 text-neutral-700 cursor-not-allowed"}`}
+          >
+            ↶
+          </button>
+        )}
+        {onRedo && (
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (⇧⌘Z)"
+            className={`px-2 py-1 text-xs rounded ${canRedo ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-neutral-900 text-neutral-700 cursor-not-allowed"}`}
+          >
+            ↷
+          </button>
+        )}
+        <Button size="sm" onClick={onExportClick} disabled={exportDisabled}>
+          Export
+        </Button>
+      </div>
     </div>
   );
 }

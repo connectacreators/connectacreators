@@ -6,6 +6,18 @@ export type Clip = {
   id: string;
   source_start_ms: number;
   source_end_ms: number;
+  // Playback speed multiplier (1.0 = normal). 0.5 = half speed (slow-mo),
+  // 2.0 = double speed. Worker applies via setpts + atempo. Optional —
+  // omitted = 1.0.
+  playback_speed?: number;
+  // Outgoing transition applied between this clip and the next clip in the
+  // EDL. Adds a fade-to-black at the end of this clip and a fade-from-black
+  // at the start of the next. duration_ms is clamped to <= each clip's
+  // duration. Last clip's transition_out is ignored.
+  transition_out?: {
+    kind: "fade";
+    duration_ms: number;
+  };
 };
 
 export type CaptionPreset = "tiktok_word_pop" | "ig_reels_classic" | "shorts_bold";
@@ -55,17 +67,16 @@ export type TextOverlay = {
 // Times are in OUTPUT time (after trim + reframe), not source time.
 export type BRollClip = {
   id: string;
-  // "video" (default) plays through its timeline; "image" is a still held for
-  // source_duration_ms. Absent = video, for backward compatibility with EDLs
-  // saved before image b-roll existed.
-  kind?: "video" | "image";
   source_storage_path: string;  // in the footage bucket
-  source_duration_ms: number;   // probed on upload (video) or a fixed hold (image)
+  source_duration_ms: number;   // probed on upload so the worker can validate
   trim_start_ms: number;        // start time within the b-roll source
   trim_end_ms: number;          // end time within the b-roll source
   output_start_ms: number;      // when in the main output the b-roll begins
   mode: "fullscreen" | "pip";
   position: { x_pct: number; y_pct: number; width_pct: number };
+  // Higher value renders ON TOP when multiple b-rolls overlap in time.
+  // Tie-broken by array order. Omitted = 0.
+  z_index?: number;
 };
 
 // Optional background music track. The worker mixes this in at the end of
@@ -78,6 +89,11 @@ export type Music = {
   // point. Useful when the user uploaded a long track and only wants a
   // specific section.
   music_start_ms?: number;
+  // Fade durations in ms. fade_in_ms ramps volume up from silence at the
+  // start of the music's appearance in the output; fade_out_ms ramps to
+  // silence at the end of the output. Both default to 0 (hard cut).
+  fade_in_ms?: number;
+  fade_out_ms?: number;
 };
 
 export type EDL = {
@@ -91,6 +107,14 @@ export type EDL = {
   text_overlays?: TextOverlay[];
   music?: Music;
   b_roll?: BRollClip[];
+  // Render-time audio processing. When `loudness_normalize` is on, the
+  // worker passes the concatenated source audio through ffmpeg's `loudnorm`
+  // filter targeting -16 LUFS / -1 dB true peak (TikTok / Instagram spec).
+  // Defaults to true for new EDLs — keep auto-loudness on unless the user
+  // explicitly opts out.
+  audio?: {
+    loudness_normalize?: boolean;
+  };
 
   // EDL is the full spec of a render. Every editor action mutates this
   // document. AI (Robby on /ai) builds the same JSON shape directly via
@@ -107,11 +131,17 @@ export function emptyEDL(sourceStoragePath: string, durationMs: number): EDL {
   };
 }
 
+// Output-time duration of a single clip — accounts for playback_speed so
+// a 2x-speed clip contributes half its source span to the output. Speed
+// defaults to 1 when missing for backward compat with pre-Phase-7 EDLs.
+export function clipOutputDurationMs(c: Clip): number {
+  const sourceLen = Math.max(0, c.source_end_ms - c.source_start_ms);
+  const speed = c.playback_speed && c.playback_speed > 0 ? c.playback_speed : 1;
+  return sourceLen / speed;
+}
+
 export function totalDurationMs(edl: EDL): number {
-  return edl.clips.reduce(
-    (sum, c) => sum + Math.max(0, c.source_end_ms - c.source_start_ms),
-    0,
-  );
+  return edl.clips.reduce((sum, c) => sum + clipOutputDurationMs(c), 0);
 }
 
 // Build a default set of caption blocks from a flat transcript. Chunks the
@@ -159,8 +189,12 @@ export function captionsFromTranscript(
 export function edlOutputTimeToSourceTime(edl: EDL, outMs: number): number {
   let acc = 0;
   for (const c of edl.clips) {
-    const len = Math.max(0, c.source_end_ms - c.source_start_ms);
-    if (outMs <= acc + len) return c.source_start_ms + (outMs - acc);
+    const len = clipOutputDurationMs(c);
+    if (outMs <= acc + len) {
+      const speed = c.playback_speed && c.playback_speed > 0 ? c.playback_speed : 1;
+      // Output offset into this clip × speed = source offset into this clip.
+      return c.source_start_ms + (outMs - acc) * speed;
+    }
     acc += len;
   }
   return edl.clips[edl.clips.length - 1]?.source_end_ms ?? 0;
@@ -175,9 +209,11 @@ export function sourceTimeToEdlTime(edl: EDL, sourceMs: number): number {
   let acc = 0;
   for (const c of edl.clips) {
     if (sourceMs < c.source_start_ms) return acc;       // gap → snap forward
-    const len = Math.max(0, c.source_end_ms - c.source_start_ms);
+    const len = clipOutputDurationMs(c);
     if (sourceMs <= c.source_end_ms) {
-      return acc + (sourceMs - c.source_start_ms);
+      const speed = c.playback_speed && c.playback_speed > 0 ? c.playback_speed : 1;
+      // Source offset into this clip / speed = output offset.
+      return acc + (sourceMs - c.source_start_ms) / speed;
     }
     acc += len;
   }

@@ -21,7 +21,8 @@ import type {
   Music,
   TextOverlay,
 } from "@/lib/videoEditor/edl";
-import { sourceTimeToEdlTime } from "@/lib/videoEditor/edl";
+import { sourceTimeToEdlTime, totalDurationMs } from "@/lib/videoEditor/edl";
+import { WaveformStrip } from "./WaveformStrip";
 
 export type TimelineSelection =
   | { kind: "video"; id: string }
@@ -43,11 +44,21 @@ type Props = {
   playheadMs: number;
   selection: TimelineSelection;
   onSelect: (sel: TimelineSelection) => void;
+  // Source-time seek — used by transcript clicks and any caller that
+  // genuinely has a source-ms value.
   onSeek: (sourceMs: number) => void;
+  // Output-time seek — used by the ruler scrub (and any other timeline-X
+  // interaction) so we can write the EDL playhead directly instead of
+  // round-tripping output → source → output through edl.clips.
+  onSeekOutput: (outputMs: number) => void;
   // Trim a specific video clip by id (every EDL clip has its own id, so this
   // works for the single-clip case AND for the multi-clip case produced by
   // 'Remove all silences' or a manual split).
   onChangeTrim: (clipId: string, sourceStartMs: number, sourceEndMs: number) => void;
+  // Reorder a V1 clip to a new index in the clips array. Fires on body-drag
+  // mouseup with the cumulative output-time delta the user dragged; parent
+  // computes the new index from that delta.
+  onReorderClip: (clipId: string, deltaOutputMs: number) => void;
   onShiftCaption: (id: string, newFirstWordStartMs: number) => void;
   // Trim a caption's word range. Pass null for the edge you're not moving.
   // Words whose start/end fall outside the new range are dropped.
@@ -152,38 +163,65 @@ function useTimeDrag(
   totalSourceMs: number,
 ) {
   return useCallback(
-    (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const track = trackRef.current;
-      if (!track) return;
-      const rect = track.getBoundingClientRect();
-      const startPx = e.clientX;
-      const move = (ev: MouseEvent) => {
-        const deltaPx = ev.clientX - startPx;
-        const deltaMs = Math.round((deltaPx / rect.width) * totalSourceMs);
-        handler(deltaMs);
-      };
-      const up = () => {
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-      };
-      window.addEventListener("mousemove", move);
-      window.addEventListener("mouseup", up);
-    },
+    (handler: (deltaMs: number) => void, onEnd?: (finalDeltaMs: number) => void) =>
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const track = trackRef.current;
+        if (!track) return;
+        const rect = track.getBoundingClientRect();
+        const startPx = e.clientX;
+        let lastDelta = 0;
+        const move = (ev: MouseEvent) => {
+          const deltaPx = ev.clientX - startPx;
+          lastDelta = Math.round((deltaPx / rect.width) * totalSourceMs);
+          handler(lastDelta);
+        };
+        const up = () => {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", up);
+          if (onEnd) onEnd(lastDelta);
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", up);
+      },
     [trackRef, totalSourceMs],
   );
 }
 
 export function MultiTrackTimeline(props: Props) {
   const {
-    edl, playheadMs, selection, onSelect, onSeek, onChangeTrim,
+    edl, playheadMs, selection, onSelect, onSeek, onSeekOutput, onChangeTrim, onReorderClip,
     onShiftCaption, onTrimCaption, onChangeOverlay, onChangeBRoll, onChangeMusic,
     onCopy, onCut, onPaste, onDuplicate, onDelete, onSplit,
   } = props;
+  // Timeline X-axis is now OUTPUT time — after Remove-all-silences, clips
+  // are concatenated contiguously so there's no visible gap. The source
+  // duration is only needed when something genuinely operates in source
+  // space (e.g. computing whether a sibling source range is "to the left"
+  // of another during free-range clamp).
   const totalSourceMs = edl.source.duration_ms;
+  const totalOutputMs = totalDurationMs(edl);
+  // Display position for each video clip: cumulative duration up to that
+  // clip in output time. Recomputed each render so trim/duration changes
+  // ripple immediately.
+  const clipsWithOutput = useMemo(() => {
+    let cursor = 0;
+    return edl.clips.map((c) => {
+      const dur = Math.max(0, c.source_end_ms - c.source_start_ms);
+      const out = {
+        id: c.id,
+        source_start_ms: c.source_start_ms,
+        source_end_ms: c.source_end_ms,
+        output_start_ms: cursor,
+        output_end_ms: cursor + dur,
+      };
+      cursor += dur;
+      return out;
+    });
+  }, [edl.clips]);
   const trackWidthRef = useRef<HTMLDivElement | null>(null);
-  const beginDrag = useTimeDrag(trackWidthRef, totalSourceMs);
+  const beginDrag = useTimeDrag(trackWidthRef, totalOutputMs);
 
   // Zoom (1x..8x). Cmd/Ctrl + scroll-wheel adjusts. The inner content is
   // rendered at `${100 * zoom}%` width inside a horizontally-scrolling
@@ -209,16 +247,10 @@ export function MultiTrackTimeline(props: Props) {
     };
   }, [ctxMenu]);
 
-  // Source-time playhead for the cursor on this source-time axis.
-  const playheadSourceMs = useMemo(() => {
-    let acc = 0;
-    for (const c of edl.clips) {
-      const len = Math.max(0, c.source_end_ms - c.source_start_ms);
-      if (playheadMs <= acc + len) return c.source_start_ms + (playheadMs - acc);
-      acc += len;
-    }
-    return edl.clips[edl.clips.length - 1]?.source_end_ms ?? 0;
-  }, [edl.clips, playheadMs]);
+  // Playhead position on the output-time axis is just playheadMs — no
+  // source-mapping needed since the whole timeline now lives in output
+  // time. Kept under the same name for downstream call sites below.
+  const playheadSourceMs = playheadMs;
 
   // Clear selection on Escape. Delete-key handler lives in VideoEditor
   // since it needs access to the EDL mutators for each item kind.
@@ -232,26 +264,16 @@ export function MultiTrackTimeline(props: Props) {
 
   // Build ruler labels — pick a tick interval that gives ~6-10 ticks.
   const ticks = useMemo(() => {
-    const totalSec = totalSourceMs / 1000;
+    const totalSec = totalOutputMs / 1000;
     const candidates = [1, 2, 5, 10, 15, 30, 60];
     const target = totalSec / 8;
     const step = candidates.find((c) => c >= target) ?? 60;
     const out: number[] = [];
     for (let t = 0; t <= totalSec; t += step) out.push(t);
     return out;
-  }, [totalSourceMs]);
+  }, [totalOutputMs]);
 
   const clip = edl.clips[0];
-
-  const outputToSource = (outMs: number): number => {
-    let acc = 0;
-    for (const c of edl.clips) {
-      const len = Math.max(0, c.source_end_ms - c.source_start_ms);
-      if (outMs <= acc + len) return c.source_start_ms + (outMs - acc);
-      acc += len;
-    }
-    return totalSourceMs;
-  };
 
   const isSelected = (sel: TimelineSelection): boolean => {
     if (!selection) return false;
@@ -277,7 +299,7 @@ export function MultiTrackTimeline(props: Props) {
         if (e.target === e.currentTarget) onSelect(null);
       }}
     >
-    <div className="space-y-1.5" style={{ width: `${100 * zoom}%`, minWidth: "100%" }}>
+    <div className="relative space-y-1.5" style={{ width: `${100 * zoom}%`, minWidth: "100%" }}>
       {/* Ruler — click/drag to seek. */}
       <div ref={trackWidthRef} className="flex items-stretch gap-2" style={{ height: RULER_HEIGHT }}>
         <div className="w-14 shrink-0 text-[9px] uppercase tracking-wider text-neutral-500 flex items-center">
@@ -289,7 +311,12 @@ export function MultiTrackTimeline(props: Props) {
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             const seekFromClient = (clientX: number) => {
               const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-              onSeek(Math.round(pct * totalSourceMs));
+              // Ruler X-axis IS output time, so write the EDL playhead
+              // directly via onSeekOutput. Round-tripping through
+              // edlOutputTimeToSourceTime + sourceTimeToEdlTime at the
+              // parent introduced rounding drift at clip boundaries that
+              // could land the playhead in a neighbouring clip.
+              onSeekOutput(Math.round(pct * totalOutputMs));
             };
             seekFromClient(e.clientX);
             const move = (ev: MouseEvent) => seekFromClient(ev.clientX);
@@ -306,14 +333,14 @@ export function MultiTrackTimeline(props: Props) {
             <div
               key={t}
               className="absolute top-0 bottom-0 border-l border-neutral-800 text-[9px] text-neutral-500 pl-1 pointer-events-none"
-              style={{ left: toPct(t * 1000, totalSourceMs) }}
+              style={{ left: toPct(t * 1000, totalOutputMs) }}
             >
               {t}s
             </div>
           ))}
           <div
             className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-yellow-400 pointer-events-none"
-            style={{ left: toPct(playheadSourceMs, totalSourceMs) }}
+            style={{ left: toPct(playheadSourceMs, totalOutputMs) }}
           />
         </div>
       </div>
@@ -323,25 +350,31 @@ export function MultiTrackTimeline(props: Props) {
           has its own trim handles (visible when selected) and the entire
           body is draggable as a selection target. */}
       <TrackRow label="Video" height={VIDEO_TRACK_HEIGHT}>
-        {edl.clips.map((c) => (
+        {clipsWithOutput.map((c) => (
           <VideoClipBlock
             key={c.id}
             clipId={c.id}
-            startMs={c.source_start_ms}
-            endMs={c.source_end_ms}
+            // Display position: cumulative output time so clips render
+            // contiguously after Remove-all-silences (no source-time gaps).
+            displayStartMs={c.output_start_ms}
+            displayEndMs={c.output_end_ms}
+            totalDisplayMs={totalOutputMs}
+            // Source range — what trim/body-drag mutate via onChangeTrim.
+            sourceStartMs={c.source_start_ms}
+            sourceEndMs={c.source_end_ms}
             totalSourceMs={totalSourceMs}
-            siblings={edl.clips.filter((other) => other.id !== c.id)}
             selected={isSelected({ kind: "video", id: c.id })}
             onSelect={() => onSelect({ kind: "video", id: c.id })}
             onContextMenu={(e) => showCtx(e, { kind: "video", id: c.id })}
             onChangeTrim={(s, e) => onChangeTrim(c.id, s, e)}
+            onReorder={(deltaOut) => onReorderClip(c.id, deltaOut)}
             onSeek={onSeek}
             beginDrag={beginDrag}
           />
         ))}
         <div
           className="absolute top-0 bottom-0 w-px bg-yellow-400 pointer-events-none"
-          style={{ left: toPct(playheadSourceMs, totalSourceMs) }}
+          style={{ left: toPct(playheadSourceMs, totalOutputMs) }}
         />
       </TrackRow>
 
@@ -351,7 +384,9 @@ export function MultiTrackTimeline(props: Props) {
           <CaptionBlock
             key={c.id}
             cap={c}
+            edl={edl}
             totalSourceMs={totalSourceMs}
+            totalDisplayMs={totalOutputMs}
             selected={isSelected({ kind: "caption", id: c.id })}
             onSelect={() => onSelect({ kind: "caption", id: c.id })}
             onContextMenu={(e) => showCtx(e, { kind: "caption", id: c.id })}
@@ -369,7 +404,9 @@ export function MultiTrackTimeline(props: Props) {
           <OverlayBlock
             key={ov.id}
             ov={ov}
+            edl={edl}
             totalSourceMs={totalSourceMs}
+            totalDisplayMs={totalOutputMs}
             selected={isSelected({ kind: "text", id: ov.id })}
             onSelect={() => onSelect({ kind: "text", id: ov.id })}
             onContextMenu={(e) => showCtx(e, { kind: "text", id: ov.id })}
@@ -380,18 +417,17 @@ export function MultiTrackTimeline(props: Props) {
         ))}
       </TrackRow>
 
-      {/* B-roll — draggable via output↔source inverse mapping. */}
+      {/* B-roll — positions stored in OUTPUT time so they map straight to
+          the timeline X-axis with no conversion. */}
       <TrackRow label="B-roll">
         {(edl.b_roll ?? []).map((br) => (
           <BRollBlock
             key={br.id}
             br={br}
-            edl={edl}
-            totalSourceMs={totalSourceMs}
+            totalDisplayMs={totalOutputMs}
             selected={isSelected({ kind: "broll", id: br.id })}
             onSelect={() => onSelect({ kind: "broll", id: br.id })}
             onContextMenu={(e) => showCtx(e, { kind: "broll", id: br.id })}
-            outputToSource={outputToSource}
             onChange={(patch) => onChangeBRoll(br.id, patch)}
             onSeek={onSeek}
             beginDrag={beginDrag}
@@ -409,10 +445,11 @@ export function MultiTrackTimeline(props: Props) {
             })}
             onClick={() => onSelect({ kind: "music" })}
             onContextMenu={(e) => showCtx(e, { kind: "music" })}
-            className={`absolute top-0 bottom-0 left-0 right-0 bg-emerald-900/50 border ${isSelected({ kind: "music" }) ? "border-yellow-400 ring-1 ring-yellow-400" : "border-emerald-500"} rounded cursor-grab active:cursor-grabbing flex items-center px-2`}
+            className={`absolute top-0 bottom-0 left-0 right-0 bg-emerald-900/50 border ${isSelected({ kind: "music" }) ? "border-yellow-400 ring-1 ring-yellow-400" : "border-emerald-500"} rounded cursor-grab active:cursor-grabbing flex items-center px-2 overflow-hidden`}
             title="Drag to shift music start offset"
           >
-            <span className="text-[9px] text-emerald-300 truncate">
+            <WaveformStrip storagePath={edl.music.storage_path} color="rgba(110,231,183,0.45)" />
+            <span className="relative text-[9px] text-emerald-300 truncate">
               ♪ offset {((edl.music.music_start_ms ?? 0) / 1000).toFixed(1)}s · vol {Math.round(edl.music.volume * 100)}%
             </span>
           </div>
@@ -424,6 +461,46 @@ export function MultiTrackTimeline(props: Props) {
           </div>
         </TrackRow>
       )}
+
+      {/* Draggable scrub strip — sits above all tracks at the playhead
+          column. Without this, the yellow playhead is pointer-events-none
+          so clicks fall through to clip blocks, whose onClick snaps the
+          playhead back to that clip's start (= "going back instead").
+          The outer wrapper is positioned over the track-stripe area (skips
+          the 64px w-14 label + gap-2 column on the left) so its width
+          matches the stripes — that means toPct on the inner strip lines
+          up with the playhead lines drawn inside each row. */}
+      <div className="absolute pointer-events-none z-20" style={{ left: 64, right: 0, top: 0, bottom: 28 }}>
+        <div
+          ref={scrubAreaRef}
+          className="absolute top-0 bottom-0 pointer-events-auto cursor-ew-resize"
+          style={{
+            left: toPct(playheadSourceMs, totalOutputMs),
+            transform: "translateX(-50%)",
+            width: 14,
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const parent = scrubAreaRef.current?.parentElement;
+            if (!parent) return;
+            const rect = parent.getBoundingClientRect();
+            const seekFromClient = (clientX: number) => {
+              const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+              const outMs = Math.round(pct * totalOutputMs);
+              onSeek(Math.round(edlOutputTimeToSourceTime(edl, outMs)));
+            };
+            seekFromClient(e.clientX);
+            const move = (ev: MouseEvent) => seekFromClient(ev.clientX);
+            const up = () => {
+              window.removeEventListener("mousemove", move);
+              window.removeEventListener("mouseup", up);
+            };
+            window.addEventListener("mousemove", move);
+            window.addEventListener("mouseup", up);
+          }}
+        />
+      </div>
 
       <div className="text-[10px] text-neutral-500 pl-16 flex items-center justify-between">
         <span>
@@ -475,86 +552,95 @@ export function MultiTrackTimeline(props: Props) {
 
 function VideoClipBlock({
   clipId: _clipId, // not consumed inside the block; parent binds onChangeTrim to it
-  startMs,
-  endMs,
+  displayStartMs,
+  displayEndMs,
+  totalDisplayMs,
+  sourceStartMs,
+  sourceEndMs,
   totalSourceMs,
-  siblings,
   selected,
   onSelect,
   onContextMenu,
   onChangeTrim,
+  onReorder,
   onSeek,
   beginDrag,
 }: {
   clipId: string;
-  startMs: number;
-  endMs: number;
+  // Position to render at on the timeline (output-time, cumulative). The
+  // block always lays out using these — they're what makes the row look
+  // contiguous after Remove-all-silences.
+  displayStartMs: number;
+  displayEndMs: number;
+  totalDisplayMs: number;
+  // Source range — what the trim handles mutate.
+  sourceStartMs: number;
+  sourceEndMs: number;
   totalSourceMs: number;
-  // All OTHER video clips on the timeline. Used to clamp drag / trim so
-  // this clip can never overlap a neighbour on the same track — standard
-  // NLE behaviour. Snap to the neighbour's edge instead.
-  siblings: { id: string; source_start_ms: number; source_end_ms: number }[];
   selected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  // Replace this clip's [start, end] with new source-time bounds.
   onChangeTrim: (sourceStartMs: number, sourceEndMs: number) => void;
+  // Body-drag mouseup: parent reorders the clip in edl.clips based on the
+  // accumulated output-time delta the user pulled.
+  onReorder: (deltaOutputMs: number) => void;
   onSeek: (sourceMs: number) => void;
-  beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
+  beginDrag: (
+    handler: (deltaMs: number) => void,
+    onEnd?: (finalDeltaMs: number) => void,
+  ) => (e: React.MouseEvent) => void;
 }) {
-  const snap = useRef({ start: startMs, end: endMs });
-  const captureSnap = () => { snap.current = { start: startMs, end: endMs }; };
+  const snap = useRef({ start: sourceStartMs, end: sourceEndMs });
+  const captureSnap = () => { snap.current = { start: sourceStartMs, end: sourceEndMs }; };
+  // Visual offset while dragging — translateX the block by the cumulative
+  // delta so the user sees the clip following the cursor. Committed to a
+  // reorder on mouseup.
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
 
-  // Body drag — translates the clip's [start, end] in source space (keeps
-  // its duration). Clamps against neighbouring clips so no two clips can
-  // ever overlap on the source-time axis. Uses a free-interval algorithm
-  // so it stays correct even when the EDL already contains overlaps (e.g.
-  // from a prior Cmd-D duplicate before this was fixed) — the dragged
-  // clip snaps into whichever free gap is nearest to the target.
-  const onBodyDown = beginDrag((delta) => {
-    const dur = snap.current.end - snap.current.start;
-    const target = snap.current.start + delta;
-    const nextStart = clampToFreeRange(target, dur, siblings, totalSourceMs);
-    onChangeTrim(nextStart, nextStart + dur);
-  });
-  // Trim handles use a simpler clamp: just snap to the nearest sibling
-  // edge on the relevant side. Doesn't auto-resolve existing overlaps
-  // (that would shrink the clip), but prevents new overlap on each side.
-  const trimBounds = () => {
-    const left = siblings
-      .filter((s) => s.source_end_ms <= snap.current.start)
-      .reduce<number>((max, s) => Math.max(max, s.source_end_ms), 0);
-    const right = siblings
-      .filter((s) => s.source_start_ms >= snap.current.end)
-      .reduce<number>((min, s) => Math.min(min, s.source_start_ms), totalSourceMs);
-    return { left, right };
-  };
+  // Body drag — track ghost offset while dragging, commit reorder on
+  // mouseup. The drag-delta from useTimeDrag is in output-time ms; convert
+  // to a pixel translate via the timeline's px-per-ms ratio (the block's
+  // own width / its output duration).
+  const onBodyDown = beginDrag(
+    (deltaOutMs) => {
+      const widthMs = displayEndMs - displayStartMs;
+      // Pixel translate = (deltaOutMs / widthMs) * blockWidthPx, but we
+      // don't have blockWidthPx in JS — toPct values give us %, so a CSS
+      // translate as a fraction of width works: (delta/width) * 100 + "%".
+      const pctOfBlock = widthMs > 0 ? (deltaOutMs / widthMs) * 100 : 0;
+      setDragOffsetPx(pctOfBlock); // misnamed: pct, not px; treated as % below
+    },
+    (finalDeltaOutMs) => {
+      setDragOffsetPx(0);
+      if (Math.abs(finalDeltaOutMs) > 50) onReorder(finalDeltaOutMs);
+    },
+  );
   const onLeftDown = beginDrag((delta) => {
-    const { left } = trimBounds();
-    const next = Math.max(left, Math.min(snap.current.end - 100, snap.current.start + delta));
+    const next = Math.max(0, Math.min(snap.current.end - 100, snap.current.start + delta));
     onChangeTrim(next, snap.current.end);
   });
   const onRightDown = beginDrag((delta) => {
-    const { right } = trimBounds();
-    const next = Math.max(snap.current.start + 100, Math.min(right, snap.current.end + delta));
+    const next = Math.max(snap.current.start + 100, Math.min(totalSourceMs, snap.current.end + delta));
     onChangeTrim(snap.current.start, next);
   });
 
   return (
     <div
       onMouseDown={(e) => { e.stopPropagation(); captureSnap(); onSelect(); onBodyDown(e); }}
-      onClick={(e) => { e.stopPropagation(); onSeek(startMs); }}
+      onClick={(e) => { e.stopPropagation(); onSeek(sourceStartMs); }}
       onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-blue-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} cursor-grab active:cursor-grabbing box-border`}
       style={{
-        left: toPct(startMs, totalSourceMs),
-        width: toPct(endMs - startMs, totalSourceMs),
-        // No minWidth — small clips render at their true width so adjacent
-        // segments after Remove-all-silences don't visually overlap each
-        // other. If a clip is too narrow to click, zoom (Cmd+scroll).
+        left: toPct(displayStartMs, totalDisplayMs),
+        width: toPct(displayEndMs - displayStartMs, totalDisplayMs),
         minWidth: 2,
+        // While dragging, translate the block by a fraction of its OWN
+        // width so it visually tracks the cursor 1:1 with the user's drag.
+        transform: dragOffsetPx ? `translateX(${dragOffsetPx}%)` : undefined,
+        opacity: dragOffsetPx ? 0.8 : 1,
+        zIndex: dragOffsetPx ? 5 : undefined,
       }}
-      title={`Video clip · ${((endMs - startMs) / 1000).toFixed(1)}s · drag to move, S to split`}
+      title={`Video clip · ${((displayEndMs - displayStartMs) / 1000).toFixed(1)}s · drag to reorder, S to split`}
     >
       {selected && (
         <>
@@ -576,7 +662,9 @@ function VideoClipBlock({
 
 function CaptionBlock({
   cap,
+  edl,
   totalSourceMs,
+  totalDisplayMs,
   selected,
   onSelect,
   onContextMenu,
@@ -586,7 +674,11 @@ function CaptionBlock({
   beginDrag,
 }: {
   cap: Caption;
+  edl: EDL;
   totalSourceMs: number;
+  // Width of the timeline in OUTPUT time — display math uses this; the
+  // body/trim handlers continue to operate in source space.
+  totalDisplayMs: number;
   selected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -597,6 +689,10 @@ function CaptionBlock({
 }) {
   const start = cap.words[0]?.start_ms ?? 0;
   const end = cap.words[cap.words.length - 1]?.end_ms ?? start + 200;
+  // Position on the timeline = where the caption appears in the rendered
+  // output. Map source-time word positions through the EDL.
+  const displayStart = sourceTimeToEdlTime(edl, start);
+  const displayEnd = sourceTimeToEdlTime(edl, end);
   const snapStart = useRef(start);
   const snapRange = useRef({ start, end });
 
@@ -627,8 +723,8 @@ function CaptionBlock({
       onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-blue-700/30 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-blue-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
       style={{
-        left: toPct(start, totalSourceMs),
-        width: toPct(Math.max(200, end - start), totalSourceMs),
+        left: toPct(displayStart, totalDisplayMs),
+        width: toPct(Math.max(200, displayEnd - displayStart), totalDisplayMs),
         minWidth: 60,
       }}
       title={cap.words.map((w) => w.text).join(" ")}
@@ -656,7 +752,9 @@ function CaptionBlock({
 
 function OverlayBlock({
   ov,
+  edl,
   totalSourceMs,
+  totalDisplayMs,
   selected,
   onSelect,
   onContextMenu,
@@ -665,7 +763,9 @@ function OverlayBlock({
   beginDrag,
 }: {
   ov: TextOverlay;
+  edl: EDL;
   totalSourceMs: number;
+  totalDisplayMs: number;
   selected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -674,6 +774,10 @@ function OverlayBlock({
   beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
 }) {
   const startAt = useRef({ start: ov.start_ms, end: ov.end_ms });
+  // Display in OUTPUT time so the overlay block lines up with the same
+  // moment in the preview / video clips.
+  const displayStart = sourceTimeToEdlTime(edl, ov.start_ms);
+  const displayEnd = sourceTimeToEdlTime(edl, ov.end_ms);
   const onBodyDown = beginDrag((delta) => {
     const dur = startAt.current.end - startAt.current.start;
     const nextStart = Math.max(0, Math.min(totalSourceMs - dur, startAt.current.start + delta));
@@ -698,8 +802,8 @@ function OverlayBlock({
       onContextMenu={onContextMenu}
       className={`absolute top-0 bottom-0 bg-amber-800/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-amber-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
       style={{
-        left: toPct(ov.start_ms, totalSourceMs),
-        width: toPct(Math.max(200, ov.end_ms - ov.start_ms), totalSourceMs),
+        left: toPct(displayStart, totalDisplayMs),
+        width: toPct(Math.max(200, displayEnd - displayStart), totalDisplayMs),
         minWidth: 60,
       }}
       title={ov.text}
@@ -723,47 +827,36 @@ function OverlayBlock({
 
 function BRollBlock({
   br,
-  edl,
-  totalSourceMs,
+  totalDisplayMs,
   selected,
   onSelect,
   onContextMenu,
-  outputToSource,
   onChange,
   onSeek,
   beginDrag,
 }: {
   br: BRollClip;
-  edl: EDL;
-  totalSourceMs: number;
+  totalDisplayMs: number;
   selected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  outputToSource: (outMs: number) => number;
   onChange: (patch: Partial<BRollClip>) => void;
   onSeek: (sourceMs: number) => void;
   beginDrag: (handler: (deltaMs: number) => void) => (e: React.MouseEvent) => void;
 }) {
-  const startSource = outputToSource(br.output_start_ms);
+  // B-roll positions are already stored in OUTPUT time — no mapping needed.
   const dur = br.trim_end_ms - br.trim_start_ms;
-  const endSource = outputToSource(br.output_start_ms + dur);
+  const displayStart = br.output_start_ms;
+  const displayEnd = br.output_start_ms + dur;
 
-  // Body drag — move output_start_ms.
   const snap = useRef(br.output_start_ms);
   const onBodyDown = beginDrag((deltaMs) => {
-    const desiredSource = Math.max(0, Math.min(totalSourceMs, outputToSource(snap.current) + deltaMs));
-    const newOutput = sourceTimeToEdlTime(edl, desiredSource);
-    onChange({ output_start_ms: Math.round(newOutput) });
+    const next = Math.max(0, Math.min(totalDisplayMs - dur, snap.current + deltaMs));
+    onChange({ output_start_ms: Math.round(next) });
   });
 
-  // Edge trim drags modify the b-roll's internal trim window (trim_start_ms
-  // / trim_end_ms), keeping output_start_ms fixed. Left handle pushes
-  // trim_start in, right handle pulls trim_end back. Both clamp within
-  // [0, source_duration_ms].
   const trimSnap = useRef({ ts: br.trim_start_ms, te: br.trim_end_ms });
   const captureTrim = () => { trimSnap.current = { ts: br.trim_start_ms, te: br.trim_end_ms }; };
-  // Source-side pixel scale is the same as the rest of the timeline. ms
-  // here means "ms of internal trim shift", which equals 1:1 source-time.
   const onLeftDown = beginDrag((deltaMs) => {
     const next = Math.max(0, Math.min(trimSnap.current.te - 100, trimSnap.current.ts + deltaMs));
     onChange({ trim_start_ms: next });
@@ -781,19 +874,17 @@ function BRollBlock({
         onSelect();
         onBodyDown(e);
       }}
-      onClick={(e) => { e.stopPropagation(); onSeek(startSource); }}
+      onClick={(e) => { e.stopPropagation(); onSeek(0); }}
       onContextMenu={onContextMenu}
-      className={`absolute top-0 bottom-0 bg-purple-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-purple-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center`}
+      className={`absolute top-0 bottom-0 bg-purple-900/40 border ${selected ? "border-yellow-400 ring-1 ring-yellow-400" : "border-purple-500"} rounded cursor-grab active:cursor-grabbing px-1 flex items-center overflow-hidden`}
       style={{
-        left: toPct(startSource, totalSourceMs),
-        width: toPct(Math.max(120, endSource - startSource), totalSourceMs),
-        // Always at least 60px wide so the user can grab the body even when
-        // the source-time mapping collapses (e.g., b-roll placed past the
-        // current trim).
+        left: toPct(displayStart, totalDisplayMs),
+        width: toPct(Math.max(120, displayEnd - displayStart), totalDisplayMs),
         minWidth: 60,
       }}
       title={`B-roll · ${br.mode} · ${(dur / 1000).toFixed(1)}s · drag to reposition`}
     >
+      <WaveformStrip storagePath={br.source_storage_path} color="rgba(216,180,254,0.45)" />
       {selected && (
         <>
           <div

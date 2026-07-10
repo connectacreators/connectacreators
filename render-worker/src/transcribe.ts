@@ -64,6 +64,38 @@ export async function transcribeWithWhisper(audioPath: string, apiKey: string): 
   }));
 }
 
+// Render a 1-row PNG waveform from an audio file. Saved into the same
+// `footage` bucket under `waveforms/<id>.png`, then the frontend signs and
+// renders it as a background-image on the music or b-roll timeline row so
+// users can align music drops to visible beats. Aspect is forced to a
+// fixed 1200×64 so the frontend can stretch-to-fit any track width.
+export async function renderWaveformPng(
+  audioInput: string,
+  pngOutput: string,
+): Promise<void> {
+  await fs.mkdir(path.dirname(pngOutput), { recursive: true });
+  const args = [
+    "-y",
+    "-i", audioInput,
+    "-filter_complex",
+    // showwavespic renders a single still image of the full waveform.
+    // Solid white on transparent background lets us tint via CSS.
+    "[0:a]aformat=channel_layouts=mono,showwavespic=s=1200x64:colors=white",
+    "-frames:v", "1",
+    pngOutput,
+  ];
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(ffmpegPath as string, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg waveform failed (${code}): ${stderr.slice(-400)}`));
+    });
+  });
+}
+
 export type SilenceSegment = { start_ms: number; end_ms: number };
 
 // ffmpeg silencedetect emits stderr lines like:

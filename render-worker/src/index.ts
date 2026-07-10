@@ -12,9 +12,6 @@ import { promises as fs } from "node:fs";
 import {
   claimNextJob,
   claimNextTranscribeJob,
-  claimNextProxyJob,
-  markProxyDone,
-  markProxyError,
   getVideoEditStoragePath,
   makeClient,
   markDone,
@@ -28,15 +25,13 @@ import {
   updateTranscribeProgress,
   type RenderJobRow,
   type TranscribeJobRow,
-  type ProxyJobRow,
 } from "./db.js";
 // Audio-import jobs are now handled synchronously inside the
 // `import-audio-from-url` edge function via the VPS yt-dlp service —
 // the worker no longer participates in that flow.
 import { downloadToFile } from "./storage.js";
 import { uploadFile } from "./storage.js";
-import { proxyPathFor, runProxy } from "./proxy.js";
-import { runRender, totalOutputDurationMs, type BRollInput } from "./render.js";
+import { runRender, totalOutputDurationMs, probeVideoDims, type BRollInput } from "./render.js";
 import { detectSilences, extractAudio, transcribeWithWhisper } from "./transcribe.js";
 import { writeAssFile, type Caption, type TextOverlay } from "./captions.js";
 
@@ -44,7 +39,6 @@ const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 4000);
 const WORK_DIR = process.env.WORK_DIR ?? "/tmp/connecta-renders";
 const SOURCE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? "footage";
 const OUT_BUCKET = process.env.SUPABASE_OUTPUT_BUCKET ?? "footage";
-const PROXY_BUCKET = process.env.SUPABASE_PROXY_BUCKET ?? "footage-proxies";
 const SILENCE_NOISE_DB = Number(process.env.SILENCE_NOISE_DB ?? -30);
 const SILENCE_MIN_MS = Number(process.env.SILENCE_MIN_MS ?? 400);
 
@@ -62,8 +56,18 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   const captions: Caption[] = (job.edl_snapshot as { captions?: Caption[] }).captions ?? [];
   const overlays: TextOverlay[] = (job.edl_snapshot as { text_overlays?: TextOverlay[] }).text_overlays ?? [];
   const music = (job.edl_snapshot as {
-    music?: { storage_path: string; volume: number; music_start_ms?: number };
+    music?: {
+      storage_path: string;
+      volume: number;
+      music_start_ms?: number;
+      fade_in_ms?: number;
+      fade_out_ms?: number;
+    };
   }).music;
+  const audioSettings = (job.edl_snapshot as { audio?: { loudness_normalize?: boolean } }).audio;
+  // Default loudness-normalize to ON when the EDL didn't say either way —
+  // matches the spec we ship to new users.
+  const loudnessNormalize = audioSettings?.loudness_normalize ?? true;
   const outputDurationMs = totalOutputDurationMs(job.edl_snapshot.clips);
   const assPath = path.join(workDir, "captions.ass");
   const { hadCaptions } = await writeAssFile(
@@ -72,6 +76,7 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     job.edl_snapshot.clips,
     outputDurationMs,
     overlays,
+    (job.aspect_ratio ?? "source") as "source" | "9:16" | "1:1" | "16:9",
   );
 
   // Optionally pull the music track to local disk so ffmpeg can ingest it.
@@ -84,7 +89,6 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   // Download each b-roll clip locally; the filter graph needs file paths.
   type BRollEdl = {
     id: string;
-    kind?: "video" | "image";
     source_storage_path: string;
     source_duration_ms: number;
     trim_start_ms: number;
@@ -102,7 +106,6 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
     await downloadToFile(client, SOURCE_BUCKET, br.source_storage_path, localPath);
     brolls.push({
       id: br.id,
-      kind: br.kind,
       local_path: localPath,
       source_duration_ms: br.source_duration_ms,
       trim_start_ms: br.trim_start_ms,
@@ -114,13 +117,26 @@ async function processRenderJob(client: ReturnType<typeof makeClient>, job: Rend
   }
 
   await updateProgress(client, job.id, 20);
+
+  // For aspect="source" we need the actual source dims so b-roll fullscreen
+  // overlays scale to the real canvas instead of the 1920×1080 fallback
+  // that clips portrait sources. Cheap call (~50ms) but only worth it if
+  // we'll actually need it.
+  const wantsSourceDims = (job.aspect_ratio ?? "source") === "source"
+    && brolls.some((b) => b.mode === "fullscreen");
+  const sourceDims = wantsSourceDims ? await probeVideoDims(input) : undefined;
+
   await runRender(input, job.edl_snapshot.clips, output, {
     subtitlesAssPath: hadCaptions ? assPath : undefined,
     aspectRatio: job.aspect_ratio as "source" | "9:16" | "1:1" | "16:9",
     musicPath,
     musicVolume: music?.volume,
     musicStartMs: music?.music_start_ms,
+    musicFadeInMs: music?.fade_in_ms,
+    musicFadeOutMs: music?.fade_out_ms,
     brolls,
+    sourceDims,
+    loudnessNormalize,
   });
 
   await updateProgress(client, job.id, 80);
@@ -166,55 +182,6 @@ async function processTranscribeJob(client: ReturnType<typeof makeClient>, job: 
   await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
 }
 
-// Sources above this size are not proxied on this worker tier — the transcode
-// dies (OOM / >20min) and every retry re-streams the original from Supabase
-// (cached-egress runaway). Playback of un-proxied clips falls back to the
-// original file, which is slower but correct.
-const PROXY_MAX_SOURCE_BYTES = Number(process.env.PROXY_MAX_SOURCE_BYTES ?? 450 * 1024 * 1024);
-
-async function processProxyJob(client: ReturnType<typeof makeClient>, job: ProxyJobRow) {
-  const workDir = path.join(WORK_DIR, `proxy-${job.id}`);
-  const output = path.join(workDir, "output.mp4");
-  await fs.mkdir(workDir, { recursive: true });
-  try {
-    // Size guard BEFORE any bytes move.
-    const { data: srcRows } = await client
-      .schema("storage")
-      .from("objects")
-      .select("metadata")
-      .eq("bucket_id", job.source_bucket)
-      .eq("name", job.source_path)
-      .limit(1);
-    const srcBytes = Number((srcRows?.[0]?.metadata as { size?: number } | null)?.size ?? 0);
-    if (srcBytes > PROXY_MAX_SOURCE_BYTES) {
-      await markProxyError(
-        client,
-        job.id,
-        `source too large for proxy (${Math.round(srcBytes / 1024 / 1024)}MB > ${Math.round(PROXY_MAX_SOURCE_BYTES / 1024 / 1024)}MB) — playback uses the original`,
-      );
-      return;
-    }
-
-    // Stream the original straight from a signed URL — ffmpeg reads it over
-    // HTTP while it encodes, so we NEVER load a multi-GB original into worker
-    // memory. The previous download-to-memory path (Blob.arrayBuffer) OOM-
-    // crashed the worker on large 4K files, which then crash-looped. Only the
-    // small 720p proxy touches disk.
-    const { data: signed, error: signErr } = await client.storage
-      .from(job.source_bucket)
-      .createSignedUrl(job.source_path, 3600);
-    if (signErr || !signed?.signedUrl) {
-      throw new Error(`could not sign source ${job.source_path}: ${signErr?.message ?? "no url"}`);
-    }
-    await runProxy(signed.signedUrl, output);
-    const proxyPath = proxyPathFor(job.source_path);
-    await uploadFile(client, PROXY_BUCKET, proxyPath, output, "video/mp4");
-    await markProxyDone(client, job.id, proxyPath);
-  } finally {
-    await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
-  }
-}
-
 async function tick(client: ReturnType<typeof makeClient>) {
   await reclaimOrphanedJobs(client).catch((e) => {
     console.error("[render-worker] orphan reclaim failed", e);
@@ -242,17 +209,6 @@ async function tick(client: ReturnType<typeof makeClient>) {
       const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
       console.error(`[render-worker] transcribe ${tj.id} failed:`, msg);
       await markTranscribeError(client, tj.id, msg);
-    }
-  }
-
-  const pj = await claimNextProxyJob(client);
-  if (pj) {
-    try {
-      await processProxyJob(client, pj);
-    } catch (err) {
-      const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
-      console.error(`[render-worker] proxy ${pj.id} failed:`, msg);
-      await markProxyError(client, pj.id, msg);
     }
   }
 }
