@@ -42,17 +42,17 @@ export default function ThankYou() {
         </header>
 
         <div className="ty-video-wrap">
-          <VSLPlayer src={VIDEO_URL} poster={VIDEO_POSTER} accent="#2E9E6B" />
+          <VSLPlayer src={VIDEO_URL} poster={VIDEO_POSTER} accent="#F58220" />
         </div>
 
         <section className="ty-proof">
           <p className="ty-eyebrow">Real clients, real results</p>
-          <h2 className="ty-proof-h2">You're in good company</h2>
+          <h2 className="ty-proof-h2">The Results Speak For Themselves</h2>
 
           <div className="ty-cards ty-cards--testimonials">
             {TESTIMONIALS.map((t) => (
               <article className="ty-card ty-card--testimonial" key={t.name}>
-                <VSLPlayer src={t.video} poster={t.poster} accent="#2E9E6B" autoPlay={false} />
+                <VSLPlayer src={t.video} poster={t.poster} accent="#F58220" autoPlay={false} />
                 <p className="ty-card-name">{t.name}</p>
               </article>
             ))}
