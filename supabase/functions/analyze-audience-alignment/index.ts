@@ -291,6 +291,7 @@ serve(async (req) => {
 CLIENT PROFILE:
 - Industry: ${industry}
 - Target audience: ${targetAudience}
+  (Note: this field is often an unedited voice-transcript from onboarding — it may contain hesitations, self-corrections, or rambling phrasing. Read past that for the creator's actual intended audience. Never penalize the CONTENT below for how messily this description was dictated.)
 - Unique offer: ${uniqueOffer}
 - Instagram: @${instagramHandle}
 
@@ -300,11 +301,16 @@ ${clientPostsText}
 EMULATION PROFILES (accounts they want to model):
 ${noEmulationProfiles ? "None provided — score based on stated target audience and industry benchmarks only." : emulationText}
 
-Score the client on two dimensions. Be honest — a 5/10 is average, 3/10 is poor, 8/10 is genuinely strong. Focus on the most recent posts as the truest signal of current strategy.
+Score the client on two dimensions, each independently, using these anchors — do not default to the middle of the range out of caution:
+- 9-10: Exceptional. No real gaps a reasonable person would flag.
+- 7-8: Clearly strong, with only minor, specific gaps (name them in the detail sentence).
+- 5-6: Average — gets the basics right but is missing something a viewer would notice.
+- 3-4: Weak — mostly generic or mismatched, with occasional exceptions.
+- 0-2: Fails the dimension entirely.
 
-1. AUDIENCE ALIGNMENT (0-10): Do the captions, topics, and framing of these recent posts clearly speak to "${targetAudience}"? Are they addressing that audience's specific problems, language, and awareness level? ${noEmulationProfiles ? "Score against industry benchmarks since no emulation profiles were provided." : "Compare to the emulation profiles — are they reaching similar people with similar language?"}
+1. AUDIENCE ALIGNMENT (0-10): Do the captions, topics, and framing of these recent posts clearly speak to "${targetAudience}"? Are they addressing that audience's specific problems, language, and awareness level? A post that names the audience's exact situation, fears, and constraints (even without testimonials or success stories) is a 9-10, not a 7 — missing "nice to have" proof points is a minor gap, not a major one, unless the client profile explicitly says proof/credibility is the audience's core objection. ${noEmulationProfiles ? "Score against industry benchmarks since no emulation profiles were provided." : "Compare to the emulation profiles — are they reaching similar people with similar language?"}
 
-2. CONTENT UNIQUENESS (0-10): Does the hook style, angle, and topic selection stand out in this niche, or does it blend into generic content? Consider: distinctive personal stories, specific client results, memorable hooks vs templated captions.
+2. CONTENT UNIQUENESS (0-10): Does the hook style, angle, and topic selection stand out in this niche, or does it blend into generic content? Consider: distinctive personal stories, specific client results, memorable hooks vs templated captions. Judge the SAMPLE as a whole — if most posts are distinctive with only a few templated ones, that's a 7-8, not a 5.
 
 Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
 {

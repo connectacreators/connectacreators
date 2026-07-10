@@ -398,8 +398,9 @@ export default function ClientStrategy() {
     paceState(counts.posts_scheduled, s.posts_per_month, win),
   ].filter(st => st === "behind").length;
   const paceStatus: StatusLevel = behind === 0 ? "green" : behind <= 2 ? "yellow" : "red";
-  const audienceAvg = (s.audience_score + s.uniqueness_score) / 2;
-  const audienceStatus: StatusLevel = audienceAvg >= 7 ? "green" : audienceAvg >= 4 ? "yellow" : "red";
+  const scoreStatus = (n: number): StatusLevel => n >= 7 ? "green" : n >= 4 ? "yellow" : "red";
+  // Weakest link, not average — a strong score on one dimension shouldn't mask a weak one on the other.
+  const audienceStatus: StatusLevel = scoreStatus(Math.min(s.audience_score, s.uniqueness_score));
 
   // Team-only nudge to track the client's onboarding handles on Viral Today.
   // Session-dismissable; reappears next visit while channels are missing.
@@ -745,7 +746,7 @@ export default function ClientStrategy() {
                 <span>{label}</span>
                 <span className="font-bold text-white">{score}/10</span>
               </div>
-              <ProgressBar pct={score * 10} color={STATUS_COLORS[audienceStatus]} />
+              <ProgressBar pct={score * 10} color={STATUS_COLORS[scoreStatus(score)]} />
               {detail && (
                 <p className="text-[11px] mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>{detail}</p>
               )}
