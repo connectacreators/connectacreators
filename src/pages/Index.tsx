@@ -11,6 +11,7 @@ import calvinClinicProfile from "@/assets/dr-calvin-clinic-profile.png";
 import spencerImpressions from "@/assets/spencer-impressions.png";
 import spencerProfile from "@/assets/spencer-profile.png";
 import djR3Stats from "@/assets/dj-r3-stats.png";
+import VSLPlayer from "@/components/VSLPlayer";
 import {
   Target,
   Clapperboard,
@@ -19,6 +20,11 @@ import {
   Play,
   Pause,
 } from "lucide-react";
+
+const CALVIN_TESTIMONIAL_VIDEO =
+  "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/testimonial-dr-calvin.mp4";
+const CALVIN_TESTIMONIAL_POSTER =
+  "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/testimonial-dr-calvin-poster.jpg";
 
 function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: boolean; onApply?: () => void }) {
   return (
@@ -849,6 +855,15 @@ export default function Index() {
             }}
           >
             DR. CALVIN, CHIROPRACTOR
+          </div>
+
+          <div style={{ maxWidth: 620, marginBottom: 20 }}>
+            <VSLPlayer
+              src={CALVIN_TESTIMONIAL_VIDEO}
+              poster={CALVIN_TESTIMONIAL_POSTER}
+              accent="#E8852B"
+              autoPlay={false}
+            />
           </div>
 
           <img
