@@ -39,6 +39,7 @@ interface ClientStrategy {
   content_pillars: string[];
   views_goal: number;
   views_goal_started_at: string | null;
+  views_goal_duration_months: number | null;
   // Production pipeline (Task 1 migration)
   onboarding_call_at: string | null;
   script_due_at:      string | null;
@@ -91,6 +92,7 @@ const DEFAULTS: Omit<ClientStrategy, "client_id"> = {
   content_pillars: [],
   views_goal: 1_000_000,
   views_goal_started_at: null,
+  views_goal_duration_months: 3,
   onboarding_call_at: null,
   script_due_at:      null,
   editing_due_at:     null,
@@ -597,6 +599,7 @@ export default function ClientStrategy() {
           en={en}
           viewsGoal={s.views_goal ?? 1_000_000}
           startedAt={s.views_goal_started_at ?? null}
+          durationMonths={s.views_goal_duration_months ?? 3}
           fallbackStart={s.onboarding_call_at}
           onPersistGoal={isTeam ? (patch) => persistFields(patch as Partial<ClientStrategy>) : undefined}
         />
