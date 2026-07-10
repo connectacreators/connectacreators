@@ -37,8 +37,6 @@ export default function ThankYou() {
             and text. Please make sure that you put this in your calendar right
             now.
           </p>
-
-          <p className="ty-watch">Watch this brief video for what to do next.</p>
         </header>
 
         <div className="ty-video-wrap">

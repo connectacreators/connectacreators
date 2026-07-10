@@ -60,13 +60,6 @@
   margin: 0 auto 10px;
 }
 
-.ty-watch {
-  font-size: clamp(17px, 2.4vw, 20px);
-  font-weight: 700;
-  color: var(--ty-ink);
-  margin: 22px auto 0;
-}
-
 /* ---------- Video ---------- */
 /* VSLPlayer renders its own 16:9 box, rounded corners, and shadow inline. */
 .ty-video-wrap {
