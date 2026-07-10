@@ -217,15 +217,26 @@ serve(async (req) => {
     const vpsData = await vpsRes.json();
     const posts: any[] = vpsData.posts ?? [];
 
-    // ── Save profile picture if VPS returned one ─────────────────────────
+    // ── Save profile picture + follower count if VPS returned them ────────
+    // follower_count was previously dropped on the floor here even though
+    // /scrape-profile already returns it (analyze-audience-alignment reads
+    // the same field for Instagram) — TikTok, YouTube, and any Facebook
+    // channel added without an OAuth connection never got a count.
     const profilePicUrl = vpsData.profilePicUrl ?? null;
+    const followerCount = vpsData.followers != null && !Number.isNaN(Number(vpsData.followers))
+      ? Number(vpsData.followers)
+      : null;
+    const channelUpdate: Record<string, unknown> = {};
     if (profilePicUrl) {
       // Cache to VPS so CDN URLs don't expire
       const avatarKey = `${platform}_${cleanUsername}`;
       const cachedAvatar = await cacheThumbnail(profilePicUrl, `avatar_${avatarKey}`);
-      const finalAvatar = cachedAvatar || profilePicUrl;
+      channelUpdate.avatar_url = cachedAvatar || profilePicUrl;
+    }
+    if (followerCount != null) channelUpdate.follower_count = followerCount;
+    if (Object.keys(channelUpdate).length > 0) {
       await supabase.from("viral_channels")
-        .update({ avatar_url: finalAvatar })
+        .update(channelUpdate)
         .eq("id", channelId);
     }
 
