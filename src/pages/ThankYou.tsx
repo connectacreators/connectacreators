@@ -1,31 +1,23 @@
 import { Link } from "react-router-dom";
 import logoInk from "@/assets/connecta-logo-black.png";
+import VSLPlayer from "@/components/VSLPlayer";
 import "./thank-you.css";
 
-/**
- * The "what to do next" video URL.
- * - Direct file (Supabase/MP4): set to the .mp4 URL  -> renders a <video> player.
- * - Leave empty ("") to show the styled placeholder frame instead.
- */
-const VIDEO_URL =
-  "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets/thank-you-video.mp4";
+const ASSETS = "https://hxojqrilwhhrvloiwmfo.supabase.co/storage/v1/object/public/landing-assets";
 
-/** Edit these three to swap in real client results. Plain text, no emojis. */
-const RESULTS = [
+const VIDEO_URL = `${ASSETS}/thank-you-video.mp4`;
+const VIDEO_POSTER = `${ASSETS}/thank-you-video-poster.jpg`;
+
+const TESTIMONIALS = [
   {
-    result: "Placeholder result one",
-    quote: "Short supporting quote from the client about what changed for them.",
-    name: "Client Name",
+    name: "Dr. Calvin",
+    video: `${ASSETS}/testimonial-dr-calvin.mp4`,
+    poster: `${ASSETS}/testimonial-dr-calvin-poster.jpg`,
   },
   {
-    result: "Placeholder result two",
-    quote: "Short supporting quote from the client about what changed for them.",
-    name: "Client Name",
-  },
-  {
-    result: "Placeholder result three",
-    quote: "Short supporting quote from the client about what changed for them.",
-    name: "Client Name",
+    name: "Saratoga",
+    video: `${ASSETS}/testimonial-saratoga.mp4`,
+    poster: `${ASSETS}/testimonial-saratoga-poster.jpg`,
   },
 ];
 
@@ -50,32 +42,18 @@ export default function ThankYou() {
         </header>
 
         <div className="ty-video-wrap">
-          <div className="ty-video">
-            {VIDEO_URL ? (
-              <video src={VIDEO_URL} controls playsInline preload="metadata" />
-            ) : (
-              <>
-                <span className="ty-play" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </span>
-                <span className="ty-video-caption">Video coming soon</span>
-              </>
-            )}
-          </div>
+          <VSLPlayer src={VIDEO_URL} poster={VIDEO_POSTER} accent="#2E9E6B" />
         </div>
 
         <section className="ty-proof">
           <p className="ty-eyebrow">Real clients, real results</p>
           <h2 className="ty-proof-h2">You're in good company</h2>
 
-          <div className="ty-cards">
-            {RESULTS.map((r, i) => (
-              <article className="ty-card" key={i}>
-                <p className="ty-card-result">{r.result}</p>
-                <p className="ty-card-quote">{r.quote}</p>
-                <p className="ty-card-name">{r.name}</p>
+          <div className="ty-cards ty-cards--testimonials">
+            {TESTIMONIALS.map((t) => (
+              <article className="ty-card ty-card--testimonial" key={t.name}>
+                <VSLPlayer src={t.video} poster={t.poster} accent="#2E9E6B" />
+                <p className="ty-card-name">{t.name}</p>
               </article>
             ))}
           </div>
