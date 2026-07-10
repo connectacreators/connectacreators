@@ -47,7 +47,7 @@ export default function ThankYou() {
 
         <section className="ty-proof">
           <p className="ty-eyebrow">Real clients, real results</p>
-          <h2 className="ty-proof-h2">The Results Speak For Themselves</h2>
+          <h2 className="ty-proof-h2">Hear It From Our Clients</h2>
 
           <div className="ty-cards ty-cards--testimonials">
             {TESTIMONIALS.map((t) => (

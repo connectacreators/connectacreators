@@ -14,6 +14,7 @@
   --ty-muted: #5F5C55;     /* secondary text */
   --ty-line: rgba(26, 24, 22, 0.10);
   --ty-green: #2E9E6B;     /* success accent */
+  --ty-orange: #F58220;    /* player + eyebrow accent */
   --ty-accent: #1A1A1A;    /* CTA / play button */
   --ty-sans: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 
@@ -81,7 +82,7 @@
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ty-green);
+  color: var(--ty-orange);
   font-weight: 700;
   margin: 0 0 8px;
 }
