@@ -599,7 +599,7 @@ export default function ClientStrategy() {
           en={en}
           viewsGoal={s.views_goal ?? 1_000_000}
           startedAt={s.views_goal_started_at ?? null}
-          durationMonths={s.views_goal_duration_months ?? 3}
+          durationMonths={s.views_goal_duration_months !== undefined ? s.views_goal_duration_months : 3}
           fallbackStart={s.onboarding_call_at}
           onPersistGoal={isTeam ? (patch) => persistFields(patch as Partial<ClientStrategy>) : undefined}
         />
