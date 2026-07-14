@@ -1415,6 +1415,9 @@ export default function ViralToday() {
   // Now: a category filter + sort control over a single compact grid.
   const [channelCategory, setChannelCategory] = useState<string>("all");
   const [channelSort, setChannelSort] = useState<string>("recent");
+  // Sub-tabs inside the Channels view: browsing what you already track vs
+  // adding new channels — two different jobs that shared one crowded header.
+  const [channelsSubTab, setChannelsSubTab] = useState<"browse" | "add">("browse");
   const [channelPage, setChannelPage] = useState(0);
   const channelsPerPage = 25;
   // Any narrowing/reordering change restarts at page 1.
@@ -1561,6 +1564,19 @@ export default function ViralToday() {
     }
     return m;
   }, [membersByList]);
+
+  // channelId -> lowercase names of the watchlists it belongs to. Lets the
+  // channel search match the user's OWN tags — searching "personal brand"
+  // used to return only auto-derived niches and miss the 36 channels in the
+  // "Personal Brand" watchlist.
+  const listNamesByChannel = useMemo(() => {
+    const nameById = new Map(watchlists.map((w) => [w.id, w.name.toLowerCase()]));
+    const m = new Map<string, string[]>();
+    for (const [cid, listIds] of listsByChannel) {
+      m.set(cid, [...listIds].map((id) => nameById.get(id) ?? "").filter(Boolean));
+    }
+    return m;
+  }, [watchlists, listsByChannel]);
 
   // Per-list channel counts, for the feed dropdown labels.
   const watchlistsWithCounts = useMemo(
@@ -2227,6 +2243,8 @@ export default function ViralToday() {
 
     // Hand off to the sequential background queue; button is already free.
     enqueueScrape({ channelId, username, platform });
+    // Flip to Browse so the new channel's "Queued…" badge is visible.
+    setChannelsSubTab("browse");
   };
 
   const handleScrape = async (ch: ViralChannel) => {
@@ -3197,8 +3215,38 @@ export default function ViralToday() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                {/* Add channel — compact row with platform dropdown */}
-                {(isAdmin || isVideographer || hasSubscription) && (
+                {/* Sub-tabs: browsing tracked channels vs adding new ones —
+                    two different jobs that used to share one crowded header
+                    (an add bar stacked on a search bar). */}
+                {channels.length > 0 && (isAdmin || isVideographer || hasSubscription) && (
+                  <div className="flex items-center gap-1 bg-muted border border-border rounded-lg p-0.5 w-fit mb-4">
+                    <button
+                      onClick={() => setChannelsSubTab("browse")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                        channelsSubTab === "browse" ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      My channels
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">{channels.length}</span>
+                    </button>
+                    <button
+                      onClick={() => setChannelsSubTab("add")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                        channelsSubTab === "add" ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add channels
+                    </button>
+                  </div>
+                )}
+
+                {/* Add channel — its own tab (shown directly on first visit
+                    when there are no channels yet) */}
+                {(isAdmin || isVideographer || hasSubscription) && (channelsSubTab === "add" || channels.length === 0) && (
                   <div className="flex flex-col gap-2 mb-5">
                     {(() => {
                       const hasUrl = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch/i.test(newUsername.trim());
@@ -3283,8 +3331,8 @@ export default function ViralToday() {
                   </div>
                 )}
 
-                {/* Channel list */}
-                {loadingChannels ? (
+                {/* Channel list — Browse sub-tab only */}
+                {channelsSubTab !== "browse" ? null : loadingChannels ? (
                   <div className="flex items-center justify-center py-16">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
@@ -3313,7 +3361,7 @@ export default function ViralToday() {
                             type="text"
                             value={channelSearch}
                             onChange={(e) => setChannelSearch(e.target.value)}
-                            placeholder="Search channels…"
+                            placeholder="Search channels, categories, or your watchlists…"
                             className="w-full h-9 pl-9 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
                           />
                         </div>
@@ -3351,6 +3399,8 @@ export default function ViralToday() {
                           if (c.username.toLowerCase().includes(q)) return true;
                           const niche = nicheByChannel.get(c.id);
                           if (niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q))) return true;
+                          // The user's own tags: watchlist names this channel belongs to.
+                          if ((listNamesByChannel.get(c.id) ?? []).some((n) => n.includes(q))) return true;
                           return false;
                         });
                         if (matched.length === 0) {
