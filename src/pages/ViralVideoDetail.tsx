@@ -371,7 +371,16 @@ export default function ViralVideoDetail() {
   }, [isStaff]);
 
   const clientOptions: ClientOption[] = isStaff
-    ? plusClients
+    ? (() => {
+        // Staff see the Connecta+ client list, but a staff member's OWN client
+        // row isn't a Connecta+ account so it's absent — let them pick
+        // themselves too (e.g. Roberto remixing a script for his own account).
+        const own = clients.find((c: Client) => c.user_id === user?.id);
+        if (own && !plusClients.some((o) => o.id === own.id)) {
+          return [{ id: own.id, name: own.name || own.id }, ...plusClients];
+        }
+        return plusClients;
+      })()
     : (() => {
         const own = clients.find((c: Client) => c.user_id === user?.id);
         return own ? [{ id: own.id, name: own.name || own.id }] : [];
