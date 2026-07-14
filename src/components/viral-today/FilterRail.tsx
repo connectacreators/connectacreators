@@ -104,7 +104,7 @@ function RailDropdown({ value, onChange, options, footer, ariaLabel }: {
       </button>
       {open && (
         <div className="mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden">
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="max-h-56 overflow-y-auto custom-scrollbar py-1">
             {options.map((o) => {
               const active = o.value === value;
               return (
@@ -171,7 +171,9 @@ export function FilterRail(props: FilterRailProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      {/* custom-scrollbar hides the global aqua scrollbar inside the rail —
+          it still scrolls, just without the colored bar. */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 space-y-5">
 
         {/* ── Feed mode: Global vs Watchlist ── */}
         <div>

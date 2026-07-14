@@ -837,6 +837,7 @@ const VideoCard = memo(function VideoCard({
 // Channel row
 interface ChannelRowProps {
   channel: ViralChannel;
+  niche?: string | null;
   onScrape: (ch: ViralChannel) => void;
   onDelete: (id: string) => void;
   isAdmin: boolean;
@@ -848,7 +849,7 @@ interface ChannelRowProps {
   onCreateList?: (name: string) => Promise<string | null>;
   isQueued?: boolean;
 }
-function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason, watchlists, channelListIds, onToggleInList, onCreateList, isQueued }: ChannelRowProps) {
+function ChannelRow({ channel, niche, onScrape, onDelete, isAdmin, canScrape, scrapeDisabledReason, watchlists, channelListIds, onToggleInList, onCreateList, isQueued }: ChannelRowProps) {
   const PlatformIcon = PLATFORM_ICON[channel.platform] ?? Instagram;
   const status = channel.scrape_status;
   const [listMenuOpen, setListMenuOpen] = useState(false);
@@ -887,8 +888,15 @@ function ChannelRow({ channel, onScrape, onDelete, isAdmin, canScrape, scrapeDis
           </div>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">@{channel.username}</p>
-          <p className="text-[10px] text-muted-foreground capitalize">{channel.platform}</p>
+          <p className="text-sm font-semibold text-foreground truncate">@{channel.username}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[10px] text-muted-foreground capitalize">{channel.platform}</p>
+            {niche && (
+              <span className="text-[9px] px-1.5 py-px rounded-full bg-muted border border-border text-muted-foreground whitespace-nowrap">
+                {nicheLabel(niche)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1221,7 +1229,7 @@ function WatchlistManager({
           )}
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-2 space-y-1">
+        <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-2 space-y-1">
           {listChannels.length === 0 ? (
             <p className="text-xs text-muted-foreground p-4 text-center leading-relaxed">
               {watchlists.length === 0
@@ -1401,6 +1409,45 @@ export default function ViralToday() {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
+
+  // ── Channels view organization ─────────────────────────────────────────────
+  // The old layout stacked every niche group vertically — one endless scroll.
+  // Now: a category filter + sort control over a single compact grid.
+  const [channelCategory, setChannelCategory] = useState<string>("all");
+  const [channelSort, setChannelSort] = useState<string>("recent");
+
+  // Derive each channel's niche from its videos (most common primary_niche).
+  const nicheByChannel = useMemo(() => {
+    const counts = new Map<string, Map<string, number>>();
+    for (const v of videos) {
+      if (!v.channel_id || !v.primary_niche) continue;
+      let m = counts.get(v.channel_id);
+      if (!m) { m = new Map(); counts.set(v.channel_id, m); }
+      m.set(v.primary_niche, (m.get(v.primary_niche) ?? 0) + 1);
+    }
+    const byChannel = new Map<string, string>();
+    for (const [cid, m] of counts) {
+      let best = "", bestN = 0;
+      for (const [n, c] of m) if (c > bestN) { best = n; bestN = c; }
+      if (best) byChannel.set(cid, best);
+    }
+    return byChannel;
+  }, [videos]);
+
+  const channelCategoryOptions = useMemo(() => {
+    const tally = new Map<string, number>();
+    let other = 0;
+    for (const c of channels) {
+      const n = nicheByChannel.get(c.id);
+      if (n) tally.set(n, (tally.get(n) ?? 0) + 1);
+      else other++;
+    }
+    const opts = [...tally.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([slug, count]) => ({ value: slug, label: `${nicheLabel(slug)} (${count})` }));
+    if (other > 0) opts.push({ value: "__other", label: `Uncategorized (${other})` });
+    return [{ value: "all", label: `All categories (${channels.length})` }, ...opts];
+  }, [channels, nicheByChannel]);
 
   // Filters — initialized from the user's last saved session (localStorage).
   const [search, setSearch] = useState("");
@@ -3248,86 +3295,99 @@ export default function ViralToday() {
                   </div>
                 ) : (
                   <div className="flex gap-6 items-start">
-                    {/* Discovery (left) — search + channels grouped by niche */}
+                    {/* Discovery (left) — search + category + sort over ONE
+                        compact grid (the old stacked niche groups were an
+                        endless unorganized scroll). */}
                     <div className="flex-1 min-w-0">
-                      <div className="relative mb-4 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                        <input
-                          type="text"
-                          value={channelSearch}
-                          onChange={(e) => setChannelSearch(e.target.value)}
-                          placeholder="Search channels…"
-                          className="w-full h-9 pl-9 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
-                        />
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <div className="relative flex-1 min-w-[180px] max-w-sm">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                          <input
+                            type="text"
+                            value={channelSearch}
+                            onChange={(e) => setChannelSearch(e.target.value)}
+                            placeholder="Search channels…"
+                            className="w-full h-9 pl-9 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
+                          />
+                        </div>
+                        <Select value={channelCategory} onValueChange={setChannelCategory}>
+                          <SelectTrigger className="h-9 w-auto min-w-[170px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {channelCategoryOptions.map((o) => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={channelSort} onValueChange={setChannelSort}>
+                          <SelectTrigger className="h-9 w-auto min-w-[150px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="recent" className="text-xs">Recently scraped</SelectItem>
+                            <SelectItem value="videos" className="text-xs">Most videos</SelectItem>
+                            <SelectItem value="views" className="text-xs">Highest avg views</SelectItem>
+                            <SelectItem value="name" className="text-xs">Name A–Z</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {(() => {
-                        // Derive each channel's niche from its videos (most common primary_niche).
-                        const counts = new Map<string, Map<string, number>>();
-                        for (const v of videos) {
-                          if (!v.channel_id || !v.primary_niche) continue;
-                          let m = counts.get(v.channel_id);
-                          if (!m) { m = new Map(); counts.set(v.channel_id, m); }
-                          m.set(v.primary_niche, (m.get(v.primary_niche) ?? 0) + 1);
-                        }
-                        const nicheByChannel = new Map<string, string>();
-                        for (const [cid, m] of counts) {
-                          let best = "", bestN = 0;
-                          for (const [n, c] of m) if (c > bestN) { best = n; bestN = c; }
-                          if (best) nicheByChannel.set(cid, best);
-                        }
                         const q = channelSearch.trim().toLowerCase();
-                        const matched = channels.filter((c) => {
+                        let matched = channels.filter((c) => {
+                          if (channelCategory !== "all") {
+                            const cat = nicheByChannel.get(c.id) ?? "__other";
+                            if (cat !== channelCategory) return false;
+                          }
                           if (!q) return true;
                           if (c.username.toLowerCase().includes(q)) return true;
-                          // Also match the channel's derived category/niche (the group headers).
                           const niche = nicheByChannel.get(c.id);
                           if (niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q))) return true;
                           return false;
                         });
                         if (matched.length === 0) {
-                          return <p className="text-sm text-muted-foreground py-8 text-center">No channels match “{channelSearch}”.</p>;
+                          return (
+                            <p className="text-sm text-muted-foreground py-8 text-center">
+                              No channels match{channelSearch ? ` “${channelSearch}”` : " this category"}.
+                            </p>
+                          );
                         }
-                        const groups = new Map<string, ViralChannel[]>();
-                        for (const c of matched) {
-                          const key = nicheByChannel.get(c.id) ?? "__other";
-                          if (!groups.has(key)) groups.set(key, []);
-                          groups.get(key)!.push(c);
+                        matched = [...matched];
+                        switch (channelSort) {
+                          case "videos": matched.sort((a, b) => b.video_count - a.video_count); break;
+                          case "views": matched.sort((a, b) => b.avg_views - a.avg_views); break;
+                          case "name": matched.sort((a, b) => a.username.localeCompare(b.username)); break;
+                          default: // recently scraped; never-scraped sink to the bottom
+                            matched.sort((a, b) =>
+                              (b.last_scraped_at ? Date.parse(b.last_scraped_at) : 0) -
+                              (a.last_scraped_at ? Date.parse(a.last_scraped_at) : 0));
                         }
-                        const orderedKeys = [...groups.keys()].sort((a, b) => {
-                          if (a === "__other") return 1;
-                          if (b === "__other") return -1;
-                          return groups.get(b)!.length - groups.get(a)!.length;
-                        });
                         return (
-                          <div className="space-y-6">
-                            {orderedKeys.map((key) => (
-                              <div key={key}>
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
-                                  {key === "__other" ? "Other" : nicheLabel(key)}
-                                  <span className="ml-1.5 text-muted-foreground/50">{groups.get(key)!.length}</span>
-                                </p>
-                                <div className="space-y-2">
-                                  {groups.get(key)!.map((ch) => (
-                                    <ChannelRow
-                                      key={ch.id}
-                                      channel={ch}
-                                      onScrape={handleScrape}
-                                      onDelete={handleDeleteChannel}
-                                      isAdmin={isAdmin}
-                                      canScrape={canScrape}
-                                      scrapeDisabledReason={scrapeDisabledReason}
-                                      watchlists={watchlists}
-                                      channelListIds={listsByChannel.get(ch.id)}
-                                      onToggleInList={toggleChannelInList}
-                                      onCreateList={createWatchlist}
-                                      isQueued={queuedIds.has(ch.id)}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <>
+                            <p className="text-[11px] text-muted-foreground mb-2 px-0.5">
+                              {matched.length} channel{matched.length === 1 ? "" : "s"}
+                            </p>
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+                              {matched.map((ch) => (
+                                <ChannelRow
+                                  key={ch.id}
+                                  channel={ch}
+                                  niche={nicheByChannel.get(ch.id)}
+                                  onScrape={handleScrape}
+                                  onDelete={handleDeleteChannel}
+                                  isAdmin={isAdmin}
+                                  canScrape={canScrape}
+                                  scrapeDisabledReason={scrapeDisabledReason}
+                                  watchlists={watchlists}
+                                  channelListIds={listsByChannel.get(ch.id)}
+                                  onToggleInList={toggleChannelInList}
+                                  onCreateList={createWatchlist}
+                                  isQueued={queuedIds.has(ch.id)}
+                                />
+                              ))}
+                            </div>
+                          </>
                         );
                       })()}
                     </div>
