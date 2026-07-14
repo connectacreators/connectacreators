@@ -214,20 +214,22 @@ export default function ThemedVideoPlayer({
         <div
           ref={progressRef}
           style={{
-            height: 4, background: 'rgba(255,255,255,0.15)',
-            borderRadius: 2, marginBottom: 8,
+            height: 8, background: 'rgba(255,255,255,0.1)',
+            borderRadius: 4, marginBottom: 8,
             cursor: 'pointer', position: 'relative',
+            border: '1px solid rgba(255,255,255,0.2)',
           }}
           onClick={handleSeek}
         >
           <div style={{
             height: '100%', width: `${progress * 100}%`,
-            background: CYAN, borderRadius: 2, position: 'relative',
+            background: CYAN, borderRadius: 4, position: 'relative',
+            boxShadow: `0 0 12px ${CYAN}`,
           }}>
             <div style={{
-              position: 'absolute', right: -5, top: '50%', transform: 'translateY(-50%)',
-              width: 10, height: 10, borderRadius: '50%',
-              background: '#fff', boxShadow: `0 0 6px ${CYAN}`,
+              position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)',
+              width: 14, height: 14, borderRadius: '50%',
+              background: '#fff', boxShadow: `0 0 10px ${CYAN}, inset 0 0 4px rgba(0,0,0,0.3)`,
             }} />
           </div>
           {progressOverlay}
