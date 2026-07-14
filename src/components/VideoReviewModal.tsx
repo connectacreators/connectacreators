@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,30 +112,55 @@ function footageIsImage(name: string): boolean {
   return FOOTAGE_IMAGE_EXTS.some(ext => lower.endsWith(ext));
 }
 
+// Renders a note body with two kinds of inline links:
+//   • plain URLs  → open in a new tab
+//   • @footage    → clickable button that opens the footage preview (only when
+//                   the filename matches a real file in this edit's storage)
+// A single tokenizer pass handles both so neither clobbers the other.
 function renderCommentWithFootageLinks(comment: string, footage: string[], onFootageClick: (filename: string) => void): React.ReactNode {
   const footageSet = new Set(footage);
-  const parts: (string | React.ReactNode)[] = [];
-  const regex = /@([A-Za-z0-9_\-\.]+)/g;
+  const parts: React.ReactNode[] = [];
+  const regex = /(https?:\/\/[^\s]+)|@([A-Za-z0-9_\-.]+)/g;
   let lastIndex = 0;
   let match;
 
   while ((match = regex.exec(comment)) !== null) {
-    const filename = match[1];
-    if (footageSet.has(filename)) {
-      parts.push(comment.slice(lastIndex, match.index));
+    const url = match[1];
+    const filename = match[2];
+
+    // A footage mention only becomes a button when it names a real file;
+    // otherwise leave the literal "@text" in place (don't drop it).
+    if (filename && !footageSet.has(filename)) continue;
+
+    if (match.index > lastIndex) parts.push(comment.slice(lastIndex, match.index));
+
+    if (url) {
+      parts.push(
+        <a
+          key={`url-${match.index}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:opacity-80"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {url}
+        </a>
+      );
+    } else {
       parts.push(
         <button
           key={`footage-${match.index}`}
-          onClick={() => onFootageClick(filename)}
+          onClick={(e) => { e.stopPropagation(); onFootageClick(filename); }}
           className="text-primary hover:underline font-medium"
         >
           @{filename}
         </button>
       );
-      lastIndex = match.index + match[0].length;
     }
+    lastIndex = match.index + match[0].length;
   }
-  parts.push(comment.slice(lastIndex));
+  if (lastIndex < comment.length) parts.push(comment.slice(lastIndex));
   return parts;
 }
 
@@ -376,7 +402,7 @@ export default function VideoReviewModal({
     setFootageSearchQuery('');
   };
 
-  const handleEditTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;
     setEditText(value);
     const query = computeAtQuery(value);
@@ -964,11 +990,16 @@ export default function VideoReviewModal({
                     </div>
 
                     {editingId === c.id ? (
-                      <div className="flex gap-1.5 mt-1">
-                        <div className="relative flex-1">
-                          <Input autoFocus value={editText} onChange={handleEditTextChange}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleEditComment(c.id); if (e.key === 'Escape') { setEditingId(null); setShowEditAutocomplete(false); } }}
-                            className="h-7 text-sm" />
+                      <div className="mt-1">
+                        <div className="relative">
+                          <Textarea autoFocus value={editText} onChange={handleEditTextChange}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEditComment(c.id); }
+                              if (e.key === 'Escape') { setEditingId(null); setShowEditAutocomplete(false); }
+                            }}
+                            rows={3}
+                            className="text-sm min-h-[4.5rem] resize-y"
+                            placeholder="Edit note… (Enter to save, Shift+Enter for a new line, @ for footage)" />
                           {showEditAutocomplete && filteredEditFootage.length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
                               {filteredEditFootage.map((footage) => (
@@ -983,8 +1014,10 @@ export default function VideoReviewModal({
                             </div>
                           )}
                         </div>
-                        <Button size="sm" className="h-7 text-xs px-2" onClick={() => handleEditComment(c.id)}>Save</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setEditingId(null); setShowEditAutocomplete(false); }}>Cancel</Button>
+                        <div className="flex gap-1.5 mt-1.5 justify-end">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setEditingId(null); setShowEditAutocomplete(false); }}>Cancel</Button>
+                          <Button size="sm" className="h-7 text-xs px-2" onClick={() => handleEditComment(c.id)}>Save</Button>
+                        </div>
                       </div>
                     ) : (
                       <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-words [overflow-wrap:anywhere]"
