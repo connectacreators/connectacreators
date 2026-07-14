@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Sparkles, Download, Facebook,
+  Sparkles, Download, Facebook, Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1415,6 +1415,10 @@ export default function ViralToday() {
   // Now: a category filter + sort control over a single compact grid.
   const [channelCategory, setChannelCategory] = useState<string>("all");
   const [channelSort, setChannelSort] = useState<string>("recent");
+  const [channelPage, setChannelPage] = useState(0);
+  const channelsPerPage = 25;
+  // Any narrowing/reordering change restarts at page 1.
+  useEffect(() => { setChannelPage(0); }, [channelSearch, channelCategory, channelSort]);
 
   // Derive each channel's niche from its videos (most common primary_niche).
   const nicheByChannel = useMemo(() => {
@@ -2763,30 +2767,32 @@ export default function ViralToday() {
 
               {/* Language toggle + View toggle */}
               <div className="flex items-center gap-2">
+                {/* Icon-only header actions — labels live in the hover tooltip
+                    to keep the toolbar quiet. */}
                 {view === "videos" && (
                   <button
                     onClick={() => setBulkOpen(true)}
                     disabled={bulkEligibleCount === 0}
                     title={
                       bulkEligibleCount === 0
-                        ? "All filtered videos are already analyzed"
-                        : `Analyze the ${bulkEligibleCount} un-analyzed video${bulkEligibleCount === 1 ? "" : "s"} in the current filtered view`
+                        ? "Bulk analyze — all filtered videos are already analyzed"
+                        : `Bulk analyze — analyze the ${bulkEligibleCount} un-analyzed video${bulkEligibleCount === 1 ? "" : "s"} in the current filtered view`
                     }
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/90 border border-primary text-primary-foreground hover:bg-primary transition-all disabled:opacity-50"
+                    aria-label="Bulk analyze"
+                    className="h-8 w-8 rounded-md flex items-center justify-center bg-muted border border-border text-foreground hover:bg-muted/80 transition-all disabled:opacity-50"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Bulk analyze
+                    <Layers className="w-4 h-4" />
                   </button>
                 )}
                 {isAdmin && view === "videos" && (
                   <button
                     onClick={handleExportCsv}
                     disabled={exporting || filteredVideos.length === 0}
-                    title={`Export the ${Math.min(filteredVideos.length, 100)} currently filtered video${filteredVideos.length === 1 ? "" : "s"} to CSV`}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-muted border border-border text-foreground hover:bg-muted/80 transition-all disabled:opacity-50"
+                    title={`Export CSV — export the ${Math.min(filteredVideos.length, 100)} currently filtered video${filteredVideos.length === 1 ? "" : "s"}`}
+                    aria-label="Export CSV"
+                    className="h-8 w-8 rounded-md flex items-center justify-center bg-muted border border-border text-foreground hover:bg-muted/80 transition-all disabled:opacity-50"
                   >
-                    {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                    Export CSV
+                    {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
                 )}
                 <button
@@ -2909,12 +2915,13 @@ export default function ViralToday() {
                         )}
                       </button>
 
-                      {/* Search Instagram — admin only */}
+                      {/* Search Instagram — admin only. Theme tokens, not
+                          brand pink: accents must follow the selected palette. */}
                       {isAdmin && (
                         <Button
                           onClick={handleDiscoverSearch}
                           disabled={isDiscovering || !search.trim()}
-                          className="h-8 px-3 bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0"
+                          className="h-8 px-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[11px] font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0"
                         >
                           {isDiscovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Instagram className="w-3 h-3" />}
                           {isDiscovering ? "Searching…" : "Search Instagram"}
@@ -2930,13 +2937,13 @@ export default function ViralToday() {
                         isActive={filterSort !== "recent"}
                       />
 
-                      {/* Admin: Add framework toggle */}
+                      {/* Admin: Add framework toggle — theme tokens, not yellow */}
                       {isAdmin && (
                         <Button
                           onClick={() => setAddUrlOpen((o) => !o)}
-                          className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 shrink-0"
+                          className="h-8 px-3 bg-muted hover:bg-muted/80 border border-border text-foreground text-[11px] font-semibold rounded-lg flex items-center gap-1.5 shrink-0"
                         >
-                          <Star className="w-3 h-3" />
+                          <Plus className="w-3 h-3" />
                           Add framework
                         </Button>
                       )}
@@ -2953,7 +2960,7 @@ export default function ViralToday() {
                             onKeyDown={(e) => e.key === "Enter" && handlePasteUrl()}
                             autoFocus
                             placeholder="Paste Instagram or TikTok URL…"
-                            className="w-full h-8 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm px-3 pr-8 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-yellow-500/60"
+                            className="w-full h-8 rounded-lg border border-primary/30 bg-primary/5 text-sm px-3 pr-8 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60"
                           />
                           {pasteUrl && (
                             <button
@@ -2967,9 +2974,9 @@ export default function ViralToday() {
                         <Button
                           onClick={handlePasteUrl}
                           disabled={!pasteUrl.trim() || pastingUrl}
-                          className="h-8 px-3 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-[11px] font-semibold rounded-lg flex items-center gap-1.5"
+                          className="h-8 px-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[11px] font-semibold rounded-lg flex items-center gap-1.5"
                         >
-                          {pastingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
+                          {pastingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                           {pastingUrl ? "Adding…" : "Add"}
                         </Button>
                       </div>
@@ -3211,7 +3218,7 @@ export default function ViralToday() {
                           <div className="relative flex-shrink-0">
                             <button
                               onClick={() => setPlatformDropdownOpen(o => !o)}
-                              className={`flex items-center gap-2 h-9 px-3 rounded-lg border text-xs font-semibold transition-all ${activeCfg.bg} ${activeCfg.color} border-transparent hover:border-border`}
+                              className="flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-muted text-foreground text-xs font-semibold transition-all hover:bg-muted/80"
                             >
                               <ActiveIcon className="w-3.5 h-3.5" />
                               {activeCfg.label}
@@ -3363,13 +3370,19 @@ export default function ViralToday() {
                               (b.last_scraped_at ? Date.parse(b.last_scraped_at) : 0) -
                               (a.last_scraped_at ? Date.parse(a.last_scraped_at) : 0));
                         }
+                        const chTotalPages = Math.ceil(matched.length / channelsPerPage);
+                        const chPage = Math.min(channelPage, Math.max(0, chTotalPages - 1));
+                        const pageChannels = matched.slice(chPage * channelsPerPage, (chPage + 1) * channelsPerPage);
                         return (
                           <>
                             <p className="text-[11px] text-muted-foreground mb-2 px-0.5">
                               {matched.length} channel{matched.length === 1 ? "" : "s"}
+                              {chTotalPages > 1 && <span className="text-muted-foreground/60"> · page {chPage + 1} of {chTotalPages}</span>}
                             </p>
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-                              {matched.map((ch) => (
+                            {/* Single column — the 2-col grid squeezed the row
+                                content until stats/text overlapped. */}
+                            <div className="space-y-2">
+                              {pageChannels.map((ch) => (
                                 <ChannelRow
                                   key={ch.id}
                                   channel={ch}
@@ -3387,6 +3400,57 @@ export default function ViralToday() {
                                 />
                               ))}
                             </div>
+                            {/* Same pagination style as the videos grid */}
+                            {chTotalPages > 1 && (
+                              <div className="mt-6 flex items-center gap-2 flex-wrap justify-center">
+                                <button
+                                  onClick={() => setChannelPage(Math.max(0, chPage - 1))}
+                                  disabled={chPage === 0}
+                                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                                >
+                                  Previous
+                                </button>
+                                <div className="flex items-center gap-1 flex-wrap justify-center">
+                                  {(() => {
+                                    const pages: (number | "...")[] = [];
+                                    if (chTotalPages <= 7) {
+                                      for (let i = 0; i < chTotalPages; i++) pages.push(i);
+                                    } else {
+                                      pages.push(0);
+                                      if (chPage > 3) pages.push("...");
+                                      for (let i = Math.max(1, chPage - 1); i <= Math.min(chTotalPages - 2, chPage + 1); i++) pages.push(i);
+                                      if (chPage < chTotalPages - 4) pages.push("...");
+                                      pages.push(chTotalPages - 1);
+                                    }
+                                    return pages.map((page, idx) =>
+                                      page === "..." ? (
+                                        <span key={`ell-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                                      ) : (
+                                        <button
+                                          key={page}
+                                          onClick={() => setChannelPage(page)}
+                                          className={cn(
+                                            "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
+                                            chPage === page
+                                              ? "bg-primary text-primary-foreground border-primary"
+                                              : "bg-muted text-foreground border-border hover:bg-muted/80"
+                                          )}
+                                        >
+                                          {page + 1}
+                                        </button>
+                                      )
+                                    );
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => setChannelPage(Math.min(chTotalPages - 1, chPage + 1))}
+                                  disabled={chPage >= chTotalPages - 1}
+                                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            )}
                           </>
                         );
                       })()}

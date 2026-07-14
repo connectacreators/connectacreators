@@ -632,13 +632,14 @@ export default function ViralVideoDetail() {
               <span>{timeAgo(video.posted_at) || "—"}</span>
               {formatDetection && (() => {
                 const fmt = formatDetection.format;
-                const cfg: Record<string, { label: string; color: string }> = {
-                  TALKING_HEAD: { label: "Talking Head", color: "text-blue-400" },
-                  VOICEOVER: { label: "Voiceover", color: "text-purple-400" },
-                  TEXT_STORY: { label: "Text Story", color: "text-orange-400" },
+                // Plain metadata — the old per-format blue/purple/orange added
+                // colors that ignored the account's selected palette.
+                const LABELS: Record<string, string> = {
+                  TALKING_HEAD: "Talking Head",
+                  VOICEOVER: "Voiceover",
+                  TEXT_STORY: "Text Story",
                 };
-                const c = cfg[fmt] || cfg.TALKING_HEAD;
-                return (<><span>·</span><span className={c.color}>{c.label}</span></>);
+                return (<><span>·</span><span className="text-foreground/80">{LABELS[fmt] ?? "Talking Head"}</span></>);
               })()}
               {detectingFormat && !formatDetection && (
                 <><span>·</span><span className="italic opacity-60">detecting format…</span></>

@@ -112,11 +112,14 @@ export const PLATFORM_ICON: Record<string, React.ElementType> = {
   facebook: Facebook,
 };
 
+// Neutral charcoal gradients for missing-thumbnail placeholders. The old set
+// mixed saturated purples/greens/oranges that clashed with whatever palette
+// the account has selected — placeholders should recede, not add color.
 const GRID_PALETTES = [
-  ["#0f0c1e", "#3d1054"], ["#001624", "#003d5c"],
-  ["#0a0a14", "#1a3a5c"], ["#0c0c0c", "#1a0a2e"],
-  ["#001a10", "#003320"], ["#1a001a", "#3d0066"],
-  ["#1a0a00", "#3d2000"], ["#000d1a", "#001f3d"],
+  ["#121316", "#23262C"], ["#101216", "#1F252E"],
+  ["#131417", "#262930"], ["#0F1114", "#212730"],
+  ["#141519", "#282B31"], ["#101317", "#242A32"],
+  ["#121418", "#2A2D34"], ["#0F1216", "#1E232B"],
 ];
 
 export function gridGradientFor(name: string) {

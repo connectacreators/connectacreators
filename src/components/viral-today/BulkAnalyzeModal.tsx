@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Loader2, CheckCircle2, AlertTriangle, Sparkles, Zap } from "lucide-react";
+import { X, Loader2, CheckCircle2, AlertTriangle, Sparkles, Zap, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/getAuthToken";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,7 +158,7 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
+            <Layers className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold text-foreground font-serif">
               {phase === "done" ? "Bulk analyze complete" : "Bulk analyze filtered videos"}
             </h2>

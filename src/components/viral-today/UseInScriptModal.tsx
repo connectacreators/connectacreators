@@ -229,7 +229,8 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
             </div>
           )}
 
-          {/* Lane — violet/cyan are semantic lane accents (not palette hex) */}
+          {/* Lane — both options use the theme accent; the ICON tells them
+              apart. Hardcoded violet/cyan ignored the account's palette. */}
           <div>
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               Use as
@@ -239,10 +240,10 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
                 onClick={() => setLane("idea")}
                 className={
                   "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors " +
-                  (lane === "idea" ? "border-violet-500 bg-violet-500/10" : "border-border bg-transparent")
+                  (lane === "idea" ? "border-primary bg-primary/10" : "border-border bg-transparent hover:border-primary/40")
                 }
               >
-                <Lightbulb className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "idea" ? "text-violet-400" : "text-muted-foreground")} />
+                <Lightbulb className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "idea" ? "text-primary" : "text-muted-foreground")} />
                 <span>
                   <span className="block text-[13px] font-semibold text-foreground">Idea inspiration</span>
                   <span className="block text-[11px] text-muted-foreground mt-0.5">
@@ -254,10 +255,10 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
                 onClick={() => setLane("format")}
                 className={
                   "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors " +
-                  (lane === "format" ? "border-cyan-400 bg-cyan-400/10" : "border-border bg-transparent")
+                  (lane === "format" ? "border-primary bg-primary/10" : "border-border bg-transparent hover:border-primary/40")
                 }
               >
-                <Clapperboard className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "format" ? "text-cyan-300" : "text-muted-foreground")} />
+                <Clapperboard className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "format" ? "text-primary" : "text-muted-foreground")} />
                 <span>
                   <span className="block text-[13px] font-semibold text-foreground">Film & edit reference</span>
                   <span className="block text-[11px] text-muted-foreground mt-0.5">
