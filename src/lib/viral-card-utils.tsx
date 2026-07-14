@@ -2,7 +2,8 @@ import { Instagram, Youtube, Facebook } from "lucide-react";
 import type React from "react";
 
 export function fmtViews(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  // 999,500+ rounds to "1000K" via the K branch — promote to M instead.
+  if (n >= 999_500) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(n);
 }
@@ -52,7 +53,7 @@ function isExpiredTikTokUrl(url: string): boolean {
   }
 }
 
-export function proxyImg(url: string | null, _videoUrl?: string | null): string | null {
+export function proxyImg(url: string | null): string | null {
   if (!url) return null;
   // Self-hosted thumb-cache (or any path on our own domain) is always fine.
   if (url.includes("connectacreators.com")) return url;

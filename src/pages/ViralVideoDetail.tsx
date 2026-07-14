@@ -572,7 +572,13 @@ export default function ViralVideoDetail() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            // On a direct/shared link there's no in-app history — navigate(-1)
+            // would leave the app entirely. react-router stamps an idx on
+            // history.state; idx 0 means this is the first in-app entry.
+            if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+            else navigate("/viral-today");
+          }}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

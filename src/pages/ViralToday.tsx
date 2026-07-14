@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo, Suspense, lazy } from "react";
 import PageTransition from "@/components/PageTransition";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,16 +44,20 @@ import {
 type Language = "en" | "es";
 
 // ── "Calm" motion (Viral Today redesign) ──
-// Slow ease-out (quint-ish) with a gentle staggered rise-and-fade entrance.
-// Shared by the video grid so the whole page moves as one piece.
+// Slow ease-out (quint-ish) with a gentle rise-and-fade entrance. Per-card
+// delay is derived from the card's index and HARD-CAPPED: with 100 cards per
+// page an uncapped 0.05s stagger put card #100 on screen at ~5s. The calm
+// wave now finishes in ~0.36s regardless of page size.
 const CALM_EASE = [0.22, 1, 0.36, 1] as const;
-const CALM_GRID_VARIANTS: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.05 } },
-};
+// Container only propagates hidden→show to children; delays live on the cards.
+const CALM_GRID_VARIANTS: Variants = { hidden: {}, show: {} };
 const CALM_CARD_VARIANTS: Variants = {
   hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: CALM_EASE } },
+  show: (i: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: CALM_EASE, delay: Math.min(i * 0.03, 0.36) },
+  }),
 };
 
 // Filter option sets — shared by the desktop rail and the mobile drawer.
@@ -258,6 +262,7 @@ interface ViralVideo {
   analysis_error?: string | null;
   content_format?: string | null;
   primary_niche?: string | null;
+  video_file_url?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -394,11 +399,14 @@ function releaseCategorizeSlot() {
   if (categorizeInFlight > 0) categorizeInFlight--;
 }
 
-// Video card
-function VideoCard({
-  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured, onChannelClick,
+// Video card — memoized so a page of 100 cards doesn't re-render when one
+// card's selection flips or unrelated page state changes. All callbacks
+// passed in are stable (useCallback) for the memo to hold.
+const VideoCard = memo(function VideoCard({
+  video, index = 0, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured, onChannelClick,
 }: {
   video: ViralVideo;
+  index?: number;
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
   selected?: boolean;
@@ -411,6 +419,7 @@ function VideoCard({
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
+  const [posterError, setPosterError] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [localStatus, setLocalStatus] = useState<string | null | undefined>(video.analysis_status);
   const [analyzing, setAnalyzing] = useState(false);
@@ -553,7 +562,7 @@ function VideoCard({
     <motion.div
       ref={cardRef}
       variants={CALM_CARD_VARIANTS}
-      exit={{ opacity: 0 }}
+      custom={index}
       whileHover={{ y: -4 }}
       transition={{ type: "tween", duration: 0.34, ease: CALM_EASE }}
       className={cn(
@@ -572,23 +581,34 @@ function VideoCard({
           style={{ background: gridGradientFor(video.channel_username) }}
         />
         {(() => {
-          // For analyzed videos with a missing/expired thumbnail_url, allow
-          // proxyImg to fall back to the resolve-thumb server endpoint via
-          // video_url — the video file already exists on our side because it
-          // was downloaded during analysis, so the cost is sunk. For
-          // unanalyzed videos, only use cached thumbnail_url (no preemptive
-          // server-side download just to make a card thumbnail).
+          const src = !imgError ? proxyImg(video.thumbnail_url) : null;
+          if (src) {
+            return (
+              <img
+                src={src}
+                alt={video.caption?.slice(0, 60) ?? "video"}
+                className="relative w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
+                onError={() => setImgError(true)}
+              />
+            );
+          }
+          // Thumbnail missing/expired. Analyzed videos have the video file
+          // stored on our side (downloaded during analysis — cost is sunk):
+          // use its first frame as a poster instead of the gradient.
           const status = localStatus ?? video.analysis_status;
-          const allowResolveThumb = status === "analyzed";
-          const src = proxyImg(video.thumbnail_url, allowResolveThumb ? video.video_url : null);
-          return !imgError && src ? (
-            <img
-              src={src}
-              alt={video.caption?.slice(0, 60) ?? "video"}
-              className="relative w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
-              onError={() => setImgError(true)}
-            />
-          ) : (
+          if (status === "analyzed" && video.video_file_url && !posterError) {
+            return (
+              <video
+                src={video.video_file_url}
+                preload="metadata"
+                muted
+                playsInline
+                className="relative w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
+                onError={() => setPosterError(true)}
+              />
+            );
+          }
+          return (
             <div className="absolute inset-0 flex items-center justify-center">
               <Play className="w-8 h-8 text-white/60" />
             </div>
@@ -798,7 +818,7 @@ function VideoCard({
       </div>
     </motion.div>
   );
-}
+});
 
 // Channel row
 interface ChannelRowProps {
@@ -1255,7 +1275,8 @@ function readSavedFilters(): Record<string, any> {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ViralToday() {
-  const savedFilters = readSavedFilters();
+  // Lazy: parsed from localStorage once at mount, not re-parsed every render.
+  const [savedFilters] = useState(readSavedFilters);
   const { user, loading: authLoading, isAdmin, isVideographer } = useAuth();
   const { credits, refetch: refetchCredits } = useCredits();
   const navigate = useNavigate();
@@ -1327,6 +1348,13 @@ export default function ViralToday() {
 
   // Filters — initialized from the user's last saved session (localStorage).
   const [search, setSearch] = useState("");
+  // Debounced copy of `search` used by the (memoized) filter pipeline — the
+  // input stays instant while filtering waits for typing to settle.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 150);
+    return () => clearTimeout(t);
+  }, [search]);
   const [filterDate, setFilterDate] = useState<string>(savedFilters.date ?? "12months");
   const [filterPlatform, setFilterPlatform] = useState<string>(savedFilters.platform ?? "all");
   const [filterOutlier, setFilterOutlier] = useState<string>(savedFilters.outlier ?? "5");
@@ -1349,7 +1377,7 @@ export default function ViralToday() {
   useEffect(() => {
     setCurrentPage(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filterSource, filterSort, showOnlyFeatured, activeFormat, selectedNiches]);
+  }, [debouncedSearch, filterSource, filterSort, showOnlyFeatured, activeFormat, selectedNiches]);
 
   // Persist filters so the next visit restores the user's last-used settings.
   useEffect(() => {
@@ -1551,6 +1579,14 @@ export default function ViralToday() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelsRef = useRef<ViralChannel[]>([]);
 
+  // The page scrolls inside this container — jump back to the top whenever
+  // the page number changes, or "Next" strands the user at the bottom of the
+  // new page's grid.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [currentPage]);
+
   // ── Data fetching ────────────────────────────────────────────────────────────
 
   const fetchChannels = useCallback(async () => {
@@ -1614,7 +1650,7 @@ export default function ViralToday() {
         "views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, " +
         "scraped_at, apify_video_id, hashtag_source, user_submitted, submitted_by, " +
         "is_featured_framework, niche_tags, framework_score, analysis_status, analysis_error, " +
-        "content_format, primary_niche";
+        "content_format, primary_niche, video_file_url";
 
       while (allVideos.length < MAX_VIDEOS) {
         let q = supabase
@@ -1993,10 +2029,18 @@ export default function ViralToday() {
           }
 
           // Increment scrape usage for non-admin (admins/videographers exempt).
+          // Read the CURRENT value first: the loop's closure captured `credits`
+          // once, so writing `credits.used + 1` for every queued job used to
+          // stamp the same number N times — N queued scrapes charged as 1.
           if (!invokeError && !isAdmin && !isVideographer && credits?.id) {
+            const { data: fresh } = await supabase
+              .from("clients")
+              .select("channel_scrapes_used")
+              .eq("id", credits.id)
+              .single();
             await supabase
               .from("clients")
-              .update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 })
+              .update({ channel_scrapes_used: (fresh?.channel_scrapes_used ?? credits.channel_scrapes_used ?? 0) + 1 })
               .eq("id", credits.id);
             refetchCredits();
           }
@@ -2104,21 +2148,26 @@ export default function ViralToday() {
         return;
       }
 
+      // Fresh-read before incrementing (same stale-closure hazard as the queue).
+      const bumpUsage = async () => {
+        if (isAdmin || isVideographer || !credits?.id) return;
+        const { data: fresh } = await supabase
+          .from("clients").select("channel_scrapes_used").eq("id", credits.id).single();
+        await supabase.from("clients")
+          .update({ channel_scrapes_used: (fresh?.channel_scrapes_used ?? credits.channel_scrapes_used ?? 0) + 1 })
+          .eq("id", credits.id);
+        refetchCredits();
+      };
+
       if (data?.status === "done") {
         toast.success(`@${ch.username} scraped — ${data.videosStored ?? 0} videos`);
         fetchVideos();
         fetchChannels();
-        if (!isAdmin && !isVideographer && credits?.id) {
-          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
-          refetchCredits();
-        }
+        await bumpUsage();
       } else {
         toast.info(`Scraping @${ch.username}…`);
         fetchChannels();
-        if (!isAdmin && !isVideographer && credits?.id) {
-          await supabase.from("clients").update({ channel_scrapes_used: (credits.channel_scrapes_used ?? 0) + 1 }).eq("id", credits.id);
-          refetchCredits();
-        }
+        await bumpUsage();
       }
     } catch (e: any) {
       toast.error(e.message || "Error scraping channel");
@@ -2139,7 +2188,9 @@ export default function ViralToday() {
     setVideos((prev) => prev.filter((v) => v.channel_id !== id));
   };
 
-  const handleToggleFeatured = async (video: ViralVideo) => {
+  // Stable identities — VideoCard is React.memo'd; inline arrows here would
+  // defeat it and re-render all 100 cards on every page render.
+  const handleToggleFeatured = useCallback(async (video: ViralVideo) => {
     const next = !video.is_featured_framework;
     const { error } = await supabase
       .from("viral_videos")
@@ -2153,7 +2204,15 @@ export default function ViralToday() {
       prev.map((v) => (v.id === video.id ? { ...v, is_featured_framework: next } : v))
     );
     toast.success(next ? "Marked as Top Framework" : "Removed from Top Frameworks");
-  };
+  }, []);
+
+  const handleVideoDeleted = useCallback((id: string) => {
+    setVideos((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const handleChannelFilter = useCallback((username: string) => {
+    setSearch(username);
+  }, []);
 
   const handlePasteUrl = async () => {
     if (!pasteUrl.trim() || pastingUrl) return;
@@ -2194,12 +2253,18 @@ export default function ViralToday() {
         throw new Error(data.error || "Failed to add framework");
       }
       const status = data.status as string | undefined;
+      // Deep-link to the video from the toast: a fresh video rarely clears
+      // the default outlier/views filters, so it often isn't visible in the
+      // grid after the refetch — without this link, success looks like a no-op.
+      const viewAction = data.id
+        ? { action: { label: "View video", onClick: () => navigate(`/viral-today/video/${data.id}`) }, duration: 8000 }
+        : undefined;
       if (status === "already_analyzed" || status === "raced_existing") {
-        toast.info(`Already in your library — @${data.channel_username}`);
+        toast.info(`Already in your library — @${data.channel_username}`, viewAction);
       } else if (status === "analyzed_existing") {
-        toast.success(`Framework analyzed — @${data.channel_username}`);
+        toast.success(`Framework analyzed — @${data.channel_username}`, viewAction);
       } else {
-        toast.success(`Framework added & analyzed — @${data.channel_username}`);
+        toast.success(`Framework added & analyzed — @${data.channel_username}`, viewAction);
       }
       setPasteUrl("");
       fetchVideos();
@@ -2234,11 +2299,15 @@ export default function ViralToday() {
         toast.info(`Already searched "${search.trim()}" recently — switch Source to "Discovered" to see results`);
         setFilterSource("discovered");
         setFilterOutlier("0");
+        setFilterViews("0");
       } else {
         toast.success(`Found ${data?.inserted ?? 0} videos for "${search.trim()}"`);
-        // Auto-switch to Discovered source + remove outlier filter so results are visible
+        // Auto-switch to Discovered source + drop outlier AND views minimums —
+        // discovered videos under 100K views were invisible with only the
+        // outlier filter cleared.
         setFilterSource("discovered");
         setFilterOutlier("0");
+        setFilterViews("0");
         fetchVideos();
       }
     } catch (e: any) {
@@ -2255,8 +2324,13 @@ export default function ViralToday() {
   );
 
   // ── Filtered videos ──────────────────────────────────────────────────────────
-
-  const { videos: filteredVideos, formatCounts, availableNiches } = (() => {
+  // MEMOIZED — this used to be an IIFE that re-filtered AND re-sorted up to
+  // 5,000 rows on every render (every keystroke, every hover-driven state
+  // change), with Date parsing inside the sort comparators. Now it runs only
+  // when an input actually changes, search is debounced, and sort keys are
+  // computed once per video (decorate-sort-undecorate) instead of per
+  // comparison.
+  const { videos: filteredVideos, formatCounts, availableNiches } = useMemo(() => {
     let result = [...videos];
 
     // Feed mode — "watchlist" narrows to the user's watchlist channels.
@@ -2284,8 +2358,8 @@ export default function ViralToday() {
     // Platform, date, outlier, views, engagement are filtered server-side in fetchVideos()
 
     // Smart search: hashtag_source match, strip #/@, partial words, joined words
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
       const words = q.split(/\s+/);
       const joined = words.join(""); // "saleshumor"
       result = result.filter((v) => {
@@ -2304,15 +2378,14 @@ export default function ViralToday() {
       });
     }
 
-    // Sort
+    // Sort — decorate-sort-undecorate for the expensive keys so scores and
+    // timestamps are computed once per video, not once per comparison.
     switch (filterSort) {
       case "foryou": {
         const now = Date.now();
-        result.sort((a, b) => {
-          const scoreA = computeFeedScore(a, now);
-          const scoreB = computeFeedScore(b, now);
-          return scoreB - scoreA;
-        });
+        const scored = result.map((v) => [computeFeedScore(v, now), v] as const);
+        scored.sort((a, b) => b[0] - a[0]);
+        result = scored.map((s) => s[1]);
         break;
       }
       case "outlier":
@@ -2324,15 +2397,16 @@ export default function ViralToday() {
       case "engagement":
         result.sort((a, b) => b.engagement_rate - a.engagement_rate);
         break;
-      default: // recent
-        // Sort by true post date. Videos with no known post date (e.g. a
-        // submission whose scraper couldn't recover the original date) sort to
-        // the bottom instead of being treated as "posted now" and pinned to top.
-        result.sort((a, b) => {
-          const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
-          const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
-          return tb - ta;
-        });
+      default: {
+        // recent — sort by true post date. Videos with no known post date
+        // (e.g. a submission whose scraper couldn't recover the original
+        // date) sort to the bottom instead of pinning to top as "now".
+        const stamped = result.map(
+          (v) => [v.posted_at ? Date.parse(v.posted_at) : 0, v] as const,
+        );
+        stamped.sort((a, b) => b[0] - a[0]);
+        result = stamped.map((s) => s[1]);
+      }
     }
 
     // Tally per-format counts BEFORE applying activeFormat (counts reflect all other filters).
@@ -2359,7 +2433,10 @@ export default function ViralToday() {
       formatCounts: formatTally,
       availableNiches: Array.from(nicheTally.entries()).map(([slug, count]) => ({ slug, count })),
     };
-  })();
+  }, [
+    videos, feedMode, activeWatchlistChannelIds, filterSource, showOnlyFeatured,
+    selectedNiches, debouncedSearch, filterSort, computeFeedScore, activeFormat,
+  ]);
 
   // Pagination
   const totalPages = Math.ceil(filteredVideos.length / videosPerPage);
@@ -2464,7 +2541,8 @@ export default function ViralToday() {
 
   // Reset to the same defaults a first visit gets (and the rail's Reset
   // button) — previously this landed on outlier 0 / views 0, a different
-  // state than every other reset path.
+  // state than every other reset path. Also resets feed mode: "Clear all
+  // filters" in Watchlist mode with an empty list used to be a dead end.
   const clearFilters = () => {
     setFilterDate("12months");
     setFilterPlatform("all");
@@ -2478,6 +2556,26 @@ export default function ViralToday() {
     setShowOnlyFeatured(false);
     setSelectedNiches([]);
     setActiveFormat("all");
+    setFeedMode("global");
+    setCurrentPage(0);
+  };
+
+  // True whenever the SERVER-side filters could be excluding rows — used to
+  // tell "your library is empty" apart from "your filters hid everything".
+  const serverFiltersActive =
+    filterOutlier !== "0" || filterViews !== "0" || filterEngagement !== "0" ||
+    filterDate !== "all" || filterPlatform !== "all";
+
+  // Escape hatch for the filtered-empty state: drop every server-side filter
+  // (the regular clearFilters returns to the curated defaults, which are
+  // themselves filters — useless when those defaults ARE what hid everything).
+  const showAllVideos = () => {
+    setFilterDate("all");
+    setFilterPlatform("all");
+    setFilterOutlier("0");
+    setFilterViews("0");
+    setFilterEngagement("0");
+    setFeedMode("global");
     setCurrentPage(0);
   };
 
@@ -2546,7 +2644,7 @@ export default function ViralToday() {
   return (
     <PageTransition className="editorial-page flex-1 flex flex-col min-h-screen overflow-hidden">
 
-        <div className="flex-1 px-5 sm:px-8 pt-6 pb-12 overflow-auto">
+        <div ref={scrollRef} className="flex-1 px-5 sm:px-8 pt-6 pb-12 overflow-auto">
 
           {/* ── Header ── */}
           <div className="mb-5">
@@ -2786,6 +2884,37 @@ export default function ViralToday() {
                   <div className="flex items-center justify-center py-24">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
+                ) : videos.length === 0 && serverFiltersActive ? (
+                  // Server-side filters returned zero rows. This is NOT the
+                  // onboarding case — the library may be full; the filters
+                  // hid everything. Name the filters and offer the real fix.
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <Filter className="w-6 h-6 text-muted-foreground mb-3" />
+                    <p className="text-sm font-medium text-foreground mb-1">{t.noVideosMatch}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-center my-3 max-w-md">
+                      {filterOutlier !== "0" && (
+                        <span className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/10 text-primary text-[10px] font-medium">Outlier ≥ {filterOutlier}x</span>
+                      )}
+                      {filterViews !== "0" && (
+                        <span className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/10 text-primary text-[10px] font-medium">Views ≥ {fmtViews(parseInt(filterViews))}</span>
+                      )}
+                      {filterEngagement !== "0" && (
+                        <span className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/10 text-primary text-[10px] font-medium">Engagement ≥ {filterEngagement}%</span>
+                      )}
+                      {filterDate !== "all" && (
+                        <span className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/10 text-primary text-[10px] font-medium">{getDateOpts(t).find((o) => o.value === filterDate)?.label ?? filterDate}</span>
+                      )}
+                      {filterPlatform !== "all" && (
+                        <span className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/10 text-primary text-[10px] font-medium capitalize">{filterPlatform}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={showAllVideos}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium transition-all"
+                    >
+                      Show all videos
+                    </button>
+                  </div>
                 ) : videos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-muted border border-border">
@@ -2822,22 +2951,23 @@ export default function ViralToday() {
                       animate="show"
                       className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mb-6"
                     >
-                      <AnimatePresence>
-                        {paginatedVideos.map((v) => (
-                          <VideoCard
-                            key={v.id}
-                            video={v}
-                            isAdmin={isAdmin}
-                            onDelete={(id) => setVideos((prev) => prev.filter((x) => x.id !== id))}
-                            selected={selectedVideos.has(v.id)}
-                            onToggleSelect={toggleVideoSelect}
-                            onClickVideo={reportClick}
-                            onSeen={markSeen}
-                            onToggleFeatured={isAdmin ? handleToggleFeatured : undefined}
-                            onChannelClick={(username) => setSearch(username)}
-                          />
-                        ))}
-                      </AnimatePresence>
+                      {/* No AnimatePresence here on purpose: page changes used
+                          to run 100 exit + 100 enter animations at once. */}
+                      {paginatedVideos.map((v, i) => (
+                        <VideoCard
+                          key={v.id}
+                          video={v}
+                          index={i}
+                          isAdmin={isAdmin}
+                          onDelete={handleVideoDeleted}
+                          selected={selectedVideos.has(v.id)}
+                          onToggleSelect={toggleVideoSelect}
+                          onClickVideo={reportClick}
+                          onSeen={markSeen}
+                          onToggleFeatured={isAdmin ? handleToggleFeatured : undefined}
+                          onChannelClick={handleChannelFilter}
+                        />
+                      ))}
                     </motion.div>
 
                     {/* Pagination Controls - Simple Centered */}
