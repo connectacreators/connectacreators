@@ -47,6 +47,7 @@ interface FilterRailProps {
   feedMode: "global" | "watchlist";
   onFeedModeChange: (m: "global" | "watchlist") => void;
   watchlistCount: number; // channels in the active list selection
+  allChannelCount?: number; // union of channels across EVERY list (for the "All watchlists" label)
   watchlists: { id: string; name: string; count: number }[];
   activeWatchlistId: string; // "all" | listId
   onActiveWatchlistChange: (id: string) => void;
@@ -220,7 +221,7 @@ export function FilterRail(props: FilterRailProps) {
               value={props.activeWatchlistId}
               onChange={props.onActiveWatchlistChange}
               options={[
-                { value: "all", label: `All watchlists${props.watchlistCount > 0 ? ` (${props.watchlistCount})` : ""}` },
+                { value: "all", label: `All watchlists${(props.allChannelCount ?? 0) > 0 ? ` (${props.allChannelCount})` : ""}` },
                 ...props.watchlists.map((w) => ({ value: w.id, label: `${w.name} (${w.count})` })),
               ]}
               footer={

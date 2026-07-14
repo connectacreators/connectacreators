@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { cn } from "@/lib/utils";
 import { CONTENT_FORMATS, nicheLabel } from "@/lib/video-taxonomy";
+import { fmtViews, fmtOutlier, timeAgo, getOutlierColor } from "@/lib/viral-card-utils";
 
 // ==================== TYPES ====================
 interface FormatDetection {
@@ -75,40 +76,9 @@ interface ClientOption {
   name: string;
 }
 
-// ==================== HELPERS (same as ViralToday) ====================
-function fmtViews(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
-}
-
-function fmtOutlier(score: number): string {
-  if (score >= 100) return `${Math.round(score)}x`;
-  if (score >= 10) return `${score.toFixed(1)}x`;
-  return `${score.toFixed(1)}x`;
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "—";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86_400_000);
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
-
-function getOutlierColor(score: number): string {
-  if (score >= 10) return "text-orange-400";
-  if (score >= 5) return "text-emerald-400";
-  if (score >= 2) return "text-green-400";
-  if (score >= 1.5) return "text-lime-400";
-  return "text-gray-400";
-}
-
+// Formatting + color helpers are imported from viral-card-utils — this page
+// used to keep local copies with DIFFERENT thresholds, so the same video got
+// a different outlier color here than in the grid.
 
 const VPS_API = "https://connectacreators.com/api";
 
@@ -618,15 +588,17 @@ export default function ViralVideoDetail() {
             </button>
           )}
         </div>
-        <a
-          href={video.video_url ?? "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Open original
-        </a>
+        {video.video_url && (
+          <a
+            href={video.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Open original
+          </a>
+        )}
       </div>
 
       {/* Main content — single-view no-scroll layout */}
@@ -646,7 +618,7 @@ export default function ViralVideoDetail() {
 
             {/* Single compact metadata line */}
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span className={cn("font-semibold tabular-nums", video.outlier_score >= 10 ? "text-orange-400" : outlierColor)}>
+              <span className={cn("font-semibold tabular-nums", outlierColor)}>
                 {fmtOutlier(video.outlier_score)}
               </span>
               <span>·</span>
@@ -654,7 +626,7 @@ export default function ViralVideoDetail() {
               <span>·</span>
               <span className="tabular-nums">{video.engagement_rate.toFixed(1)}%</span>
               <span>·</span>
-              <span>{timeAgo(video.posted_at)}</span>
+              <span>{timeAgo(video.posted_at) || "—"}</span>
               {formatDetection && (() => {
                 const fmt = formatDetection.format;
                 const cfg: Record<string, { label: string; color: string }> = {
@@ -785,7 +757,9 @@ export default function ViralVideoDetail() {
                       onClick={handleRefreshFile}
                       className="text-xs text-muted-foreground underline px-4 py-2 border-t border-border text-left flex-shrink-0 hover:text-foreground transition-colors"
                     >
-                      Video file expired — click to refresh
+                      {video.video_file_expires_at
+                        ? "Video file expired — click to refresh"
+                        : "Fetch video file for playback"}
                     </button>
                   )}
                 </>
@@ -861,7 +835,12 @@ export default function ViralVideoDetail() {
             <div className="flex items-center gap-1">
               <select
                 value={saveClientId}
-                onChange={(e) => setSaveClientId(e.target.value)}
+                onChange={(e) => {
+                  setSaveClientId(e.target.value);
+                  // A previous "Saved ✓" belongs to the OLD client — reset so
+                  // the button doesn't claim client B is saved.
+                  setSaveMode("idle");
+                }}
                 className="h-8 rounded-md border border-border bg-background text-xs px-2"
               >
                 <option value="">Vault…</option>

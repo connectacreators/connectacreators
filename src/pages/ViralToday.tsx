@@ -460,36 +460,46 @@ const VideoCard = memo(function VideoCard({
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     let fired = false;
+    let visible = false;
+
+    const attempt = async () => {
+      if (fired || !visible) return;
+      if (!acquireCategorizeSlot()) {
+        // All slots busy. IntersectionObserver only fires on threshold
+        // CROSSINGS, so a card that stays fully visible would never retry —
+        // reschedule ourselves until a slot frees up.
+        timer = setTimeout(attempt, 3000);
+        return;
+      }
+      fired = true;
+      setCategorizing(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-categorize`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+            body: JSON.stringify({ viral_video_id: video.id }),
+          },
+        );
+        // Result lands via the row-level realtime subscription already wired up.
+      } catch {
+        // Silent fail — the user can retry by visiting the detail page.
+      } finally {
+        releaseCategorizeSlot();
+        setCategorizing(false);
+      }
+    };
 
     const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || fired) return;
-      timer = setTimeout(async () => {
-        if (fired) return;
-        if (!acquireCategorizeSlot()) {
-          // Backed off — observer will re-fire if the card stays visible.
-          timer = null;
-          return;
-        }
-        fired = true;
-        setCategorizing(true);
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/viral-video-categorize`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-              body: JSON.stringify({ viral_video_id: video.id }),
-            },
-          );
-          // Result lands via the row-level realtime subscription already wired up.
-        } catch {
-          // Silent fail — the user can retry by visiting the detail page.
-        } finally {
-          releaseCategorizeSlot();
-          setCategorizing(false);
-        }
-      }, 1500);  // 1.5s debounce per spec
+      visible = entry.isIntersecting;
+      if (!entry.isIntersecting) {
+        if (timer) { clearTimeout(timer); timer = null; }
+        return;
+      }
+      if (fired) return;
+      timer = setTimeout(attempt, 1500); // 1.5s debounce per spec
     }, { threshold: 0.5 });
 
     observer.observe(el);
@@ -677,9 +687,10 @@ const VideoCard = memo(function VideoCard({
             >
               {deleting ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Trash2 className="w-3 h-3 text-white/80" />}
             </button>
-          ) : (
+          ) : video.video_url ? (
+            // Only render with a real URL — href="#" just scrolled to top.
             <a
-              href={video.video_url ?? "#"}
+              href={video.video_url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -688,7 +699,7 @@ const VideoCard = memo(function VideoCard({
             >
               <ExternalLink className="w-3 h-3 text-white/80" />
             </a>
-          )}
+          ) : null}
         </div>
 
         {/* Hover overlay */}
@@ -1127,7 +1138,8 @@ function WatchlistManager({
               onChange={(e) => { onActiveWatchlistChange(e.target.value); setRenaming(false); }}
               className="flex-1 h-8 px-2 bg-input border border-border rounded-md text-xs font-medium text-foreground focus:outline-none focus:border-primary/50"
             >
-              <option value="all">All watchlists ({activeWatchlistChannelIds.size})</option>
+              {/* Union across every list — not the currently-active selection's size */}
+              <option value="all">All watchlists ({listsByChannel.size})</option>
               {watchlists.map((w) => <option key={w.id} value={w.id}>{w.name} ({w.count})</option>)}
             </select>
             <button
@@ -1342,6 +1354,39 @@ export default function ViralToday() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Realtime fallback: if the websocket drops, "Analyzing…" badges strand
+  // forever. While any card is analyzing, poll those rows every 10s and patch
+  // whatever realtime missed. No-ops (and no interval) when nothing is
+  // in flight. The ref lets the interval read the latest list without
+  // re-subscribing on every videos change.
+  const videosStateRef = useRef<ViralVideo[]>([]);
+  useEffect(() => { videosStateRef.current = videos; }, [videos]);
+  const hasAnalyzing = videos.some((v) => v.analysis_status === "analyzing");
+  useEffect(() => {
+    if (!hasAnalyzing) return;
+    const iv = setInterval(async () => {
+      const ids = videosStateRef.current
+        .filter((v) => v.analysis_status === "analyzing")
+        .map((v) => v.id);
+      if (ids.length === 0) return;
+      const { data } = await supabase
+        .from("viral_videos")
+        .select("id, analysis_status, analysis_error, content_format, primary_niche")
+        .in("id", ids.slice(0, 200));
+      if (!data?.length) return;
+      const byId = new Map(data.map((r: any) => [r.id, r]));
+      setVideos((prev) =>
+        prev.map((v) => {
+          const fresh = byId.get(v.id);
+          if (!fresh || fresh.analysis_status === v.analysis_status) return v;
+          return { ...v, ...fresh };
+        }),
+      );
+    }, 10_000);
+    return () => clearInterval(iv);
+  }, [hasAnalyzing]);
+
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
@@ -2758,6 +2803,7 @@ export default function ViralToday() {
                       feedMode={feedMode}
                       onFeedModeChange={setFeedMode}
                       watchlistCount={activeWatchlistChannelIds.size}
+                      allChannelCount={listsByChannel.size}
                       watchlists={watchlistsWithCounts}
                       activeWatchlistId={activeWatchlistId}
                       onActiveWatchlistChange={setActiveWatchlistId}
@@ -2934,7 +2980,7 @@ export default function ViralToday() {
                   </div>
                 ) : filteredVideos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <Filter className="w-6 h-6 text-[#94a3b8] mb-3" />
+                    <Filter className="w-6 h-6 text-muted-foreground mb-3" />
                     <p className="text-sm font-medium text-foreground mb-1">{t.noVideosMatch}</p>
                     <button
                       onClick={clearFilters}
@@ -3056,6 +3102,7 @@ export default function ViralToday() {
                           feedMode={feedMode}
                           onFeedModeChange={setFeedMode}
                           watchlistCount={activeWatchlistChannelIds.size}
+                          allChannelCount={listsByChannel.size}
                           watchlists={watchlistsWithCounts}
                           activeWatchlistId={activeWatchlistId}
                           onActiveWatchlistChange={setActiveWatchlistId}
@@ -3294,35 +3341,31 @@ export default function ViralToday() {
           </AnimatePresence>
         </div>
 
-      {/* Floating action bar — visible when 2+ videos selected (admin only) */}
+      {/* Floating action bar — appears from the FIRST selection (a single
+          selected card used to give zero feedback until a second was picked) */}
       <AnimatePresence>
-        {isAdmin && selectedVideos.size >= 2 && (
+        {isAdmin && selectedVideos.size >= 1 && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-5 py-3 rounded-2xl shadow-2xl"
-            style={{
-              background: "rgba(24,24,27,0.85)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(63,63,70,0.5)",
-            }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-5 py-3 rounded-2xl shadow-2xl bg-card/90 backdrop-blur-md border border-border"
           >
-            <span style={{ fontSize: 13, color: "#a1a1aa" }}>
-              <span style={{ color: "hsl(var(--aqua))", fontWeight: 700 }}>{selectedVideos.size}</span> videos selected
+            <span className="text-[13px] text-muted-foreground">
+              <span className="font-bold" style={{ color: "hsl(var(--aqua))" }}>{selectedVideos.size}</span>
+              {" "}video{selectedVideos.size === 1 ? "" : "s"} selected
             </span>
             <button
               onClick={() => setShowBatchModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "hsl(var(--aqua))", color: "#000" }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110 text-primary-foreground"
+              style={{ background: "hsl(var(--aqua))" }}
             >
-              Generate Scripts <ArrowRight className="w-4 h-4" />
+              Generate Script{selectedVideos.size === 1 ? "" : "s"} <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => setSelectedVideos(new Map())}
-              style={{ fontSize: 12, color: "#71717a", background: "none", border: "none", cursor: "pointer" }}
-              className="hover:text-white transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors bg-transparent border-none cursor-pointer"
             >
               Clear
             </button>

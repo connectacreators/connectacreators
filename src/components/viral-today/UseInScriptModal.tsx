@@ -175,6 +175,14 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
     }
   };
 
+  // Escape closes (backdrop click already did).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -182,19 +190,19 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div
-        className="relative rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
-        style={{ background: "#18181b", borderColor: "#27272a", width: "min(560px, 92vw)", maxHeight: "85vh" }}
+        className="relative rounded-2xl shadow-2xl border border-border bg-card overflow-hidden flex flex-col"
+        style={{ width: "min(560px, 92vw)", maxHeight: "85vh" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #27272a" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fafafa" }}>Use in Script</h2>
-            <p style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}>
+            <h2 className="text-base font-bold text-foreground">Use in Script</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Attach this video to a script as inspiration, or start a new script from it.
             </p>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/10" aria-label="Close">
-            <X className="w-4 h-4" style={{ color: "#a1a1aa" }} />
+          <button onClick={onClose} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted" aria-label="Close">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -202,14 +210,13 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
           {/* Client */}
           {clientOptions.length > 1 && (
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Client
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="mt-1 w-full h-9 rounded-md border text-sm px-2"
-                style={{ background: "#09090b", borderColor: "#27272a", color: "#fafafa" }}
+                className="mt-1 w-full h-9 rounded-md border border-border bg-background text-sm px-2 text-foreground"
               >
                 <option value="">Choose a client…</option>
                 {clientOptions.map((c) => (
@@ -219,40 +226,38 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
             </div>
           )}
 
-          {/* Lane */}
+          {/* Lane — violet/cyan are semantic lane accents (not palette hex) */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               Use as
             </label>
             <div className="mt-1 grid grid-cols-2 gap-2">
               <button
                 onClick={() => setLane("idea")}
-                className="flex items-start gap-2 rounded-lg border p-3 text-left transition-colors"
-                style={{
-                  borderColor: lane === "idea" ? "#8b5cf6" : "#27272a",
-                  background: lane === "idea" ? "rgba(139,92,246,0.10)" : "transparent",
-                }}
+                className={
+                  "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors " +
+                  (lane === "idea" ? "border-violet-500 bg-violet-500/10" : "border-border bg-transparent")
+                }
               >
-                <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" style={{ color: lane === "idea" ? "#a78bfa" : "#71717a" }} />
+                <Lightbulb className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "idea" ? "text-violet-400" : "text-muted-foreground")} />
                 <span>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#fafafa" }}>Idea inspiration</span>
-                  <span style={{ display: "block", fontSize: 11, color: "#71717a", marginTop: 2 }}>
+                  <span className="block text-[13px] font-semibold text-foreground">Idea inspiration</span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">
                     What the script is about — added to the script's inspiration list.
                   </span>
                 </span>
               </button>
               <button
                 onClick={() => setLane("format")}
-                className="flex items-start gap-2 rounded-lg border p-3 text-left transition-colors"
-                style={{
-                  borderColor: lane === "format" ? "#22d3ee" : "#27272a",
-                  background: lane === "format" ? "rgba(34,211,238,0.08)" : "transparent",
-                }}
+                className={
+                  "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors " +
+                  (lane === "format" ? "border-cyan-400 bg-cyan-400/10" : "border-border bg-transparent")
+                }
               >
-                <Clapperboard className="w-4 h-4 mt-0.5 shrink-0" style={{ color: lane === "format" ? "#67e8f9" : "#71717a" }} />
+                <Clapperboard className={"w-4 h-4 mt-0.5 shrink-0 " + (lane === "format" ? "text-cyan-300" : "text-muted-foreground")} />
                 <span>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#fafafa" }}>Film & edit reference</span>
-                  <span style={{ display: "block", fontSize: 11, color: "#71717a", marginTop: 2 }}>
+                  <span className="block text-[13px] font-semibold text-foreground">Film & edit reference</span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">
                     How to shoot and edit it — one reference per script.
                   </span>
                 </span>
@@ -263,14 +268,13 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
           {/* Script list */}
           <div className="flex flex-col gap-2 min-h-0">
             <div className="flex items-center justify-between gap-2">
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Add to a script
               </label>
               <button
                 onClick={createNewScript}
                 disabled={!clientId || creating}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
-                style={{ background: "#fafafa", color: "#18181b" }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 bg-foreground text-background hover:opacity-90"
               >
                 {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 New script from this video
@@ -278,25 +282,24 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
             </div>
 
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "#52525b" }} />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search scripts…"
-                className="w-full h-8 rounded-md border text-sm pl-8 pr-2"
-                style={{ background: "#09090b", borderColor: "#27272a", color: "#fafafa" }}
+                className="w-full h-8 rounded-md border border-border bg-background text-sm pl-8 pr-2 text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
-            <div className="overflow-y-auto rounded-lg border" style={{ borderColor: "#27272a", maxHeight: 260 }}>
+            <div className="overflow-y-auto rounded-lg border border-border" style={{ maxHeight: 260 }}>
               {!clientId ? (
-                <p className="text-center py-8" style={{ fontSize: 12, color: "#71717a" }}>Choose a client to see their scripts.</p>
+                <p className="text-center py-8 text-xs text-muted-foreground">Choose a client to see their scripts.</p>
               ) : loadingScripts ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#71717a" }} />
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                 </div>
               ) : filtered.length === 0 ? (
-                <p className="text-center py-8" style={{ fontSize: 12, color: "#71717a" }}>
+                <p className="text-center py-8 text-xs text-muted-foreground">
                   {search ? "No scripts match your search." : "No scripts yet for this client — create one above."}
                 </p>
               ) : (
@@ -307,25 +310,24 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
                       key={s.id}
                       onClick={() => attachToScript(s)}
                       disabled={busyScriptId === s.id}
-                      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/5 disabled:opacity-60"
-                      style={{ borderBottom: "1px solid #27272a" }}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 disabled:opacity-60 border-b border-border last:border-b-0"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: "#fafafa" }}>
+                        <span className="block truncate text-[13px] font-medium text-foreground">
                           {s.title ?? "Untitled"}
                         </span>
                         {lane === "format" && s.format_reference_url && !attached && (
-                          <span style={{ fontSize: 10, color: "#f59e0b" }}>Has a reference — will be replaced</span>
+                          <span className="text-[10px] text-amber-500">Has a reference — will be replaced</span>
                         )}
                       </span>
                       {busyScriptId === s.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: "#71717a" }} />
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0 text-muted-foreground" />
                       ) : attached ? (
-                        <span className="flex items-center gap-1 shrink-0" style={{ fontSize: 11, color: "#34d399" }}>
+                        <span className="flex items-center gap-1 shrink-0 text-[11px] text-emerald-500">
                           <Check className="w-3.5 h-3.5" /> Attached
                         </span>
                       ) : (
-                        <Plus className="w-4 h-4 shrink-0" style={{ color: "#71717a" }} />
+                        <Plus className="w-4 h-4 shrink-0 text-muted-foreground" />
                       )}
                     </button>
                   );
