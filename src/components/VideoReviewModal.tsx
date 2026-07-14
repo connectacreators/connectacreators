@@ -172,6 +172,8 @@ export default function VideoReviewModal({
   const [footageDownloading, setFootageDownloading] = useState(false);
   const [showFootageAutocomplete, setShowFootageAutocomplete] = useState(false);
   const [footageSearchQuery, setFootageSearchQuery] = useState('');
+  const [showEditAutocomplete, setShowEditAutocomplete] = useState(false);
+  const [editSearchQuery, setEditSearchQuery] = useState('');
   const [availableFootageFiles, setAvailableFootageFiles] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -334,36 +336,68 @@ export default function VideoReviewModal({
     }
   };
 
+  // --- @-mention footage autocomplete (shared by the new-note input and the
+  // inline edit input). `computeAtQuery` returns the partial filename being
+  // typed after a trailing "@", or null when no active mention. `insertFootageInto`
+  // replaces that partial token with the chosen filename. ---
+  const computeAtQuery = (value: string): string | null => {
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex === -1) return null;
+    const afterAt = value.substring(lastAtIndex + 1);
+    if (afterAt.includes(' ') || afterAt.length >= 50) return null;
+    return afterAt;
+  };
+
+  const insertFootageInto = (value: string, filename: string): string => {
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex === -1) return value;
+    const beforeAt = value.substring(0, lastAtIndex);
+    const afterAt = value.substring(lastAtIndex + 1);
+    const afterAtEndIndex = afterAt.search(/\s/);
+    const afterEnd = afterAtEndIndex === -1 ? '' : afterAt.substring(afterAtEndIndex);
+    return `${beforeAt}@${filename}${afterEnd}`;
+  };
+
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNewComment(value);
-
-    const lastAtIndex = value.lastIndexOf('@');
-    if (lastAtIndex !== -1) {
-      const afterAt = value.substring(lastAtIndex + 1);
-      if (!afterAt.includes(' ') && afterAt.length < 50) {
-        setFootageSearchQuery(afterAt);
-        setShowFootageAutocomplete(availableFootageFiles.length > 0);
-      } else {
-        setShowFootageAutocomplete(false);
-      }
+    const query = computeAtQuery(value);
+    if (query !== null) {
+      setFootageSearchQuery(query);
+      setShowFootageAutocomplete(availableFootageFiles.length > 0);
     } else {
       setShowFootageAutocomplete(false);
     }
   };
 
   const insertFootage = (filename: string) => {
-    const lastAtIndex = newComment.lastIndexOf('@');
-    if (lastAtIndex !== -1) {
-      const beforeAt = newComment.substring(0, lastAtIndex);
-      const afterAt = newComment.substring(lastAtIndex + 1);
-      const afterAtEndIndex = afterAt.search(/\s/);
-      const afterEnd = afterAtEndIndex === -1 ? '' : afterAt.substring(afterAtEndIndex);
-      setNewComment(`${beforeAt}@${filename}${afterEnd}`);
-    }
+    setNewComment(prev => insertFootageInto(prev, filename));
     setShowFootageAutocomplete(false);
     setFootageSearchQuery('');
   };
+
+  const handleEditTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEditText(value);
+    const query = computeAtQuery(value);
+    if (query !== null) {
+      setEditSearchQuery(query);
+      setShowEditAutocomplete(availableFootageFiles.length > 0);
+    } else {
+      setShowEditAutocomplete(false);
+    }
+  };
+
+  const insertFootageIntoEdit = (filename: string) => {
+    setEditText(prev => insertFootageInto(prev, filename));
+    setShowEditAutocomplete(false);
+    setEditSearchQuery('');
+  };
+
+  const filteredEditFootage = useMemo(() => {
+    if (!editSearchQuery) return availableFootageFiles;
+    return availableFootageFiles.filter(f => f.toLowerCase().includes(editSearchQuery.toLowerCase()));
+  }, [availableFootageFiles, editSearchQuery]);
 
   const isActiveSupabase = activeSource?.type === 'supabase' && !!videoUrl;
   const isActiveDrive = activeSource?.type === 'drive' && !!activeSource.driveId;
@@ -931,11 +965,26 @@ export default function VideoReviewModal({
 
                     {editingId === c.id ? (
                       <div className="flex gap-1.5 mt-1">
-                        <Input autoFocus value={editText} onChange={(e) => setEditText(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') handleEditComment(c.id); if (e.key === 'Escape') setEditingId(null); }}
-                          className="h-7 text-sm" />
+                        <div className="relative flex-1">
+                          <Input autoFocus value={editText} onChange={handleEditTextChange}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleEditComment(c.id); if (e.key === 'Escape') { setEditingId(null); setShowEditAutocomplete(false); } }}
+                            className="h-7 text-sm" />
+                          {showEditAutocomplete && filteredEditFootage.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                              {filteredEditFootage.map((footage) => (
+                                <button
+                                  key={footage}
+                                  onClick={() => insertFootageIntoEdit(footage)}
+                                  className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm text-foreground"
+                                >
+                                  @{footage}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <Button size="sm" className="h-7 text-xs px-2" onClick={() => handleEditComment(c.id)}>Save</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingId(null)}>Cancel</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setEditingId(null); setShowEditAutocomplete(false); }}>Cancel</Button>
                       </div>
                     ) : (
                       <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-words [overflow-wrap:anywhere]"
