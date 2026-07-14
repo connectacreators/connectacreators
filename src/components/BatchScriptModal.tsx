@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { X, Loader2, Info, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface ViralVideo {
   id: string;
@@ -139,24 +142,18 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading clients…
               </div>
             ) : (
-              <select
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                className="w-full h-9 rounded-lg px-3 text-sm"
-                style={{
-                  background: "#27272a",
-                  border: "1px solid #3f3f46",
-                  color: "#fafafa",
-                  outline: "none",
-                }}
-              >
-                <option value="">Select a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedClientId || undefined} onValueChange={setSelectedClientId}>
+                <SelectTrigger className="w-full h-9 text-sm">
+                  <SelectValue placeholder="Select a client…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
 

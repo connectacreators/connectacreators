@@ -10,6 +10,9 @@ import UseInScriptModal from "@/components/viral-today/UseInScriptModal";
 import { videoUrlLookupVariants } from "@/lib/canonicalize-video-url";
 import { ViralVideoPlayer } from "@/components/video/ViralVideoPlayer";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, type Client } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/client";
@@ -833,19 +836,26 @@ export default function ViralVideoDetail() {
             </Button>
           ) : clientOptions.length > 1 ? (
             <div className="flex items-center gap-1">
-              <select
-                value={saveClientId}
-                onChange={(e) => {
-                  setSaveClientId(e.target.value);
+              {/* Themed select (Radix) — value must be non-empty, so the
+                  placeholder carries the unselected state. */}
+              <Select
+                value={saveClientId || undefined}
+                onValueChange={(v) => {
+                  setSaveClientId(v);
                   // A previous "Saved ✓" belongs to the OLD client — reset so
                   // the button doesn't claim client B is saved.
                   setSaveMode("idle");
                 }}
-                className="h-8 rounded-md border border-border bg-background text-xs px-2"
               >
-                <option value="">Vault…</option>
-                {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs px-2">
+                  <SelectValue placeholder="Vault…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 onClick={handleSaveToVault}
                 disabled={!saveClientId || saveMode === "saving"}
@@ -875,14 +885,16 @@ export default function ViralVideoDetail() {
             </Button>
           ) : clientOptions.length > 1 ? (
             <div className="flex items-center gap-1">
-              <select
-                value={remixClientId}
-                onChange={(e) => setRemixClientId(e.target.value)}
-                className="h-8 rounded-md border border-border bg-background text-xs px-2"
-              >
-                <option value="">Client…</option>
-                {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <Select value={remixClientId || undefined} onValueChange={setRemixClientId}>
+                <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs px-2">
+                  <SelectValue placeholder="Client…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button onClick={handleRemixScript} disabled={!remixClientId} variant="ghost" size="sm" className="gap-2">
                 <Wand2 className="w-4 h-4" />
                 Remix in Canvas

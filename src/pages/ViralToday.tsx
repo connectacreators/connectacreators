@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useCredits } from "@/hooks/useCredits";
 import { getAuthToken } from "@/lib/getAuthToken";
@@ -1133,15 +1136,23 @@ function WatchlistManager({
       <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
         <div className="px-4 py-3 border-b border-border space-y-2">
           <div className="flex items-center gap-2">
-            <select
+            {/* Themed select — the native <select> rendered an OS/Chrome menu
+                that didn't match the app UI. */}
+            <Select
               value={activeWatchlistId}
-              onChange={(e) => { onActiveWatchlistChange(e.target.value); setRenaming(false); }}
-              className="flex-1 h-8 px-2 bg-input border border-border rounded-md text-xs font-medium text-foreground focus:outline-none focus:border-primary/50"
+              onValueChange={(v) => { onActiveWatchlistChange(v); setRenaming(false); }}
             >
-              {/* Union across every list — not the currently-active selection's size */}
-              <option value="all">All watchlists ({listsByChannel.size})</option>
-              {watchlists.map((w) => <option key={w.id} value={w.id}>{w.name} ({w.count})</option>)}
-            </select>
+              <SelectTrigger className="flex-1 h-8 px-2 bg-input text-xs font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* Union across every list — not the currently-active selection's size */}
+                <SelectItem value="all" className="text-xs">All watchlists ({listsByChannel.size})</SelectItem>
+                {watchlists.map((w) => (
+                  <SelectItem key={w.id} value={w.id} className="text-xs">{w.name} ({w.count})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               onClick={() => { setCreating((c) => !c); setNewName(""); }}
               title="New list"

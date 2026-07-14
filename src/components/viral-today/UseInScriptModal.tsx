@@ -11,6 +11,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Lightbulb, Clapperboard, Plus, Check, Search } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,16 +216,16 @@ export default function UseInScriptModal({ open, onClose, video, clientOptions }
               <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Client
               </label>
-              <select
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className="mt-1 w-full h-9 rounded-md border border-border bg-background text-sm px-2 text-foreground"
-              >
-                <option value="">Choose a client…</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <Select value={clientId || undefined} onValueChange={setClientId}>
+                <SelectTrigger className="mt-1 w-full h-9 text-sm">
+                  <SelectValue placeholder="Choose a client…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
