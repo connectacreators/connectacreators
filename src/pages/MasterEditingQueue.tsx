@@ -64,6 +64,7 @@ interface EditingQueueItem {
   storageUrl?: string | null;
   deleted_at?: string | null;
   archived_at?: string | null;
+  footage?: string | null;
 }
 
 const STATUS_OPTIONS = ["Not started", "In progress", "Needs Revision", "Done"];
@@ -343,6 +344,7 @@ export default function MasterEditingQueue() {
         storagePath: v.storage_path || null,
         storageUrl: v.storage_url || null,
         deadline: v.deadline || null,
+        footage: v.footage || null,
         source: 'db' as const,
       }));
 
@@ -2071,6 +2073,7 @@ export default function MasterEditingQueue() {
           uploadSource={reviewItem.uploadSource || null}
           storagePath={reviewItem.storagePath || null}
           fileSubmissionUrl={reviewItem.fileSubmissionUrl}
+          associatedFootage={reviewItem.footage}
           onCommentsChanged={() => {
             revisionCommentService.getUnresolvedCount(reviewItem.id)
               .then(count => setUnresolvedCounts(prev => ({ ...prev, [reviewItem.id]: count })));

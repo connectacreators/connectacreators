@@ -19,6 +19,7 @@ interface VideoReviewModalProps {
   uploadSource: string | null;
   storagePath: string | null;
   fileSubmissionUrl: string | null;
+  associatedFootage?: string | null;
   onCommentsChanged?: () => void;
   onStatusChanged?: (newStatus: string) => void;
 }
@@ -91,6 +92,42 @@ const ROLE_COLORS: Record<string, string> = {
   client: '#f59e0b',
 };
 
+function parseFootageList(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[')) {
+    try { return (JSON.parse(trimmed) as string[]).filter(Boolean); } catch { return []; }
+  }
+  return [trimmed].filter(Boolean);
+}
+
+function renderCommentWithFootageLinks(comment: string, footage: string[], onFootageClick: (filename: string) => void): React.ReactNode {
+  const footageSet = new Set(footage);
+  const parts: (string | React.ReactNode)[] = [];
+  const regex = /@([A-Za-z0-9_\-\.]+)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(comment)) !== null) {
+    const filename = match[1];
+    if (footageSet.has(filename)) {
+      parts.push(comment.slice(lastIndex, match.index));
+      parts.push(
+        <button
+          key={`footage-${match.index}`}
+          onClick={() => onFootageClick(filename)}
+          className="text-primary hover:underline font-medium"
+        >
+          @{filename}
+        </button>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+  }
+  parts.push(comment.slice(lastIndex));
+  return parts;
+}
+
 export default function VideoReviewModal({
   open,
   onClose,
@@ -99,6 +136,7 @@ export default function VideoReviewModal({
   uploadSource,
   storagePath,
   fileSubmissionUrl,
+  associatedFootage,
   onCommentsChanged,
   onStatusChanged,
 }: VideoReviewModalProps) {
@@ -116,6 +154,8 @@ export default function VideoReviewModal({
   const [isPaused, setIsPaused] = useState(true);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [footagePreviewOpen, setFootagePreviewOpen] = useState(false);
+  const [selectedFootageFile, setSelectedFootageFile] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [internalOnly, setInternalOnly] = useState(false);
@@ -211,6 +251,8 @@ export default function VideoReviewModal({
       .catch(() => toast.error('Failed to load comments'))
       .finally(() => setLoading(false));
   }, [open, videoEditId]);
+
+  const associatedFootageList = useMemo(() => parseFootageList(associatedFootage), [associatedFootage]);
 
   const isActiveSupabase = activeSource?.type === 'supabase' && !!videoUrl;
   const isActiveDrive = activeSource?.type === 'drive' && !!activeSource.driveId;
@@ -774,11 +816,10 @@ export default function VideoReviewModal({
                         onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
                         title="Double-click to edit"
                       >
-                        {c.comment.split(/(https?:\/\/[^\s]+)/g).map((part, idx) =>
-                          /^https?:\/\//.test(part)
-                            ? <a key={idx} href={part} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80" onClick={e => e.stopPropagation()}>{part}</a>
-                            : part
-                        )}
+                        {renderCommentWithFootageLinks(c.comment, associatedFootageList, (filename) => {
+                          setSelectedFootageFile(filename);
+                          setFootagePreviewOpen(true);
+                        })}
                       </p>
                     )}
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
@@ -796,6 +837,28 @@ export default function VideoReviewModal({
           </div>
         </div>
       </DialogContent>
+
+      {selectedFootageFile && (
+        <Dialog open={footagePreviewOpen} onOpenChange={setFootagePreviewOpen}>
+          <DialogContent className="max-w-2xl w-[95vw]">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{selectedFootageFile}</h2>
+              <button onClick={() => setFootagePreviewOpen(false)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Footage: <span className="font-mono font-semibold text-foreground">{selectedFootageFile}</span></p>
+              <p className="text-xs mt-2 text-muted-foreground/70">This footage is associated with the current video edit. Click the download button to access the full file.</p>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setFootagePreviewOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
