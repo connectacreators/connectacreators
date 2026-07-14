@@ -102,6 +102,15 @@ function parseFootageList(raw: string | null | undefined): string[] {
   return [trimmed].filter(Boolean);
 }
 
+// Footage files are categorized by extension (storage `list` gives us no MIME).
+// Mirrors FootagePanel's classification so the reference preview renders the
+// right element — a player for video, an <img> for stills.
+const FOOTAGE_IMAGE_EXTS = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.avif', '.heic', '.heif', '.bmp', '.svg'];
+function footageIsImage(name: string): boolean {
+  const lower = name.toLowerCase();
+  return FOOTAGE_IMAGE_EXTS.some(ext => lower.endsWith(ext));
+}
+
 function renderCommentWithFootageLinks(comment: string, footage: string[], onFootageClick: (filename: string) => void): React.ReactNode {
   const footageSet = new Set(footage);
   const parts: (string | React.ReactNode)[] = [];
@@ -158,10 +167,12 @@ export default function VideoReviewModal({
   const [downloading, setDownloading] = useState(false);
   const [footagePreviewOpen, setFootagePreviewOpen] = useState(false);
   const [selectedFootageFile, setSelectedFootageFile] = useState<string | null>(null);
+  const [footagePreviewUrl, setFootagePreviewUrl] = useState<string | null>(null);
+  const [footagePreviewLoading, setFootagePreviewLoading] = useState(false);
+  const [footageDownloading, setFootageDownloading] = useState(false);
   const [showFootageAutocomplete, setShowFootageAutocomplete] = useState(false);
   const [footageSearchQuery, setFootageSearchQuery] = useState('');
   const [availableFootageFiles, setAvailableFootageFiles] = useState<string[]>([]);
-  const [clientIdState, setClientIdState] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [internalOnly, setInternalOnly] = useState(false);
@@ -284,6 +295,44 @@ export default function VideoReviewModal({
     if (!footageSearchQuery) return availableFootageFiles;
     return availableFootageFiles.filter(f => f.toLowerCase().includes(footageSearchQuery.toLowerCase()));
   }, [availableFootageFiles, footageSearchQuery]);
+
+  // Resolve a playback URL for the referenced footage when its preview opens.
+  // Playback uses the proxy-aware resolver (fast 720p when ready); the Download
+  // button pulls the full-res original separately — never reuse one for both.
+  useEffect(() => {
+    if (!footagePreviewOpen || !selectedFootageFile) { setFootagePreviewUrl(null); return; }
+    let cancelled = false;
+    setFootagePreviewLoading(true);
+    setFootagePreviewUrl(null);
+    const path = `${clientId}/${videoEditId}/${selectedFootageFile}`;
+    const resolver = footageIsImage(selectedFootageFile)
+      ? videoUploadService.getSignedVideoUrl(path)
+      : videoUploadService.getPlaybackVideoUrl(path);
+    resolver
+      .then(url => { if (!cancelled) setFootagePreviewUrl(url); })
+      .catch(() => { if (!cancelled) toast.error('Failed to load footage'); })
+      .finally(() => { if (!cancelled) setFootagePreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [footagePreviewOpen, selectedFootageFile, clientId, videoEditId]);
+
+  const handleFootageDownload = async () => {
+    if (!selectedFootageFile) return;
+    setFootageDownloading(true);
+    try {
+      const path = `${clientId}/${videoEditId}/${selectedFootageFile}`;
+      const url = await videoUploadService.getDownloadVideoUrl(path, selectedFootageFile);
+      const a = document.createElement('a');
+      a.href = url;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      toast.error('Download failed');
+    } finally {
+      setFootageDownloading(false);
+    }
+  };
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -917,21 +966,42 @@ export default function VideoReviewModal({
 
       {selectedFootageFile && (
         <Dialog open={footagePreviewOpen} onOpenChange={setFootagePreviewOpen}>
-          <DialogContent className="max-w-2xl w-[95vw]">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{selectedFootageFile}</h2>
-              <button onClick={() => setFootagePreviewOpen(false)}>
-                <X className="h-4 w-4" />
-              </button>
+          <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 [&>button:last-child]:hidden overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <h2 className="text-sm font-semibold truncate font-mono">{selectedFootageFile}</h2>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={handleFootageDownload}
+                  disabled={footageDownloading}
+                >
+                  {footageDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {footageDownloading ? 'Downloading...' : 'Download'}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setFootagePreviewOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="mt-4 text-sm text-muted-foreground">
-              <p>Footage: <span className="font-mono font-semibold text-foreground">{selectedFootageFile}</span></p>
-              <p className="text-xs mt-2 text-muted-foreground/70">This footage is associated with the current video edit. Click the download button to access the full file.</p>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setFootagePreviewOpen(false)}>
-                Close
-              </Button>
+
+            <div className="p-4">
+              {footagePreviewLoading ? (
+                <div className="w-full aspect-video bg-black rounded-lg flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : !footagePreviewUrl ? (
+                <div className="w-full aspect-video bg-black rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                  Couldn't load this footage
+                </div>
+              ) : footageIsImage(selectedFootageFile) ? (
+                <div className="w-full bg-black rounded-lg overflow-hidden flex items-center justify-center" style={{ maxHeight: '60vh' }}>
+                  <img src={footagePreviewUrl} alt={selectedFootageFile} className="max-w-full max-h-[60vh] object-contain" />
+                </div>
+              ) : (
+                <ThemedVideoPlayer src={footagePreviewUrl} maxHeight="60vh" />
+              )}
             </div>
           </DialogContent>
         </Dialog>
