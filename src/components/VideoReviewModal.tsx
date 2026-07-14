@@ -156,6 +156,8 @@ export default function VideoReviewModal({
   const [downloading, setDownloading] = useState(false);
   const [footagePreviewOpen, setFootagePreviewOpen] = useState(false);
   const [selectedFootageFile, setSelectedFootageFile] = useState<string | null>(null);
+  const [showFootageAutocomplete, setShowFootageAutocomplete] = useState(false);
+  const [footageSearchQuery, setFootageSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [internalOnly, setInternalOnly] = useState(false);
@@ -253,6 +255,42 @@ export default function VideoReviewModal({
   }, [open, videoEditId]);
 
   const associatedFootageList = useMemo(() => parseFootageList(associatedFootage), [associatedFootage]);
+
+  const filteredFootage = useMemo(() => {
+    if (!footageSearchQuery) return associatedFootageList;
+    return associatedFootageList.filter(f => f.toLowerCase().includes(footageSearchQuery.toLowerCase()));
+  }, [associatedFootageList, footageSearchQuery]);
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewComment(value);
+
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const afterAt = value.substring(lastAtIndex + 1);
+      if (!afterAt.includes(' ') && afterAt.length < 50) {
+        setFootageSearchQuery(afterAt);
+        setShowFootageAutocomplete(associatedFootageList.length > 0);
+      } else {
+        setShowFootageAutocomplete(false);
+      }
+    } else {
+      setShowFootageAutocomplete(false);
+    }
+  };
+
+  const insertFootage = (filename: string) => {
+    const lastAtIndex = newComment.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const beforeAt = newComment.substring(0, lastAtIndex);
+      const afterAt = newComment.substring(lastAtIndex + 1);
+      const afterAtEndIndex = afterAt.search(/\s/);
+      const afterEnd = afterAtEndIndex === -1 ? '' : afterAt.substring(afterAtEndIndex);
+      setNewComment(`${beforeAt}@${filename}${afterEnd}`);
+    }
+    setShowFootageAutocomplete(false);
+    setFootageSearchQuery('');
+  };
 
   const isActiveSupabase = activeSource?.type === 'supabase' && !!videoUrl;
   const isActiveDrive = activeSource?.type === 'drive' && !!activeSource.driveId;
@@ -679,21 +717,36 @@ export default function VideoReviewModal({
                   />
                 </div>
               )}
-              <Input
-                placeholder={
-                  canSeek && rangeStart !== null
-                    ? `Add note for ${formatTimestamp(rangeStart)} – ${formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}...`
-                    : canSeek && isPaused
-                      ? `Add note at ${formatTimestamp(currentTime)}...`
-                      : !canSeek
-                        ? `Add revision note (prefix with 1:23 or 1:23-1:45 to set a time)`
-                        : 'Add revision note...'
-                }
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                className="flex-1 h-8 text-sm"
-              />
+              <div className="relative flex-1">
+                <Input
+                  placeholder={
+                    canSeek && rangeStart !== null
+                      ? `Add note for ${formatTimestamp(rangeStart)} – ${formatTimestamp(rangeEnd ?? Math.max(currentTime, rangeStart))}...`
+                      : canSeek && isPaused
+                        ? `Add note at ${formatTimestamp(currentTime)}...`
+                        : !canSeek
+                          ? `Add revision note (prefix with 1:23 or 1:23-1:45 to set a time) or type @ for footage`
+                          : 'Add revision note... (type @ for footage)'
+                  }
+                  value={newComment}
+                  onChange={handleCommentChange}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                  className="flex-1 h-8 text-sm"
+                />
+                {showFootageAutocomplete && filteredFootage.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                    {filteredFootage.map((footage) => (
+                      <button
+                        key={footage}
+                        onClick={() => insertFootage(footage)}
+                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm text-foreground"
+                      >
+                        @{footage}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {isAdmin && (
                 <button
                   type="button"
