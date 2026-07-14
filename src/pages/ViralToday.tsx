@@ -396,7 +396,7 @@ function releaseCategorizeSlot() {
 
 // Video card
 function VideoCard({
-  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured,
+  video, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured, onChannelClick,
 }: {
   video: ViralVideo;
   isAdmin?: boolean;
@@ -406,6 +406,7 @@ function VideoCard({
   onSeen?: (id: string) => void;
   onClickVideo?: (id: string) => void;
   onToggleFeatured?: (video: ViralVideo) => void;
+  onChannelClick?: (username: string) => void;
 }) {
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? Instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
@@ -746,7 +747,18 @@ function VideoCard({
 
         {/* Channel + time */}
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
+          {onChannelClick && video.channel_username ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChannelClick(video.channel_username); }}
+              className="text-[10px] text-muted-foreground font-medium hover:text-primary hover:underline transition-colors"
+              title={`Show only @${video.channel_username}'s videos`}
+            >
+              @{video.channel_username}
+            </button>
+          ) : (
+            <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
+          )}
           <span
             className="text-[10px] text-muted-foreground"
             title={video.user_submitted ? "You added this from /ai" : undefined}
@@ -2822,6 +2834,7 @@ export default function ViralToday() {
                             onClickVideo={reportClick}
                             onSeen={markSeen}
                             onToggleFeatured={isAdmin ? handleToggleFeatured : undefined}
+                            onChannelClick={(username) => setSearch(username)}
                           />
                         ))}
                       </AnimatePresence>
