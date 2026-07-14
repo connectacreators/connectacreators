@@ -294,7 +294,7 @@ export default function VideoReviewModal({
       const afterAt = value.substring(lastAtIndex + 1);
       if (!afterAt.includes(' ') && afterAt.length < 50) {
         setFootageSearchQuery(afterAt);
-        setShowFootageAutocomplete(associatedFootageList.length > 0);
+        setShowFootageAutocomplete(availableFootageFiles.length > 0);
       } else {
         setShowFootageAutocomplete(false);
       }
@@ -893,7 +893,7 @@ export default function VideoReviewModal({
                         onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
                         title="Double-click to edit"
                       >
-                        {renderCommentWithFootageLinks(c.comment, associatedFootageList, (filename) => {
+                        {renderCommentWithFootageLinks(c.comment, availableFootageFiles, (filename) => {
                           setSelectedFootageFile(filename);
                           setFootagePreviewOpen(true);
                         })}
