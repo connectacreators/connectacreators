@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Loader2, CheckCircle2, AlertTriangle, Sparkles, Zap, Layers } from "lucide-react";
+import { X, Loader2, CheckCircle2, AlertTriangle, ScanSearch, Zap, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/getAuthToken";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,7 +211,7 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
 
                   <ul className="space-y-1.5 text-xs text-muted-foreground">
                     <li className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <ScanSearch className="w-3.5 h-3.5 text-primary shrink-0" />
                       {maxRun} un-analyzed video{maxRun === 1 ? "" : "s"} available
                     </li>
                     {skippedDone > 0 && (
@@ -262,7 +262,7 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                       onClick={enqueue}
                       disabled={runCount === 0 || inputBlocks || !canAfford}
                     >
-                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      <ScanSearch className="w-3.5 h-3.5 mr-1.5" />
                       Analyze{runCount > 0 ? ` ${runCount}` : ""}
                     </Button>
                   </div>

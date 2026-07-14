@@ -777,9 +777,10 @@ export default function ViralVideoDetail() {
                   <button
                     onClick={handleAnalyze}
                     disabled={analyzing}
+                    title="Costs 50 credits (free for staff)"
                     className="px-6 py-3 bg-foreground text-background rounded-xl disabled:opacity-50 text-sm font-semibold"
                   >
-                    {analyzing ? "Starting…" : video.analysis_status === "failed" ? "Retry analyze (50 credits)" : "Analyze video (50 credits)"}
+                    {analyzing ? "Starting…" : video.analysis_status === "failed" ? "Retry analyze" : "Analyze video"}
                   </button>
                 </div>
               )}

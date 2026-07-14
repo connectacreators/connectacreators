@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Sparkles, Download, Facebook, Layers,
+  Download, Facebook, Layers, ScanSearch, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -750,22 +750,24 @@ const VideoCard = memo(function VideoCard({
                   onClick={handleAnalyze}
                   disabled={analyzing}
                   className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
-                  title={`Last analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — click to retry`}
+                  title={`Last analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — click to retry (50 credits)`}
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <RotateCcw className="w-3 h-3" />
                   <span>Failed — Retry</span>
                 </button>
               );
             }
+            // Cost lives in the tooltip, not the label — and ScanSearch
+            // instead of the over-used AI sparkles.
             return (
               <button
                 onClick={handleAnalyze}
                 disabled={analyzing}
                 className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/90 hover:bg-primary backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
-                title="Analyze this video (50 credits)"
+                title={isAdmin ? "Analyze this video" : "Analyze this video — 50 credits"}
               >
-                <Sparkles className="w-3 h-3" />
-                <span>Analyze · 50c</span>
+                <ScanSearch className="w-3 h-3" />
+                <span>Analyze</span>
               </button>
             );
           })()}
