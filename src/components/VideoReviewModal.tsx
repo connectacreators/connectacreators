@@ -15,6 +15,7 @@ interface VideoReviewModalProps {
   open: boolean;
   onClose: () => void;
   videoEditId: string;
+  clientId: string;
   title: string;
   uploadSource: string | null;
   storagePath: string | null;
@@ -132,6 +133,7 @@ export default function VideoReviewModal({
   open,
   onClose,
   videoEditId,
+  clientId,
   title,
   uploadSource,
   storagePath,
@@ -158,6 +160,8 @@ export default function VideoReviewModal({
   const [selectedFootageFile, setSelectedFootageFile] = useState<string | null>(null);
   const [showFootageAutocomplete, setShowFootageAutocomplete] = useState(false);
   const [footageSearchQuery, setFootageSearchQuery] = useState('');
+  const [availableFootageFiles, setAvailableFootageFiles] = useState<string[]>([]);
+  const [clientIdState, setClientIdState] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [internalOnly, setInternalOnly] = useState(false);
@@ -254,12 +258,32 @@ export default function VideoReviewModal({
       .finally(() => setLoading(false));
   }, [open, videoEditId]);
 
-  const associatedFootageList = useMemo(() => parseFootageList(associatedFootage), [associatedFootage]);
+  // Load actual footage files from storage
+  useEffect(() => {
+    if (!open || !videoEditId || !clientId) return;
+    const loadFootage = async () => {
+      try {
+        const { data, error } = await supabase.storage
+          .from('footage')
+          .list(`${clientId}/${videoEditId}/`, { limit: 1000 });
+        if (error) throw error;
+        const files = (data || [])
+          .filter(f => f.name && !f.name.endsWith('/'))
+          .map(f => f.name)
+          .sort();
+        setAvailableFootageFiles(files);
+      } catch (err) {
+        console.warn('Failed to load footage files:', err);
+        setAvailableFootageFiles([]);
+      }
+    };
+    loadFootage();
+  }, [open, videoEditId, clientId]);
 
   const filteredFootage = useMemo(() => {
-    if (!footageSearchQuery) return associatedFootageList;
-    return associatedFootageList.filter(f => f.toLowerCase().includes(footageSearchQuery.toLowerCase()));
-  }, [associatedFootageList, footageSearchQuery]);
+    if (!footageSearchQuery) return availableFootageFiles;
+    return availableFootageFiles.filter(f => f.toLowerCase().includes(footageSearchQuery.toLowerCase()));
+  }, [availableFootageFiles, footageSearchQuery]);
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
