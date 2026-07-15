@@ -344,7 +344,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const attachId = searchParams.get("attach");
   const activeSessionIdRef = useRef<string | null>(null);
   const isSwitchingSessionRef = useRef(false);
-  const broadcastNodeDataUpdateRef = useRef<((nodeId: string, data: Record<string, any>) => void) | null>(null);
   const authTokenRef = useRef<string | null>(null);
   // True while draftIdRef points at an unpromoted "Connecta AI — In Progress" placeholder row.
   // Saving promotes that row instead of inserting a duplicate; once promoted, later saves insert fresh scripts.
@@ -665,9 +664,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           clientId: selectedClient.id,
           ...extra,
           onUpdate: (updates: any) => {
+            // Data-change broadcast happens centrally in the nodes-diff effect —
+            // it covers every update path (factories, undo/redo, this callback) exactly once.
             setNodes(ns => ns.map(nd => nd.id === nodeId ? { ...nd, data: { ...nd.data, ...updates } } : nd));
-            // Broadcast data changes to other tabs for real-time sync
-            broadcastNodeDataUpdateRef.current?.(nodeId, updates);
           },
           onDelete: onDeleteCb,
         },
@@ -1222,6 +1221,51 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }
   }, [edges]);
   useEffect(() => { (window as any).__canvasSaveScript = stableSaveScript; }, [stableSaveScript]);
+
+  // ─── Live sync: broadcast node adds/removes/data edits by diffing successive renders ───
+  // Diffing (instead of instrumenting every node factory) catches every creation path exactly
+  // once: toolbar adds, URL paste, remix, batch, folder explode, undo/redo restores.
+  const prevNodesRef = useRef<Map<string, Node> | null>(null);
+  const prevNodesSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loaded) { prevNodesRef.current = null; return; }
+    const sessionId = activeSessionIdRef.current;
+    const current = new Map(nodes.map(n => [n.id, n]));
+    const prev = prevNodesRef.current;
+    const sessionChanged = prevNodesSessionRef.current !== sessionId;
+    prevNodesRef.current = current;
+    prevNodesSessionRef.current = sessionId;
+    if (!prev || sessionChanged) return; // baseline capture after load / session switch
+    if (isSwitchingSessionRef.current || isRemoteCanvasUpdateRef.current) return; // don't echo remote changes back
+
+    const added: Node[] = [];
+    const changedData: Node[] = [];
+    for (const [id, n] of current) {
+      const p = prev.get(id);
+      if (!p) added.push(n);
+      else if (p.data !== n.data) changedData.push(n);
+    }
+    const removedIds: string[] = [];
+    for (const id of prev.keys()) { if (!current.has(id)) removedIds.push(id); }
+
+    if (added.length) broadcastNodesAdded(serializeNodes(added));
+    if (removedIds.length) broadcastNodesRemoved(removedIds);
+    for (const n of changedData) {
+      if (n.id === AI_NODE_ID) continue; // AI node data is session-local wiring, not shared content
+      broadcastNodeDataUpdate(n.id, serializeNodes([n])[0].data);
+    }
+  }, [nodes, loaded]);
+
+  // ─── Live sync: broadcast finished drawing strokes / erases ───
+  const prevDrawPathsRef = useRef<any[] | null>(null);
+  useEffect(() => {
+    if (!loaded) { prevDrawPathsRef.current = null; return; }
+    const prev = prevDrawPathsRef.current;
+    prevDrawPathsRef.current = drawPaths;
+    if (prev === null || prev === drawPaths) return; // baseline / no change
+    if (isSwitchingSessionRef.current || isRemoteCanvasUpdateRef.current) return;
+    broadcastDrawPaths(drawPaths);
+  }, [drawPaths, loaded]);
 
   // Push initial history snapshot once canvas is loaded
   useEffect(() => {
@@ -2588,7 +2632,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
 
   // ─── Real-time canvas sync (node moves, edge changes, cursors) ───
   const isRemoteCanvasUpdateRef = useRef(false);
-  const { broadcastNodePositions, broadcastEdgeChanges, broadcastNodeDataUpdate, broadcastCursorPosition, remoteCursors } = useRealtimeCanvasSync({
+  const { broadcastNodePositions, broadcastEdgeChanges, broadcastNodeDataUpdate, broadcastNodesAdded, broadcastNodesRemoved, broadcastDrawPaths, broadcastCursorPosition, remoteCursors } = useRealtimeCanvasSync({
     roomId: canvasRoomId,
     onRemoteNodeChanges: useCallback((remoteNodes) => {
       isRemoteCanvasUpdateRef.current = true;
@@ -2619,8 +2663,30 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       setNodes(ns => ns.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
       setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
     }, [setNodes]),
+    onRemoteNodesAdded: useCallback((remoteNodes) => {
+      isRemoteCanvasUpdateRef.current = true;
+      setNodes(curr => {
+        const existing = new Set(curr.map(n => n.id));
+        const fresh = (remoteNodes as Node[]).filter(n => !existing.has(n.id));
+        if (!fresh.length) return curr;
+        return ensureParentOrder([...curr, ...attachCallbacks(fresh)]);
+      });
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, [setNodes, attachCallbacks]),
+    onRemoteNodesRemoved: useCallback((ids) => {
+      isRemoteCanvasUpdateRef.current = true;
+      const idSet = new Set(ids);
+      // Plain removal — the originating tab already handled side effects (storage cleanup etc.)
+      setNodes(ns => ns.filter(n => !idSet.has(n.id)));
+      setEdges(es => es.filter(e => !idSet.has(e.source) && !idSet.has(e.target)));
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, [setNodes, setEdges]),
+    onRemoteDrawPaths: useCallback((paths) => {
+      isRemoteCanvasUpdateRef.current = true;
+      setDrawPaths(paths);
+      setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
+    }, []),
   });
-  broadcastNodeDataUpdateRef.current = broadcastNodeDataUpdate;
 
   // ─── DB-level full-state sync: reload canvas when another tab saves ───
   // The broadcast sync only handles positions/edges of *existing* nodes.
@@ -2643,10 +2709,15 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             const echoMs = Date.parse(echoUpdatedAt);
             if (!isNaN(echoMs) && recentSaveUpdatedAtsRef.current.has(echoMs)) return;
           }
-          // Ignore if we were the ones who just saved (within 3s window) — fallback for races where echo arrives before lastSaveAtRef tracking
-          if (Date.now() - lastSaveAtRef.current < 3000) return;
+          // NOTE: no wall-clock suppression window here. Both tabs autosave every ~2s while
+          // editing, so a "recently saved → ignore remote" window discards nearly every
+          // legitimate peer save. Exact updated_at matching above already handles our echoes.
           // Ignore if a session switch is in progress
           if (isSwitchingSessionRef.current) return;
+          // Local unsaved edits: applying the remote blob would wipe them mid-typing.
+          // Skip — the live broadcast layer carries peer changes, and our imminent save
+          // will trigger a fresh event on the peer for DB-level reconciliation.
+          if (isDirtyRef.current || pendingSaveRef.current) return;
 
           const { nodes: rawNodes, edges: rawEdges, draw_paths } = payload.new as any;
           if (!Array.isArray(rawNodes)) return;

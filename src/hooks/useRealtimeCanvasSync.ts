@@ -57,7 +57,16 @@ interface UseRealtimeCanvasSyncOptions {
   onRemoteEdgeChanges: (edges: Edge[]) => void;
   /** Called when another tab broadcasts a node data update (e.g. annotation fontSize/width) */
   onRemoteNodeDataUpdate?: (update: NodeDataUpdate) => void;
+  /** Called when another tab creates nodes (full serialized nodes, callbacks stripped) */
+  onRemoteNodesAdded?: (nodes: Node[]) => void;
+  /** Called when another tab deletes nodes */
+  onRemoteNodesRemoved?: (ids: string[]) => void;
+  /** Called when another tab finishes a drawing stroke / erases (full paths array) */
+  onRemoteDrawPaths?: (paths: any[]) => void;
 }
+
+/** Supabase broadcast payloads cap out around 256KB — skip oversized sends, the DB sync path carries them. */
+const MAX_BROADCAST_JSON = 240_000;
 
 /**
  * Broadcast-based live canvas sync via Supabase Realtime.
@@ -72,6 +81,9 @@ export function useRealtimeCanvasSync({
   onRemoteNodeChanges,
   onRemoteEdgeChanges,
   onRemoteNodeDataUpdate,
+  onRemoteNodesAdded,
+  onRemoteNodesRemoved,
+  onRemoteDrawPaths,
 }: UseRealtimeCanvasSyncOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const tabId = useRef(getTabId());
@@ -86,6 +98,12 @@ export function useRealtimeCanvasSync({
   onRemoteEdgeChangesRef.current = onRemoteEdgeChanges;
   const onRemoteNodeDataUpdateRef = useRef(onRemoteNodeDataUpdate);
   onRemoteNodeDataUpdateRef.current = onRemoteNodeDataUpdate;
+  const onRemoteNodesAddedRef = useRef(onRemoteNodesAdded);
+  onRemoteNodesAddedRef.current = onRemoteNodesAdded;
+  const onRemoteNodesRemovedRef = useRef(onRemoteNodesRemoved);
+  onRemoteNodesRemovedRef.current = onRemoteNodesRemoved;
+  const onRemoteDrawPathsRef = useRef(onRemoteDrawPaths);
+  onRemoteDrawPathsRef.current = onRemoteDrawPaths;
 
   useEffect(() => {
     if (!roomId) return;
@@ -114,6 +132,24 @@ export function useRealtimeCanvasSync({
         if (payload.tabId === tabId.current) return;
         if (payload.nodeId && payload.data) {
           onRemoteNodeDataUpdateRef.current?.({ nodeId: payload.nodeId, data: payload.data });
+        }
+      })
+      .on("broadcast", { event: "nodes-added" }, ({ payload }) => {
+        if (payload.tabId === tabId.current) return;
+        if (Array.isArray(payload.nodes) && payload.nodes.length) {
+          onRemoteNodesAddedRef.current?.(payload.nodes);
+        }
+      })
+      .on("broadcast", { event: "nodes-removed" }, ({ payload }) => {
+        if (payload.tabId === tabId.current) return;
+        if (Array.isArray(payload.ids) && payload.ids.length) {
+          onRemoteNodesRemovedRef.current?.(payload.ids);
+        }
+      })
+      .on("broadcast", { event: "draw-paths" }, ({ payload }) => {
+        if (payload.tabId === tabId.current) return;
+        if (Array.isArray(payload.paths)) {
+          onRemoteDrawPathsRef.current?.(payload.paths);
         }
       })
       .on("broadcast", { event: "cursor-move" }, ({ payload }) => {
@@ -204,6 +240,37 @@ export function useRealtimeCanvasSync({
     });
   }, []);
 
+  /** Broadcast freshly-created nodes (pass pre-serialized nodes — no callbacks/heavy data) */
+  const broadcastNodesAdded = useCallback((nodes: any[]) => {
+    if (!nodes.length) return;
+    if (JSON.stringify(nodes).length > MAX_BROADCAST_JSON) return; // DB sync will carry it
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "nodes-added",
+      payload: { tabId: tabId.current, nodes },
+    });
+  }, []);
+
+  /** Broadcast node deletions */
+  const broadcastNodesRemoved = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "nodes-removed",
+      payload: { tabId: tabId.current, ids },
+    });
+  }, []);
+
+  /** Broadcast the full draw-paths array (fires on stroke end / erase, not per point) */
+  const broadcastDrawPaths = useCallback((paths: any[]) => {
+    if (JSON.stringify(paths).length > MAX_BROADCAST_JSON) return; // DB sync will carry it
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "draw-paths",
+      payload: { tabId: tabId.current, paths },
+    });
+  }, []);
+
   /** Broadcast cursor position — throttled to ~15fps */
   const broadcastCursorPosition = useCallback((x: number, y: number) => {
     const now = Date.now();
@@ -227,6 +294,9 @@ export function useRealtimeCanvasSync({
     broadcastNodePositions,
     broadcastEdgeChanges,
     broadcastNodeDataUpdate,
+    broadcastNodesAdded,
+    broadcastNodesRemoved,
+    broadcastDrawPaths,
     broadcastCursorPosition,
     remoteCursors,
   };
