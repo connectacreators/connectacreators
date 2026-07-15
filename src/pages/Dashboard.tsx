@@ -258,35 +258,18 @@ export default function Dashboard() {
   }
 
   // ───────────────────────────────────────────────────────────────
-  // ADMIN / AGENCY DRILLDOWN — preserved
+  // /dashboard?client=X — the old "Robby's read" drilldown is RETIRED.
+  // Anything that still deep-links here (e.g. the Vault back arrow) now
+  // lands on the same per-client hub the client themselves sees; the hub
+  // already ships a purpose-built mobile layout.
   // ───────────────────────────────────────────────────────────────
   if (activeClient) {
     return (
-      <div className="min-h-screen" style={{ flexShrink: 0, background: "hsl(var(--cream))", padding: "22px 28px" }}>
-        <ActiveClientBreadcrumb clientName={activeClient.name} />
-        <h1
-          style={{
-            fontSize: 26,
-            fontWeight: 500,
-            color: "hsl(var(--ink-on-cream))",
-            letterSpacing: "-0.01em",
-            marginBottom: 14,
-            fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-          }}
-        >
-          {t.dashboard.robbyReadOn[language]} {activeClient.name}
-        </h1>
-        {getRobbyInsights(activeClient.name, pendingByClient[activeClient.id] ?? [], language).map((ins) => (
-          <RobbyInsightRow
-            key={ins.id}
-            icon={ins.icon}
-            text={ins.text}
-            actionLabel={ins.actionLabel}
-            onClick={() => onInsightClick(ins.prompt)}
-          />
-        ))}
-        <ToolFolders activeClientId={activeClient.id} />
-      </div>
+      <SingleBrandDashboard
+        firstName={firstName}
+        brandName={activeClient.name}
+        clientId={activeClient.id}
+      />
     );
   }
 
