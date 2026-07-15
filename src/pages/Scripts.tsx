@@ -35,7 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, pointerWithin, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
@@ -1171,6 +1171,21 @@ export default function Scripts() {
     setSelectedScriptIds(new Set(filteredScripts.map((s) => s.id)));
   }, []);
 
+  // Collision detection for the vault: prefer whatever the POINTER is inside
+  // — and a folder above all — falling back to closestCenter. Plain
+  // closestCenter compares item centers, so dropping a script visually "on"
+  // a folder often resolved to a neighboring script and reordered instead
+  // of moving into the folder.
+  const vaultCollisionDetection = useCallback<CollisionDetection>((args) => {
+    const pointer = pointerWithin(args);
+    if (pointer.length > 0) {
+      const folderHit = pointer.find((c) => String(c.id).startsWith("folder"));
+      if (folderHit) return [folderHit];
+      return pointer;
+    }
+    return closestCenter(args);
+  }, []);
+
   // Drag-to-folder handlers for script list DndContext
   const listPointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const listTouchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } });
@@ -1454,6 +1469,11 @@ export default function Scripts() {
       setViewingMetadata((prev) => (prev ? { ...prev, idea_ganadora: prevTitle } : prev));
       return;
     }
+    // Re-assert after the write lands: another state sync (autosave/remote
+    // merge) racing the window between the optimistic update and the commit
+    // could overwrite the title with a stale read — this wins last.
+    setScripts((prev) => prev.map((sc) => sc.id === scriptId ? { ...sc, title: next, idea_ganadora: next } : sc));
+    setViewingMetadata((prev) => (prev ? { ...prev, idea_ganadora: next } : prev));
     await supabase.from("video_edits").update({ reel_title: next }).eq("script_id", scriptId);
   }, [language]);
 
@@ -3087,7 +3107,7 @@ export default function Scripts() {
                     </div>
                   )}
 
-                  <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
+                  <DndContext sensors={listSensors} collisionDetection={vaultCollisionDetection} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
 
                   {/* ── Vault toolbar: count · new folder · sort · view modes ── */}
                   <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
@@ -3313,6 +3333,33 @@ export default function Scripts() {
                     // list view / the open script; tile keeps open + select).
                     const ScriptTile = ({ s }: { s: (typeof scripts)[number] }) => {
                       const isSel = selectedScriptIds.has(s.id);
+                      // Rename mode — the ⋯ Rename action used to open nothing
+                      // in grid view (the input only existed on list rows).
+                      if (renamingScriptId === s.id) {
+                        return (
+                          <div className="editorial-card w-full h-full flex flex-col items-start gap-2 rounded-xl px-4 py-3.5 min-h-[128px]" data-rename-ui>
+                            <span className="editorial-eyebrow" style={{ fontSize: 9, letterSpacing: "0.18em" }}>
+                              {s.idea_ganadora ? (getFormatLabel(s.formato, language).toUpperCase() || "SCRIPT") : "SCRIPT"}
+                            </span>
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onFocus={(e) => e.currentTarget.select()}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className="w-full bg-muted/50 border border-primary/40 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                              style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", color: "hsl(var(--cream))" }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter" && renameValue.trim()) { e.preventDefault(); commitScriptRename(s.id, renameValue, s.title); }
+                                if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
+                              }}
+                              onBlur={() => commitScriptRename(s.id, renameValue, s.title)}
+                            />
+                          </div>
+                        );
+                      }
                       return (
                         <div className="relative group h-full">
                           <button
