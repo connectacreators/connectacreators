@@ -697,7 +697,7 @@ export default function Scripts() {
   // Folders and scripts are ONE set of items (no separate sections). Three
   // view modes — grid / list / columns — plus one sort, both persisted.
   const [vaultView, setVaultView] = useState<string>(() => {
-    try { return localStorage.getItem("scripts_vault_view") || "grid"; } catch { return "grid"; }
+    try { return localStorage.getItem("scripts_vault_view") || "list"; } catch { return "list"; }
   });
   useEffect(() => {
     try { localStorage.setItem("scripts_vault_view", vaultView); } catch { /* ignore */ }
