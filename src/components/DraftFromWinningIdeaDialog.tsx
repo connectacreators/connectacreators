@@ -110,6 +110,14 @@ export function DraftFromWinningIdeaDialog({
         topic += `\n\nADDITIONAL CONTEXT / REQUESTS FROM THE USER (follow these): ${notes.trim().slice(0, 800)}`;
       }
 
+      // The `language` prop is just the UI language — if the user's notes
+      // explicitly ask for a language ("el video debe ser en español"), that
+      // request must win. The generator's prompt used to hard-rule the UI
+      // language and override the note.
+      const wantsSpanish = /españ|castellano|\bspanish\b/i.test(notes);
+      const wantsEnglish = /\bin english\b|ingl[eé]s/i.test(notes);
+      const effectiveLanguage = wantsSpanish && !wantsEnglish ? "es" : wantsEnglish && !wantsSpanish ? "en" : language;
+
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-build-script`, {
         method: "POST",
@@ -118,7 +126,7 @@ export function DraftFromWinningIdeaDialog({
           step: "templatize-script",
           topic,
           transcription: structureTranscript,
-          language,
+          language: effectiveLanguage,
         }),
       });
       const json = await res.json().catch(() => ({}));

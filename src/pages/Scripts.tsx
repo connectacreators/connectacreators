@@ -100,6 +100,51 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
+// Hover ⋯ menu on a folder card: Rename · Share · Delete (deep, confirm-gated).
+// Controlled popover so choosing an option reliably closes the menu.
+function FolderCardMenu({ onRename, onShare, onDelete, labels }: {
+  onRename: () => void;
+  onShare: () => void;
+  onDelete: () => void;
+  labels: { menu: string; rename: string; share: string; del: string };
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-all"
+          style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
+          title={labels.menu}
+        >
+          <MoreHorizontal className="w-3 h-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-1" align="end" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+          onClick={() => { setOpen(false); onRename(); }}
+        >
+          <Pencil className="w-4 h-4" /> {labels.rename}
+        </button>
+        <button
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+          onClick={() => { setOpen(false); onShare(); }}
+        >
+          <Share2 className="w-4 h-4" /> {labels.share}
+        </button>
+        <button
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-destructive transition-colors hover:bg-destructive/10"
+          onClick={() => { setOpen(false); onDelete(); }}
+        >
+          <Trash2 className="w-4 h-4" /> {labels.del}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // Sortable wrapper for script rows: makes each card both draggable (onto folders)
 // and a drop target for reordering within the current view. The live reorder
 // preview comes from SortableContext; the committed order is set on drag end.
@@ -1288,6 +1333,50 @@ export default function Scripts() {
     setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
   }, [renamingFolderId, folderRenameValue, folders, language]);
 
+  // ── Folder deep-delete (folder + subfolders; scripts move to Trash) ──────
+  // Opened from the folder card's ⋯ menu; always confirm in a dialog first.
+  const [deletingFolder, setDeletingFolder] = useState<{ id: string; name: string } | null>(null);
+  const [deletingFolderBusy, setDeletingFolderBusy] = useState(false);
+
+  // The folder plus every descendant subfolder (parent_id tree).
+  const collectFolderTree = useCallback((rootId: string): Set<string> => {
+    const ids = new Set<string>([rootId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const f of folders) {
+        if (f.parent_id && ids.has(f.parent_id) && !ids.has(f.id)) { ids.add(f.id); grew = true; }
+      }
+    }
+    return ids;
+  }, [folders]);
+
+  const handleDeleteFolderDeep = useCallback(async () => {
+    const target = deletingFolder;
+    if (!target) return;
+    setDeletingFolderBusy(true);
+    try {
+      const ids = collectFolderTree(target.id);
+      const scriptIds = scripts.filter((s) => s.folder_id && ids.has(s.folder_id)).map((s) => s.id);
+      // Scripts are soft-deleted (Trash) via the existing bulk path, so this
+      // is recoverable; the folder rows themselves are removed.
+      if (scriptIds.length > 0) await bulkDelete(scriptIds);
+      const { error } = await supabase.from("script_folders").delete().in("id", Array.from(ids));
+      if (error) throw error;
+      setFolders((prev) => prev.filter((f) => !ids.has(f.id)));
+      if (viewingFolderId && ids.has(viewingFolderId)) setViewingFolderId(null);
+      toast.success(tr({
+        en: `Folder deleted${scriptIds.length ? ` — ${scriptIds.length} script${scriptIds.length !== 1 ? "s" : ""} moved to Trash` : ""}`,
+        es: `Carpeta eliminada${scriptIds.length ? ` — ${scriptIds.length} script${scriptIds.length !== 1 ? "s" : ""} a la papelera` : ""}`,
+      }, language));
+      setDeletingFolder(null);
+    } catch {
+      toast.error(tr({ en: "Failed to delete folder", es: "No se pudo eliminar la carpeta" }, language));
+    } finally {
+      setDeletingFolderBusy(false);
+    }
+  }, [deletingFolder, collectFolderTree, scripts, bulkDelete, viewingFolderId, language]);
+
   // Clicking blank page space must dismiss rename/create inputs. Blur alone
   // can't do it: clicking a non-focusable element doesn't move focus, so the
   // inputs' onBlur handlers never fire and the row stays stuck in edit mode.
@@ -1308,26 +1397,14 @@ export default function Scripts() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [renamingScriptId, renamingFolderId, creatingFolder]);
 
-  const handleCtxDeleteFolder = useCallback(async () => {
+  // Right-click delete routes to the same confirm-gated deep delete as the
+  // folder card's ⋯ menu (it used to refuse non-empty folders entirely).
+  const handleCtxDeleteFolder = useCallback(() => {
     const target = ctxMenu;
     setCtxMenu(null);
     if (!target?.folderId) return;
-    const scriptCount = scripts.filter(s => s.folder_id === target.folderId).length;
-    const subfolderCount = folders.filter(f => f.parent_id === target.folderId).length;
-    if (scriptCount > 0 || subfolderCount > 0) {
-      toast.error(tr({
-        en: `"${target.folderName}" isn't empty. Move its ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` and ${subfolderCount} subfolder${subfolderCount !== 1 ? "s" : ""}` : ""} out first.`,
-        es: `"${target.folderName}" no está vacía. Primero saca sus ${scriptCount} script${scriptCount !== 1 ? "s" : ""}${subfolderCount > 0 ? ` y ${subfolderCount} subcarpeta${subfolderCount !== 1 ? "s" : ""}` : ""}.`,
-      }, language));
-      return;
-    }
-    if (!window.confirm(tr({ en: `Delete folder "${target.folderName}"?`, es: `¿Eliminar la carpeta "${target.folderName}"?` }, language))) return;
-    const { error } = await supabase.from("script_folders").delete().eq("id", target.folderId);
-    if (error) { toast.error(tr({ en: "Failed to delete folder", es: "No se pudo eliminar la carpeta" }, language)); return; }
-    setFolders(prev => prev.filter(f => f.id !== target.folderId));
-    if (viewingFolderId === target.folderId) setViewingFolderId(null);
-    toast.success(tr({ en: "Folder deleted", es: "Carpeta eliminada" }, language));
-  }, [ctxMenu, scripts, folders, viewingFolderId, language]);
+    setDeletingFolder({ id: target.folderId, name: target.folderName ?? "" });
+  }, [ctxMenu]);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -2966,14 +3043,17 @@ export default function Scripts() {
                                       </p>
                                     </div>
                                   </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
-                                    className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                                    style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
-                                    title={tr({ en: "Share folder", es: "Compartir carpeta" }, language)}
-                                  >
-                                    <Share2 className="w-3 h-3" />
-                                  </button>
+                                  <FolderCardMenu
+                                    labels={{
+                                      menu: tr({ en: "Folder options", es: "Opciones de carpeta" }, language),
+                                      rename: tr({ en: "Rename", es: "Renombrar" }, language),
+                                      share: tr({ en: "Share", es: "Compartir" }, language),
+                                      del: tr({ en: "Delete folder", es: "Eliminar carpeta" }, language),
+                                    }}
+                                    onRename={() => startFolderRename(f.id, f.name)}
+                                    onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                                    onDelete={() => setDeletingFolder({ id: f.id, name: f.name })}
+                                  />
                                 </>
                               )}
                             </div>
@@ -4315,6 +4395,36 @@ export default function Scripts() {
         <VideoRecorder pip scriptTitle={viewingMetadata?.idea_ganadora || scriptTitle || undefined} onClose={() => setShowRecorder(false)} />
         </Suspense>
       )}
+
+      {/* Folder deep-delete confirmation — names exactly what goes away. */}
+      <Dialog open={!!deletingFolder} onOpenChange={(open) => { if (!open) setDeletingFolder(null); }}>
+        <DialogContent className="sm:max-w-sm bg-[hsl(var(--graphite))] border border-[hsl(var(--bone) / 0.14)] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{tr({ en: "Delete folder?", es: "¿Eliminar carpeta?" }, language)}</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                if (!deletingFolder) return null;
+                const ids = collectFolderTree(deletingFolder.id);
+                const subCount = ids.size - 1;
+                const scriptCount = scripts.filter((s) => s.folder_id && ids.has(s.folder_id)).length;
+                return tr({
+                  en: `"${deletingFolder.name}"${subCount > 0 ? ` and ${subCount} subfolder${subCount !== 1 ? "s" : ""}` : ""} will be deleted${scriptCount > 0 ? `. Its ${scriptCount} script${scriptCount !== 1 ? "s" : ""} will move to Trash (recoverable)` : ""}.`,
+                  es: `Se eliminará "${deletingFolder.name}"${subCount > 0 ? ` y ${subCount} subcarpeta${subCount !== 1 ? "s" : ""}` : ""}${scriptCount > 0 ? `. Sus ${scriptCount} script${scriptCount !== 1 ? "s" : ""} irán a la papelera (recuperables)` : ""}.`,
+                }, language);
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setDeletingFolder(null)}>
+              {tr(t.scripts.cancel, language)}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteFolderDeep} disabled={deletingFolderBusy} className="gap-2">
+              {deletingFolderBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {tr({ en: "Delete folder", es: "Eliminar carpeta" }, language)}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
         <DialogContent className="sm:max-w-sm bg-[hsl(var(--graphite))] border border-[hsl(var(--bone) / 0.14)] rounded-2xl">

@@ -800,7 +800,7 @@ ${templateLines}
 
 NEW TOPIC to write about: "${topic}"
 
-Create a new script about this topic following the EXACT same structure, replacing all placeholders. Write in ${langLabel}.`;
+Create a new script about this topic following the EXACT same structure, replacing all placeholders. Write in ${langLabel} — unless the topic or the user's added context explicitly requests a different language; an explicit user language request always wins.`;
       } else {
         userPrompt = `ORIGINAL TRANSCRIPTION (use this as your structural template):
 """
@@ -809,7 +809,7 @@ ${transcription}
 
 NEW TOPIC to write about: "${topic}"
 
-Create a new script about this topic following the EXACT same structure, length, and flow as the original transcription. Write in ${langLabel}.`;
+Create a new script about this topic following the EXACT same structure, length, and flow as the original transcription. Write in ${langLabel} — unless the topic or the user's added context explicitly requests a different language; an explicit user language request always wins.`;
       }
 
       // Optional hook override: user selected a specific hook style instead of the video's default
@@ -829,7 +829,7 @@ CRITICAL RULES:
 - Use the same hook TYPE but with new content
 - Maintain the same body pattern
 - Mirror the CTA style
-- Write in ${langLabel}
+- LANGUAGE: write in ${langLabel} by default. EXCEPTION: if the topic or the user's added context explicitly requests a language (e.g. "en español", "in Spanish", "el video debe ser en español"), write the ENTIRE script — every line, the idea_ganadora, and the target — in that requested language instead. An explicit user language request ALWAYS overrides this default.
 - Categorize EVERY line into line_type ("filming", "actor", "editor") and section ("hook", "body", "cta")
 - For idea_ganadora: Generate a SHORT, PUNCHY title (max 5-7 words) that captures the core concept
 
