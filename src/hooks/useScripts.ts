@@ -266,6 +266,9 @@ export function useScripts() {
     inspirationUrls?: string[];
     googleDriveLink?: string;
     existingScriptId?: string;
+    /** Folder the user was viewing when creating — new scripts land there
+     *  instead of always falling to the root. */
+    folderId?: string | null;
   }): Promise<{ scriptId: string; metadata: ScriptMetadata } | null> => {
     setLoading(true);
     try {
@@ -333,6 +336,7 @@ export function useScripts() {
             target: params.target || null,
             formato: params.formato || null,
             google_drive_link: params.googleDriveLink || null,
+            folder_id: params.folderId ?? null,
           })
           .select()
           .single();
@@ -416,7 +420,8 @@ export function useScripts() {
     rawContent: string,
     inspirationUrl?: string,
     formato?: string,
-    googleDriveLink?: string
+    googleDriveLink?: string,
+    folderId?: string | null
   ): Promise<{ lines: ScriptLine[]; metadata: ScriptMetadata; scriptId: string } | null> => {
     setLoading(true);
     try {
@@ -452,6 +457,7 @@ export function useScripts() {
           target: result.target || null,
           formato: result.formato || formato || null,
           google_drive_link: googleDriveLink || null,
+          folder_id: folderId ?? null,
         })
         .select()
         .single();

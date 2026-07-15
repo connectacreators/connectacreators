@@ -1570,6 +1570,8 @@ export default function Scripts() {
         inspirationUrl.trim() || undefined,
         formato || undefined,
         googleDriveLink.trim() || undefined,
+        // Create inside the folder the user was viewing, not at the root.
+        viewingFolderId,
       );
       if (aiResult) {
         const fresh = await getScriptLines(aiResult.scriptId);
@@ -1613,6 +1615,7 @@ export default function Scripts() {
       formato: formato || "",
       inspirationUrl: inspirationUrl.trim() || undefined,
       googleDriveLink: googleDriveLink.trim() || undefined,
+      folderId: viewingFolderId,
     });
     if (result) {
       const fresh = await getScriptLines(result.scriptId);
@@ -3027,41 +3030,6 @@ export default function Scripts() {
 
                   <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
 
-                  {/* ── Recent scripts strip (root only) — jump back in ── */}
-                  {viewingFolderId === null && !showTrash && scripts.length > 0 && (() => {
-                    const recent = [...scripts]
-                      .sort((a, b) =>
-                        Date.parse(((b as any).updated_at ?? b.created_at) || 0) -
-                        Date.parse(((a as any).updated_at ?? a.created_at) || 0))
-                      .slice(0, 4);
-                    if (recent.length === 0) return null;
-                    return (
-                      <div className="mb-5">
-                        <p className="editorial-eyebrow mb-2" style={{ letterSpacing: "0.18em", fontSize: 9.5 }}>
-                          {tr({ en: "RECENT", es: "RECIENTES" }, language)}
-                        </p>
-                        <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                          {recent.map((s) => (
-                            <button
-                              key={s.id}
-                              onClick={() => handleViewScript(s)}
-                              className="editorial-card flex items-center gap-2 rounded-xl px-3 py-2 shrink-0 max-w-[220px] transition-colors"
-                              title={s.idea_ganadora || s.title}
-                            >
-                              <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                              <span
-                                className="truncate text-[12.5px]"
-                                style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", color: "hsl(var(--cream))" }}
-                              >
-                                {s.idea_ganadora || s.title}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
                   {/* ── FOLDERS — Drive-style compact chips: the index stays
                         small so scripts (the content) get the page. ── */}
                   {(childFolders.length > 0 || creatingFolder || viewingFolderId === null) && !showTrash && (
@@ -3448,6 +3416,7 @@ export default function Scripts() {
                     formato: result.formato || "",
                     viralityScore: result.virality_score,
                     inspirationUrl: inspirationUrl || undefined,
+                    folderId: viewingFolderId,
                   });
                   if (saved) {
                     setRemixVideo(null);
