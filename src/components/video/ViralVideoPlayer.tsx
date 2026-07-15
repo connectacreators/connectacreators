@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Loader2, Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
 interface ViralVideoPlayerProps {
   src: string | null;
@@ -8,11 +8,19 @@ interface ViralVideoPlayerProps {
   onExpired?: () => void;
   className?: string;
   /** Scale controls down for tiny inline players (e.g. chat embed cards
-   *  at ~96px wide). Drops the fullscreen button, shrinks the play
-   *  button + scrubber + paddings + time text. */
+   *  at ~96px wide). Drops fullscreen/speed/time, shrinks everything. */
   compact?: boolean;
+  /** false when embedded inside an already-rounded container (e.g. canvas video node) */
+  rounded?: boolean;
 }
 
+const SPEEDS = [1, 1.25, 1.5, 2];
+
+/**
+ * Minimal video player — simple geometric shapes, no decoration.
+ * Thin white scrub bar (draggable, buffered range), frosted-circle play state,
+ * auto-hiding scrim controls, speed cycle, keyboard support (space/arrows/m/f).
+ */
 export function ViralVideoPlayer({
   src,
   fallbackProxyUrl,
@@ -20,19 +28,25 @@ export function ViralVideoPlayer({
   onExpired,
   className,
   compact = false,
+  rounded = true,
 }: ViralVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const expiredFired = useRef(false);
+  const draggingRef = useRef(false);
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [buffering, setBuffering] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [scrubHover, setScrubHover] = useState(false);
   const [detectedRatio, setDetectedRatio] = useState<"9:16" | "16:9">("9:16");
 
   const effectiveSrc = src ?? fallbackProxyUrl ?? "";
@@ -41,8 +55,8 @@ export function ViralVideoPlayer({
     setShowControls(true);
     if (hideTimeout.current) clearTimeout(hideTimeout.current);
     hideTimeout.current = setTimeout(() => {
-      if (playing) setShowControls(false);
-    }, 2800);
+      if (playing && !draggingRef.current) setShowControls(false);
+    }, 1800);
   }, [playing]);
 
   const togglePlay = useCallback(() => {
@@ -80,18 +94,57 @@ export function ViralVideoPlayer({
     resetHideTimer();
   }, [resetHideTimer]);
 
-  const handleSeek = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const v = videoRef.current;
-      const bar = progressRef.current;
-      if (!v || !bar) return;
-      const rect = bar.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      v.currentTime = ratio * v.duration;
-      resetHideTimer();
-    },
-    [resetHideTimer]
-  );
+  const cycleSpeed = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = SPEEDS[(SPEEDS.indexOf(v.playbackRate as number) + 1) % SPEEDS.length] ?? 1;
+    v.playbackRate = next;
+    setSpeed(next);
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const seekBy = useCallback((delta: number) => {
+    const v = videoRef.current;
+    if (!v || !isFinite(v.duration)) return;
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + delta));
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  // Draggable scrub with pointer capture — not just click-to-seek
+  const seekToClientX = useCallback((clientX: number) => {
+    const v = videoRef.current;
+    const bar = progressRef.current;
+    if (!v || !bar || !isFinite(v.duration)) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    v.currentTime = ratio * v.duration;
+    setCurrent(v.currentTime);
+  }, []);
+
+  const onScrubPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    draggingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    seekToClientX(e.clientX);
+  }, [seekToClientX]);
+
+  const onScrubPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    seekToClientX(e.clientX);
+  }, [seekToClientX]);
+
+  const onScrubPointerUp = useCallback(() => {
+    draggingRef.current = false;
+  }, []);
+
+  // Keyboard controls when the player has focus
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === " " || e.key === "k") { e.preventDefault(); togglePlay(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); seekBy(-5); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); seekBy(5); }
+    else if (e.key === "m") toggleMute();
+    else if (e.key === "f") toggleFullscreen();
+  }, [togglePlay, seekBy, toggleMute, toggleFullscreen]);
 
   // Track fullscreen state from document
   useEffect(() => {
@@ -112,6 +165,14 @@ export function ViralVideoPlayer({
       }
     };
     const onTime = () => setCurrent(el.currentTime);
+    const onProgress = () => {
+      try {
+        const b = el.buffered;
+        if (b.length) setBuffered(b.end(b.length - 1));
+      } catch { /* ignore */ }
+    };
+    const onWaiting = () => setBuffering(true);
+    const onPlayable = () => setBuffering(false);
     const onErr = () => {
       if (!effectiveSrc || expiredFired.current) return;
       expiredFired.current = true;
@@ -123,11 +184,21 @@ export function ViralVideoPlayer({
     };
     el.addEventListener("loadedmetadata", onMeta);
     el.addEventListener("timeupdate", onTime);
+    el.addEventListener("progress", onProgress);
+    el.addEventListener("waiting", onWaiting);
+    el.addEventListener("stalled", onWaiting);
+    el.addEventListener("playing", onPlayable);
+    el.addEventListener("canplay", onPlayable);
     el.addEventListener("error", onErr);
     el.addEventListener("ended", onEnded);
     return () => {
       el.removeEventListener("loadedmetadata", onMeta);
       el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("progress", onProgress);
+      el.removeEventListener("waiting", onWaiting);
+      el.removeEventListener("stalled", onWaiting);
+      el.removeEventListener("playing", onPlayable);
+      el.removeEventListener("canplay", onPlayable);
       el.removeEventListener("error", onErr);
       el.removeEventListener("ended", onEnded);
     };
@@ -135,6 +206,7 @@ export function ViralVideoPlayer({
 
   const finalRatio = aspectRatio === "auto" ? detectedRatio : aspectRatio;
   const aspectStyle = finalRatio === "9:16" ? "9 / 16" : "16 / 9";
+  const radius = fullscreen || compact || !rounded ? 0 : 16;
 
   if (!effectiveSrc) {
     return (
@@ -143,17 +215,13 @@ export function ViralVideoPlayer({
         className={className}
         style={{
           aspectRatio: aspectStyle,
-          background: "hsl(var(--bone))",
-          border: "1px solid hsl(var(--ink))",
-          borderRadius: 22,
-          boxShadow: "6px 6px 0 hsl(var(--ink))",
+          background: "hsl(var(--ink) / 0.06)",
+          borderRadius: radius,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "rgba(10,14,18,0.5)",
-          fontFamily: "var(--font-display, 'EB Garamond'), serif",
-          fontStyle: "italic",
-          fontSize: 15,
+          color: "hsl(var(--ink-on-cream) / 0.45)",
+          fontSize: 13,
         }}
       >
         Video unavailable
@@ -161,25 +229,37 @@ export function ViralVideoPlayer({
     );
   }
 
+  const iconBtn: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: "rgba(255,255,255,0.75)",
+    padding: compact ? 2 : 6,
+    display: "grid",
+    placeItems: "center",
+    transition: "color 120ms ease",
+  };
+
   return (
     <div
       ref={containerRef}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => {
-        if (playing) setShowControls(false);
+        if (playing && !draggingRef.current) setShowControls(false);
       }}
       onClick={togglePlay}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
       className={className}
       style={{
         position: "relative",
         width: "100%",
         aspectRatio: fullscreen ? undefined : aspectStyle,
-        borderRadius: fullscreen ? 0 : (compact ? 0 : 22),
+        borderRadius: radius,
         overflow: "hidden",
-        border: compact ? "none" : "1px solid hsl(var(--ink))",
-        boxShadow: (fullscreen || compact) ? "none" : "6px 6px 0 hsl(var(--ink))",
         background: "#000",
         cursor: "pointer",
+        outline: "none",
       }}
     >
       <video
@@ -190,45 +270,44 @@ export function ViralVideoPlayer({
         style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
       />
 
-      {/* Hand-drawn imperfect-circle play overlay (shown when paused) */}
-      {!playing && (
+      {/* Center state: simple frosted circle + plain triangle (or spinner while buffering) */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          background: playing ? "transparent" : "rgba(0,0,0,0.20)",
+          transition: "background 150ms ease",
+        }}
+      >
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(10,14,18,0.30)",
-            pointerEvents: "none",
+            width: compact ? 34 : 56,
+            height: compact ? 34 : 56,
+            borderRadius: "50%",
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            display: "grid",
+            placeItems: "center",
+            color: "#fff",
+            opacity: !playing || buffering ? 1 : 0,
+            transform: !playing || buffering ? "scale(1)" : "scale(0.85)",
+            transition: "opacity 150ms ease, transform 150ms ease",
           }}
         >
-          <div style={{ width: compact ? 36 : 96, height: compact ? 36 : 96, position: "relative" }}>
-            <svg
-              viewBox="0 0 100 100"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-              aria-hidden
-            >
-              {/* Hand-drawn imperfect circle */}
-              <path
-                d="M 50 8 Q 84 10, 92 50 Q 90 86, 50 92 Q 12 88, 8 50 Q 12 12, 50 8 Z"
-                fill="hsl(var(--honey))"
-                stroke="hsl(var(--ink))"
-                strokeWidth="3"
-                strokeLinejoin="round"
-              />
-              {/* Wobbly play triangle */}
-              <path
-                d="M 40 32 Q 38 30, 42 32 L 70 48 Q 72 50, 70 52 L 42 68 Q 38 70, 40 68 Z"
-                fill="hsl(var(--ink))"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
+          {buffering && playing ? (
+            <Loader2 size={compact ? 16 : 24} className="animate-spin" />
+          ) : (
+            <Play size={compact ? 14 : 22} fill="#fff" style={{ marginLeft: 2 }} />
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Controls bar */}
+      {/* Controls scrim */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -236,108 +315,100 @@ export function ViralVideoPlayer({
           bottom: 0,
           left: 0,
           right: 0,
-          padding: compact ? "16px 6px 6px" : "32px 18px 16px",
-          background:
-            "linear-gradient(0deg, rgba(10,14,18,0.92) 0%, rgba(10,14,18,0.55) 60%, transparent 100%)",
-          transition: "transform 350ms cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: showControls ? "translateY(0)" : "translateY(100%)",
+          padding: compact ? "14px 8px 6px" : "28px 12px 8px",
+          background: "linear-gradient(0deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 55%, transparent 100%)",
+          opacity: showControls ? 1 : 0,
+          pointerEvents: showControls ? "auto" : "none",
+          transition: "opacity 180ms ease",
         }}
       >
-        {/* Progress bar */}
+        {/* Scrub bar — 3px visual track inside a 14px hit area, draggable */}
         <div
           ref={progressRef}
-          onClick={handleSeek}
+          onPointerDown={onScrubPointerDown}
+          onPointerMove={onScrubPointerMove}
+          onPointerUp={onScrubPointerUp}
+          onPointerCancel={onScrubPointerUp}
+          onMouseEnter={() => setScrubHover(true)}
+          onMouseLeave={() => setScrubHover(false)}
+          onClick={(e) => e.stopPropagation()}
           style={{
-            height: compact ? 2 : 4,
-            background: "hsl(var(--bone) / 0.18)",
-            borderRadius: 4,
-            marginBottom: compact ? 4 : 12,
+            height: 14,
+            display: "flex",
+            alignItems: "center",
             cursor: "pointer",
-            position: "relative",
-            border: compact ? "none" : "1px solid rgba(10,14,18,0.6)",
+            marginBottom: compact ? 0 : 2,
+            touchAction: "none",
           }}
         >
-          <div
-            style={{
-              height: "100%",
-              width: `${duration ? (current / duration) * 100 : 0}%`,
-              background: "hsl(var(--honey))",
-              borderRadius: 4,
-              position: "relative",
-            }}
-          >
-            {!compact && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: -6,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  background: "hsl(var(--honey))",
-                  border: "1px solid hsl(var(--ink))",
-                }}
-              />
-            )}
+          <div style={{ position: "relative", width: "100%", height: 3, borderRadius: 2, background: "rgba(255,255,255,0.25)" }}>
+            {/* Buffered range */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: `${duration ? Math.min(100, (buffered / duration) * 100) : 0}%`,
+                background: "rgba(255,255,255,0.4)",
+                borderRadius: 2,
+              }}
+            />
+            {/* Played */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: `${duration ? (current / duration) * 100 : 0}%`,
+                background: "#fff",
+                borderRadius: 2,
+              }}
+            >
+              {/* Knob — appears on hover/drag */}
+              {!compact && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: -5,
+                    top: "50%",
+                    transform: `translateY(-50%) scale(${scrubHover || draggingRef.current ? 1 : 0})`,
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    transition: "transform 120ms ease",
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         {/* Controls row */}
-        <div style={{ display: "flex", alignItems: "center", gap: compact ? 6 : 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: compact ? 4 : 6 }}>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePlay();
-            }}
+            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
             aria-label={playing ? "Pause" : "Play"}
-            style={{
-              background: "hsl(var(--honey))",
-              border: "1px solid hsl(var(--ink))",
-              borderRadius: "50%",
-              width: compact ? 18 : 32,
-              height: compact ? 18 : 32,
-              cursor: "pointer",
-              color: "hsl(var(--ink))",
-              padding: 0,
-              display: "grid",
-              placeItems: "center",
-              boxShadow: compact ? "1px 1px 0 hsl(var(--ink))" : "2px 2px 0 hsl(var(--ink))",
-            }}
+            style={{ ...iconBtn, color: "#fff" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
           >
-            {playing ? (
-              <Pause size={compact ? 8 : 13} fill="hsl(var(--ink))" />
-            ) : (
-              <Play size={compact ? 8 : 13} fill="hsl(var(--ink))" style={{ marginLeft: compact ? 0.5 : 1 }} />
-            )}
+            {playing ? <Pause size={compact ? 12 : 16} fill="#fff" /> : <Play size={compact ? 12 : 16} fill="#fff" />}
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMute();
-            }}
+            onClick={(e) => { e.stopPropagation(); toggleMute(); }}
             aria-label={muted ? "Unmute" : "Mute"}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "hsl(var(--bone))",
-              padding: compact ? 2 : 6,
-              display: "grid",
-              placeItems: "center",
-            }}
+            style={iconBtn}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
           >
-            {muted ? <VolumeX size={compact ? 10 : 15} /> : <Volume2 size={compact ? 10 : 15} />}
+            {muted ? <VolumeX size={compact ? 11 : 15} /> : <Volume2 size={compact ? 11 : 15} />}
           </button>
           {!compact && (
             <span
               style={{
-                fontFamily: "'Figtree', monospace",
-                fontSize: 12,
-                color: "hsl(var(--bone) / 0.62)",
+                fontSize: 11,
+                color: "rgba(255,255,255,0.9)",
                 fontVariantNumeric: "tabular-nums",
                 letterSpacing: "0.02em",
+                marginLeft: 2,
               }}
             >
               {fmt(current)} / {fmt(duration)}
@@ -346,20 +417,22 @@ export function ViralVideoPlayer({
           <div style={{ flex: 1 }} />
           {!compact && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFullscreen();
-              }}
+              onClick={(e) => { e.stopPropagation(); cycleSpeed(); }}
+              aria-label="Playback speed"
+              style={{ ...iconBtn, fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
+            >
+              {speed}x
+            </button>
+          )}
+          {!compact && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
               aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "hsl(var(--bone))",
-                padding: 6,
-                display: "grid",
-                placeItems: "center",
-              }}
+              style={iconBtn}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
             >
               {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
             </button>
