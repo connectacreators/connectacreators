@@ -1390,6 +1390,18 @@ export default function ViralToday() {
   // Any narrowing/reordering change restarts at page 1.
   useEffect(() => { setChannelPage(0); }, [channelSearch, channelCategory, channelSort]);
 
+  // Debounced ("smart") channel search: the input stays instant, but results
+  // settle 350ms after typing stops instead of reshuffling on every keystroke.
+  const [channelQuery, setChannelQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setChannelQuery(channelSearch.trim().toLowerCase()), 350);
+    return () => clearTimeout(t);
+  }, [channelSearch]);
+  const channelSearchSettling = channelSearch.trim().toLowerCase() !== channelQuery;
+  // Search results reveal 5 at a time ("Load more"), reset per query.
+  const [channelSearchLimit, setChannelSearchLimit] = useState(5);
+  useEffect(() => { setChannelSearchLimit(5); }, [channelQuery, channelCategory]);
+
   // Derive each channel's niche from its videos (most common primary_niche).
   const nicheByChannel = useMemo(() => {
     const counts = new Map<string, Map<string, number>>();
@@ -3419,69 +3431,131 @@ export default function ViralToday() {
                       </div>
 
                       {(() => {
-                        const q = channelSearch.trim().toLowerCase();
-                        let matched = channels.filter((c) => {
+                        // Debounced query — results settle after typing stops (see channelQuery)
+                        const q = channelQuery;
+                        const qCompact = q.replace(/\s+/g, "");
+                        const searching = !!q;
+
+                        // Score every channel: username hits are "name" matches (scored by
+                        // closeness so exact > prefix > substring); niche/watchlist hits are
+                        // "topic" matches. The mix decides how the results are titled below.
+                        type ScoredChannel = { ch: (typeof channels)[number]; score: number; byName: boolean };
+                        const scored: ScoredChannel[] = [];
+                        let topicHits = 0;
+                        for (const c of channels) {
                           if (channelCategory !== "all") {
                             const cat = nicheByChannel.get(c.id) ?? "__other";
-                            if (cat !== channelCategory) return false;
+                            if (cat !== channelCategory) continue;
                           }
-                          if (!q) return true;
-                          if (c.username.toLowerCase().includes(q)) return true;
+                          if (!q) { scored.push({ ch: c, score: 0, byName: false }); continue; }
+                          const u = c.username.toLowerCase();
+                          let score = -1;
+                          let byName = false;
+                          if (qCompact && u.includes(qCompact)) {
+                            byName = true;
+                            score = u === qCompact ? 100
+                              : u.startsWith(qCompact) ? 90 - (u.length - qCompact.length) * 0.2
+                              : 70 - u.indexOf(qCompact) - (u.length - qCompact.length) * 0.2;
+                          }
                           const niche = nicheByChannel.get(c.id);
-                          if (niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q))) return true;
+                          const nicheHit = !!niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q));
                           // The user's own tags: watchlist names this channel belongs to.
-                          if ((listNamesByChannel.get(c.id) ?? []).some((n) => n.includes(q))) return true;
-                          return false;
-                        });
-                        if (matched.length === 0) {
+                          const listHit = (listNamesByChannel.get(c.id) ?? []).some((n) => n.includes(q));
+                          if (nicheHit || listHit) { topicHits++; score = Math.max(score, 10); }
+                          if (score < 0) continue;
+                          scored.push({ ch: c, score, byName });
+                        }
+                        if (scored.length === 0) {
                           return (
-                            <p className="text-sm text-muted-foreground py-8 text-center">
-                              No channels match{channelSearch ? ` “${channelSearch}”` : " this category"}.
+                            <p className="vt-fade-in text-sm text-muted-foreground py-8 text-center">
+                              No channels match{channelSearch ? ` “${channelSearch.trim()}”` : " this category"}.
                             </p>
                           );
                         }
-                        matched = [...matched];
-                        switch (channelSort) {
-                          case "videos": matched.sort((a, b) => b.video_count - a.video_count); break;
-                          case "views": matched.sort((a, b) => b.avg_views - a.avg_views); break;
-                          case "name": matched.sort((a, b) => a.username.localeCompare(b.username)); break;
-                          default: // recently scraped; never-scraped sink to the bottom
-                            matched.sort((a, b) =>
-                              (b.last_scraped_at ? Date.parse(b.last_scraped_at) : 0) -
-                              (a.last_scraped_at ? Date.parse(a.last_scraped_at) : 0));
-                        }
+                        const sortCmp = (a: ScoredChannel["ch"], b: ScoredChannel["ch"]) => {
+                          switch (channelSort) {
+                            case "videos": return b.video_count - a.video_count;
+                            case "views": return b.avg_views - a.avg_views;
+                            case "name": return a.username.localeCompare(b.username);
+                            default: // recently scraped; never-scraped sink to the bottom
+                              return (b.last_scraped_at ? Date.parse(b.last_scraped_at) : 0) -
+                                     (a.last_scraped_at ? Date.parse(a.last_scraped_at) : 0);
+                          }
+                        };
+                        // Searching: most similar first, selected sort breaks ties.
+                        scored.sort((a, b) => (q ? (b.score - a.score || sortCmp(a.ch, b.ch)) : sortCmp(a.ch, b.ch)));
+                        const matched = scored.map((s) => s.ch);
+
+                        // Title logic: a handle-like query (matches usernames, no niche/
+                        // watchlist hits) is titled with the top match's niche; a topic
+                        // query is titled with the query itself.
+                        const nameMode = searching && topicHits === 0 && scored.some((s) => s.byName);
+                        const topNiche = nameMode ? nicheByChannel.get(matched[0].id) : undefined;
+                        const searchTitle = nameMode
+                          ? (topNiche ? nicheLabel(topNiche) : channelSearch.trim())
+                          : channelSearch.trim();
+
                         const chTotalPages = Math.ceil(matched.length / channelsPerPage);
                         const chPage = Math.min(channelPage, Math.max(0, chTotalPages - 1));
-                        const pageChannels = matched.slice(chPage * channelsPerPage, (chPage + 1) * channelsPerPage);
+                        const pageChannels = searching
+                          ? matched.slice(0, channelSearchLimit)
+                          : matched.slice(chPage * channelsPerPage, (chPage + 1) * channelsPerPage);
+                        const searchRemaining = searching ? matched.length - pageChannels.length : 0;
                         return (
-                          <>
-                            <p className="text-[11px] text-muted-foreground mb-2 px-0.5">
-                              {matched.length} channel{matched.length === 1 ? "" : "s"}
-                              {chTotalPages > 1 && <span className="text-muted-foreground/60"> · page {chPage + 1} of {chTotalPages}</span>}
-                            </p>
+                          // Keyed by query so a new search replays the fade-in cascade;
+                          // dimmed while the debounce is still settling.
+                          <div key={q || "browse"} className={`transition-opacity duration-200 ${channelSearchSettling ? "opacity-50" : "opacity-100"}`}>
+                            {searching ? (
+                              <div className="vt-fade-in mb-3 px-0.5">
+                                <div className="flex items-baseline gap-2">
+                                  <h3 className="text-sm font-semibold text-foreground">{searchTitle}</h3>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {nameMode ? "niche · most similar first" : `${matched.length} result${matched.length === 1 ? "" : "s"}`}
+                                  </span>
+                                </div>
+                                <div className="mt-2 border-t border-border/60" />
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground mb-2 px-0.5">
+                                {matched.length} channel{matched.length === 1 ? "" : "s"}
+                                {chTotalPages > 1 && <span className="text-muted-foreground/60"> · page {chPage + 1} of {chTotalPages}</span>}
+                              </p>
+                            )}
                             {/* Single column — the 2-col grid squeezed the row
                                 content until stats/text overlapped. */}
                             <div className="space-y-2">
-                              {pageChannels.map((ch) => (
-                                <ChannelRow
-                                  key={ch.id}
-                                  channel={ch}
-                                  niche={nicheByChannel.get(ch.id)}
-                                  onScrape={handleScrape}
-                                  onDelete={handleDeleteChannel}
-                                  isAdmin={isAdmin}
-                                  canScrape={canScrape}
-                                  scrapeDisabledReason={scrapeDisabledReason}
-                                  watchlists={watchlists}
-                                  channelListIds={listsByChannel.get(ch.id)}
-                                  onToggleInList={toggleChannelInList}
-                                  onCreateList={createWatchlist}
-                                  isQueued={queuedIds.has(ch.id)}
-                                />
+                              {pageChannels.map((ch, i) => (
+                                <div key={ch.id} className="vt-fade-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+                                  <ChannelRow
+                                    channel={ch}
+                                    niche={nicheByChannel.get(ch.id)}
+                                    onScrape={handleScrape}
+                                    onDelete={handleDeleteChannel}
+                                    isAdmin={isAdmin}
+                                    canScrape={canScrape}
+                                    scrapeDisabledReason={scrapeDisabledReason}
+                                    watchlists={watchlists}
+                                    channelListIds={listsByChannel.get(ch.id)}
+                                    onToggleInList={toggleChannelInList}
+                                    onCreateList={createWatchlist}
+                                    isQueued={queuedIds.has(ch.id)}
+                                  />
+                                </div>
                               ))}
                             </div>
+                            {/* Searching reveals 5 at a time instead of paging */}
+                            {searching && searchRemaining > 0 && (
+                              <div className="mt-4 flex justify-center">
+                                <button
+                                  onClick={() => setChannelSearchLimit((n) => n + 10)}
+                                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border hover:bg-muted/80 transition-all"
+                                >
+                                  Load more ({searchRemaining} more)
+                                </button>
+                              </div>
+                            )}
                             {/* Same pagination style as the videos grid */}
-                            {chTotalPages > 1 && (
+                            {!searching && chTotalPages > 1 && (
                               <div className="mt-6 flex items-center gap-2 flex-wrap justify-center">
                                 <button
                                   onClick={() => setChannelPage(Math.max(0, chPage - 1))}
@@ -3531,7 +3605,7 @@ export default function ViralToday() {
                                 </button>
                               </div>
                             )}
-                          </>
+                          </div>
                         );
                       })()}
                     </div>

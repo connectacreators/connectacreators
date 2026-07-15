@@ -1484,6 +1484,15 @@ All colors MUST be HSL for consistency and theming.
   50%      { box-shadow: 0 0 0 8px rgba(143,208,213,0); }
 }
 
+/* Viral Today channel search — staggered result fade-in.
+   `backwards` keeps rows hidden only DURING their stagger delay; if the
+   animation is disabled (reduced motion) the element renders normally. */
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.vt-fade-in { animation: vt-fade-in 0.3s ease backwards; }
+
 @media (prefers-reduced-motion: reduce) {
   [style*="broadcast-fade-in"],
   [style*="broadcast-type-in"],
@@ -1498,6 +1507,9 @@ All colors MUST be HSL for consistency and theming.
   [style*="broadcast-pulse"],
   [style*="think-pulse"],
   [style*="scanline"] {
+    animation: none !important;
+  }
+  .vt-fade-in {
     animation: none !important;
   }
 }
