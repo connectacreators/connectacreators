@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef, useCallback } from "react";
-import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import {
   Upload,
   Trash2,
@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +43,10 @@ interface MediaNodeData {
   fileSizeBytes?: number;
   storagePath?: string;
   signedUrl?: string;
+  /** Images: collapsed "plain image" presentation (default). false = full card with chrome */
+  minimal?: boolean;
+  /** Persisted natural aspect ratio ("W / H") so the frame is right before the image loads */
+  imgAspect?: string;
 
   // Transcription
   audioTranscription?: string;
@@ -109,7 +115,8 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
   // ─── Signed URL management ───
   const [signedUrl, setSignedUrl] = useState<string | null>(d.signedUrl || null);
-  const signedUrlCreatedAt = useRef<number>(d.signedUrl ? Date.now() : 0);
+  // 0 = "age unknown, verify on first use" — a persisted URL's mint time is not Date.now()
+  const signedUrlCreatedAt = useRef<number>(0);
 
   // ─── Transcription UI ───
   const [showTranscript, setShowTranscript] = useState(false);
@@ -411,16 +418,28 @@ const MediaNode = memo(({ data }: NodeProps) => {
 
   const TypeIcon = fileType ? FILE_TYPE_ICON[fileType] || Upload : Upload;
 
+  // Uploaded images default to the collapsed "plain image" presentation: no card chrome,
+  // just the picture — still selectable, resizable, and connectable to the AI (handles +
+  // node.data stay identical; the AI context reader walks edges, never the chrome).
+  const minimalImage = fileType === "image" && isUploaded && d.minimal !== false;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div
-      className="glass-card rounded-2xl shadow-xl relative"
-      style={{ width: 280 }}
+      className={minimalImage ? "relative" : "glass-card rounded-2xl shadow-xl relative"}
+      style={{ width: "100%", minWidth: 160 }}
     >
-      <div className="overflow-hidden rounded-2xl">
+      <NodeResizer
+        minWidth={160}
+        minHeight={100}
+        keepAspectRatio={minimalImage}
+        handleStyle={{ opacity: 0, width: 12, height: 12 }}
+        lineStyle={{ opacity: 0 }}
+      />
+      <div className={minimalImage ? "" : "overflow-hidden rounded-2xl"}>
       {/* ═══════════ STATE 1: Empty — Drop zone ═══════════ */}
       {isEmpty && (
         <>
@@ -535,47 +554,71 @@ const MediaNode = memo(({ data }: NodeProps) => {
           {/* ─── IMAGE ─── */}
           {fileType === "image" && (
             <>
-              {/* Image preview */}
-              {signedUrl && (
-                <div className="relative">
+              {/* Image preview — minimal (default): the picture IS the node */}
+              <div className="relative group/img" style={minimalImage ? { aspectRatio: d.imgAspect || undefined } : undefined}>
+                {signedUrl ? (
                   <img
                     src={signedUrl}
                     alt={d.fileName || "Uploaded image"}
-                    className="w-full rounded-t-2xl object-contain bg-black/20"
-                    style={{ maxHeight: 400 }}
+                    className={minimalImage
+                      ? "w-full h-full object-cover rounded-2xl"
+                      : "w-full rounded-t-2xl object-contain bg-black/20"}
+                    style={minimalImage ? undefined : { maxHeight: 400 }}
+                    onLoad={(e) => {
+                      const im = e.target as HTMLImageElement;
+                      if (im.naturalWidth && im.naturalHeight) {
+                        const a = `${im.naturalWidth} / ${im.naturalHeight}`;
+                        if (a !== d.imgAspect) d.onUpdate?.({ imgAspect: a });
+                      }
+                    }}
                     onError={() => {
                       // Try refreshing signed URL on error
                       refreshSignedUrl();
                     }}
                   />
-                  {/* Delete button overlay */}
-                  <div className="absolute top-2 right-2">
-                    <button
-                      onClick={handleDelete}
-                      className={`nodrag p-1 rounded-lg backdrop-blur-sm transition-colors ${
-                        confirmDelete
-                          ? "bg-red-500/80 text-white"
-                          : "bg-black/40 hover:bg-red-500/60 text-white/80 hover:text-white"
-                      }`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                ) : (
+                  // Signed URL still minting after a reload — hold the frame, no collapse
+                  <div
+                    className={`w-full bg-[hsl(var(--ink-on-cream)/0.06)] animate-pulse ${minimalImage ? "rounded-2xl h-full" : "rounded-t-2xl"}`}
+                    style={{ aspectRatio: d.imgAspect || "4 / 3" }}
+                  />
+                )}
+                {/* Hover controls */}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => d.onUpdate?.({ minimal: !minimalImage })}
+                    className="nodrag p-1 rounded-lg backdrop-blur-sm bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors"
+                    title={minimalImage ? "Show details" : "Hide details"}
+                  >
+                    {minimalImage ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className={`nodrag p-1 rounded-lg backdrop-blur-sm transition-colors ${
+                      confirmDelete
+                        ? "bg-red-500/80 text-white"
+                        : "bg-black/40 hover:bg-red-500/60 text-white/80 hover:text-white"
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* File info — hidden in minimal mode */}
+              {!minimalImage && (
+                <div className="px-3 py-2.5 flex items-center gap-2 border-t border-border/30">
+                  <FileImage className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
+                  <span className="text-[11px] text-foreground/70 truncate flex-1">
+                    {d.fileName}
+                  </span>
+                  {d.fileSizeBytes && (
+                    <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">
+                      {formatFileSize(d.fileSizeBytes)}
+                    </span>
+                  )}
                 </div>
               )}
-
-              {/* File info */}
-              <div className="px-3 py-2.5 flex items-center gap-2 border-t border-border/30">
-                <FileImage className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
-                <span className="text-[11px] text-foreground/70 truncate flex-1">
-                  {d.fileName}
-                </span>
-                {d.fileSizeBytes && (
-                  <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">
-                    {formatFileSize(d.fileSizeBytes)}
-                  </span>
-                )}
-              </div>
             </>
           )}
 

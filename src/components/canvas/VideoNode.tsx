@@ -772,6 +772,36 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
   // Force vertical for known short-form platforms — don't let thumbnail detection override
   const aspectRatio = isVertical ? "9 / 16" : (detectedAspect || "16 / 9");
 
+  // Expired IG/FB CDN thumbnails 403 on reload. Previously onError just display:none'd the
+  // <img>, which collapsed the hero to 0px and shrank the whole node. Now: one silent
+  // re-fetch via fetch-thumbnail, else fall back to the aspect-ratio placeholder.
+  const thumbRetriedRef = useRef(false);
+  const handleThumbError = async () => {
+    setThumbnailUrl(null);
+    if (thumbRetriedRef.current || !d.url) { setThumbStatus("error"); return; }
+    thumbRetriedRef.current = true;
+    setThumbStatus("loading");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/fetch-thumbnail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ url: d.url }),
+      });
+      const j = r.ok ? await r.json() : null;
+      if (j?.thumbnail_url) {
+        const proxied = proxyInstagramUrl(j.thumbnail_url);
+        setThumbnailUrl(proxied);
+        setThumbStatus("done");
+        d.onUpdate?.({ thumbnailUrl: proxied });
+      } else {
+        setThumbStatus("error");
+      }
+    } catch {
+      setThumbStatus("error");
+    }
+  };
+
   return (
     <div
       className="glass-card rounded-2xl shadow-xl relative"
@@ -875,7 +905,9 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 />
               </div>
             ) : thumbnailUrl ? (
-              <div className={`relative group ${isLongYt ? "cursor-default" : "cursor-pointer"}`} onClick={() => {
+              // The aspect-ratio box lives on the WRAPPER (not the <img>) so a failed or
+              // slow image can never collapse the hero and shrink the node.
+              <div className={`relative group ${isLongYt ? "cursor-default" : "cursor-pointer"}`} style={{ aspectRatio, minHeight: 120 }} onClick={() => {
                 if (isLongYt) return;  // Long YouTube has no playback (Shorts do)
                 if (videoFileUrl) { setPlayingVideo(true); return; }
                 if (downloadingVideo) return;
@@ -884,21 +916,18 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 <img
                   src={thumbnailUrl}
                   alt="Video thumbnail"
-                  className="w-full object-cover"
-                  style={{ aspectRatio }}
+                  className="absolute inset-0 w-full h-full object-cover"
                   onLoad={(e) => {
                     const img = e.target as HTMLImageElement;
                     if (img.naturalWidth && img.naturalHeight && !detectedAspect) {
                       setDetectedAspect(img.naturalWidth < img.naturalHeight ? "9 / 16" : "16 / 9");
                     }
                   }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+                  onError={handleThumbError}
                 />
                 {/* Video title — YouTube only */}
                 {isYt && videoTitle && (
-                  <div className="px-3 py-2 bg-black/60 backdrop-blur-sm">
+                  <div className="absolute bottom-0 inset-x-0 px-3 py-2 bg-black/60 backdrop-blur-sm">
                     <p className="text-[11px] font-medium text-white/90 leading-snug line-clamp-2">{videoTitle}</p>
                   </div>
                 )}
@@ -947,8 +976,9 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                 className="w-full flex flex-col items-center justify-center gap-2"
                 style={{
                   aspectRatio,
-                  background: urlInput.includes("instagram") ? "linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)"
-                    : urlInput.includes("tiktok") ? "linear-gradient(135deg, #010101 0%, #25f4ee 50%, #fe2c55 100%)"
+                  minHeight: 120,
+                  background: urlForDetect.includes("instagram") ? "linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)"
+                    : urlForDetect.includes("tiktok") ? "linear-gradient(135deg, #010101 0%, #25f4ee 50%, #fe2c55 100%)"
                     : "linear-gradient(135deg, #1a1a2e 0%, #4a148c 100%)",
                 }}
               >
@@ -961,7 +991,7 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
                   <>
                     <Film className="w-10 h-10 text-white/40" />
                     <span className="text-[10px] text-white/50 font-medium">
-                      {urlInput.includes("instagram") ? "Instagram Reel" : urlInput.includes("tiktok") ? "TikTok" : "Video"}
+                      {urlForDetect.includes("instagram") ? "Instagram Reel" : urlForDetect.includes("tiktok") ? "TikTok" : "Video"}
                     </span>
                   </>
                 ) : (
