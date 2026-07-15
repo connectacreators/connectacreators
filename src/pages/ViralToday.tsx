@@ -659,9 +659,14 @@ const VideoCard = memo(function VideoCard({
             onClick={(e) => { e.stopPropagation(); if (isAdmin && onToggleFeatured) onToggleFeatured(video); }}
             disabled={!isAdmin}
             data-tip={video.is_featured_framework ? "Top Framework" : isAdmin ? "Mark as Top Framework" : "Top Framework"}
-            className="vt-tip vt-tip--left flex-1 h-9 flex items-center justify-center text-white/90 hover:bg-white/10 transition-colors disabled:cursor-default"
+            className={cn(
+              "vt-tip vt-tip--left flex-1 h-9 flex items-center justify-center transition-colors disabled:cursor-default",
+              video.is_featured_framework
+                ? "bg-yellow-500/90 hover:bg-yellow-500 text-white"
+                : "text-white/90 hover:bg-white/10",
+            )}
           >
-            <Star className={cn("w-4 h-4", video.is_featured_framework && "text-yellow-400 fill-yellow-400")} />
+            <Star className={cn("w-4 h-4", video.is_featured_framework && "fill-current")} />
           </button>
 
           {/* Play — analyzed: in-app detail; otherwise: the original post */}
@@ -1660,6 +1665,9 @@ export default function ViralToday() {
   // Polling ref for running channels
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelsRef = useRef<ViralChannel[]>([]);
+  // Zero-video auto-retry bookkeeping for scrapes tracked via polling
+  // (long-running jobs) — channelId -> retries used, max 2.
+  const zeroRetryRef = useRef<Map<string, number>>(new Map());
 
   // The page scrolls inside this container — jump back to the top whenever
   // the page number changes, or "Next" strands the user at the bottom of the
@@ -2023,7 +2031,33 @@ export default function ViralToday() {
           });
           if (error) continue;
           if (result?.status === "done") {
-            toast.success(`@${ch.username} scraped — ${result.videosStored ?? 0} videos updated`);
+            // Zero videos back is usually a transient scraper failure —
+            // auto-retry up to twice before accepting the result.
+            const stored = result.videosStored ?? 0;
+            const tried = zeroRetryRef.current.get(ch.id) ?? 0;
+            if (stored === 0 && tried < 2) {
+              zeroRetryRef.current.set(ch.id, tried + 1);
+              toast.info(`@${ch.username} returned 0 videos — retrying automatically (${tried + 1}/2)…`);
+              await supabase
+                .from("viral_channels")
+                .update({ scrape_status: "running", scrape_error: null })
+                .eq("id", ch.id);
+              // Fire-and-forget re-kick; this same poll keeps tracking it.
+              // If the VPS is busy, bail back to done so it can't hang forever.
+              supabase.functions
+                .invoke("scrape-channel", {
+                  body: { channelId: ch.id, username: ch.username, platform: ch.platform },
+                })
+                .then((resp) => {
+                  if (resp.data?.server_busy) {
+                    supabase.from("viral_channels").update({ scrape_status: "done" }).eq("id", ch.id).then(() => fetchChannels());
+                  }
+                })
+                .catch(() => {});
+              continue;
+            }
+            zeroRetryRef.current.delete(ch.id);
+            toast.success(`@${ch.username} scraped — ${stored} videos updated`);
             fetchChannels();
             // Refresh videos for this channel (replace existing rows with updated stats)
             const { data: newVideos } = await supabase
@@ -2077,8 +2111,11 @@ export default function ViralToday() {
           prev.map((c) => (c.id === job.channelId ? { ...c, scrape_status: "running" } : c)),
         );
 
-        // Run the scrape, auto-retrying while the VPS is busy.
+        // Run the scrape, auto-retrying while the VPS is busy — and up to
+        // twice more when a scrape "succeeds" with 0 videos (a common
+        // transient failure that used to require a manual re-scrape).
         let settled = false;
+        let zeroRetries = 2;
         while (!settled) {
           let result: any = null;
           let invokeError: any = null;
@@ -2095,6 +2132,13 @@ export default function ViralToday() {
           if (result?.server_busy) {
             // VPS busy — keep the job queued and retry shortly.
             await new Promise((r) => setTimeout(r, 8_000));
+            continue;
+          }
+
+          if (!invokeError && result?.status === "done" && (result.videosStored ?? 0) === 0 && zeroRetries > 0) {
+            zeroRetries--;
+            toast.info(`@${job.username} returned 0 videos — retrying automatically…`);
+            await new Promise((r) => setTimeout(r, 5_000));
             continue;
           }
 
@@ -2220,11 +2264,24 @@ export default function ViralToday() {
         prev.map((c) => (c.id === ch.id ? { ...c, scrape_status: "running" } : c))
       );
 
-      const { data, error } = await supabase.functions.invoke("scrape-channel", {
-        body: { channelId: ch.id, username: ch.username, platform: ch.platform },
-      });
-
-      if (error) throw error;
+      // Invoke, auto-retrying up to twice when the scrape "succeeds" with 0
+      // videos — a common transient failure that used to need a manual retry.
+      let data: any = null;
+      let zeroRetries = 2;
+      for (;;) {
+        const resp = await supabase.functions.invoke("scrape-channel", {
+          body: { channelId: ch.id, username: ch.username, platform: ch.platform },
+        });
+        if (resp.error) throw resp.error;
+        data = resp.data;
+        if (data?.status === "done" && (data.videosStored ?? 0) === 0 && zeroRetries > 0) {
+          zeroRetries--;
+          toast.info(`@${ch.username} returned 0 videos — retrying automatically…`);
+          await new Promise((r) => setTimeout(r, 5_000));
+          continue;
+        }
+        break;
+      }
 
       if (data?.server_busy) {
         toast.warning("Server busy — please try again in ~30 seconds");

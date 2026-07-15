@@ -10,6 +10,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       closeButton
       theme={theme as ToasterProps["theme"]}
+      // One notification on screen at a time — a new toast takes the slot and
+      // older ones collapse away instead of stacking. (A notifications page
+      // for history is planned separately.)
+      visibleToasts={1}
+      expand={false}
       className="toaster group"
       toastOptions={{
         classNames: {
