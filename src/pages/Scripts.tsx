@@ -8,7 +8,7 @@ import {
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
-  Music, File, ChevronDown, List, Columns3, X,
+  Music, File, ChevronDown, List, Columns3, X, Tags, PenLine,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -716,9 +716,8 @@ export default function Scripts() {
   useEffect(() => { setVaultColumnPath([]); }, [viewingFolderId]);
   // Mobile FAB (New script / New folder)
   const [fabOpen, setFabOpen] = useState(false);
-  // Overflow menus (vault header + script detail actions)
+  // Overflow menu (vault header)
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
-  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null);
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<string>>(new Set());
   const [draggingScriptId, setDraggingScriptId] = useState<string | null>(null);
@@ -4145,7 +4144,7 @@ export default function Scripts() {
                       onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.70)"; e.currentTarget.style.borderColor = "hsl(var(--bone) / 0.20)"; }}
                       title={tr({ en: "Write a full draft from this video's analysis, structured like your format reference", es: "Escribe un borrador completo desde el análisis de este video, con la estructura de tu referencia de formato" }, language)}
                     >
-                      <Wand2 className="w-3 h-3" />
+                      <PenLine className="w-3 h-3" />
                       <span className="hidden sm:inline">{tr({ en: "Draft script", es: "Redactar script" }, language)}</span>
                       <span className="sm:hidden">{tr({ en: "Draft", es: "Redactar" }, language)}</span>
                     </button>
@@ -4296,7 +4295,7 @@ export default function Scripts() {
                       disabled={generatingCaption || !viewingScriptId}
                       title={tr({ en: "Generate an Instagram caption from this script with AI", es: "Genera un caption de Instagram a partir de este script con IA" }, language)}
                     >
-                      {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {generatingCaption ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenLine className="w-3.5 h-3.5" />}
                       <span className="hidden sm:inline">{tr({ en: "Generate", es: "Generar" }, language)}</span>
                     </Button>
                   )}
@@ -4402,62 +4401,58 @@ export default function Scripts() {
                   }}
                   variant="cta"
                   size="sm"
-                  className="gap-1.5 text-xs sm:text-sm"
+                  className="vt-tip h-9 w-9 px-0"
+                  data-tip={tr({ en: "Save", es: "Guardar" }, language)}
+                  aria-label={tr({ en: "Save", es: "Guardar" }, language)}
                   disabled={savingScript}
                 >
-                  {savingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                  <span className="hidden sm:inline">{tr({ en: "Save", es: "Guardar" }, language)}</span>
+                  {savingScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 </Button>
-                <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.record, language)}</span><span className="sm:hidden">Rec</span>
+                {/* One flat row of icon-only actions — labels live in the
+                    hover tooltip. */}
+                <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="vt-tip h-9 w-9 px-0" data-tip={tr(t.scripts.record, language)} aria-label={tr(t.scripts.record, language)}>
+                  <Video className="w-4 h-4" />
                 </Button>
-                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.teleprompter, language)}</span><span className="sm:hidden">TP</span>
+                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="vt-tip h-9 w-9 px-0" data-tip={tr(t.scripts.teleprompter, language)} aria-label={tr(t.scripts.teleprompter, language)}>
+                  <MonitorPlay className="w-4 h-4" />
                 </Button>
-                {/* The occasional actions fold into one quiet ⋯ menu. */}
-                <Popover open={detailMenuOpen} onOpenChange={setDetailMenuOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs sm:text-sm px-2.5"
-                      title={tr({ en: "More actions", es: "Más acciones" }, language)}
-                      aria-label={tr({ en: "More actions", es: "Más acciones" }, language)}
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" align="end">
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
-                      onClick={() => {
-                        setDetailMenuOpen(false);
-                        const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
-                        navigator.clipboard.writeText(publicUrl);
-                        toast.success(tr(t.scripts.publicLinkCopied, language));
-                      }}
-                    >
-                      <Link2 className="w-4 h-4" /> {tr(t.scripts.share, language)}
-                    </button>
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
-                      onClick={() => { setDetailMenuOpen(false); fetchVersions(); setShowHistory(true); }}
-                    >
-                      <Clock className="w-4 h-4" /> {tr({ en: "History", es: "Historial" }, language)}
-                    </button>
-                    {(isAdmin || isConnectaPlus) && (
-                      <button
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                        disabled={recategorizing}
-                        title={tr({ en: "Re-categorize each line with AI (filming / voiceover / editing / text-on-screen)", es: "Recategorizar cada línea con IA (grabación / voz en off / edición / texto en pantalla)" }, language)}
-                        onClick={() => { setDetailMenuOpen(false); handleRecategorize(); }}
-                      >
-                        {recategorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                        {tr({ en: "Re-categorize", es: "Recategorizar" }, language)}
-                      </button>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                <Button
+                  onClick={() => {
+                    const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
+                    navigator.clipboard.writeText(publicUrl);
+                    toast.success(tr(t.scripts.publicLinkCopied, language));
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="vt-tip h-9 w-9 px-0"
+                  data-tip={tr(t.scripts.share, language)}
+                  aria-label={tr(t.scripts.share, language)}
+                >
+                  <Link2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => { fetchVersions(); setShowHistory(true); }}
+                  variant="outline"
+                  size="sm"
+                  className="vt-tip h-9 w-9 px-0"
+                  data-tip={tr({ en: "History", es: "Historial" }, language)}
+                  aria-label={tr({ en: "History", es: "Historial" }, language)}
+                >
+                  <Clock className="w-4 h-4" />
+                </Button>
+                {(isAdmin || isConnectaPlus) && (
+                  <Button
+                    onClick={handleRecategorize}
+                    variant="outline"
+                    size="sm"
+                    className="vt-tip h-9 w-9 px-0"
+                    disabled={recategorizing}
+                    data-tip={tr({ en: "Re-categorize lines", es: "Recategorizar líneas" }, language)}
+                    aria-label={tr({ en: "Re-categorize lines", es: "Recategorizar líneas" }, language)}
+                  >
+                    {recategorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tags className="w-4 h-4" />}
+                  </Button>
+                )}
               </div>
             </div>
             {/* Character counter now lives INSIDE the document card (bottom-left,
