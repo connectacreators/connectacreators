@@ -131,16 +131,22 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
 
   return (
     <div
-      className="flex-1 flex flex-col items-center justify-center overflow-y-auto"
+      // NOTE: no justify-center here — the inner wrapper centers itself with
+      // my-auto instead. Flex-centering an overflowing container makes the top
+      // unreachable when the folder view is taller than the viewport.
+      className="flex-1 flex flex-col items-center overflow-y-auto"
       style={{ background: BG, padding: "48px 28px", minHeight: "100%" }}
     >
-      <div className="w-full max-w-4xl flex flex-col items-center">
+      <div className="w-full max-w-4xl flex flex-col items-center my-auto">
 
-        {/* Small Figtree subtitle: "Hi {brand} 👋" */}
+        {/* Small Figtree subtitle: "Hi {brand} 👋" — `layout` animates the
+            re-centering when the view below changes height (it used to
+            teleport with no transition). */}
         <motion.p
+          layout
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], layout: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } }}
           style={{
             fontSize: 13,
             color: TEXT_MUTED,
@@ -162,9 +168,10 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
 
         {/* Big EB Garamond H1: "What do you want to do today?" */}
         <motion.h1
+          layout
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1, layout: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94], delay: 0 } }}
           style={{
             fontSize: 40,
             fontWeight: 500,
@@ -178,16 +185,20 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
           {t.dashboard.question[language]}
         </motion.h1>
 
-        {/* Both views inside one AnimatePresence with proper keys so they swap cleanly */}
-        <AnimatePresence mode="wait">
+        {/* popLayout: the exiting view pops out of the layout flow so the
+            entering one (and the header above, via `layout`) animates to its
+            new position in a single smooth move — mode="wait" swapped heights
+            abruptly and made the greeting jump. */}
+        <AnimatePresence mode="popLayout">
           {!folder ? (
             <motion.div
               key="folders"
+              layout
               className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
             >
               {folders.map((f, idx) => {
                 const Icon = f.icon;
@@ -267,11 +278,12 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
           ) : (
             <motion.div
               key={`folder-${folder.key}`}
+              layout
               className="w-full"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
               <button
                 type="button"

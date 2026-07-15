@@ -546,6 +546,13 @@ export default function Scripts() {
   const [editingScript, setEditingScript] = useState<Script | null>(null);
   const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  // Folder rename (double-click a folder card, or context-menu → Rename).
+  // Kept strictly separate from script rename — the two must never share state.
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [folderRenameValue, setFolderRenameValue] = useState("");
+  // Single-click opens a folder only after a beat, so double-click can claim
+  // the gesture for rename instead of navigating twice.
+  const folderOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -1254,6 +1261,52 @@ export default function Scripts() {
     e.stopPropagation();
     setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id, folderName: folder.name });
   }, []);
+
+  // Open folder rename — closes every other rename/create UI first so two
+  // inputs can never be live at once (script rename used to survive this).
+  const startFolderRename = useCallback((id: string, name: string) => {
+    if (folderOpenTimer.current) { clearTimeout(folderOpenTimer.current); folderOpenTimer.current = null; }
+    setRenamingScriptId(null);
+    setCreatingFolder(false);
+    setNewFolderName("");
+    setFolderRenameValue(name);
+    setRenamingFolderId(id);
+  }, []);
+
+  const saveFolderRename = useCallback(async () => {
+    const id = renamingFolderId;
+    const name = folderRenameValue.trim();
+    setRenamingFolderId(null);
+    if (!id || !name) return;
+    const prevName = folders.find((f) => f.id === id)?.name;
+    if (name === prevName) return;
+    const { error } = await supabase.from("script_folders").update({ name }).eq("id", id);
+    if (error) {
+      toast.error(tr({ en: "Couldn't rename folder", es: "No se pudo renombrar la carpeta" }, language));
+      return;
+    }
+    setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
+  }, [renamingFolderId, folderRenameValue, folders, language]);
+
+  // Clicking blank page space must dismiss rename/create inputs. Blur alone
+  // can't do it: clicking a non-focusable element doesn't move focus, so the
+  // inputs' onBlur handlers never fire and the row stays stuck in edit mode.
+  useEffect(() => {
+    const anyOpen = renamingScriptId !== null || renamingFolderId !== null || creatingFolder;
+    if (!anyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("[data-rename-ui]")) return;
+      // Commit whichever input holds focus (its own onBlur saves), then close
+      // anything left open without focus.
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      setRenamingScriptId(null);
+      setRenamingFolderId(null);
+      setCreatingFolder(false);
+      setNewFolderName("");
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [renamingScriptId, renamingFolderId, creatingFolder]);
 
   const handleCtxDeleteFolder = useCallback(async () => {
     const target = ctxMenu;
@@ -2011,13 +2064,26 @@ export default function Scripts() {
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
           {ctxMenu.folderId ? (
-            <button
-              onClick={handleCtxDeleteFolder}
-              className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
-            >
-              <Trash2 className="w-4 h-4" />
-              {tr({ en: "Delete folder", es: "Eliminar carpeta" }, language)}
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => {
+                  const m = ctxMenu;
+                  setCtxMenu(null);
+                  if (m?.folderId) startFolderRename(m.folderId, m.folderName ?? "");
+                }}
+                className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
+              >
+                <Pencil className="w-4 h-4" />
+                {tr({ en: "Rename folder", es: "Renombrar carpeta" }, language)}
+              </button>
+              <button
+                onClick={handleCtxDeleteFolder}
+                className="editorial-card flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--cream))] transition-colors hover:border-[hsl(var(--bone) / 0.32)]"
+              >
+                <Trash2 className="w-4 h-4" />
+                {tr({ en: "Delete folder", es: "Eliminar carpeta" }, language)}
+              </button>
+            </div>
           ) : (
             <button
               onClick={handleCtxNewScript}
@@ -2581,6 +2647,7 @@ export default function Scripts() {
                       <div className="flex items-center gap-2">
                         {renamingScriptId === s.id ? (
                           <input
+                            data-rename-ui
                             className="font-semibold text-foreground bg-muted/50 border border-primary/40 rounded-lg px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-primary/50"
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
@@ -2600,9 +2667,13 @@ export default function Scripts() {
                               }
                               if (e.key === "Enter" && renameValue.trim()) {
                                 e.preventDefault();
-                                const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
-                                if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
-                                setRenamingScriptId(null);
+                                // finally-close: a thrown update must never leave a dead input.
+                                try {
+                                  const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
+                                  if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
+                                } finally {
+                                  setRenamingScriptId(null);
+                                }
                                 return;
                               }
                               if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
@@ -2683,6 +2754,9 @@ export default function Scripts() {
                                 <button
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
                                   onClick={() => {
+                                    // Mutually exclusive with folder rename/create.
+                                    setRenamingFolderId(null);
+                                    setCreatingFolder(false);
                                     setRenamingScriptId(s.id);
                                     setRenameValue(s.title);
                                   }}
@@ -2834,45 +2908,81 @@ export default function Scripts() {
                         return (
                           <DroppableFolder key={f.id} id={f.id}>
                             <div className="relative group" onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}>
-                              <button
-                                onClick={() => setViewingFolderId(f.id)}
-                                className="editorial-card w-full flex flex-col items-start gap-3 p-4 transition-colors text-left overflow-hidden"
-                              >
-                                <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                                <div className="w-full min-w-0 pr-7">
-                                  <p
-                                    className="truncate"
-                                    style={{
-                                      fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-                                      fontWeight: 500,
-                                      fontSize: 16,
-                                      letterSpacing: "-0.005em",
-                                      color: "hsl(var(--cream))",
+                              {renamingFolderId === f.id ? (
+                                <div className="editorial-card w-full flex flex-col items-start gap-3 p-4" data-rename-ui>
+                                  <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                  <Input
+                                    autoFocus
+                                    value={folderRenameValue}
+                                    onChange={(e) => setFolderRenameValue(e.target.value)}
+                                    onFocus={(e) => e.currentTarget.select()}
+                                    className="h-8 text-sm"
+                                    style={{ background: "hsl(var(--bone) / 0.04)", borderColor: "hsl(var(--bone) / 0.14)", color: "hsl(var(--cream))" }}
+                                    onKeyDown={(e) => {
+                                      e.stopPropagation();
+                                      if (e.key === "Enter") { e.preventDefault(); saveFolderRename(); }
+                                      if (e.key === "Escape") { e.preventDefault(); setRenamingFolderId(null); }
                                     }}
-                                  >
-                                    {f.name}
-                                  </p>
-                                  <p className="editorial-eyebrow mt-1" style={{ letterSpacing: "0.14em", fontSize: 9.5 }}>
-                                    {count} script{count !== 1 ? "s" : ""}
-                                    {subCount > 0 && tr({ en: ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`, es: ` · ${subCount} carpeta${subCount !== 1 ? "s" : ""}` }, language)}
-                                  </p>
+                                    onBlur={saveFolderRename}
+                                  />
                                 </div>
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
-                                className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                                style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
-                                title={tr({ en: "Share folder", es: "Compartir carpeta" }, language)}
-                              >
-                                <Share2 className="w-3 h-3" />
-                              </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      // Delay so a double-click can claim the gesture
+                                      // for rename instead of opening the folder.
+                                      if (folderOpenTimer.current) clearTimeout(folderOpenTimer.current);
+                                      folderOpenTimer.current = setTimeout(() => {
+                                        folderOpenTimer.current = null;
+                                        setViewingFolderId(f.id);
+                                      }, 250);
+                                    }}
+                                    onDoubleClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      startFolderRename(f.id, f.name);
+                                    }}
+                                    title={tr({ en: "Open · double-click to rename", es: "Abrir · doble clic para renombrar" }, language)}
+                                    className="editorial-card w-full flex flex-col items-start gap-3 p-4 transition-colors text-left overflow-hidden"
+                                  >
+                                    <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                    <div className="w-full min-w-0 pr-7">
+                                      <p
+                                        className="truncate"
+                                        style={{
+                                          fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
+                                          fontWeight: 500,
+                                          fontSize: 16,
+                                          letterSpacing: "-0.005em",
+                                          color: "hsl(var(--cream))",
+                                        }}
+                                      >
+                                        {f.name}
+                                      </p>
+                                      <p className="editorial-eyebrow mt-1" style={{ letterSpacing: "0.14em", fontSize: 9.5 }}>
+                                        {count} script{count !== 1 ? "s" : ""}
+                                        {subCount > 0 && tr({ en: ` · ${subCount} folder${subCount !== 1 ? "s" : ""}`, es: ` · ${subCount} carpeta${subCount !== 1 ? "s" : ""}` }, language)}
+                                      </p>
+                                    </div>
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSharingFolder({ id: f.id, name: f.name }); }}
+                                    className="absolute top-2 right-2 z-20 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                    style={{ background: "hsl(var(--ink-on-cream) / 0.7)", border: "1px solid hsl(var(--bone) / 0.12)", color: "hsl(var(--bone) / 0.65)" }}
+                                    title={tr({ en: "Share folder", es: "Compartir carpeta" }, language)}
+                                  >
+                                    <Share2 className="w-3 h-3" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </DroppableFolder>
                         );
                       })}
                       {/* New folder card */}
                       {creatingFolder ? (
-                        <div className="editorial-card flex flex-col gap-2 p-4">
+                        <div className="editorial-card flex flex-col gap-2 p-4" data-rename-ui>
                           <Input
                             autoFocus
                             value={newFolderName}
@@ -2900,7 +3010,12 @@ export default function Scripts() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => setCreatingFolder(true)}
+                          onClick={() => {
+                            // Mutually exclusive with the rename inputs.
+                            setRenamingScriptId(null);
+                            setRenamingFolderId(null);
+                            setCreatingFolder(true);
+                          }}
                           className="editorial-card-dashed flex flex-col items-center justify-center gap-2 p-4 transition-colors"
                           style={{ color: "hsl(var(--bone) / 0.55)", minHeight: 110 }}
                         >
@@ -3274,6 +3389,7 @@ export default function Scripts() {
                 {/* Idea — primary headline, inline-editable */}
                 {renamingScriptId === viewingScriptId ? (
                   <input
+                    data-rename-ui
                     className="w-full bg-transparent leading-snug focus:outline-none pb-1"
                     style={{
                       fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
@@ -3296,9 +3412,13 @@ export default function Scripts() {
                       }
                       if (e.key === "Enter" && renameValue.trim() && viewingScriptId) {
                         e.preventDefault();
-                        const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
-                        if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
-                        setRenamingScriptId(null);
+                        // finally-close: a thrown update must never leave a dead input.
+                        try {
+                          const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
+                          if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
+                        } finally {
+                          setRenamingScriptId(null);
+                        }
                         return;
                       }
                       if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
@@ -3324,6 +3444,8 @@ export default function Scripts() {
                     }}
                     onClick={() => {
                       if (viewingScriptId) {
+                        setRenamingFolderId(null);
+                        setCreatingFolder(false);
                         setRenamingScriptId(viewingScriptId);
                         setRenameValue(viewingMetadata.idea_ganadora || viewingMetadata.title || "");
                       }
