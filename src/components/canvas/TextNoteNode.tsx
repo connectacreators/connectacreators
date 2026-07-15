@@ -181,7 +181,8 @@ const TextNoteNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Formatting Toolbar */}
       {editor && (
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[hsl(var(--ink-on-cream) / 0.08)] bg-[hsl(var(--ink-on-cream) / 0.03)] flex-wrap nodrag">
+        {/* Container is draggable (gaps between buttons) — each button/select carries its own nodrag */}
+        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[hsl(var(--ink-on-cream) / 0.08)] bg-[hsl(var(--ink-on-cream) / 0.03)] flex-wrap">
           {/* Format dropdown */}
           <select
             value={

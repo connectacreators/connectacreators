@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useCallback, useEffect } from "react";
 import { NodeProps, useReactFlow } from "@xyflow/react";
-import { X, Bold, Italic, Underline as UIcon, GripHorizontal, Copy, Minus, Plus, Palette, Settings2 } from "lucide-react";
+import { X, Bold, Italic, Underline as UIcon, Copy, Minus, Plus, Palette } from "lucide-react";
 
 /* ── Data ── */
 interface AnnotationData {
@@ -127,6 +127,9 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
   const d = data as AnnotationData;
   const { getZoom, updateNode } = useReactFlow();
   const [focused, setFocused] = useState(false);
+  // Canva-style interaction: the node drags as one object; text editing is an explicit
+  // mode entered by double-click (or immediately for a freshly-placed empty annotation).
+  const [editing, setEditing] = useState(!d.text && !d.html);
   const [showToolbar, setShowToolbar] = useState(!d.text && !d.html);
   const [nodeWidth, setNodeWidth] = useState(d.width || 200);
   const [liveFont, setLiveFont] = useState(d.fontSize || 48);
@@ -226,6 +229,28 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
 
   const active = selected || focused;
 
+  // Enter edit mode: focus the editor and put the caret at the end
+  const enterEdit = useCallback(() => {
+    setEditing(true);
+    requestAnimationFrame(() => {
+      const el = editorRef.current;
+      if (!el) return;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    });
+  }, []);
+
+  // Freshly-placed empty annotation: start typing immediately
+  useEffect(() => {
+    if (editing) enterEdit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Resize handler ──
   const onResize = useCallback((edge: ResizeEdge, e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -280,21 +305,17 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
 
   return (
     <div className="relative group"
+      onDoubleClick={() => { if (!editing) enterEdit(); }}
       style={{
         width: nodeWidth, minWidth: 60,
         background: containerBg, backdropFilter: containerBlur,
         border: containerBorder, borderRadius: radius,
         boxShadow: containerShadow, opacity: nodeOpacity,
         padding: bgColor || hasBorder ? "8px 12px" : 4,
+        cursor: editing ? undefined : "grab",
         transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s, opacity 0.15s, border-radius 0.15s",
       }}
     >
-      {/* Drag handle */}
-      <div className="flex items-center justify-center cursor-grab active:cursor-grabbing shrink-0"
-        style={{ height: active ? 16 : 0, opacity: active ? 0.5 : 0, overflow: "hidden", transition: "height 0.15s, opacity 0.15s" }}
-      >
-        <GripHorizontal className="w-5 h-3" style={{ color }} />
-      </div>
 
       {/* ── Toolbar ── */}
       {showToolbar && (() => {
@@ -418,12 +439,13 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
         );
       })()}
 
-      {/* Rich text editor (contenteditable) */}
+      {/* Rich text editor (contenteditable — editable only in edit mode; otherwise the
+          whole node is a single draggable object, like Canva) */}
       <div
         ref={editorRef}
-        contentEditable
+        contentEditable={editing}
         suppressContentEditableWarning
-        className="nodrag nowheel bg-transparent outline-none"
+        className={`bg-transparent outline-none ${editing ? "nodrag nowheel" : "pointer-events-none select-none"}`}
         data-placeholder="Type..."
         style={{
           width: "100%", minHeight: "1.3em", color,
@@ -442,9 +464,13 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
             // Let browser handle the execCommand natively
             setTimeout(saveContent, 10);
           }
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            editorRef.current?.blur();
+          }
         }}
         onFocus={() => { setFocused(true); }}
-        onBlur={() => { setFocused(false); saveContent(); }}
+        onBlur={() => { setFocused(false); setEditing(false); saveContent(); }}
       />
 
       {/* Resize handles */}
@@ -465,7 +491,7 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
       <style>{`
         [data-placeholder]:empty::before {
           content: attr(data-placeholder);
-          color: "hsl(var(--ink-on-cream) / 0.20)",
+          color: hsl(var(--ink-on-cream) / 0.25);
           pointer-events: none;
         }
       `}</style>

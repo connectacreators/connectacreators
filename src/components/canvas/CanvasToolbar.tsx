@@ -24,6 +24,8 @@ function relativeTime(isoString: string): string {
 interface Props {
   clientName?: string;
   onAddNode: (type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode") => void;
+  /** Type tool is armed — next canvas click places the annotation */
+  annotationArmed?: boolean;
   onBack: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -329,7 +331,7 @@ function ResearchDropdown({ onAddNode, onOpenViralPicker }: {
   );
 }
 
-export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, onFitView, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, eraserMode, onToggleEraser, onClearDrawing, drawColor, onDrawColorChange, drawTool = "freeform", onDrawToolChange, drawFill, onDrawFillToggle, drawWidth = 3, onDrawWidthChange, saveStatus, sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession, sessionStorageUsed = 0, onOpenFullscreenAI, presenceOthers, myAnimalName, myColor }: Props) {
+export default function CanvasToolbar({ onAddNode, annotationArmed = false, onBack, onZoomIn, onZoomOut, onFitView, onShowTutorial, onOpenViralPicker, drawingMode, onToggleDrawing, eraserMode, onToggleEraser, onClearDrawing, drawColor, onDrawColorChange, drawTool = "freeform", onDrawToolChange, drawFill, onDrawFillToggle, drawWidth = 3, onDrawWidthChange, saveStatus, sessions, activeSessionId, onNewSession, onSwitchSession, onRenameSession, onDeleteSession, sessionStorageUsed = 0, onOpenFullscreenAI, presenceOthers, myAnimalName, myColor }: Props) {
   return (
     <div className="absolute top-3 left-0 right-0 z-10 flex items-center justify-center pointer-events-none">
       {/* Session switcher + save status — absolute left. Floating Back button
@@ -400,7 +402,22 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
           <div className="w-px h-5 bg-border/60 mx-1" />
 
-          <IconBtn onClick={() => onAddNode("annotationNode")} icon={Type} label="Add Annotation" />
+          {/* Type tool — arms click-to-place; second press cancels */}
+          <div className="relative group">
+            <button
+              onClick={() => onAddNode("annotationNode")}
+              className={`p-2 rounded-xl transition-colors ${
+                annotationArmed
+                  ? "text-[hsl(var(--aqua))] bg-[hsl(var(--aqua) / 0.2)] ring-1 ring-[hsl(var(--aqua))]/40"
+                  : "hover:text-foreground hover:bg-muted/40"
+              }`}
+            >
+              <Type className="w-4 h-4" />
+            </button>
+            <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 text-[10px] font-medium bg-black/85 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
+              {annotationArmed ? "Click canvas to place (Esc cancels)" : "Add Text"}
+            </span>
+          </div>
 
           {/* Draw toggle */}
           <div className="relative group">

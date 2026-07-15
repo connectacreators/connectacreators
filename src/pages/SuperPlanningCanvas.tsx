@@ -288,6 +288,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   // ─── Drawing state ───
   const [drawingMode, setDrawingMode] = useState(false);
   const [eraserMode, setEraserMode] = useState(false);
+  // Type tool: armed by the toolbar, placed by the next canvas click (Canva-style)
+  const [placingAnnotation, setPlacingAnnotation] = useState(false);
   const [drawTool, setDrawTool] = useState<DrawTool>("freeform");
   const [drawFill, setDrawFill] = useState(false);
   const [drawPaths, setDrawPaths] = useState<DrawPath[]>([]);
@@ -1931,9 +1933,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }, eds));
   }, [setEdges]);
 
-  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode") => {
+  const addNode = useCallback((type: "videoNode" | "textNoteNode" | "researchNoteNode" | "hookGeneratorNode" | "brandGuideNode" | "ctaBuilderNode" | "instagramProfileNode" | "competitorProfileNode" | "mediaNode" | "groupNode" | "annotationNode" | "onboardingFormNode", positionOverride?: { x: number; y: number }) => {
     const nodeId = `${type}_${Date.now()}`;
-    const position = getViewportCenter(viewportRef.current);
+    const position = positionOverride ?? getViewportCenter(viewportRef.current);
 
     const initialWidth = type === "videoNode" ? 240
       : type === "textNoteNode" ? 288
@@ -2016,6 +2018,29 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   }, [nodes, authToken, selectedClient.id, setNodes, setEdges, attachCallbacks]);
 
   const { zoomIn, zoomOut, fitView, screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow();
+
+  // Toolbar add: the Type tool arms click-to-place instead of dropping at viewport center
+  const handleToolbarAddNode = useCallback((type: Parameters<typeof addNode>[0]) => {
+    if (type === "annotationNode") {
+      setPlacingAnnotation(p => !p); // second press disarms
+      return;
+    }
+    addNode(type);
+  }, [addNode]);
+
+  const handlePaneClick = useCallback((e: React.MouseEvent) => {
+    if (!placingAnnotation) return;
+    addNode("annotationNode", screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+    setPlacingAnnotation(false);
+  }, [placingAnnotation, addNode, screenToFlowPosition]);
+
+  // Escape cancels an armed Type tool
+  useEffect(() => {
+    if (!placingAnnotation) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPlacingAnnotation(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [placingAnnotation]);
 
   const handleCanvasDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -2909,7 +2934,8 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       >
         <CanvasToolbar
           clientName={selectedClient?.name}
-          onAddNode={addNode}
+          onAddNode={handleToolbarAddNode}
+          annotationArmed={placingAnnotation}
           onBack={handleBack}
           onZoomIn={() => zoomIn()}
           onZoomOut={() => zoomOut()}
@@ -3003,8 +3029,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
-          style={{ background: "hsl(var(--cream))", position: "absolute", inset: 0 }}
+          style={{ background: "hsl(var(--cream))", position: "absolute", inset: 0, cursor: placingAnnotation ? "crosshair" : undefined }}
           onMouseMove={handleCanvasMouseMove}
+          onPaneClick={handlePaneClick}
         >
           <Background
             variant={BackgroundVariant.Dots}
