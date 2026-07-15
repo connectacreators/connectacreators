@@ -689,7 +689,7 @@ export default function Scripts() {
   const undoStack = useRef<ScriptLine[][]>([]);
 
   // Script folders
-  const [folders, setFolders] = useState<{ id: string; name: string; created_at: string; parent_id: string | null }[]>([]);
+  const [folders, setFolders] = useState<{ id: string; name: string; created_at: string; parent_id: string | null; sort_order?: number | null }[]>([]);
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -1062,7 +1062,7 @@ export default function Scripts() {
   // Fetch folders when client changes
   useEffect(() => {
     if (!selectedClient) { setFolders([]); setViewingFolderId(null); return; }
-    supabase.from("script_folders").select("id, name, created_at, parent_id").eq("client_id", selectedClient.id).order("created_at").then(({ data }) => setFolders(data || []));
+    supabase.from("script_folders").select("id, name, created_at, parent_id, sort_order").eq("client_id", selectedClient.id).order("sort_order", { ascending: true, nullsFirst: false }).order("created_at").then(({ data }) => setFolders(data || []));
   }, [selectedClient]);
 
   const handleCreateFolder = useCallback(async () => {
@@ -1175,6 +1175,8 @@ export default function Scripts() {
 
   const handleListDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id);
+    // Folder reorder drags don't touch script selection or the drag ghost.
+    if (id.startsWith("folderitem-")) return;
     setDraggingScriptId(id);
     // If dragged script isn't selected, select only it
     if (!selectedScriptIds.has(id)) {
@@ -1187,12 +1189,43 @@ export default function Scripts() {
     const { active, over } = event;
     if (!over) return;
     const overId = String(over.id);
+    const activeId = String(active.id);
+
+    // ── Folder reorder (Custom sort only) ──
+    if (activeId.startsWith("folderitem-")) {
+      if (vaultSortRef.current !== "custom") return;
+      const aId = activeId.replace("folderitem-", "");
+      const oId = overId.startsWith("folderitem-")
+        ? overId.replace("folderitem-", "")
+        : overId.startsWith("folder-")
+          ? overId.replace("folder-", "")
+          : null;
+      if (!oId || oId === aId) return;
+      // Same ordering as the render (sort_order nulls-last, then age).
+      const levelIds = folders
+        .filter((f) => (viewingFolderId === null ? !f.parent_id : f.parent_id === viewingFolderId))
+        .sort((a, b) => ((a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)) || (Date.parse(a.created_at || "0") - Date.parse(b.created_at || "0")))
+        .map((f) => f.id);
+      const from = levelIds.indexOf(aId);
+      const to = levelIds.indexOf(oId);
+      if (from < 0 || to < 0) return;
+      const next = arrayMove(levelIds, from, to);
+      // Optimistic — the grid re-sorts instantly; writes follow.
+      setFolders((prev) => prev.map((f) => {
+        const i = next.indexOf(f.id);
+        return i >= 0 ? { ...f, sort_order: i } : f;
+      }));
+      await Promise.all(next.map((id, i) => supabase.from("script_folders").update({ sort_order: i }).eq("id", id)));
+      return;
+    }
+
     const ids = Array.from(selectedScriptIds);
     if (ids.length === 0) return;
 
-    // ── Drop onto a folder chip → move into that folder (unchanged behavior) ──
-    if (overId.startsWith("folder-")) {
-      const actualFolderId = overId.replace("folder-", "");
+    // ── Drop onto a folder → move into it. Folders are now BOTH droppables
+    // ("folder-") and sortable items ("folderitem-"); accept either id. ──
+    if (overId.startsWith("folder-") || overId.startsWith("folderitem-")) {
+      const actualFolderId = overId.replace("folderitem-", "").replace("folder-", "");
       await Promise.all(ids.map((id) => supabase.from("scripts").update({ folder_id: actualFolderId }).eq("id", id)));
       if (selectedClient) fetchScriptsByClient(selectedClient.id);
       toast.success(tr({
@@ -1225,7 +1258,7 @@ export default function Scripts() {
     const newOrder = computeReorder(viewIds, ids, overId);
     await persistScriptOrder(newOrder);
     exitSelectMode();
-  }, [selectedScriptIds, selectedClient, exitSelectMode, scripts, viewingFolderId, grabadoFilter, reviewFilter, persistScriptOrder, language]);
+  }, [selectedScriptIds, selectedClient, exitSelectMode, scripts, folders, viewingFolderId, grabadoFilter, reviewFilter, persistScriptOrder, language]);
 
   // Undo/Redo helper
   const pushUndo = useCallback(() => {
@@ -1399,6 +1432,27 @@ export default function Scripts() {
     }
     setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
   }, [renamingFolderId, folderRenameValue, folders, language]);
+
+  // Commit a script rename OPTIMISTICALLY: close the input and show the new
+  // name immediately, then write. The old flow updated UI state only after
+  // the awaited write — closing via outside-click re-rendered first and the
+  // screen snapped back to the old title even though the DB had saved.
+  const commitScriptRename = useCallback(async (scriptId: string, nextRaw: string, prevTitle: string) => {
+    setRenamingScriptId(null);
+    const next = nextRaw.trim();
+    if (!next || next === prevTitle) return;
+    setScripts((prev) => prev.map((sc) => sc.id === scriptId ? { ...sc, title: next, idea_ganadora: next } : sc));
+    setViewingMetadata((prev) => (prev ? { ...prev, idea_ganadora: next } : prev));
+    const { error } = await supabase.from("scripts").update({ title: next, idea_ganadora: next }).eq("id", scriptId);
+    if (error) {
+      toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language));
+      // Roll back — the write didn't land.
+      setScripts((prev) => prev.map((sc) => sc.id === scriptId ? { ...sc, title: prevTitle, idea_ganadora: prevTitle } : sc));
+      setViewingMetadata((prev) => (prev ? { ...prev, idea_ganadora: prevTitle } : prev));
+      return;
+    }
+    await supabase.from("video_edits").update({ reel_title: next }).eq("script_id", scriptId);
+  }, [language]);
 
   // ── Folder deep-delete (folder + subfolders; scripts move to Trash) ──────
   // Opened from the folder card's ⋯ menu; always confirm in a dialog first.
@@ -2733,9 +2787,10 @@ export default function Scripts() {
               }
 
               // Subfolders at current level
-              const childFolders = folders.filter(f =>
-                viewingFolderId === null ? !f.parent_id : f.parent_id === viewingFolderId
-              );
+              const childFolders = folders
+                .filter(f => (viewingFolderId === null ? !f.parent_id : f.parent_id === viewingFolderId))
+                // Custom order: dragged sort_order first (nulls last), then age.
+                .sort((a, b) => ((a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)) || (Date.parse(a.created_at || "0") - Date.parse(b.created_at || "0")));
 
               const filtered = scripts.filter((s) => {
                 if (viewingFolderId !== null) {
@@ -2814,24 +2869,12 @@ export default function Scripts() {
                               }
                               if (e.key === "Enter" && renameValue.trim()) {
                                 e.preventDefault();
-                                // finally-close: a thrown update must never leave a dead input.
-                                try {
-                                  const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
-                                  if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
-                                } finally {
-                                  setRenamingScriptId(null);
-                                }
+                                commitScriptRename(s.id, renameValue, s.title);
                                 return;
                               }
                               if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
                             }}
-                            onBlur={async () => {
-                              if (renameValue.trim() && renameValue !== s.title) {
-                                const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", s.id);
-                                if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === s.id ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", s.id); }
-                              }
-                              setRenamingScriptId(null);
-                            }}
+                            onBlur={() => commitScriptRename(s.id, renameValue, s.title)}
                           />
                         ) : (
                           (() => {
@@ -3195,7 +3238,7 @@ export default function Scripts() {
                       );
                       if (renamingFolderId === f.id) {
                         return (
-                          <div className={`editorial-card flex items-center gap-2 rounded-xl px-3 ${variant === "tile" ? "min-h-[96px]" : "min-h-[46px]"}`} data-rename-ui>
+                          <div className={`editorial-card flex items-center gap-2 rounded-xl px-3 ${variant === "tile" ? "min-h-[128px]" : "min-h-[56px]"}`} data-rename-ui>
                             <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                             <Input
                               autoFocus
@@ -3218,9 +3261,9 @@ export default function Scripts() {
                         <DroppableFolder id={f.id}>
                           <div className="relative group h-full" onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}>
                             {variant === "tile" ? (
-                              <div className="editorial-card h-full flex flex-col rounded-xl px-3 py-3 min-h-[96px] overflow-hidden">
+                              <div className="editorial-card h-full flex flex-col rounded-xl px-4 py-3.5 min-h-[128px] overflow-hidden">
                                 <div className="flex items-start justify-between w-full">
-                                  <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                  <Folder className="w-6 h-6" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                                   {menu}
                                 </div>
                                 <button
@@ -3231,27 +3274,27 @@ export default function Scripts() {
                                 >
                                   <span
                                     className="block truncate"
-                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 13.5, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
+                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 16, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
                                   >
                                     {f.name}
                                   </span>
-                                  <span className="block mt-0.5 text-[9.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }} title={countTitle}>
+                                  <span className="block mt-1 text-[10.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }} title={countTitle}>
                                     {count}{subCount > 0 ? ` +${subCount}` : ""}
                                   </span>
                                 </button>
                               </div>
                             ) : (
-                              <div className="editorial-card flex items-center gap-2.5 rounded-xl px-3 min-h-[46px] transition-colors overflow-hidden">
+                              <div className="editorial-card flex items-center gap-3 rounded-xl px-4 min-h-[56px] transition-colors overflow-hidden">
                                 <button
                                   onClick={openFolder}
                                   onDoubleClick={renameOnDbl}
                                   title={tr({ en: "Open · double-click to rename", es: "Abrir · doble clic para renombrar" }, language)}
-                                  className="flex items-center gap-2.5 flex-1 min-w-0 text-left py-2.5"
+                                  className="flex items-center gap-3 flex-1 min-w-0 text-left py-3"
                                 >
-                                  <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                  <Folder className="w-5 h-5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                                   <span
                                     className="truncate"
-                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 13.5, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
+                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 15, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
                                   >
                                     {f.name}
                                   </span>
@@ -3278,7 +3321,7 @@ export default function Scripts() {
                               if (e.metaKey || e.ctrlKey) { e.preventDefault(); handleScriptSelect(s.id, e, visibleIds); return; }
                               handleViewScript(s);
                             }}
-                            className="editorial-card w-full h-full flex flex-col items-start gap-1.5 rounded-xl px-3 py-3 min-h-[96px] text-left overflow-hidden"
+                            className="editorial-card w-full h-full flex flex-col items-start gap-2 rounded-xl px-4 py-3.5 min-h-[128px] text-left overflow-hidden"
                             style={{
                               borderLeft: `3px solid ${
                                 (s as any).status === 'draft' ? '#A85B1F'
@@ -3289,20 +3332,20 @@ export default function Scripts() {
                               boxShadow: isSel ? 'inset 0 0 0 1px hsl(var(--aqua) / 0.40)' : undefined,
                             }}
                           >
-                            <span className="editorial-eyebrow" style={{ fontSize: 8, letterSpacing: "0.18em" }}>
+                            <span className="editorial-eyebrow" style={{ fontSize: 9, letterSpacing: "0.18em" }}>
                               {s.idea_ganadora ? (getFormatLabel(s.formato, language).toUpperCase() || "SCRIPT") : "SCRIPT"}
                             </span>
                             <span
                               className="w-full"
                               style={{
                                 fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-                                fontSize: 13, lineHeight: 1.35, color: "hsl(var(--cream))",
-                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                                fontSize: 15.5, lineHeight: 1.35, color: "hsl(var(--cream))",
+                                display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
                               }}
                             >
                               {s.idea_ganadora || s.title}
                             </span>
-                            <span className="mt-auto text-[9.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }}>
+                            <span className="mt-auto text-[10.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }}>
                               {s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}
                             </span>
                           </button>
@@ -3312,8 +3355,8 @@ export default function Scripts() {
                             title={tr({ en: "Select (Shift+click for range)", es: "Seleccionar (Shift+clic para rango)" }, language)}
                           >
                             {isSel
-                              ? <CheckCircle2 className="w-4 h-4 text-primary" />
-                              : <Circle className="w-4 h-4 text-muted-foreground hover:text-foreground" />}
+                              ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                              : <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground" />}
                           </button>
                         </div>
                       );
@@ -3345,8 +3388,8 @@ export default function Scripts() {
                             return (
                               <div
                                 key={`${parent ?? "root"}-${depth}`}
-                                className="w-64 shrink-0 py-2 overflow-y-auto custom-scrollbar"
-                                style={{ borderRight: depth < levels.length - 1 || lf.length > 0 ? "1px solid hsl(var(--bone) / 0.10)" : undefined, maxHeight: 440 }}
+                                className="w-72 shrink-0 py-2 overflow-y-auto custom-scrollbar"
+                                style={{ borderRight: depth < levels.length - 1 || lf.length > 0 ? "1px solid hsl(var(--bone) / 0.10)" : undefined, maxHeight: 480 }}
                               >
                                 {lf.length === 0 && ls.length === 0 && (
                                   <p className="text-[11px] px-3 py-2" style={{ color: "hsl(var(--bone) / 0.4)" }}>
@@ -3361,11 +3404,11 @@ export default function Scripts() {
                                         onClick={() => setVaultColumnPath([...vaultColumnPath.slice(0, depth), f.id])}
                                         onDoubleClick={(e) => { e.preventDefault(); startFolderRename(f.id, f.name); }}
                                         onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}
-                                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition-colors ${active ? "bg-[hsl(var(--bone)/0.10)]" : "hover:bg-[hsl(var(--bone)/0.05)]"}`}
+                                        className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-[13.5px] transition-colors ${active ? "bg-[hsl(var(--bone)/0.10)]" : "hover:bg-[hsl(var(--bone)/0.05)]"}`}
                                         style={{ color: "hsl(var(--cream))" }}
                                         title={tr({ en: "Open · double-click to rename · right-click for options", es: "Abrir · doble clic renombra · clic derecho opciones" }, language)}
                                       >
-                                        <Folder className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                        <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
                                         <span className="truncate flex-1">
                                           {renamingFolderId === f.id ? (
                                             <Input
@@ -3395,11 +3438,11 @@ export default function Scripts() {
                                   <button
                                     key={s.id}
                                     onClick={() => handleViewScript(s)}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] hover:bg-[hsl(var(--bone)/0.05)] transition-colors"
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-[13.5px] hover:bg-[hsl(var(--bone)/0.05)] transition-colors"
                                     style={{ color: "hsl(var(--cream))" }}
                                     title={s.idea_ganadora || s.title}
                                   >
-                                    <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.45)" }} />
+                                    <FileText className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.45)" }} />
                                     <span className="truncate">{s.idea_ganadora || s.title}</span>
                                   </button>
                                 ))}
@@ -3410,14 +3453,28 @@ export default function Scripts() {
                       );
                     }
 
+                    // Sortable ids follow the RENDER order — folders included
+                    // (prefixed) so they can be drag-reordered in Custom sort.
+                    const dndIds = items.map((it) => (it.kind === "folder" ? `folderitem-${it.f.id}` : it.s.id));
+                    // A folder mid-rename isn't wrapped in a sortable: text
+                    // selection inside the input would trigger a drag.
+                    const renderFolder = (f: (typeof folders)[number], variant: "tile" | "row") =>
+                      renamingFolderId === f.id ? (
+                        <FolderItem key={`f-${f.id}`} f={f} variant={variant} />
+                      ) : (
+                        <SortableScript key={`f-${f.id}`} id={`folderitem-${f.id}`}>
+                          <FolderItem f={f} variant={variant} />
+                        </SortableScript>
+                      );
+
                     // ── GRID ──
                     if (vaultView === "grid") {
                       return (
-                        <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                        <SortableContext items={dndIds} strategy={rectSortingStrategy}>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             {items.map((it) =>
                               it.kind === "folder"
-                                ? <FolderItem key={`f-${it.f.id}`} f={it.f} variant="tile" />
+                                ? renderFolder(it.f, "tile")
                                 : <SortableScript key={it.s.id} id={it.s.id}><ScriptTile s={it.s} /></SortableScript>
                             )}
                           </div>
@@ -3427,11 +3484,11 @@ export default function Scripts() {
 
                     // ── LIST ──
                     return (
-                      <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
+                      <SortableContext items={dndIds} strategy={verticalListSortingStrategy}>
                         <div className="grid gap-2.5">
                           {items.map((it) =>
                             it.kind === "folder"
-                              ? <FolderItem key={`f-${it.f.id}`} f={it.f} variant="row" />
+                              ? renderFolder(it.f, "row")
                               : <SortableScript key={it.s.id} id={it.s.id}><ScriptCard s={it.s} /></SortableScript>
                           )}
                         </div>
@@ -3842,23 +3899,14 @@ export default function Scripts() {
                       }
                       if (e.key === "Enter" && renameValue.trim() && viewingScriptId) {
                         e.preventDefault();
-                        // finally-close: a thrown update must never leave a dead input.
-                        try {
-                          const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
-                          if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
-                        } finally {
-                          setRenamingScriptId(null);
-                        }
+                        commitScriptRename(viewingScriptId, renameValue, viewingMetadata.idea_ganadora || viewingMetadata.title || "");
                         return;
                       }
                       if (e.key === "Escape") { e.preventDefault(); setRenamingScriptId(null); }
                     }}
-                    onBlur={async () => {
-                      if (renameValue.trim() && renameValue !== viewingMetadata.idea_ganadora && viewingScriptId) {
-                        const { error } = await supabase.from("scripts").update({ title: renameValue.trim(), idea_ganadora: renameValue.trim() }).eq("id", viewingScriptId);
-                        if (error) { toast.error(tr({ en: "Error changing title", es: "Error al cambiar el título" }, language)); } else { setScripts(prev => prev.map(sc => sc.id === viewingScriptId ? { ...sc, title: renameValue.trim(), idea_ganadora: renameValue.trim() } : sc)); setViewingMetadata((prev) => prev ? { ...prev, idea_ganadora: renameValue.trim() } : prev); await supabase.from("video_edits").update({ reel_title: renameValue.trim() }).eq("script_id", viewingScriptId); }
-                      }
-                      setRenamingScriptId(null);
+                    onBlur={() => {
+                      if (viewingScriptId) commitScriptRename(viewingScriptId, renameValue, viewingMetadata.idea_ganadora || viewingMetadata.title || "");
+                      else setRenamingScriptId(null);
                     }}
                   />
                 ) : (
