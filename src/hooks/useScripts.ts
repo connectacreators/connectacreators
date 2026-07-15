@@ -941,6 +941,10 @@ export function useScripts() {
 
   return {
     scripts,
+    // Exposed so page-level optimistic updates (rename, format, inspiration)
+    // can patch the list in place — the state lives in this hook, and calling
+    // an undefined local `setScripts` was a silent async ReferenceError.
+    setScripts,
     trashedScripts,
     loading,
     listLoading,

@@ -508,7 +508,7 @@ export default function Scripts() {
   const { user, role, loading: authLoading, signInWithEmail, signUpWithEmail, isAdmin, isVideographer, isConnectaPlus, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { clients, loading: clientsLoading, addClient, updateClient } = useClients(!!user);
   const {
-    scripts, trashedScripts, loading: scriptsLoading, listLoading: scriptsListLoading, fetchScriptsByClient, fetchTrashedScripts,
+    scripts, setScripts, trashedScripts, loading: scriptsLoading, listLoading: scriptsListLoading, fetchScriptsByClient, fetchTrashedScripts,
     categorizeAndSave, directSave, getScriptLines, getScriptBlocks, saveScriptBlocks, deleteScript, restoreScript, permanentlyDeleteScript,
     updateScript, updateGoogleDriveLink, toggleGrabado, bulkToggleGrabado, bulkDelete, persistScriptOrder,
     updateScriptLine, deleteScriptLine, updateScriptLineType, addScriptLine, moveScriptLine, reorderSectionLines, reorderAllLines,
@@ -3614,6 +3614,27 @@ export default function Scripts() {
                 >
                   <CheckCircle2 className="w-3 h-3" /> {tr({ en: "Mark recorded", es: "Marcar grabado" }, language)}
                 </Button>
+                {/* Review — single selection only; mirrors the row ⋯ menu gating
+                    (admin gets the full review dialog, non-admin sees notes). */}
+                {selectedScriptIds.size === 1 && (() => {
+                  const sel = scripts.find((sc) => sc.id === Array.from(selectedScriptIds)[0]);
+                  if (!sel) return null;
+                  const canReview = isAdmin || (sel.review_status === 'needs_revision' && sel.revision_notes);
+                  if (!canReview) return null;
+                  return (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`text-xs h-7 px-2 gap-1 ${sel.review_status === 'needs_revision' ? 'text-red-400 hover:text-red-400' : sel.review_status === 'approved' ? 'text-green-400 hover:text-green-400' : ''}`}
+                      onClick={() => setReviewingScript(sel)}
+                    >
+                      {sel.review_status === 'needs_revision' ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                      {isAdmin
+                        ? tr({ en: "Review", es: "Revisar" }, language)
+                        : tr({ en: "View revision notes", es: "Ver notas de revisión" }, language)}
+                    </Button>
+                  );
+                })()}
                 <div className="w-px h-4 bg-border" />
                 <Button
                   variant="ghost"
