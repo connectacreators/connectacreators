@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useCallback, useRef } from "react";
 import connectaLogoHandInk from "@/assets/connecta-logo-hand-ink.png";
 import { Handle, Position, NodeProps, NodeResizer, useUpdateNodeInternals } from "@xyflow/react";
-import { X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check } from "lucide-react";
+import { X, MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Pencil, Check, Bot } from "lucide-react";
 import CanvasAIPanel, { type CanvasContext } from "./CanvasAIPanel";
 import ScriptOutputPanel from "./ScriptOutputPanel";
 import { supabase } from "@/integrations/supabase/client";
