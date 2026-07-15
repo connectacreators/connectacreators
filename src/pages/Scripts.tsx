@@ -8,7 +8,7 @@ import {
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
-  Music, File, ChevronDown, List, Columns3,
+  Music, File, ChevronDown, List, Columns3, X,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -716,6 +716,9 @@ export default function Scripts() {
   useEffect(() => { setVaultColumnPath([]); }, [viewingFolderId]);
   // Mobile FAB (New script / New folder)
   const [fabOpen, setFabOpen] = useState(false);
+  // Overflow menus (vault header + script detail actions)
+  const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
+  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null);
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<string>>(new Set());
   const [draggingScriptId, setDraggingScriptId] = useState<string | null>(null);
@@ -2678,43 +2681,39 @@ export default function Scripts() {
               {/* Spacer */}
               <div className="flex-1" />
 
-              {/* Icon actions */}
-              <div className="flex items-center gap-1">
-                {isAdmin && selectedClient && (
+              {/* One quiet overflow menu — batch tools + trash live here.
+                  (New folder is in the vault toolbar; deselect lives on the
+                  bulk bar — both were duplicated up here before.) */}
+              <Popover open={vaultMenuOpen} onOpenChange={setVaultMenuOpen}>
+                <PopoverTrigger asChild>
                   <button
-                    onClick={() => setShowBatchModal(true)}
-                    title={tr({ en: "Batch Generate", es: "Generación en Lote" }, language)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title={tr({ en: "More options", es: "Más opciones" }, language)}
+                    aria-label={tr({ en: "More options", es: "Más opciones" }, language)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                      showTrash ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
                   >
-                    <Zap className="w-4 h-4" />
+                    <MoreHorizontal className="w-4 h-4" />
                   </button>
-                )}
-                <button
-                  onClick={() => setCreatingFolder(true)}
-                  title={tr({ en: "New folder", es: "Nueva carpeta" }, language)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                </button>
-                {selectedScriptIds.size > 0 && (
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-1" align="end">
+                  {isAdmin && selectedClient && (
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                      onClick={() => { setVaultMenuOpen(false); setShowBatchModal(true); }}
+                    >
+                      <Zap className="w-4 h-4" /> {tr({ en: "Batch generate", es: "Generación en lote" }, language)}
+                    </button>
+                  )}
                   <button
-                    onClick={exitSelectMode}
-                    title={tr({ en: "Deselect all", es: "Deseleccionar todo" }, language)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-primary bg-primary/10 transition-colors"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${showTrash ? "text-destructive" : "text-foreground"}`}
+                    onClick={() => { setVaultMenuOpen(false); handleToggleTrash(); }}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
+                    {showTrash ? tr({ en: "Hide trash", es: "Ocultar papelera" }, language) : tr(t.scripts.trash, language)}
                   </button>
-                )}
-                <button
-                  onClick={handleToggleTrash}
-                  title={showTrash ? tr({ en: "Hide trash", es: "Ocultar papelera" }, language) : tr(t.scripts.trash, language)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                    showTrash ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {showTrash ? (
@@ -4362,49 +4361,60 @@ export default function Scripts() {
                   {savingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                   <span className="hidden sm:inline">{tr({ en: "Save", es: "Guardar" }, language)}</span>
                 </Button>
-                {(isAdmin || isConnectaPlus) && (
-                  <Button
-                    onClick={handleRecategorize}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs sm:text-sm"
-                    disabled={recategorizing}
-                    title={tr({ en: "Re-categorize each line with AI (filming / voiceover / editing / text-on-screen)", es: "Recategorizar cada línea con IA (grabación / voz en off / edición / texto en pantalla)" }, language)}
-                  >
-                    {recategorizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                    <span className="hidden sm:inline">{tr({ en: "Re-categorize", es: "Recategorizar" }, language)}</span>
-                  </Button>
-                )}
-                <Button
-                  onClick={() => {
-                    fetchVersions();
-                    setShowHistory(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs sm:text-sm"
-                  title={tr({ en: "View script history", es: "Ver historial del script" }, language)}
-                >
-                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr({ en: "History", es: "Historial" }, language)}</span>
-                </Button>
-                <Button
-                  onClick={() => {
-                    const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
-                    navigator.clipboard.writeText(publicUrl);
-                    toast.success(tr(t.scripts.publicLinkCopied, language));
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs sm:text-sm"
-                >
-                   <Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.share, language)}</span><span className="sm:hidden">{tr(t.scripts.link, language)}</span>
-                 </Button>
                 <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
                   <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.record, language)}</span><span className="sm:hidden">Rec</span>
                 </Button>
-                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
-                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.teleprompter, language)}</span><span className="sm:hidden">TP</span>
-                </Button>
+                {/* Everything else folds into one quiet ⋯ menu — Save and
+                    Record are the everyday actions; the rest is occasional. */}
+                <Popover open={detailMenuOpen} onOpenChange={setDetailMenuOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs sm:text-sm px-2.5"
+                      title={tr({ en: "More actions", es: "Más acciones" }, language)}
+                      aria-label={tr({ en: "More actions", es: "Más acciones" }, language)}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1" align="end">
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                      onClick={() => { setDetailMenuOpen(false); setShowTeleprompter(true); }}
+                    >
+                      <MonitorPlay className="w-4 h-4" /> {tr(t.scripts.teleprompter, language)}
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                      onClick={() => {
+                        setDetailMenuOpen(false);
+                        const publicUrl = `${window.location.origin}/s/${viewingScriptId}`;
+                        navigator.clipboard.writeText(publicUrl);
+                        toast.success(tr(t.scripts.publicLinkCopied, language));
+                      }}
+                    >
+                      <Link2 className="w-4 h-4" /> {tr(t.scripts.share, language)}
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
+                      onClick={() => { setDetailMenuOpen(false); fetchVersions(); setShowHistory(true); }}
+                    >
+                      <Clock className="w-4 h-4" /> {tr({ en: "History", es: "Historial" }, language)}
+                    </button>
+                    {(isAdmin || isConnectaPlus) && (
+                      <button
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        disabled={recategorizing}
+                        title={tr({ en: "Re-categorize each line with AI (filming / voiceover / editing / text-on-screen)", es: "Recategorizar cada línea con IA (grabación / voz en off / edición / texto en pantalla)" }, language)}
+                        onClick={() => { setDetailMenuOpen(false); handleRecategorize(); }}
+                      >
+                        {recategorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        {tr({ en: "Re-categorize", es: "Recategorizar" }, language)}
+                      </button>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             {/* Character counter now lives INSIDE the document card (bottom-left,
