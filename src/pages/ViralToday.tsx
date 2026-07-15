@@ -636,7 +636,10 @@ const VideoCard = memo(function VideoCard({
             data-tip={selected ? "Unselect" : "Select for scripts or delete"}
             aria-label={selected ? "Unselect video" : "Select video"}
             className={cn(
-              "vt-tip vt-tip--below vt-tip--left absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-opacity duration-150",
+              // !absolute: .vt-tip sets position:relative (for tooltip
+              // anchoring on static elements) and would otherwise override
+              // the corner positioning — this keeps the checkbox pinned.
+              "vt-tip vt-tip--below vt-tip--left !absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-opacity duration-150",
               selected
                 ? "bg-primary border-primary opacity-100"
                 : "bg-black/45 border-white/50 opacity-0 group-hover:opacity-100 hover:border-white"
