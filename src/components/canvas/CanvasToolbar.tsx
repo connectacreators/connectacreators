@@ -43,7 +43,7 @@ interface Props {
   onDrawFillToggle?: () => void;
   drawWidth?: number;
   onDrawWidthChange?: (w: number) => void;
-  saveStatus?: "idle" | "saving" | "saved" | "error";
+  saveStatus?: "idle" | "unsaved" | "saving" | "saved" | "error";
   // Session management
   sessions?: SessionItem[];
   activeSessionId?: string | null;
@@ -350,10 +350,10 @@ export default function CanvasToolbar({ onAddNode, onBack, onZoomIn, onZoomOut, 
 
         {saveStatus && saveStatus !== "idle" && (
           <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium backdrop-blur-sm border shadow-sm transition-opacity ${
-            saveStatus === "saving" ? "bg-white border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
-            saveStatus === "saved" ? "bg-white border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]" :
-            "bg-white border-[hsl(var(--ink-on-cream))] text-red-500"
+            saveStatus === "error" ? "bg-white border-[hsl(var(--ink-on-cream))] text-red-500" :
+            "bg-white border-[hsl(var(--ink-on-cream))] text-[hsl(var(--ink-on-cream) / 0.85)]"
           }`}>
+            {saveStatus === "unsaved" && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Unsaved</>}
             {saveStatus === "saving" && <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Saving...</>}
             {saveStatus === "saved" && <><span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--aqua))]" /> Saved</>}
             {saveStatus === "error" && <><span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Save failed</>}

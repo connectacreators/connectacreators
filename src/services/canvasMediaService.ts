@@ -136,10 +136,17 @@ async function tusUpload(
   storagePath: string,
   onProgress: (percent: number) => void,
 ): Promise<string> {
-  const {
+  // getSession() returns the cached session — after a multi-tab refresh-token rotation
+  // the access token can be empty/stale, which turns into "Invalid Compact JWS" 401s
+  // mid-upload. Refresh explicitly when the cached token looks unusable.
+  let {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
+  if (!session?.access_token) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    session = refreshed.session;
+  }
+  if (!session?.access_token) throw new Error('Not authenticated — please sign in again');
 
   const projectId = 'hxojqrilwhhrvloiwmfo';
 

@@ -345,16 +345,25 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   const activeSessionIdRef = useRef<string | null>(null);
   const isSwitchingSessionRef = useRef(false);
   const broadcastNodeDataUpdateRef = useRef<((nodeId: string, data: Record<string, any>) => void) | null>(null);
+  const authTokenRef = useRef<string | null>(null);
+  // True while draftIdRef points at an unpromoted "Connecta AI — In Progress" placeholder row.
+  // Saving promotes that row instead of inserting a duplicate; once promoted, later saves insert fresh scripts.
+  const draftIsPlaceholderRef = useRef(false);
 
   // Keep auth token fresh — listen for token refreshes so long sessions never go stale
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token || null);
+      authTokenRef.current = session?.access_token || null;
       userIdRef.current = session?.user?.id || null;
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthToken(session?.access_token || null);
+      authTokenRef.current = session?.access_token || null;
       userIdRef.current = session?.user?.id || null;
+      // Realtime channels authenticate with the token they were created with; keep them fresh
+      // so long-lived tabs don't silently lose RLS-gated postgres_changes after a token rotation.
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -379,6 +388,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       if (existing) {
         setDraftScriptId(existing.id);
         draftIdRef.current = existing.id;
+        draftIsPlaceholderRef.current = true;
         return;
       }
       // 2. No draft — check if we have a previously saved canvas script for this client
@@ -394,6 +404,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         if (lastScript) {
           setDraftScriptId(lastScript.id);
           draftIdRef.current = lastScript.id;
+          draftIsPlaceholderRef.current = false; // already-completed script — never overwrite it
           return;
         }
         localStorage.removeItem(lsKey);
@@ -413,6 +424,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       if (created) {
         setDraftScriptId(created.id);
         draftIdRef.current = created.id;
+        draftIsPlaceholderRef.current = true;
       }
     };
     ensureDraft();
@@ -821,6 +833,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       // Use the first connected video node's URL as the inspiration source
       const inspirationUrl = canvasContextRef.current?.video_sources?.[0]?.url || undefined;
       const saved = await directSave({
+        // Promote the "Connecta AI — In Progress" placeholder instead of orphaning it —
+        // but only while it's still a draft; never overwrite an already-completed script.
+        existingScriptId: draftIsPlaceholderRef.current && draftIdRef.current ? draftIdRef.current : undefined,
         clientId: selectedClient.id,
         lines: generatedScript.lines.map((l: any, i: number) => ({
           line_number: i + 1,
@@ -837,6 +852,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       if (saved) {
         toast.success("Script saved! Find it in the Scripts list.", { duration: 5000 });
         // Update draft ref + persist to localStorage so next session reuses same queue entry
+        draftIsPlaceholderRef.current = false; // promoted (or fresh insert) — it's a real script now
         draftIdRef.current = saved.scriptId;
         setDraftScriptId(saved.scriptId);
         const lsKey = `canvas_last_script_${userIdRef.current}_${selectedClient.id}`;
@@ -1358,10 +1374,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   }, [setNodes]);
 
   // ─── Robust save system ───
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved" | "error">("idle");
   const pendingSaveRef = useRef(false);
   const lastSavedJsonRef = useRef<string>("");
   const isDirtyRef = useRef(false);
+  // Generation counter: edits made while an upsert is in flight must stay dirty after it resolves.
+  const dirtyGenRef = useRef(0);
+  const saveRetryRef = useRef<{ count: number; timer: ReturnType<typeof setTimeout> | null }>({ count: 0, timer: null });
   const lastSaveAtRef = useRef(0); // timestamp of our last successful save — used to ignore our own postgres_changes events
   // Exact `updated_at` ms of recent saves we've issued. Used to identify our own postgres_changes echoes
   // even when delivery is delayed past the lastSaveAtRef wall-clock window. Entries auto-expire.
@@ -1384,10 +1403,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     if (!force && snapshotHash === lastSavedJsonRef.current) return;
     pendingSaveRef.current = true;
     setSaveStatus("saving");
+    const genAtSerialize = dirtyGenRef.current;
     try {
       const updatedAt = new Date().toISOString();
       const updatedAtMs = Date.parse(updatedAt);
-      await supabase.from("canvas_states").upsert({
+      const { error } = await supabase.from("canvas_states").upsert({
         id: activeSessionIdRef.current,
         client_id: clientIdRef.current,
         user_id: userIdRef.current,
@@ -1396,17 +1416,34 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         draw_paths: drawPathsRef.current,
         updated_at: updatedAt,
       }, { onConflict: "id" });
+      if (error) throw error;
       lastSavedJsonRef.current = snapshotHash; // store hash, not full snapshot
       lastSaveAtRef.current = Date.now(); // mark our own save so we can ignore the resulting postgres_changes event
-      // Track the exact updated_at so we can identify our own echo even if delivery is delayed past the 3s window
+      // Track the exact updated_at so we can identify our own echo even when delivery is delayed
       recentSaveUpdatedAtsRef.current.add(updatedAtMs);
       setTimeout(() => recentSaveUpdatedAtsRef.current.delete(updatedAtMs), 60_000);
       pendingSaveRef.current = false;
-      isDirtyRef.current = false;
-      setSaveStatus("saved");
+      saveRetryRef.current.count = 0;
+      // Only clear dirty if no edits landed while the upsert was in flight
+      if (dirtyGenRef.current === genAtSerialize) {
+        isDirtyRef.current = false;
+        setSaveStatus("saved");
+      } else {
+        setSaveStatus("unsaved");
+      }
     } catch (e) {
       console.error("[Canvas] Save failed:", e);
+      pendingSaveRef.current = false;
       setSaveStatus("error");
+      // Auto-retry with backoff (max 3) — a transient network blip must not lose work
+      const retry = saveRetryRef.current;
+      if (retry.count < 3) {
+        retry.count += 1;
+        if (retry.timer) clearTimeout(retry.timer);
+        retry.timer = setTimeout(() => { retry.timer = null; saveCanvas(true); }, 5000 * retry.count);
+      } else {
+        toast.error("Canvas save failed — check your connection. Your latest changes are not saved.");
+      }
     }
   }, []);
 
@@ -1416,8 +1453,11 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     if (!userIdRef.current || !activeSessionIdRef.current) return;
     if (nodesRef.current.length === 0) return;
     if (!isDirtyRef.current) return; // skip if nothing changed
+    // RLS requires the USER's token — the anon key gets rejected and the write silently drops.
+    if (!authTokenRef.current) return;
     const serializedNodes = serializeNodes(nodesRef.current);
     const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/canvas_states?on_conflict=id`;
+    const updatedAt = new Date().toISOString();
     const body = JSON.stringify({
       id: activeSessionIdRef.current,
       client_id: clientIdRef.current,
@@ -1425,15 +1465,20 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       nodes: serializedNodes,
       edges: edgesRef.current,
       draw_paths: drawPathsRef.current,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     });
     const headers = {
       apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${authTokenRef.current}`,
       "Content-Type": "application/json",
       Prefer: "resolution=merge-duplicates",
     };
     try {
+      // Record the echo timestamp so, if the tab survives (visibility flip), our own
+      // postgres_changes event for this write isn't applied back as a remote change.
+      const updatedAtMs = Date.parse(updatedAt);
+      recentSaveUpdatedAtsRef.current.add(updatedAtMs);
+      setTimeout(() => recentSaveUpdatedAtsRef.current.delete(updatedAtMs), 60_000);
       fetch(url, { method: "POST", headers, body, keepalive: true });
     } catch {
       // last resort — nothing more we can do
@@ -1444,6 +1489,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   useEffect(() => {
     if (!loaded) return;
     isDirtyRef.current = true;
+    dirtyGenRef.current += 1;
+    // Honest indicator: reflect unsaved edits instead of a stale "Saved"
+    setSaveStatus(prev => (prev === "saving" ? prev : "unsaved"));
   }, [nodes, edges, drawPaths, loaded]);
 
   // ─── Track user activity for idle-aware saves (throttled to 1Hz) ───
@@ -1471,9 +1519,9 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     if (!loaded || !userIdRef.current) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      if (Date.now() - lastActivityRef.current < IDLE_TIMEOUT) saveCanvas();
-    }, 2000);
+    // No idle gate here: async completions (transcriptions, AI results) land while the user
+    // is away and must still persist — saveCanvas dedupes via hash, so this stays cheap.
+    saveTimerRef.current = setTimeout(() => saveCanvas(), 2000);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -1484,7 +1532,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   useEffect(() => {
     if (!loaded || !userIdRef.current) return;
     const interval = setInterval(() => {
-      if (isDirtyRef.current && Date.now() - lastActivityRef.current < IDLE_TIMEOUT) saveCanvas();
+      if (isDirtyRef.current) saveCanvas();
     }, 30_000);
     return () => clearInterval(interval);
   }, [loaded, saveCanvas]);
@@ -1492,13 +1540,16 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   // ─── Save on tab close / navigate away ───
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirtyRef.current) return; // saved state → leave freely, no prompt
       beaconSave();
-      // Always show browser "Leave page?" prompt — canvas always has active work
       e.preventDefault();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
+        // Beacon survives tab kill; the authenticated client save handles the common
+        // "switched tab and came back" case with status + echo tracking.
         beaconSave();
+        saveCanvas();
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -1507,11 +1558,16 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [beaconSave]);
+  }, [beaconSave, saveCanvas]);
 
-  // ─── Save on unmount (component teardown on route change) ───
+  // ─── Save on unmount (component teardown on SPA route change) ───
   useEffect(() => {
-    return () => { beaconSave(); };
+    return () => {
+      // The page keeps running after an SPA route change, so the async authenticated
+      // save completes; the beacon is the belt-and-braces fallback.
+      beaconSave();
+      saveCanvas();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
