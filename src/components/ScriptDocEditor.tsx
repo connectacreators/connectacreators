@@ -1050,8 +1050,11 @@ export default function ScriptDocEditor({
         }
       `}</style>
 
-      {/* Formatting toolbar */}
-      <div className="editorial-page-dark doc-editor-toolbar flex items-center gap-1 px-4 py-1.5 bg-[hsl(var(--ink))] border-b border-[hsl(var(--bone) / 0.10)] flex-wrap">
+      {/* Document page */}
+      <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink))]">
+        <div className="editorial-card doc-print-area w-full max-w-[1040px] mx-auto px-6 sm:px-10 py-10">
+          {/* Formatting toolbar — lives INSIDE the document card */}
+      <div className="doc-editor-toolbar flex items-center gap-1 -mx-6 sm:-mx-10 -mt-5 px-6 sm:px-10 pb-2.5 mb-7 border-b border-[hsl(var(--bone) / 0.10)] flex-wrap">
         {/* Bold */}
         <button
           className="px-2 py-1 rounded text-[12px] font-bold text-[hsl(var(--bone) / 0.55)] hover:bg-[hsl(var(--bone) / 0.06)] hover:text-[hsl(var(--cream))] transition-colors"
@@ -1128,9 +1131,7 @@ export default function ScriptDocEditor({
         )}
       </div>
 
-      {/* Document page */}
-      <div className="editorial-page-dark px-4 py-6 bg-[hsl(var(--ink))]">
-        <div className="editorial-card doc-print-area w-full max-w-[1040px] mx-auto px-6 sm:px-10 py-10">
+
           {/* Title/meta header — hidden in embedded mode (the unified screen's
               Winning-Idea chrome already shows title + meta above the document). */}
           {!embedded && (

@@ -4364,8 +4364,10 @@ export default function Scripts() {
                 <Button onClick={() => setShowRecorder(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
                   <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.record, language)}</span><span className="sm:hidden">Rec</span>
                 </Button>
-                {/* Everything else folds into one quiet ⋯ menu — Save and
-                    Record are the everyday actions; the rest is occasional. */}
+                <Button onClick={() => setShowTeleprompter(true)} variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                  <MonitorPlay className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">{tr(t.scripts.teleprompter, language)}</span><span className="sm:hidden">TP</span>
+                </Button>
+                {/* The occasional actions fold into one quiet ⋯ menu. */}
                 <Popover open={detailMenuOpen} onOpenChange={setDetailMenuOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -4379,12 +4381,6 @@ export default function Scripts() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-56 p-1" align="end">
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
-                      onClick={() => { setDetailMenuOpen(false); setShowTeleprompter(true); }}
-                    >
-                      <MonitorPlay className="w-4 h-4" /> {tr(t.scripts.teleprompter, language)}
-                    </button>
                     <button
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground transition-colors hover:bg-muted"
                       onClick={() => {
