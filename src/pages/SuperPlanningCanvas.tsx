@@ -149,6 +149,9 @@ const edgeTypes: EdgeTypes = {
   default: EditableEdge,
 };
 
+// Hoisted: an inline object literal here would be a new reference on every render
+const DEFAULT_EDGE_OPTIONS = { animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 }, data: { arrow: false } };
+
 function getInitialPosition(existingCount: number) {
   return { x: 60 + (existingCount % 3) * 380, y: 80 + Math.floor(existingCount / 3) * 360 };
 }
@@ -189,6 +192,19 @@ function serializeNodes(nodes: Node[]): any[] {
       data: filtered,
     };
   });
+}
+
+/** Smooth a freehand point list into a quadratic-bezier SVG path */
+function pathToSvgD(points: [number, number][]): string {
+  if (points.length < 2) return "";
+  return points.reduce((d, [x, y], i) => {
+    if (i === 0) return `M ${x} ${y}`;
+    // Smooth with quadratic bezier using midpoints
+    const [px, py] = points[i - 1];
+    const mx = (px + x) / 2;
+    const my = (py + y) / 2;
+    return `${d} Q ${px} ${py} ${mx} ${my}`;
+  }, "") + ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
 }
 
 /** Reorder nodes so parent group nodes always precede their children (ReactFlow requirement) */
@@ -1619,7 +1635,12 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
   // AI node feed context. Disconnecting a node hides it from the AI.
   // Group expansion: if a groupNode/folder is connected, its children count
   // as connected too — so plugging in a folder includes everything inside.
-  const canvasContext = useMemo(() => {
+  // Built lazily (debounced effect below) — NOT a useMemo on [nodes, edges]: that recomputed
+  // this whole block (BFS + big string building) on every drag frame and was a primary
+  // cause of sluggish dragging. Consumers read canvasContextRef at send-time.
+  const buildCanvasContext = useCallback(() => {
+    const nodes = nodesRef.current;
+    const edges = edgesRef.current;
     const connectedIds = new Set<string>([AI_NODE_ID]);
     const queue: string[] = [AI_NODE_ID];
     while (queue.length > 0) {
@@ -1637,7 +1658,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }
 
     const contextNodes = nodes.filter(n => n.id !== AI_NODE_ID && connectedIds.has(n.id));
-    console.log("[CanvasContext] contextNodes:", contextNodes.length, "of", nodes.length - 1, "(edge-filtered) types:", contextNodes.map(n => n.type));
 
     const videoNodes = contextNodes.filter(n => n.type === "videoNode");
     const textNoteNodes = contextNodes.filter(n => n.type === "textNoteNode");
@@ -1850,16 +1870,22 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
         };
       })() : null,
     };
-  }, [nodes, edges]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remixVideo]);
 
   // Keep canvasContext ref up to date (used by AI node at send-time, not stored on node data)
-  // Also expose on window so CanvasAIPanel can always read the freshest context
-  // regardless of memo/re-render timing issues
+  // Also expose on window so CanvasAIPanel can always read the freshest context.
+  // Debounced 300ms: drag frames retrigger this effect cheaply, and the expensive
+  // rebuild only runs once interaction settles. Send-time reads are always ≤300ms stale,
+  // which is fine — the AI panel also rebuilds from window.__canvasNodes at send-time.
   useEffect(() => {
-    canvasContextRef.current = canvasContext;
-    (window as any).__canvasContext = canvasContext;
-    console.log("[CanvasContext] ref updated. connected_nodes:", canvasContext.connected_nodes?.length, "transcriptions:", canvasContext.transcriptions?.length, "structures:", canvasContext.structures?.length);
-  }, [canvasContext]);
+    const t = setTimeout(() => {
+      const ctx = buildCanvasContext();
+      canvasContextRef.current = ctx;
+      (window as any).__canvasContext = ctx;
+    }, 300);
+    return () => clearTimeout(t);
+  }, [nodes, edges, buildCanvasContext]);
 
   // Sync token + format + language + model to AI node
   // NOTE: canvasContext is intentionally NOT in this effect to avoid an infinite loop:
@@ -2100,10 +2126,28 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }
   }, [getInternalNode, setNodes]);
 
+  /** Clear isDropTarget on all groups — returns the SAME array when nothing changed so
+   *  React (and every [nodes] effect) skips the frame entirely. Runs per drag frame. */
+  const clearDropTargets = useCallback((ns: Node[]): Node[] => {
+    let changed = false;
+    const next = ns.map(n => {
+      if (n.type === "groupNode" && (n.data as any).isDropTarget) {
+        changed = true;
+        return { ...n, data: { ...n.data, isDropTarget: false } };
+      }
+      return n;
+    });
+    return changed ? next : ns;
+  }, []);
+
   const handleNodeDrag = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
+    // Fast path: no group nodes on the canvas → no drop-target bookkeeping at all.
+    // (Per-frame setNodes with a fresh array retriggers every [nodes] effect — avoid.)
+    const hasGroups = nodesRef.current.some(n => n.type === "groupNode");
+
     // Skip groups, AI node
     if (draggedNode.type === "groupNode" || draggedNode.id === AI_NODE_ID) {
-      setNodes(ns => ns.map(n => n.type === "groupNode" && (n.data as any).isDropTarget ? { ...n, data: { ...n.data, isDropTarget: false } } : n));
+      if (hasGroups) setNodes(clearDropTargets);
       return;
     }
 
@@ -2116,25 +2160,32 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       dragOutThresholdRef.current = isOutside ? draggedNode.id : null;
     }
 
+    if (!hasGroups) return;
+
     // Visual drop indicator for groups
     const intersecting = getIntersectingNodes(draggedNode);
     const targetGroup = intersecting
       .filter(n => n.type === "groupNode" && n.id !== draggedNode.parentId)
       .sort((a, b) => ((a.measured?.width ?? 400) * (a.measured?.height ?? 300)) - ((b.measured?.width ?? 400) * (b.measured?.height ?? 300)))[0];
 
-    setNodes(ns => ns.map(n => {
-      if (n.type !== "groupNode") return n;
-      const shouldHighlight = targetGroup?.id === n.id;
-      if ((n.data as any).isDropTarget !== shouldHighlight) {
-        return { ...n, data: { ...n.data, isDropTarget: shouldHighlight } };
-      }
-      return n;
-    }));
-  }, [getInternalNode, getIntersectingNodes, setNodes]);
+    setNodes(ns => {
+      let changed = false;
+      const next = ns.map(n => {
+        if (n.type !== "groupNode") return n;
+        const shouldHighlight = targetGroup?.id === n.id;
+        if ((n.data as any).isDropTarget !== shouldHighlight) {
+          changed = true;
+          return { ...n, data: { ...n.data, isDropTarget: shouldHighlight } };
+        }
+        return n;
+      });
+      return changed ? next : ns;
+    });
+  }, [getIntersectingNodes, setNodes, clearDropTargets]);
 
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
-    // Clear all drop indicators
-    setNodes(ns => ns.map(n => n.type === "groupNode" && (n.data as any).isDropTarget ? { ...n, data: { ...n.data, isDropTarget: false } } : n));
+    // Clear all drop indicators (no-op same-reference when none set)
+    setNodes(clearDropTargets);
     dragParentBoundsRef.current = null;
 
     // Skip groups, AI node
@@ -2215,7 +2266,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       autoFitGroup(targetGroup.id);
       if (prevParentId) autoFitGroup(prevParentId);
     }, 50);
-  }, [getInternalNode, getIntersectingNodes, setNodes, setEdges, autoFitGroup]);
+  }, [getInternalNode, getIntersectingNodes, setNodes, setEdges, autoFitGroup, clearDropTargets]);
 
   // ─── Context menu handlers for group/ungroup ───
   const handleSelectionContextMenu = useCallback((event: React.MouseEvent) => {
@@ -2460,18 +2511,36 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     }
   }, [drawingMode, drawTool, screenToFlowPosition]);
 
+  // rAF-coalesced: pointermove fires faster than frames render; buffering the latest point
+  // and flushing once per frame keeps strokes smooth instead of janking the whole canvas.
+  const pendingDrawPtRef = useRef<{ x: number; y: number } | null>(null);
+  const drawRafRef = useRef<number | null>(null);
   const handleDrawPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     if (!currentPath) return;
-    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    if (drawTool === "freeform") {
-      setCurrentPath(prev => prev ? [...prev, [pt.x, pt.y]] : null);
-    } else {
-      // Update second point (current drag position)
-      setCurrentPath(prev => prev ? [prev[0], [pt.x, pt.y]] : null);
-    }
+    pendingDrawPtRef.current = { x: e.clientX, y: e.clientY };
+    if (drawRafRef.current != null) return;
+    drawRafRef.current = requestAnimationFrame(() => {
+      drawRafRef.current = null;
+      const raw = pendingDrawPtRef.current;
+      if (!raw) return;
+      const pt = screenToFlowPosition(raw);
+      if (drawTool === "freeform") {
+        setCurrentPath(prev => {
+          if (!prev) return null;
+          const [lx, ly] = prev[prev.length - 1];
+          // Skip sub-2px (screen-space) jitter — fewer points, smoother bezier
+          if (Math.hypot(pt.x - lx, pt.y - ly) < 2 / (viewportRef.current?.zoom || 1)) return prev;
+          return [...prev, [pt.x, pt.y]];
+        });
+      } else {
+        // Update second point (current drag position)
+        setCurrentPath(prev => (prev ? [prev[0], [pt.x, pt.y]] : null));
+      }
+    });
   }, [currentPath, drawTool, screenToFlowPosition]);
 
   const handleDrawPointerUp = useCallback(() => {
+    if (drawRafRef.current != null) { cancelAnimationFrame(drawRafRef.current); drawRafRef.current = null; }
     if (!currentPath || currentPath.length < 2) { setCurrentPath(null); return; }
     if (drawTool !== "freeform") {
       const [start, end] = currentPath;
@@ -2492,18 +2561,6 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     setDrawPaths(prev => [...prev, newPath]);
     setCurrentPath(null);
   }, [currentPath, drawColor, drawWidth, drawTool, drawFill]);
-
-  const pathToSvgD = (points: [number, number][]) => {
-    if (points.length < 2) return "";
-    return points.reduce((d, [x, y], i) => {
-      if (i === 0) return `M ${x} ${y}`;
-      // Smooth with quadratic bezier using midpoints
-      const [px, py] = points[i - 1];
-      const mx = (px + x) / 2;
-      const my = (py + y) / 2;
-      return `${d} Q ${px} ${py} ${mx} ${my}`;
-    }, "") + ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
-  };
 
   // ─── Shape SVG rendering helper ───
   const renderShapeSvg = useCallback((points: [number, number][], shape: DrawTool | undefined, color: string, width: number, fill: string, opacity: number, extraStroke?: string, extraStrokeWidth?: number) => {
@@ -2602,22 +2659,54 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
     if (hitId) setDrawPaths(prev => prev.filter(p => p.id !== hitId));
   }, [findPathAtPoint, screenToFlowPosition]);
 
+  const eraserRafRef = useRef<number | null>(null);
+  const pendingEraserPtRef = useRef<{ x: number; y: number } | null>(null);
   const handleEraserPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
-    const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     if (erasingRef.current) {
-      // Erase on swipe
+      // Erase on swipe — do this immediately, it's the actual interaction
+      const pt = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       const hitId = findPathAtPoint(pt.x, pt.y);
       if (hitId) setDrawPaths(prev => prev.filter(p => p.id !== hitId));
       setHoveredPathId(null);
     } else {
-      // Hover highlight
-      setHoveredPathId(findPathAtPoint(pt.x, pt.y));
+      // Hover highlight — hit-testing every path on every mousemove is wasted work;
+      // coalesce to one test per animation frame.
+      pendingEraserPtRef.current = { x: e.clientX, y: e.clientY };
+      if (eraserRafRef.current != null) return;
+      eraserRafRef.current = requestAnimationFrame(() => {
+        eraserRafRef.current = null;
+        const raw = pendingEraserPtRef.current;
+        if (!raw) return;
+        const pt = screenToFlowPosition(raw);
+        setHoveredPathId(findPathAtPoint(pt.x, pt.y));
+      });
     }
   }, [findPathAtPoint, screenToFlowPosition]);
 
   const handleEraserPointerUp = useCallback(() => {
     erasingRef.current = false;
   }, []);
+
+  // Memoized static strokes: while a new stroke is being drawn (currentPath updates per frame),
+  // the already-drawn paths don't re-run pathToSvgD/renderShapeSvg — previously O(all paths)
+  // per pointer-move, which made drawing feel worse the more you drew.
+  const staticDrawLayer = useMemo(() => (
+    drawPaths.map(p => (
+      <g key={p.id}>
+        {/* Eraser hover highlight */}
+        {eraserMode && hoveredPathId === p.id && (
+          p.shape && p.shape !== "freeform"
+            ? renderShapeSvg(p.points, p.shape, p.color, p.width, "none", 0.4, "#ef4444", p.width + 8)
+            : <path d={pathToSvgD(p.points)} stroke="#ef4444" strokeWidth={(p.width + 8) / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.4} />
+        )}
+        {/* Actual path or shape */}
+        {p.shape && p.shape !== "freeform"
+          ? renderShapeSvg(p.points, p.shape, p.color, p.width, p.fill || "none", eraserMode && hoveredPathId === p.id ? 0.5 : 0.85)
+          : <path d={pathToSvgD(p.points)} stroke={p.color} strokeWidth={p.width / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={eraserMode && hoveredPathId === p.id ? 0.5 : 0.85} />
+        }
+      </g>
+    ))
+  ), [drawPaths, eraserMode, hoveredPathId, viewport.zoom, renderShapeSvg]);
 
   // ─── Fullscreen AI overlay ───
   const [showFullscreenAI, setShowFullscreenAI] = useState(false);
@@ -2687,6 +2776,13 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
       setTimeout(() => { isRemoteCanvasUpdateRef.current = false; }, 200);
     }, []),
   });
+
+  // Stable handler — an inline arrow prop makes ReactFlow reconcile on every parent render
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    // Broadcast cursor position in flow coordinates (throttled inside hook)
+    const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    broadcastCursorPosition(flowPos.x, flowPos.y);
+  }, [screenToFlowPosition, broadcastCursorPosition]);
 
   // ─── DB-level full-state sync: reload canvas when another tab saves ───
   // The broadcast sync only handles positions/edges of *existing* nodes.
@@ -2895,23 +2991,20 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
           onSelectionContextMenu={handleSelectionContextMenu}
           onNodeContextMenu={handleNodeContextMenu}
           colorMode="dark"
-          defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 }, data: { arrow: false } }}
+          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
           fitView={false}
           minZoom={0.1}
           maxZoom={4}
           panOnScroll
           zoomOnScroll
           panOnDrag={[1, 2]}
+          nodeDragThreshold={3}
           deleteKeyCode={["Delete", "Backspace"]}
           connectOnClick
           connectionRadius={60}
           proOptions={{ hideAttribution: true }}
           style={{ background: "hsl(var(--cream))", position: "absolute", inset: 0 }}
-          onMouseMove={(e) => {
-            // Broadcast cursor position in flow coordinates (throttled inside hook)
-            const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-            broadcastCursorPosition(flowPos.x, flowPos.y);
-          }}
+          onMouseMove={handleCanvasMouseMove}
         >
           <Background
             variant={BackgroundVariant.Dots}
@@ -2932,21 +3025,7 @@ function CanvasInner({ selectedClient, onCancel, remixVideo, incomingVideos, onI
             style={{ zIndex: 4 }}
           >
             <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
-              {drawPaths.map(p => (
-                <g key={p.id}>
-                  {/* Eraser hover highlight */}
-                  {eraserMode && hoveredPathId === p.id && (
-                    p.shape && p.shape !== "freeform"
-                      ? renderShapeSvg(p.points, p.shape, p.color, p.width, "none", 0.4, "#ef4444", p.width + 8)
-                      : <path d={pathToSvgD(p.points)} stroke="#ef4444" strokeWidth={(p.width + 8) / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.4} />
-                  )}
-                  {/* Actual path or shape */}
-                  {p.shape && p.shape !== "freeform"
-                    ? renderShapeSvg(p.points, p.shape, p.color, p.width, p.fill || "none", eraserMode && hoveredPathId === p.id ? 0.5 : 0.85)
-                    : <path d={pathToSvgD(p.points)} stroke={p.color} strokeWidth={p.width / viewport.zoom} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={eraserMode && hoveredPathId === p.id ? 0.5 : 0.85} />
-                  }
-                </g>
-              ))}
+              {staticDrawLayer}
               {/* Current in-progress drawing */}
               {currentPath && currentPath.length > 1 && (
                 drawTool !== "freeform"
