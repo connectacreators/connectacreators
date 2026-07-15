@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   Loader2, TrendingUp, Instagram, Search, ChevronDown, X,
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
-  LayoutGrid, List, ExternalLink, CheckCircle2, AlertCircle,
+  LayoutGrid, List, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
   Download, Facebook, Layers, ScanSearch, RotateCcw,
 } from "lucide-react";
@@ -406,12 +406,11 @@ function releaseCategorizeSlot() {
 // card's selection flips or unrelated page state changes. All callbacks
 // passed in are stable (useCallback) for the memo to hold.
 const VideoCard = memo(function VideoCard({
-  video, index = 0, isAdmin, onDelete, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured, onChannelClick,
+  video, index = 0, isAdmin, selected, onToggleSelect, onSeen, onClickVideo, onToggleFeatured, onChannelClick,
 }: {
   video: ViralVideo;
   index?: number;
   isAdmin?: boolean;
-  onDelete?: (id: string) => void;
   selected?: boolean;
   onToggleSelect?: (video: ViralVideo) => void;
   onSeen?: (id: string) => void;
@@ -423,7 +422,6 @@ const VideoCard = memo(function VideoCard({
   const outlierColor = getOutlierColor(video.outlier_score);
   const [imgError, setImgError] = useState(false);
   const [posterError, setPosterError] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [localStatus, setLocalStatus] = useState<string | null | undefined>(video.analysis_status);
   const [analyzing, setAnalyzing] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
@@ -557,18 +555,18 @@ const VideoCard = memo(function VideoCard({
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const goDetail = () => {
+    onClickVideo?.(video.id);
+    navigate(`/viral-today/video/${video.id}`);
+  };
+
+  // Play: analyzed videos open the in-app detail (we host the file);
+  // un-analyzed ones jump straight to the original post.
+  const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Remove this video from the database?")) return;
-    setDeleting(true);
-    const { error } = await supabase.from("viral_videos").delete().eq("id", video.id);
-    if (error) {
-      toast.error("Failed to delete video");
-      setDeleting(false);
-    } else {
-      toast.success("Video removed");
-      onDelete?.(video.id);
-    }
+    const status = localStatus ?? video.analysis_status;
+    if (status === "analyzed" || !video.video_url) goDetail();
+    else window.open(video.video_url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -628,119 +626,67 @@ const VideoCard = memo(function VideoCard({
           );
         })()}
 
-        {/* Top-left: platform icon + admin checkbox overlay */}
-        <div className="absolute top-2 left-2 z-10">
-          {isAdmin && onToggleSelect ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleSelect(video); }}
-              className={cn(
-                "w-6 h-6 rounded-md flex items-center justify-center border transition-all",
-                selected
-                  ? "bg-primary border-primary"
-                  : "bg-black/60 backdrop-blur-sm border-white/20 hover:border-primary/60"
-              )}
-            >
-              {selected ? (
-                <CheckSquare className="w-3.5 h-3.5 text-white" />
-              ) : (
-                <PlatformIcon className="w-3 h-3 text-white/80" />
-              )}
-            </button>
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10">
-              <PlatformIcon className="w-3 h-3 text-white/80" />
-            </div>
-          )}
-        </div>
+        {/* Hover darken */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200 pointer-events-none" />
 
-        {/* Top-right: star (featured) + trash (admin) or external link (non-admin) */}
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-          {/* Featured star — admin can toggle, non-admin sees read-only when featured */}
-          {(video.is_featured_framework || isAdmin) && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isAdmin && onToggleFeatured) onToggleFeatured(video);
-              }}
-              className={cn(
-                "w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border transition-colors",
-                video.is_featured_framework
-                  ? "border-yellow-400/60 hover:bg-yellow-500/20"
-                  : "border-white/10 hover:border-yellow-400/40",
-                !isAdmin && "cursor-default",
-              )}
-              title={video.is_featured_framework ? "Top Framework" : "Mark as Top Framework"}
-              disabled={!isAdmin}
-            >
-              <Star
-                className={cn(
-                  "w-3 h-3",
-                  video.is_featured_framework ? "text-yellow-400 fill-yellow-400" : "text-white/40",
-                )}
-              />
-            </button>
-          )}
+        {/* Top-right: hover checkbox (admin) — selection feeds the floating
+            toolkit, which now carries Delete (per-card trash retired). */}
+        {isAdmin && onToggleSelect && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(video); }}
+            title={selected ? "Unselect" : "Select"}
+            aria-label={selected ? "Unselect video" : "Select video"}
+            className={cn(
+              "absolute top-2 right-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-all",
+              selected
+                ? "bg-primary border-primary opacity-100"
+                : "bg-black/40 backdrop-blur-md border-white/50 opacity-0 group-hover:opacity-100 hover:border-white"
+            )}
+          >
+            {selected && <CheckSquare className="w-3.5 h-3.5 text-primary-foreground" />}
+          </button>
+        )}
 
-          {isAdmin ? (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-red-600/80 transition-colors"
-              title="Remove video"
-            >
-              {deleting ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Trash2 className="w-3 h-3 text-white/80" />}
-            </button>
-          ) : video.video_url ? (
-            // Only render with a real URL — href="#" just scrolled to top.
-            <a
-              href={video.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors"
-              title="Open original"
-            >
-              <ExternalLink className="w-3 h-3 text-white/80" />
-            </a>
-          ) : null}
-        </div>
+        {/* Bottom glass action bar — star · play · analyze. One seamless row,
+            frosted, revealed on hover. */}
+        <div
+          className="absolute bottom-0 inset-x-0 z-10 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Star (featured) — toggle for admins, read-only otherwise */}
+          <button
+            onClick={(e) => { e.stopPropagation(); if (isAdmin && onToggleFeatured) onToggleFeatured(video); }}
+            disabled={!isAdmin}
+            title={video.is_featured_framework ? "Top Framework" : isAdmin ? "Mark as Top Framework" : undefined}
+            className="flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md text-white/90 hover:bg-black/60 transition-colors disabled:cursor-default"
+          >
+            <Star className={cn("w-4 h-4", video.is_featured_framework && "text-yellow-400 fill-yellow-400")} />
+          </button>
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
-          <Play className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
-        </div>
+          {/* Play — analyzed: in-app detail; otherwise: the original post */}
+          <button
+            onClick={handlePlay}
+            title={(localStatus ?? video.analysis_status) === "analyzed" ? "Play — open video breakdown" : "Play — open original post"}
+            className="flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md border-x border-white/10 text-white/90 hover:bg-black/60 transition-colors"
+          >
+            <Play className="w-4 h-4 fill-current" />
+          </button>
 
-        {/* Bottom-right: analyze status badge */}
-        <div className="absolute bottom-2 right-2 z-10">
+          {/* Analyze — green check when done, theme color when pending */}
           {(() => {
             const status = localStatus ?? video.analysis_status;
+            const seg = "flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md text-white/90 hover:bg-black/60 transition-colors disabled:opacity-60";
             if (status === "analyzed") {
-              if (categorizing) {
-                return (
-                  <div
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
-                    title="Categorizing…"
-                  >
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Categorizing…</span>
-                  </div>
-                );
-              }
               return (
-                <div
-                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10"
-                  title="Already analyzed"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Analyzed</span>
-                </div>
+                <button onClick={(e) => { e.stopPropagation(); goDetail(); }} title={categorizing ? "Analyzed — categorizing…" : "Analyzed — open breakdown"} className={seg}>
+                  {categorizing ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                </button>
               );
             }
             if (status === "analyzing") {
               return (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Analyzing…</span>
+                <div className={cn(seg, "cursor-default")} title="Analyzing…">
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 </div>
               );
             }
@@ -749,25 +695,21 @@ const VideoCard = memo(function VideoCard({
                 <button
                   onClick={handleAnalyze}
                   disabled={analyzing}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
-                  title={`Last analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — click to retry (50 credits)`}
+                  title={`Analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — retry${isAdmin ? "" : " (50 credits)"}`}
+                  className={seg}
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Failed — Retry</span>
+                  <RotateCcw className="w-4 h-4 text-red-400" />
                 </button>
               );
             }
-            // Cost lives in the tooltip, not the label — and ScanSearch
-            // instead of the over-used AI sparkles.
             return (
               <button
                 onClick={handleAnalyze}
                 disabled={analyzing}
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/90 hover:bg-primary backdrop-blur-sm text-white text-[10px] font-medium border border-white/10 transition-colors disabled:opacity-60"
                 title={isAdmin ? "Analyze this video" : "Analyze this video — 50 credits"}
+                className={seg}
               >
-                <ScanSearch className="w-3 h-3" />
-                <span>Analyze</span>
+                <ScanSearch className="w-4 h-4" style={{ color: "hsl(var(--aqua))" }} />
               </button>
             );
           })()}
@@ -803,8 +745,9 @@ const VideoCard = memo(function VideoCard({
           </span>
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — platform icon lives here now (moved off the thumbnail) */}
         <div className="flex items-center gap-3 pt-0.5 border-t border-border">
+          <PlatformIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" aria-label={video.platform} />
           {/* Outlier */}
           <div className="flex items-center gap-1" title="Outlier score">
             {video.outlier_score >= 15 ? (
@@ -2333,13 +2276,25 @@ export default function ViralToday() {
     toast.success(next ? "Marked as Top Framework" : "Removed from Top Frameworks");
   }, []);
 
-  const handleVideoDeleted = useCallback((id: string) => {
-    setVideos((prev) => prev.filter((x) => x.id !== id));
-  }, []);
-
   const handleChannelFilter = useCallback((username: string) => {
     setSearch(username);
   }, []);
+
+  // Bulk delete from the floating toolkit — replaces the per-card trash icon.
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedVideos.keys());
+    if (ids.length === 0) return;
+    if (!confirm(`Remove ${ids.length} video${ids.length === 1 ? "" : "s"} from the database? This cannot be undone.`)) return;
+    const { error } = await supabase.from("viral_videos").delete().in("id", ids);
+    if (error) {
+      toast.error("Failed to delete videos");
+      return;
+    }
+    const removed = new Set(ids);
+    setVideos((prev) => prev.filter((v) => !removed.has(v.id)));
+    setSelectedVideos(new Map());
+    toast.success(`${ids.length} video${ids.length === 1 ? "" : "s"} removed`);
+  }, [selectedVideos]);
 
   const handlePasteUrl = async () => {
     if (!pasteUrl.trim() || pastingUrl) return;
@@ -3090,7 +3045,6 @@ export default function ViralToday() {
                           video={v}
                           index={i}
                           isAdmin={isAdmin}
-                          onDelete={handleVideoDeleted}
                           selected={selectedVideos.has(v.id)}
                           onToggleSelect={toggleVideoSelect}
                           onClickVideo={reportClick}
@@ -3549,6 +3503,14 @@ export default function ViralToday() {
               style={{ background: "hsl(var(--aqua))" }}
             >
               Generate Script{selectedVideos.size === 1 ? "" : "s"} <ArrowRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              title={`Remove ${selectedVideos.size} selected video${selectedVideos.size === 1 ? "" : "s"} from the database`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
             </button>
             <button
               onClick={() => setSelectedVideos(new Map())}
