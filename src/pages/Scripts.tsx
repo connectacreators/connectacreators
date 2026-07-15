@@ -8,7 +8,7 @@ import {
   Loader2, ChevronLeft, ExternalLink, Eye, Trash2, Pencil, LogOut, MonitorPlay, Link2, Save, CheckCircle2, Circle, MicIcon, MicOff,
   Camera, Video, GripVertical, RotateCcw, Archive, Wand2, Copy, Play, Clock, AlertTriangle, MoreHorizontal, Menu, MessageSquare,
   Folder, FolderOpen, FolderPlus, Zap, LayoutGrid, Flame, FilePlus2, Upload, Share2, Clapperboard,
-  Music, File, ChevronDown,
+  Music, File, ChevronDown, List, Columns3,
 } from "lucide-react";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 // Heavy components lazy-loaded to reduce initial chunk size
@@ -36,7 +36,7 @@ import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
 import ScriptDocEditor from "@/components/ScriptDocEditor";
@@ -693,13 +693,27 @@ export default function Scripts() {
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
-  // Drive-style folder sort — one control, persisted across visits.
-  const [folderSort, setFolderSort] = useState<string>(() => {
-    try { return localStorage.getItem("scripts_folder_sort") || "recent"; } catch { return "recent"; }
+  // ── Finder-style vault views ────────────────────────────────────────────
+  // Folders and scripts are ONE set of items (no separate sections). Three
+  // view modes — grid / list / columns — plus one sort, both persisted.
+  const [vaultView, setVaultView] = useState<string>(() => {
+    try { return localStorage.getItem("scripts_vault_view") || "grid"; } catch { return "grid"; }
   });
   useEffect(() => {
-    try { localStorage.setItem("scripts_folder_sort", folderSort); } catch { /* ignore */ }
-  }, [folderSort]);
+    try { localStorage.setItem("scripts_vault_view", vaultView); } catch { /* ignore */ }
+  }, [vaultView]);
+  const [vaultSort, setVaultSort] = useState<string>(() => {
+    try { return localStorage.getItem("scripts_vault_sort") || "custom"; } catch { return "custom"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("scripts_vault_sort", vaultSort); } catch { /* ignore */ }
+  }, [vaultSort]);
+  // Drag handlers read the live sort without re-subscribing.
+  const vaultSortRef = useRef(vaultSort);
+  useEffect(() => { vaultSortRef.current = vaultSort; }, [vaultSort]);
+  // Columns view: trail of opened folders to the right of the current level.
+  const [vaultColumnPath, setVaultColumnPath] = useState<string[]>([]);
+  useEffect(() => { setVaultColumnPath([]); }, [viewingFolderId]);
   // Mobile FAB (New script / New folder)
   const [fabOpen, setFabOpen] = useState(false);
   const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null);
@@ -1190,6 +1204,9 @@ export default function Scripts() {
     }
 
     // ── Drop onto another script → reorder within the current view ──
+    // Manual order is only meaningful (and editable) under the Custom sort;
+    // in Name/Recent views a drop would persist a nonsense order.
+    if (vaultSortRef.current !== "custom") return;
     if (overId === String(active.id)) return; // dropped in place
     // Recompute the visible (filtered) order — same predicate as the render below.
     const viewIds = scripts
@@ -3030,197 +3047,397 @@ export default function Scripts() {
 
                   <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragStart={handleListDragStart} onDragEnd={handleListDragEnd}>
 
-                  {/* ── FOLDERS — Drive-style compact chips: the index stays
-                        small so scripts (the content) get the page. ── */}
-                  {(childFolders.length > 0 || creatingFolder || viewingFolderId === null) && !showTrash && (
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="editorial-eyebrow" style={{ letterSpacing: "0.18em", fontSize: 9.5 }}>
-                          {tr({ en: "FOLDERS", es: "CARPETAS" }, language)} · {childFolders.length}
-                        </p>
-                        {childFolders.length > 1 && (
-                          <Select value={folderSort} onValueChange={setFolderSort}>
-                            <SelectTrigger className="h-7 w-auto min-w-[132px] text-[11px] px-2">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="recent" className="text-xs">{tr({ en: "Recently created", es: "Recientes" }, language)}</SelectItem>
-                              <SelectItem value="name" className="text-xs">{tr({ en: "Name A–Z", es: "Nombre A–Z" }, language)}</SelectItem>
-                              <SelectItem value="count" className="text-xs">{tr({ en: "Most scripts", es: "Más scripts" }, language)}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                      {(() => {
-                        const countByFolder = new Map<string, number>();
-                        for (const s of scripts) if (s.folder_id) countByFolder.set(s.folder_id, (countByFolder.get(s.folder_id) ?? 0) + 1);
-                        const sorted = [...childFolders].sort((a, b) => {
-                          if (folderSort === "name") return a.name.localeCompare(b.name);
-                          if (folderSort === "count") return (countByFolder.get(b.id) ?? 0) - (countByFolder.get(a.id) ?? 0);
-                          return Date.parse(b.created_at || "0") - Date.parse(a.created_at || "0");
-                        });
-                        return sorted.map((f) => {
-                          const count = countByFolder.get(f.id) ?? 0;
-                          const subCount = folders.filter(sf => sf.parent_id === f.id).length;
-                          return (
-                            <DroppableFolder key={f.id} id={f.id}>
-                              <div className="relative group h-full" onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}>
-                                {renamingFolderId === f.id ? (
-                                  <div className="editorial-card flex items-center gap-2 rounded-xl px-3 min-h-[46px]" data-rename-ui>
-                                    <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                                    <Input
-                                      autoFocus
-                                      value={folderRenameValue}
-                                      onChange={(e) => setFolderRenameValue(e.target.value)}
-                                      onFocus={(e) => e.currentTarget.select()}
-                                      className="h-7 text-sm border-0 px-1"
-                                      style={{ background: "transparent", color: "hsl(var(--cream))" }}
-                                      onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                        if (e.key === "Enter") { e.preventDefault(); saveFolderRename(); }
-                                        if (e.key === "Escape") { e.preventDefault(); setRenamingFolderId(null); }
-                                      }}
-                                      onBlur={saveFolderRename}
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="editorial-card flex items-center gap-2.5 rounded-xl px-3 min-h-[46px] transition-colors overflow-hidden">
-                                    <button
-                                      onClick={() => {
-                                        // Delay so a double-click can claim the gesture
-                                        // for rename instead of opening the folder.
-                                        if (folderOpenTimer.current) clearTimeout(folderOpenTimer.current);
-                                        folderOpenTimer.current = setTimeout(() => {
-                                          folderOpenTimer.current = null;
-                                          setViewingFolderId(f.id);
-                                        }, 250);
-                                      }}
-                                      onDoubleClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        startFolderRename(f.id, f.name);
-                                      }}
-                                      title={tr({ en: "Open · double-click to rename", es: "Abrir · doble clic para renombrar" }, language)}
-                                      className="flex items-center gap-2.5 flex-1 min-w-0 text-left py-2.5"
-                                    >
-                                      <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                                      <span
-                                        className="truncate"
-                                        style={{
-                                          fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-                                          fontWeight: 500,
-                                          fontSize: 13.5,
-                                          letterSpacing: "-0.005em",
-                                          color: "hsl(var(--cream))",
-                                        }}
-                                      >
-                                        {f.name}
-                                      </span>
-                                    </button>
-                                    <span
-                                      className="shrink-0 text-[10px] tabular-nums"
-                                      style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }}
-                                      title={tr({
-                                        en: `${count} script${count !== 1 ? "s" : ""}${subCount > 0 ? ` · ${subCount} subfolder${subCount !== 1 ? "s" : ""}` : ""}`,
-                                        es: `${count} script${count !== 1 ? "s" : ""}${subCount > 0 ? ` · ${subCount} subcarpeta${subCount !== 1 ? "s" : ""}` : ""}`,
-                                      }, language)}
-                                    >
-                                      {count}{subCount > 0 ? ` +${subCount}` : ""}
-                                    </span>
-                                    <FolderCardMenu
-                                      mobile={isMobile}
-                                      labels={{
-                                        menu: tr({ en: "Folder options", es: "Opciones de carpeta" }, language),
-                                        rename: tr({ en: "Rename", es: "Renombrar" }, language),
-                                        share: tr({ en: "Share", es: "Compartir" }, language),
-                                        del: tr({ en: "Delete folder", es: "Eliminar carpeta" }, language),
-                                      }}
-                                      onRename={() => startFolderRename(f.id, f.name)}
-                                      onShare={() => setSharingFolder({ id: f.id, name: f.name })}
-                                      onDelete={() => setDeletingFolder({ id: f.id, name: f.name })}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </DroppableFolder>
-                          );
-                        });
-                      })()}
-                      {/* New folder chip */}
-                      {creatingFolder ? (
-                        <div className="editorial-card flex items-center gap-2 rounded-xl px-3 min-h-[46px]" data-rename-ui>
-                          <FolderPlus className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
-                          <Input
-                            autoFocus
-                            value={newFolderName}
-                            onChange={(e) => setNewFolderName(e.target.value)}
-                            onFocus={(e) => e.currentTarget.select()}
-                            placeholder={viewingFolderId ? tr({ en: "Subfolder name", es: "Nombre de subcarpeta" }, language) : tr({ en: "Folder name", es: "Nombre de carpeta" }, language)}
-                            className="h-7 text-sm border-0 px-1 flex-1"
-                            style={{ background: "transparent", color: "hsl(var(--cream))" }}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
-                          />
-                          <button onClick={handleCreateFolder} className="editorial-pill px-2.5 py-1 text-[11px] font-medium shrink-0" data-active="true">
-                            {tr({ en: "Save", es: "Guardar" }, language)}
+                  {/* ── Vault toolbar: count · new folder · sort · view modes ── */}
+                  <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                    <p className="editorial-eyebrow" style={{ letterSpacing: "0.18em", fontSize: 9.5 }}>
+                      {childFolders.length + filtered.length} {tr({ en: "ITEMS", es: "ELEMENTOS" }, language)}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setRenamingScriptId(null);
+                          setRenamingFolderId(null);
+                          setNewFolderName(suggestShootFolderName(language));
+                          setCreatingFolder(true);
+                        }}
+                        className="h-7 px-2.5 rounded-md flex items-center gap-1.5 text-[11px] font-medium border border-border bg-muted/40 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        {tr({ en: "New folder", es: "Nueva carpeta" }, language)}
+                      </button>
+                      <Select value={vaultSort} onValueChange={setVaultSort}>
+                        <SelectTrigger className="h-7 w-auto min-w-[118px] text-[11px] px-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="custom" className="text-xs">{tr({ en: "Custom (drag)", es: "Personalizado" }, language)}</SelectItem>
+                          <SelectItem value="name" className="text-xs">{tr({ en: "Name A–Z", es: "Nombre A–Z" }, language)}</SelectItem>
+                          <SelectItem value="recent" className="text-xs">{tr({ en: "Recently updated", es: "Recientes" }, language)}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {/* Finder-style view switcher */}
+                      <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
+                        {([
+                          { key: "grid", Icon: LayoutGrid, label: tr({ en: "Grid view", es: "Cuadrícula" }, language) },
+                          { key: "list", Icon: List, label: tr({ en: "List view", es: "Lista" }, language) },
+                          ...(isMobile ? [] : [{ key: "columns", Icon: Columns3, label: tr({ en: "Column view", es: "Columnas" }, language) }]),
+                        ]).map(({ key, Icon, label }) => (
+                          <button
+                            key={key}
+                            onClick={() => setVaultView(key)}
+                            title={label}
+                            aria-label={label}
+                            className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${
+                              vaultView === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => { setCreatingFolder(false); setNewFolderName(""); }} className="text-[hsl(var(--bone)/0.5)] hover:text-[hsl(var(--cream))] shrink-0">
-                            <X className="w-3.5 h-3.5" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* New-folder inline input — visible in every view mode */}
+                  {creatingFolder && (
+                    <div className="editorial-card flex items-center gap-2 rounded-xl px-3 min-h-[46px] mb-2.5" data-rename-ui>
+                      <FolderPlus className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                      <Input
+                        autoFocus
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        placeholder={viewingFolderId ? tr({ en: "Subfolder name", es: "Nombre de subcarpeta" }, language) : tr({ en: "Folder name", es: "Nombre de carpeta" }, language)}
+                        className="h-7 text-sm border-0 px-1 flex-1"
+                        style={{ background: "transparent", color: "hsl(var(--cream))" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
+                      />
+                      <button onClick={handleCreateFolder} className="editorial-pill px-2.5 py-1 text-[11px] font-medium shrink-0" data-active="true">
+                        {tr({ en: "Save", es: "Guardar" }, language)}
+                      </button>
+                      <button onClick={() => { setCreatingFolder(false); setNewFolderName(""); }} className="text-[hsl(var(--bone)/0.5)] hover:text-[hsl(var(--cream))] shrink-0">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {(() => {
+                    // ── ONE unified set of items, Finder-style. Folders and
+                    // scripts sort together; no separate sections. ──
+                    const countByFolder = new Map<string, number>();
+                    for (const s of scripts) if (s.folder_id) countByFolder.set(s.folder_id, (countByFolder.get(s.folder_id) ?? 0) + 1);
+
+                    type VaultItem =
+                      | { kind: "folder"; f: (typeof folders)[number] }
+                      | { kind: "script"; s: (typeof scripts)[number] };
+                    let items: VaultItem[] = [
+                      ...childFolders.map((f) => ({ kind: "folder" as const, f })),
+                      ...filtered.map((s) => ({ kind: "script" as const, s })),
+                    ];
+                    const itemName = (it: VaultItem) => (it.kind === "folder" ? it.f.name : (it.s.idea_ganadora || it.s.title || ""));
+                    const itemDate = (it: VaultItem) =>
+                      Date.parse((it.kind === "folder" ? it.f.created_at : (((it.s as any).updated_at as string) ?? it.s.created_at)) || "0");
+                    if (vaultSort === "name") items = [...items].sort((a, b) => itemName(a).localeCompare(itemName(b)));
+                    else if (vaultSort === "recent") items = [...items].sort((a, b) => itemDate(b) - itemDate(a));
+                    // "custom": folders in created order, then the manual script order.
+
+                    if (items.length === 0 && scriptsListLoading) {
+                      return (
+                        <div className="grid gap-3" aria-hidden>
+                          {[0, 1, 2].map((i) => (
+                            <div key={i} className="animate-pulse rounded-xl" style={{ height: 72, background: "hsl(var(--bone) / 0.06)" }} />
+                          ))}
+                        </div>
+                      );
+                    }
+                    if (items.length === 0) {
+                      return (
+                        <p className="text-muted-foreground text-center py-8">
+                          {viewingFolderId !== null ? tr({ en: "Nothing in this folder yet.", es: "Aún no hay nada en esta carpeta." }, language) : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
+                        </p>
+                      );
+                    }
+
+                    // Folder element shared by grid (tile) and list (row) —
+                    // keeps drag-target, ⋯ menu, rename, right-click.
+                    const FolderItem = ({ f, variant }: { f: (typeof folders)[number]; variant: "tile" | "row" }) => {
+                      const count = countByFolder.get(f.id) ?? 0;
+                      const subCount = folders.filter((sf) => sf.parent_id === f.id).length;
+                      const countTitle = tr({
+                        en: `${count} script${count !== 1 ? "s" : ""}${subCount > 0 ? ` · ${subCount} subfolder${subCount !== 1 ? "s" : ""}` : ""}`,
+                        es: `${count} script${count !== 1 ? "s" : ""}${subCount > 0 ? ` · ${subCount} subcarpeta${subCount !== 1 ? "s" : ""}` : ""}`,
+                      }, language);
+                      const openFolder = () => {
+                        if (folderOpenTimer.current) clearTimeout(folderOpenTimer.current);
+                        folderOpenTimer.current = setTimeout(() => {
+                          folderOpenTimer.current = null;
+                          setViewingFolderId(f.id);
+                        }, 250);
+                      };
+                      const renameOnDbl = (e: React.MouseEvent) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startFolderRename(f.id, f.name);
+                      };
+                      const menu = (
+                        <FolderCardMenu
+                          mobile={isMobile}
+                          labels={{
+                            menu: tr({ en: "Folder options", es: "Opciones de carpeta" }, language),
+                            rename: tr({ en: "Rename", es: "Renombrar" }, language),
+                            share: tr({ en: "Share", es: "Compartir" }, language),
+                            del: tr({ en: "Delete folder", es: "Eliminar carpeta" }, language),
+                          }}
+                          onRename={() => startFolderRename(f.id, f.name)}
+                          onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                          onDelete={() => setDeletingFolder({ id: f.id, name: f.name })}
+                        />
+                      );
+                      if (renamingFolderId === f.id) {
+                        return (
+                          <div className={`editorial-card flex items-center gap-2 rounded-xl px-3 ${variant === "tile" ? "min-h-[96px]" : "min-h-[46px]"}`} data-rename-ui>
+                            <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                            <Input
+                              autoFocus
+                              value={folderRenameValue}
+                              onChange={(e) => setFolderRenameValue(e.target.value)}
+                              onFocus={(e) => e.currentTarget.select()}
+                              className="h-7 text-sm border-0 px-1"
+                              style={{ background: "transparent", color: "hsl(var(--cream))" }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter") { e.preventDefault(); saveFolderRename(); }
+                                if (e.key === "Escape") { e.preventDefault(); setRenamingFolderId(null); }
+                              }}
+                              onBlur={saveFolderRename}
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <DroppableFolder id={f.id}>
+                          <div className="relative group h-full" onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}>
+                            {variant === "tile" ? (
+                              <div className="editorial-card h-full flex flex-col rounded-xl px-3 py-3 min-h-[96px] overflow-hidden">
+                                <div className="flex items-start justify-between w-full">
+                                  <Folder className="w-5 h-5" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                  {menu}
+                                </div>
+                                <button
+                                  onClick={openFolder}
+                                  onDoubleClick={renameOnDbl}
+                                  title={tr({ en: "Open · double-click to rename", es: "Abrir · doble clic para renombrar" }, language)}
+                                  className="flex-1 w-full text-left mt-2 min-w-0"
+                                >
+                                  <span
+                                    className="block truncate"
+                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 13.5, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
+                                  >
+                                    {f.name}
+                                  </span>
+                                  <span className="block mt-0.5 text-[9.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }} title={countTitle}>
+                                    {count}{subCount > 0 ? ` +${subCount}` : ""}
+                                  </span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="editorial-card flex items-center gap-2.5 rounded-xl px-3 min-h-[46px] transition-colors overflow-hidden">
+                                <button
+                                  onClick={openFolder}
+                                  onDoubleClick={renameOnDbl}
+                                  title={tr({ en: "Open · double-click to rename", es: "Abrir · doble clic para renombrar" }, language)}
+                                  className="flex items-center gap-2.5 flex-1 min-w-0 text-left py-2.5"
+                                >
+                                  <Folder className="w-4 h-4 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                  <span
+                                    className="truncate"
+                                    style={{ fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif", fontWeight: 500, fontSize: 13.5, letterSpacing: "-0.005em", color: "hsl(var(--cream))" }}
+                                  >
+                                    {f.name}
+                                  </span>
+                                </button>
+                                <span className="shrink-0 text-[10px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }} title={countTitle}>
+                                  {count}{subCount > 0 ? ` +${subCount}` : ""}
+                                </span>
+                                {menu}
+                              </div>
+                            )}
+                          </div>
+                        </DroppableFolder>
+                      );
+                    };
+
+                    // Compact script tile for grid view (full actions live in
+                    // list view / the open script; tile keeps open + select).
+                    const ScriptTile = ({ s }: { s: (typeof scripts)[number] }) => {
+                      const isSel = selectedScriptIds.has(s.id);
+                      return (
+                        <div className="relative group h-full">
+                          <button
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey) { e.preventDefault(); handleScriptSelect(s.id, e, visibleIds); return; }
+                              handleViewScript(s);
+                            }}
+                            className="editorial-card w-full h-full flex flex-col items-start gap-1.5 rounded-xl px-3 py-3 min-h-[96px] text-left overflow-hidden"
+                            style={{
+                              borderLeft: `3px solid ${
+                                (s as any).status === 'draft' ? '#A85B1F'
+                                  : s.review_status === 'approved' ? '#1f7a5a'
+                                  : s.review_status === 'needs_revision' ? '#A85B1F'
+                                  : 'hsl(var(--bone) / 0.20)'
+                              }`,
+                              boxShadow: isSel ? 'inset 0 0 0 1px hsl(var(--aqua) / 0.40)' : undefined,
+                            }}
+                          >
+                            <span className="editorial-eyebrow" style={{ fontSize: 8, letterSpacing: "0.18em" }}>
+                              {s.idea_ganadora ? (getFormatLabel(s.formato, language).toUpperCase() || "SCRIPT") : "SCRIPT"}
+                            </span>
+                            <span
+                              className="w-full"
+                              style={{
+                                fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
+                                fontSize: 13, lineHeight: 1.35, color: "hsl(var(--cream))",
+                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                              }}
+                            >
+                              {s.idea_ganadora || s.title}
+                            </span>
+                            <span className="mt-auto text-[9.5px] tabular-nums" style={{ color: "hsl(var(--bone) / 0.45)", fontFamily: "ui-monospace, monospace" }}>
+                              {s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}
+                            </span>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleScriptSelect(s.id, e, visibleIds); }}
+                            className={`absolute top-2 right-2 transition-opacity ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                            title={tr({ en: "Select (Shift+click for range)", es: "Seleccionar (Shift+clic para rango)" }, language)}
+                          >
+                            {isSel
+                              ? <CheckCircle2 className="w-4 h-4 text-primary" />
+                              : <Circle className="w-4 h-4 text-muted-foreground hover:text-foreground" />}
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            // Mutually exclusive with the rename inputs. Pre-fill
-                            // with today's shoot name (how folders are actually
-                            // named here); select-all on focus so typing replaces it.
-                            setRenamingScriptId(null);
-                            setRenamingFolderId(null);
-                            setNewFolderName(suggestShootFolderName(language));
-                            setCreatingFolder(true);
-                          }}
-                          className="editorial-card-dashed flex items-center justify-center gap-2 rounded-xl px-3 min-h-[46px] transition-colors"
-                          style={{ color: "hsl(var(--bone) / 0.55)" }}
-                        >
-                          <FolderPlus className="w-4 h-4" />
-                          <span className="text-xs font-medium">{tr({ en: "New folder", es: "Nueva carpeta" }, language)}</span>
-                        </button>
-                      )}
-                      </div>
-                    </div>
-                  )}
+                      );
+                    };
 
-                  {/* ── SCRIPTS section header ── */}
-                  {!showTrash && (
-                    <p className="editorial-eyebrow mb-2" style={{ letterSpacing: "0.18em", fontSize: 9.5 }}>
-                      {tr({ en: "SCRIPTS", es: "SCRIPTS" }, language)} · {filtered.length}
-                    </p>
-                  )}
+                    // ── COLUMNS (Miller) — desktop only ──
+                    if (vaultView === "columns" && !isMobile) {
+                      const levels: (string | null)[] = [viewingFolderId, ...vaultColumnPath];
+                      const foldersIn = (parent: string | null) =>
+                        folders
+                          .filter((f) => (parent === null ? !f.parent_id : f.parent_id === parent))
+                          .sort((a, b) => a.name.localeCompare(b.name));
+                      const scriptsIn = (parent: string | null) =>
+                        scripts
+                          .filter((s) => {
+                            const inF = parent === null ? (s.folder_id === null || s.folder_id === undefined) : s.folder_id === parent;
+                            if (!inF) return false;
+                            if (grabadoFilter === "grabado" && !s.grabado) return false;
+                            if (grabadoFilter === "no-grabado" && s.grabado) return false;
+                            if (reviewFilter === "needs_review" && s.review_status === "approved") return false;
+                            return true;
+                          })
+                          .sort((a, b) => (a.idea_ganadora || a.title || "").localeCompare(b.idea_ganadora || b.title || ""));
+                      return (
+                        <div className="flex rounded-xl overflow-x-auto custom-scrollbar" style={{ border: "1px solid hsl(var(--bone) / 0.14)", minHeight: 300 }}>
+                          {levels.map((parent, depth) => {
+                            const lf = foldersIn(parent);
+                            const ls = scriptsIn(parent);
+                            return (
+                              <div
+                                key={`${parent ?? "root"}-${depth}`}
+                                className="w-64 shrink-0 py-2 overflow-y-auto custom-scrollbar"
+                                style={{ borderRight: depth < levels.length - 1 || lf.length > 0 ? "1px solid hsl(var(--bone) / 0.10)" : undefined, maxHeight: 440 }}
+                              >
+                                {lf.length === 0 && ls.length === 0 && (
+                                  <p className="text-[11px] px-3 py-2" style={{ color: "hsl(var(--bone) / 0.4)" }}>
+                                    {tr({ en: "Empty", es: "Vacío" }, language)}
+                                  </p>
+                                )}
+                                {lf.map((f) => {
+                                  const active = vaultColumnPath[depth] === f.id;
+                                  return (
+                                    <DroppableFolder key={f.id} id={f.id}>
+                                      <button
+                                        onClick={() => setVaultColumnPath([...vaultColumnPath.slice(0, depth), f.id])}
+                                        onDoubleClick={(e) => { e.preventDefault(); startFolderRename(f.id, f.name); }}
+                                        onContextMenu={(e) => handleFolderContextMenu(e, { id: f.id, name: f.name })}
+                                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition-colors ${active ? "bg-[hsl(var(--bone)/0.10)]" : "hover:bg-[hsl(var(--bone)/0.05)]"}`}
+                                        style={{ color: "hsl(var(--cream))" }}
+                                        title={tr({ en: "Open · double-click to rename · right-click for options", es: "Abrir · doble clic renombra · clic derecho opciones" }, language)}
+                                      >
+                                        <Folder className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.55)" }} />
+                                        <span className="truncate flex-1">
+                                          {renamingFolderId === f.id ? (
+                                            <Input
+                                              autoFocus
+                                              data-rename-ui
+                                              value={folderRenameValue}
+                                              onChange={(e) => setFolderRenameValue(e.target.value)}
+                                              onFocus={(e) => e.currentTarget.select()}
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="h-6 text-xs border-0 px-1"
+                                              style={{ background: "transparent", color: "hsl(var(--cream))" }}
+                                              onKeyDown={(e) => {
+                                                e.stopPropagation();
+                                                if (e.key === "Enter") { e.preventDefault(); saveFolderRename(); }
+                                                if (e.key === "Escape") { e.preventDefault(); setRenamingFolderId(null); }
+                                              }}
+                                              onBlur={saveFolderRename}
+                                            />
+                                          ) : f.name}
+                                        </span>
+                                        <span className="shrink-0 text-[11px]" style={{ color: "hsl(var(--bone) / 0.4)" }}>›</span>
+                                      </button>
+                                    </DroppableFolder>
+                                  );
+                                })}
+                                {ls.map((s) => (
+                                  <button
+                                    key={s.id}
+                                    onClick={() => handleViewScript(s)}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] hover:bg-[hsl(var(--bone)/0.05)] transition-colors"
+                                    style={{ color: "hsl(var(--cream))" }}
+                                    title={s.idea_ganadora || s.title}
+                                  >
+                                    <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "hsl(var(--bone) / 0.45)" }} />
+                                    <span className="truncate">{s.idea_ganadora || s.title}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
 
-                  {/* ── Script list (filtered by folder or unfiled) ── */}
-                  {filtered.length === 0 && scriptsListLoading ? (
-                    /* Fetch in flight: skeleton rows, never the "No scripts"
-                       empty state — it used to flash for ~0.5s on every load. */
-                    <div className="grid gap-3" aria-hidden>
-                      {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="animate-pulse rounded-xl"
-                          style={{ height: 72, background: "hsl(var(--bone) / 0.06)" }}
-                        />
-                      ))}
-                    </div>
-                  ) : filtered.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">
-                      {viewingFolderId !== null ? tr({ en: "No scripts in this folder yet.", es: "Aún no hay scripts en esta carpeta." }, language) : scripts.length === 0 ? tr(t.scripts.noScripts, language) : tr(t.scripts.noScriptsCategory, language)}
-                    </p>
-                  ) : (
-                    <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-                      <div className="grid gap-3">
-                        {filtered.map((s) => <SortableScript key={s.id} id={s.id}><ScriptCard s={s} /></SortableScript>)}
-                      </div>
-                    </SortableContext>
-                  )}
+                    // ── GRID ──
+                    if (vaultView === "grid") {
+                      return (
+                        <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                            {items.map((it) =>
+                              it.kind === "folder"
+                                ? <FolderItem key={`f-${it.f.id}`} f={it.f} variant="tile" />
+                                : <SortableScript key={it.s.id} id={it.s.id}><ScriptTile s={it.s} /></SortableScript>
+                            )}
+                          </div>
+                        </SortableContext>
+                      );
+                    }
+
+                    // ── LIST ──
+                    return (
+                      <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
+                        <div className="grid gap-2.5">
+                          {items.map((it) =>
+                            it.kind === "folder"
+                              ? <FolderItem key={`f-${it.f.id}`} f={it.f} variant="row" />
+                              : <SortableScript key={it.s.id} id={it.s.id}><ScriptCard s={it.s} /></SortableScript>
+                          )}
+                        </div>
+                      </SortableContext>
+                    );
+                  })()}
 
                   {/* Drag overlay ghost */}
                   <DragOverlay>
