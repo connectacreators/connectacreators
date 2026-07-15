@@ -33,7 +33,6 @@ import {
   timeAgo,
   proxyImg,
   getOutlierColor,
-  viralBadgeClass,
   getViewsColor,
   getEngagementColor,
   gridGradientFor,
@@ -629,36 +628,38 @@ const VideoCard = memo(function VideoCard({
         {/* Hover darken */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200 pointer-events-none" />
 
-        {/* Top-right: hover checkbox (admin) — selection feeds the floating
-            toolkit, which now carries Delete (per-card trash retired). */}
+        {/* Top-LEFT: hover checkbox (admin) — selection feeds the floating
+            toolkit, which carries Delete (per-card trash retired). */}
         {isAdmin && onToggleSelect && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleSelect(video); }}
-            title={selected ? "Unselect" : "Select"}
+            data-tip={selected ? "Unselect" : "Select for scripts or delete"}
             aria-label={selected ? "Unselect video" : "Select video"}
             className={cn(
-              "absolute top-2 right-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-all",
+              "vt-tip vt-tip--below vt-tip--left absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-opacity duration-150",
               selected
                 ? "bg-primary border-primary opacity-100"
-                : "bg-black/40 backdrop-blur-md border-white/50 opacity-0 group-hover:opacity-100 hover:border-white"
+                : "bg-black/45 border-white/50 opacity-0 group-hover:opacity-100 hover:border-white"
             )}
           >
             {selected && <CheckSquare className="w-3.5 h-3.5 text-primary-foreground" />}
           </button>
         )}
 
-        {/* Bottom glass action bar — star · play · analyze. One seamless row,
-            frosted, revealed on hover. */}
+        {/* Bottom glass action bar — star · play · analyze. ONE blurred
+            wrapper (three separate backdrop-filter layers glitched while
+            fading in); segments are transparent on top of it. Always mounted,
+            opacity-only transition, pointer-events gated on hover. */}
         <div
-          className="absolute bottom-0 inset-x-0 z-10 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className="absolute bottom-0 inset-x-0 z-10 flex bg-black/40 backdrop-blur-md opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-200 will-change-[opacity]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Star (featured) — toggle for admins, read-only otherwise */}
           <button
             onClick={(e) => { e.stopPropagation(); if (isAdmin && onToggleFeatured) onToggleFeatured(video); }}
             disabled={!isAdmin}
-            title={video.is_featured_framework ? "Top Framework" : isAdmin ? "Mark as Top Framework" : undefined}
-            className="flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md text-white/90 hover:bg-black/60 transition-colors disabled:cursor-default"
+            data-tip={video.is_featured_framework ? "Top Framework" : isAdmin ? "Mark as Top Framework" : "Top Framework"}
+            className="vt-tip vt-tip--left flex-1 h-9 flex items-center justify-center text-white/90 hover:bg-white/10 transition-colors disabled:cursor-default"
           >
             <Star className={cn("w-4 h-4", video.is_featured_framework && "text-yellow-400 fill-yellow-400")} />
           </button>
@@ -666,26 +667,31 @@ const VideoCard = memo(function VideoCard({
           {/* Play — analyzed: in-app detail; otherwise: the original post */}
           <button
             onClick={handlePlay}
-            title={(localStatus ?? video.analysis_status) === "analyzed" ? "Play — open video breakdown" : "Play — open original post"}
-            className="flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md border-x border-white/10 text-white/90 hover:bg-black/60 transition-colors"
+            data-tip={(localStatus ?? video.analysis_status) === "analyzed" ? "Play breakdown" : "Open original post"}
+            className="vt-tip flex-1 h-9 flex items-center justify-center border-x border-white/10 text-white/90 hover:bg-white/10 transition-colors"
           >
             <Play className="w-4 h-4 fill-current" />
           </button>
 
-          {/* Analyze — green check when done, theme color when pending */}
+          {/* Analyze — FILLED segment: green when analyzed, theme accent when
+              pending, red on failure. */}
           {(() => {
             const status = localStatus ?? video.analysis_status;
-            const seg = "flex-1 h-9 flex items-center justify-center bg-black/40 backdrop-blur-md text-white/90 hover:bg-black/60 transition-colors disabled:opacity-60";
+            const seg = "vt-tip vt-tip--right flex-1 h-9 flex items-center justify-center text-white transition-colors disabled:opacity-60";
             if (status === "analyzed") {
               return (
-                <button onClick={(e) => { e.stopPropagation(); goDetail(); }} title={categorizing ? "Analyzed — categorizing…" : "Analyzed — open breakdown"} className={seg}>
-                  {categorizing ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                <button
+                  onClick={(e) => { e.stopPropagation(); goDetail(); }}
+                  data-tip={categorizing ? "Analyzed — categorizing…" : "Analyzed — open breakdown"}
+                  className={cn(seg, "bg-emerald-500/90 hover:bg-emerald-500")}
+                >
+                  {categorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 </button>
               );
             }
             if (status === "analyzing") {
               return (
-                <div className={cn(seg, "cursor-default")} title="Analyzing…">
+                <div className={cn(seg, "cursor-default")} data-tip="Analyzing…" style={{ background: "hsl(var(--aqua) / 0.85)" }}>
                   <Loader2 className="w-4 h-4 animate-spin" />
                 </div>
               );
@@ -695,10 +701,10 @@ const VideoCard = memo(function VideoCard({
                 <button
                   onClick={handleAnalyze}
                   disabled={analyzing}
-                  title={`Analysis failed${video.analysis_error ? `: ${video.analysis_error}` : ""} — retry${isAdmin ? "" : " (50 credits)"}`}
-                  className={seg}
+                  data-tip={`Analysis failed — retry${isAdmin ? "" : " (50 credits)"}`}
+                  className={cn(seg, "bg-red-500/90 hover:bg-red-500")}
                 >
-                  <RotateCcw className="w-4 h-4 text-red-400" />
+                  <RotateCcw className="w-4 h-4" />
                 </button>
               );
             }
@@ -706,10 +712,11 @@ const VideoCard = memo(function VideoCard({
               <button
                 onClick={handleAnalyze}
                 disabled={analyzing}
-                title={isAdmin ? "Analyze this video" : "Analyze this video — 50 credits"}
-                className={seg}
+                data-tip={isAdmin ? "Analyze video" : "Analyze — 50 credits"}
+                className={cn(seg, "hover:brightness-110")}
+                style={{ background: "hsl(var(--aqua) / 0.9)" }}
               >
-                <ScanSearch className="w-4 h-4" style={{ color: "hsl(var(--aqua))" }} />
+                <ScanSearch className="w-4 h-4" />
               </button>
             );
           })()}
@@ -745,34 +752,41 @@ const VideoCard = memo(function VideoCard({
           </span>
         </div>
 
-        {/* Stats row — platform icon lives here now (moved off the thumbnail) */}
+        {/* Stats row — plain colored numbers (no pills), platform icon at the
+            bottom-right corner, hover tooltips name each stat. */}
         <div className="flex items-center gap-3 pt-0.5 border-t border-border">
-          <PlatformIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" aria-label={video.platform} />
           {/* Outlier */}
-          <div className="flex items-center gap-1" title="Outlier score">
+          <div className="vt-tip vt-tip--left flex items-center gap-1" data-tip="Outlier score — views vs channel median">
             {video.outlier_score >= 15 ? (
               <Flame className="text-orange-400 w-3.5 h-3.5" />
             ) : (
               <TrendingUp className={cn("w-3 h-3", outlierColor)} />
             )}
-            <span className={viralBadgeClass(video.outlier_score)}>
+            <span className={cn("text-[10px] font-semibold tabular-nums", outlierColor)}>
               {fmtOutlier(video.outlier_score)}
             </span>
           </div>
           {/* Views */}
-          <div className="flex items-center gap-1" title="Views">
+          <div className="vt-tip flex items-center gap-1" data-tip="Views">
             <Eye className={cn("w-3 h-3", getViewsColor(video.views_count))} />
             <span className={cn("text-[10px] font-medium tabular-nums", getViewsColor(video.views_count))}>
               {fmtViews(video.views_count)}
             </span>
           </div>
           {/* Engagement */}
-          <div className="flex items-center gap-1" title="Engagement rate">
+          <div className="vt-tip flex items-center gap-1" data-tip="Engagement rate">
             <Zap className={cn("w-3 h-3", getEngagementColor(video.engagement_rate))} />
             <span className={cn("text-[10px] font-medium tabular-nums", getEngagementColor(video.engagement_rate))}>
               {video.engagement_rate.toFixed(1)}%
             </span>
           </div>
+          {/* Platform — bottom-right corner of the card */}
+          <span
+            className="vt-tip vt-tip--right ml-auto flex items-center"
+            data-tip={video.platform.charAt(0).toUpperCase() + video.platform.slice(1)}
+          >
+            <PlatformIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          </span>
         </div>
       </div>
     </motion.div>

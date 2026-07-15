@@ -899,6 +899,64 @@ All colors MUST be HSL for consistency and theming.
   background: hsl(var(--bone) / 0.15) !important;
 }
 
+/* Viral Today micro-tooltips — zero-JS, app-styled (native `title` renders
+   the OS bubble and lags; hundreds of Radix tooltips would cost real perf).
+   Usage: class="vt-tip" data-tip="Label". Appears above; vt-tip--below flips
+   under the element (for controls hugging a top edge). Keep labels SHORT —
+   they render nowrap. */
+.vt-tip {
+  position: relative;
+}
+.vt-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%) translateY(2px);
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 30;
+}
+.vt-tip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.vt-tip--below::after {
+  bottom: auto;
+  top: calc(100% + 6px);
+  transform: translateX(-50%) translateY(-2px);
+}
+.vt-tip--below:hover::after {
+  transform: translateX(-50%) translateY(0);
+}
+/* Edge anchors — for segments hugging a card edge, so the bubble doesn't
+   get clipped by the card's overflow-hidden. */
+.vt-tip--left::after {
+  left: 4px;
+  transform: translateY(2px);
+}
+.vt-tip--left:hover::after {
+  transform: translateY(0);
+}
+.vt-tip--right::after {
+  left: auto;
+  right: 4px;
+  transform: translateY(2px);
+}
+.vt-tip--right:hover::after {
+  transform: translateY(0);
+}
+
 /* CHATS sidebar list — hide the scrollbar entirely (still scrolls).
    Class is referenced by AssistantThreadList; the missing rule was
    letting the OS-default (blue on macOS Chrome) scrollbar show through. */
