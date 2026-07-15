@@ -924,12 +924,17 @@ All colors MUST be HSL for consistency and theming.
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  /* Hide path: fast and immediate (no delay). */
+  transition: opacity 0.1s ease, transform 0.1s ease;
   z-index: 30;
 }
 .vt-tip:hover::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  /* Show path: standard SaaS intent delay — only appears once the cursor
+     RESTS on the element (~0.5s), so sweeping across a card doesn't flash
+     every label. Hiding stays instant (delay lives only on this rule). */
+  transition-delay: 0.5s;
 }
 .vt-tip--below::after {
   bottom: auto;
