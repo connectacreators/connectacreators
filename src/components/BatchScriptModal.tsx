@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { X, Loader2, Info, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -51,9 +52,13 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [loadingClients, setLoadingClients] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // Fetch clients on mount — Connecta+ clients only (same definition as the
-  // sidebar client selector: connecta_plus role holders, no sub-profiles).
+  // Fetch clients on mount — Connecta+ clients (same definition as the
+  // sidebar client selector: connecta_plus role holders, no sub-profiles)
+  // PLUS the current user's own client row: a staff member's own account
+  // isn't Connecta+ so it was missing, blocking e.g. Roberto from
+  // generating a script for himself.
   useEffect(() => {
     if (!open) return;
     setLoadingClients(true);
@@ -63,26 +68,37 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
         .select("user_id")
         .eq("role", "connecta_plus");
       const userIds = (roleRows ?? []).map((r) => r.user_id);
-      if (userIds.length === 0) {
-        setClients([]);
-        setLoadingClients(false);
-        return;
-      }
-      const { data } = await supabase
-        .from("clients")
-        .select("id, name")
-        .in("user_id", userIds)
-        .is("parent_subscriber_id", null)
-        .order("name");
-      setClients((data ?? []) as Client[]);
+      const [plusRes, ownRes] = await Promise.all([
+        userIds.length > 0
+          ? supabase
+              .from("clients")
+              .select("id, name")
+              .in("user_id", userIds)
+              .is("parent_subscriber_id", null)
+              .order("name")
+          : Promise.resolve({ data: [] as Client[] }),
+        user
+          ? supabase
+              .from("clients")
+              .select("id, name")
+              .eq("user_id", user.id)
+              .is("parent_subscriber_id", null)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      const plus = (plusRes.data ?? []) as Client[];
+      const own = ownRes.data as Client | null;
+      const merged = own && !plus.some((c) => c.id === own.id) ? [own, ...plus] : plus;
+      setClients(merged);
       setLoadingClients(false);
     })();
-  }, [open]);
+  }, [open, user]);
 
   const videoCount = selectedVideos.size;
 
   const handleAddToCanvas = () => {
-    if (!selectedClientId || videoCount < 2) return;
+    // 1 video is enough — the selection bar appears from the first pick.
+    if (!selectedClientId || videoCount < 1) return;
 
     // Navigate to the client's scripts page with canvas view + incoming videos in state
     const videos = Array.from(selectedVideos.values());
@@ -223,7 +239,7 @@ export default function BatchScriptModal({ open, onClose, selectedVideos, onRemo
           </button>
           <button
             onClick={handleAddToCanvas}
-            disabled={!selectedClientId || videoCount < 2}
+            disabled={!selectedClientId || videoCount < 1}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               background: "hsl(var(--aqua))",
