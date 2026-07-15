@@ -1,6 +1,7 @@
 import { memo, useState, useRef, useCallback, useEffect } from "react";
 import { NodeProps, useReactFlow } from "@xyflow/react";
 import { X, Bold, Italic, Underline as UIcon, Copy, Minus, Plus, Palette } from "lucide-react";
+import { colorLuminance, needsContrastHalo } from "@/lib/contrast";
 
 /* ── Data ── */
 interface AnnotationData {
@@ -27,8 +28,8 @@ interface AnnotationData {
 
 // STATUS: user-selectable annotation palette — Tailwind semantic colors + white kept as user choices, not brand surfaces
 const COLORS = [
-  "#ffffff", "hsl(var(--aqua))", "hsl(var(--honey))", "#f59e0b", "#f43f5e",
-  "#a78bfa", "#60a5fa", "hsl(var(--aqua))", "#fb923c", "hsl(var(--ink-on-cream) / 0.45)",
+  "hsl(var(--ink-on-cream))", "#ffffff", "hsl(var(--aqua))", "hsl(var(--honey))", "#f59e0b",
+  "#f43f5e", "#a78bfa", "#60a5fa", "#fb923c", "hsl(var(--ink-on-cream) / 0.45)",
 ];
 
 const RADIUS_MAP = { sharp: 2, rounded: 8, pill: 999 } as const;
@@ -298,7 +299,14 @@ const AnnotationNode = memo(({ id, data, selected }: NodeProps) => {
     ? `${brdWidth}px ${brdStyle} ${brdColor || hexAlpha(color, 0.5)}`
     : active ? `1px dashed ${hexAlpha(color, 0.25)}` : "1px dashed transparent";
   const containerShadow = undefined;
-  const textShadowVal = "none";
+  // Contrast guard: white/pale text on the cream canvas (or text matching its own
+  // background color) gets an automatic halo so it never renders invisible.
+  const effectiveBg = bgColor && bgOpacity > 0.4 ? bgColor : "hsl(var(--cream))";
+  const textShadowVal = needsContrastHalo(color, effectiveBg)
+    ? (colorLuminance(color) >= colorLuminance(effectiveBg)
+        ? "0 0 2px hsl(var(--ink-on-cream) / 0.85), 0 1px 3px hsl(var(--ink-on-cream) / 0.55)"
+        : "0 0 2px hsl(var(--cream) / 0.9), 0 1px 3px hsl(var(--cream) / 0.6)")
+    : "none";
 
   const hasBg = !!bgColor;
   const hasStyle = hasBg || hasBorder || shadow !== "none" || nodeOpacity < 1 || brdRadius !== "rounded";

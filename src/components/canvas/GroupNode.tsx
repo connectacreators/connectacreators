@@ -37,13 +37,15 @@ const GroupNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      className="group relative w-full h-full rounded-xl transition-colors"
+      className="group relative w-full h-full rounded-2xl transition-colors"
       style={{
         minWidth: 200,
         minHeight: 150,
         background: "hsl(var(--cream))",
         border: d.isDropTarget ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream))",
-        boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
+        boxShadow: selected
+          ? "3px 3px 0 hsl(var(--ink-on-cream)), 0 0 0 2px hsl(var(--aqua))"
+          : "3px 3px 0 hsl(var(--ink-on-cream))",
       }}
     >
       <NodeResizer

@@ -307,7 +307,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
   const externalLinkLabel = savedPlatform === "youtube" ? "View on YouTube" : savedPlatform === "tiktok" ? "View on TikTok" : "View on Instagram";
 
   return (
-    <div className="bg-card rounded-2xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200, border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))" }}>
+    <div className="bg-card rounded-2xl relative flex flex-col" style={{ width: "100%", height: "100%", minWidth: 360, minHeight: 200, border: "1px solid hsl(var(--ink-on-cream))", boxShadow: selected ? "3px 3px 0 hsl(var(--ink-on-cream)), 0 0 0 2px hsl(var(--aqua))" : "3px 3px 0 hsl(var(--ink-on-cream))" }}>
       <NodeResizer minWidth={360} minHeight={200} handleStyle={{ opacity: 0, width: 12, height: 12 }} lineStyle={{ opacity: 0 }} />
       <div className="overflow-hidden rounded-2xl flex flex-col flex-1" style={{ width: "100%", height: "100%" }}>
 
@@ -380,7 +380,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
               )}
             </div>
             {status === "error" && errorMessage && <p className="text-xs text-red-400">{errorMessage}</p>}
-            <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform || status === "loading"} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "hsl(var(--aqua))", color: "white" }}>
+            <button onClick={handleFetch} disabled={!inputUrl.trim() || !activePlatform || status === "loading"} className="w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40" style={{ background: "hsl(var(--aqua))", color: "hsl(var(--ink-on-cream))" }}>
               Fetch &amp; Analyze →
             </button>
           </div>
@@ -607,7 +607,7 @@ export default function CompetitorProfileNode({ data, selected }: { data: NodeDa
                     onClick={deepAnalyzeAll}
                     title={`${posts.filter(p => !p.transcription).length * 50 + posts.filter(p => !p.hookType).length * 10} credits`}
                     className="nodrag w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
-                    style={{ background: "hsl(var(--aqua))", color: "white" }}
+                    style={{ background: "hsl(var(--aqua))", color: "hsl(var(--ink-on-cream))" }}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     Transcribe Top {posts.length} Outliers

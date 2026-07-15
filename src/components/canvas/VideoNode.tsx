@@ -808,12 +808,8 @@ const VideoNode = memo(({ data, selected }: NodeProps) => {
       style={{
         width: "100%",
         minWidth: "180px",
-        border: `1px solid ${theme.cardBorder}`,
-        boxShadow: selected
-          ? `0 0 0 2px ${theme.cardBorder}, 0 8px 24px rgba(0,0,0,0.4)${theme.extraBoxShadow ? `, ${theme.extraBoxShadow}` : ""}`
-          : theme.extraBoxShadow
-            ? `0 8px 24px rgba(0,0,0,0.4), ${theme.extraBoxShadow}`
-            : undefined,
+        // border/box-shadow/selection ring come from the .react-flow .glass-card CSS
+        // (single source of truth) — inline values here were dead, silently overridden.
       }}
     >
       <NodeResizer

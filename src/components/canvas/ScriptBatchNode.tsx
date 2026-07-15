@@ -60,12 +60,15 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      className="rounded-xl shadow-lg relative overflow-hidden"
+      className="rounded-2xl relative overflow-hidden"
       style={{
         width: 260,
         background: "hsl(var(--cream))",
-        border: selected ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream) / 0.12)",
+        border: selected ? "1px solid hsl(var(--aqua))" : "1px solid hsl(var(--ink-on-cream))",
         borderLeft: "4px solid hsl(var(--aqua))",
+        boxShadow: selected
+          ? "3px 3px 0 hsl(var(--ink-on-cream)), 0 0 0 2px hsl(var(--aqua))"
+          : "3px 3px 0 hsl(var(--ink-on-cream))",
       }}
     >
       <NodeResizer
@@ -94,8 +97,7 @@ const ScriptBatchNode = memo(({ data, selected }: NodeProps) => {
           <button
             onClick={d.onDelete}
             className="hover:text-red-400 transition-colors"
-            style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}
-            style={{ fontSize: 11 }}
+            style={{ color: "hsl(var(--ink-on-cream) / 0.45)", fontSize: 11 }}
           >
             ✕
           </button>

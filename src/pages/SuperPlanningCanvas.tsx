@@ -149,8 +149,9 @@ const edgeTypes: EdgeTypes = {
   default: EditableEdge,
 };
 
-// Hoisted: an inline object literal here would be a new reference on every render
-const DEFAULT_EDGE_OPTIONS = { animated: true, style: { stroke: "hsl(44 75% 87%)", strokeWidth: 1.5, strokeOpacity: 0.7 }, data: { arrow: false } };
+// Hoisted: an inline object literal here would be a new reference on every render.
+// Ink stroke — visible on the cream canvas and consistent with EditableEdge's default.
+const DEFAULT_EDGE_OPTIONS = { animated: true, style: { stroke: "hsl(var(--ink-on-cream) / 0.6)", strokeWidth: 1.5, strokeOpacity: 0.7 }, data: { arrow: false } };
 
 function getInitialPosition(existingCount: number) {
   return { x: 60 + (existingCount % 3) * 380, y: 80 + Math.floor(existingCount / 3) * 360 };

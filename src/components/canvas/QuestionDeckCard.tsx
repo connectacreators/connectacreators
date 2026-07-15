@@ -70,7 +70,7 @@ export function QuestionDeckCard({ deck, initialAnswers, onSubmit }: Props) {
       className="my-2"
       style={{
         padding: "12px 14px",
-        borderRadius: 14,
+        borderRadius: 16,
         border: "1px solid hsl(var(--aqua) / 0.30)",
         background: "hsl(var(--cream))",
         boxShadow: "none",

@@ -1213,12 +1213,20 @@ All colors MUST be HSL for consistency and theming.
   border: 1px solid hsl(var(--ink-on-cream)) !important;
   box-shadow: 3px 3px 0 hsl(var(--ink-on-cream)) !important;
   color: hsl(var(--ink-on-cream)) !important;
-  border-radius: 14px !important;
+  /* 16px = rounded-2xl: matches what every node declares AND the 1rem
+     .react-flow__node wrapper, so inner overflow-hidden corners line up */
+  border-radius: 16px !important;
   transition: box-shadow 140ms ease, transform 140ms ease;
 }
 .react-flow .glass-card:hover {
   box-shadow: 5px 5px 0 hsl(var(--ink-on-cream)) !important;
   transform: translate(-1px, -1px);
+}
+/* Selected node → aqua ring on the card. ONE rule for every glass-card node type;
+   selection feedback was previously stripped entirely (box-shadow:none on the wrapper)
+   so selecting a form node gave zero visual response. */
+.react-flow__node.selected .glass-card {
+  box-shadow: 3px 3px 0 hsl(var(--ink-on-cream)), 0 0 0 2px hsl(var(--aqua)) !important;
 }
 .react-flow .glass-card::before {
   display: none;

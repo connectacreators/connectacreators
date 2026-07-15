@@ -9,10 +9,12 @@ import {
   type EdgeProps,
 } from "@xyflow/react";
 
-// STATUS: user-selectable edge palette — Tailwind semantic colors + white kept as user choices, not brand surfaces
+// STATUS: user-selectable edge palette — Tailwind semantic colors kept as user choices, not brand surfaces.
+// Default = ink (visible on the cream canvas, matches the base .react-flow__edge CSS);
+// the old pale-honey default and the white swatch were near-invisible on cream.
 const EDGE_COLORS = [
-  "hsl(44 75% 87%)", "hsl(var(--aqua))", "#f43f5e", "hsl(var(--honey))", "#f59e0b",
-  "#a78bfa", "#60a5fa", "hsl(var(--aqua))", "#fb923c", "#ffffff",
+  "hsl(var(--ink-on-cream) / 0.6)", "hsl(var(--aqua))", "#f43f5e", "hsl(var(--honey))", "#f59e0b",
+  "#a78bfa", "#60a5fa", "hsl(var(--ink-on-cream))", "#fb923c", "hsl(var(--ink-on-cream) / 0.25)",
 ];
 
 const EDGE_WIDTHS = [1, 2, 3, 5];
@@ -29,7 +31,7 @@ export default function EditableEdge({
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   // Edge data props (stored in edge.data)
-  const edgeColor = (data as any)?.color || (style as any)?.stroke || "hsl(44 75% 87%)";
+  const edgeColor = (data as any)?.color || (style as any)?.stroke || "hsl(var(--ink-on-cream) / 0.6)";
   const edgeWidth = (data as any)?.width || (style as any)?.strokeWidth || 1.5;
   const pathType: PathType = (data as any)?.pathType || "bezier";
   const strokeStyle: StrokeStyle = (data as any)?.strokeStyle || "solid";

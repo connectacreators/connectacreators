@@ -156,7 +156,7 @@ export default function InstagramProfileNode({ data }: { data: NodeData }) {
   return (
     <div
       className="bg-[hsl(var(--cream))] rounded-2xl relative"
-      style={{ width: 480, minHeight: 200 }}
+      style={{ width: 480, minHeight: 200, border: "1px solid hsl(var(--ink-on-cream))", boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))" }}
     >
       <div className="overflow-hidden rounded-2xl">
       {/* Header */}

@@ -183,8 +183,8 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   if (collapsed) {
     return (
       <div
-        className="bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] rounded-xl shadow-xl relative"
-        style={{ minWidth: 320 }}
+        className="bg-[hsl(var(--cream))] border border-[hsl(var(--ink-on-cream))] rounded-2xl relative"
+        style={{ minWidth: 320, boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))" }}
       >
         {ProfileHeader}
         <Handle type="source" position={Position.Right} className="!bg-primary !border-primary/70 !w-3 !h-3" style={{ zIndex: 100, right: -8 }} />
@@ -196,7 +196,7 @@ const CompetitorFolderNode = memo(({ data, selected }: NodeProps) => {
   // Expanded: folder with transparent body (children rendered inside by React Flow)
   return (
     <div
-      className={`relative w-full h-full rounded-xl border backdrop-blur-sm transition-colors ${selected ? "border-[rgba(244,63,94,0.5)]" : "border-[rgba(244,63,94,0.25)]"}`}
+      className={`relative w-full h-full rounded-2xl border backdrop-blur-sm transition-colors ${selected ? "border-[rgba(244,63,94,0.5)]" : "border-[rgba(244,63,94,0.25)]"}`}
       style={{
         background: "linear-gradient(145deg, rgba(244,63,94,0.06) 0%, rgba(168,85,247,0.08) 100%)",
         minWidth: 340,
