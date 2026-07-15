@@ -1391,10 +1391,10 @@ export default function ViralToday() {
   useEffect(() => { setChannelPage(0); }, [channelSearch, channelCategory, channelSort]);
 
   // Debounced ("smart") channel search: the input stays instant, but results
-  // settle 350ms after typing stops instead of reshuffling on every keystroke.
+  // settle 250ms after typing stops instead of reshuffling on every keystroke.
   const [channelQuery, setChannelQuery] = useState("");
   useEffect(() => {
-    const t = setTimeout(() => setChannelQuery(channelSearch.trim().toLowerCase()), 350);
+    const t = setTimeout(() => setChannelQuery(channelSearch.trim().toLowerCase()), 250);
     return () => clearTimeout(t);
   }, [channelSearch]);
   const channelSearchSettling = channelSearch.trim().toLowerCase() !== channelQuery;
@@ -3404,8 +3404,11 @@ export default function ViralToday() {
                             value={channelSearch}
                             onChange={(e) => setChannelSearch(e.target.value)}
                             placeholder="Search channels, categories, or your watchlists…"
-                            className="w-full h-9 pl-9 pr-4 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
+                            className="w-full h-9 pl-9 pr-8 bg-input border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
                           />
+                          {channelSearchSettling && (
+                            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                          )}
                         </div>
                         <Select value={channelCategory} onValueChange={setChannelCategory}>
                           <SelectTrigger className="h-9 w-auto min-w-[170px] text-xs">
@@ -3457,10 +3460,14 @@ export default function ViralToday() {
                               : u.startsWith(qCompact) ? 90 - (u.length - qCompact.length) * 0.2
                               : 70 - u.indexOf(qCompact) - (u.length - qCompact.length) * 0.2;
                           }
+                          // Topic matching (niches + watchlist names) needs 3+ chars — short
+                          // fragments like "pe" substring-match whole watchlists and return
+                          // basically every channel.
+                          const topicEligible = q.length >= 3;
                           const niche = nicheByChannel.get(c.id);
-                          const nicheHit = !!niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q));
+                          const nicheHit = topicEligible && !!niche && (niche.toLowerCase().includes(q) || nicheLabel(niche).toLowerCase().includes(q));
                           // The user's own tags: watchlist names this channel belongs to.
-                          const listHit = (listNamesByChannel.get(c.id) ?? []).some((n) => n.includes(q));
+                          const listHit = topicEligible && (listNamesByChannel.get(c.id) ?? []).some((n) => n.includes(q));
                           if (nicheHit || listHit) { topicHits++; score = Math.max(score, 10); }
                           if (score < 0) continue;
                           scored.push({ ch: c, score, byName });
@@ -3503,8 +3510,9 @@ export default function ViralToday() {
                         const searchRemaining = searching ? matched.length - pageChannels.length : 0;
                         return (
                           // Keyed by query so a new search replays the fade-in cascade;
-                          // dimmed while the debounce is still settling.
-                          <div key={q || "browse"} className={`transition-opacity duration-200 ${channelSearchSettling ? "opacity-50" : "opacity-100"}`}>
+                          // while the debounce settles the list breathes (animated blur),
+                          // never a frozen low-opacity state.
+                          <div key={q || "browse"} className={channelSearchSettling ? "vt-settling pointer-events-none" : ""}>
                             {searching ? (
                               <div className="vt-fade-in mb-3 px-0.5">
                                 <div className="flex items-baseline gap-2">

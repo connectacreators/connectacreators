@@ -1493,6 +1493,19 @@ All colors MUST be HSL for consistency and theming.
 }
 .vt-fade-in { animation: vt-fade-in 0.3s ease backwards; }
 
+/* While the debounced search settles: a living, breathing blur — never a
+   frozen low-opacity list. Eases in so sub-250ms keystrokes barely show it. */
+@keyframes vt-settling {
+  0%   { opacity: 1; filter: blur(0); }
+  30%  { opacity: 0.75; filter: blur(2px); }
+  65%  { opacity: 0.9; filter: blur(1px); }
+  100% { opacity: 0.75; filter: blur(2px); }
+}
+.vt-settling {
+  animation: vt-settling 0.9s ease-in-out infinite;
+  will-change: opacity, filter;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [style*="broadcast-fade-in"],
   [style*="broadcast-type-in"],
@@ -1511,5 +1524,10 @@ All colors MUST be HSL for consistency and theming.
   }
   .vt-fade-in {
     animation: none !important;
+  }
+  .vt-settling {
+    animation: none !important;
+    opacity: 0.8 !important;
+    filter: none !important;
   }
 }
