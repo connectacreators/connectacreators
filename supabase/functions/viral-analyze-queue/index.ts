@@ -41,7 +41,11 @@ const STALE_CLAIM_MINUTES = 15;
 // and gets requeued with backoff.
 const PERMANENT_ERROR_CODES = new Set(["whisper_no_text", "audio_too_large", "openai_missing_key"]);
 function retryBackoffMs(message: string, attempts: number): number {
-  const rateLimited = /rate-limit|login required|429|not available/i.test(message);
+  // download_failed (cobalt no-url / stream-reel 502) is almost always IG
+  // throttling the VPS IP — fast retries sustain the rate limit and every
+  // attempt fans out across the account rotation, so back off hard.
+  const rateLimited =
+    /rate-limit|login required|429|not available|stream-reel: 502|no url returned/i.test(message);
   const base = rateLimited ? 10 * 60 * 1000 : 90 * 1000;
   return Math.min(base * Math.max(1, attempts), 30 * 60 * 1000);
 }
