@@ -39,7 +39,7 @@ const STALE_CLAIM_MINUTES = 15;
 // Pipeline error codes that will never succeed on retry → fail terminally. Every
 // other pipeline error (download 502, rate-limit, network, storage) is transient
 // and gets requeued with backoff.
-const PERMANENT_ERROR_CODES = new Set(["whisper_no_text", "audio_too_large", "openai_missing_key"]);
+const PERMANENT_ERROR_CODES = new Set(["whisper_no_text", "audio_too_large", "openai_missing_key", "no_audio_stream"]);
 function retryBackoffMs(message: string, attempts: number): number {
   // download_failed (cobalt no-url / stream-reel 502) is almost always IG
   // throttling the VPS IP — fast retries sustain the rate limit and every

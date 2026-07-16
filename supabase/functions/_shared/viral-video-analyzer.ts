@@ -171,7 +171,14 @@ export async function acquireTranscript(row: ViralVideoRow): Promise<string> {
   });
   if (!audioRes.ok) {
     const errBody = await audioRes.json().catch(() => ({}));
-    throw new AnalyzerError("audio_extract_failed", errBody.error ?? `extract-audio ${audioRes.status}`);
+    const errText = String(errBody.error ?? `extract-audio ${audioRes.status}`);
+    // ffmpeg "Output file does not contain any stream" = the video has NO
+    // audio track at all (silent reel / slideshow without music). That never
+    // changes on retry — classify it permanently, like whisper_no_text.
+    if (/does not contain any stream/i.test(errText)) {
+      throw new AnalyzerError("no_audio_stream", errText);
+    }
+    throw new AnalyzerError("audio_extract_failed", errText);
   }
 
   const rawBytes = new Uint8Array(await audioRes.arrayBuffer());
