@@ -106,6 +106,23 @@ export async function acquireVideoFile(
     }
   }
 
+  // 1c. Image masquerading as video: photo posts sometimes come back as a
+  // JPEG/PNG under a .mp4 name (the VPS video-cache stores cobalt's photo
+  // result under the video key, hiding the "picker" status on cache hits).
+  // Storing it would poison the pipeline — ffmpeg later fails with "Output
+  // file does not contain any stream" and the video gets mislabeled as
+  // silent. Sniff the magic bytes and route to the photo-post path instead.
+  const b = mp4Bytes;
+  const isImage =
+    (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) || // JPEG
+    (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) || // PNG
+    (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) || // GIF
+    (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50); // WebP
+  if (isImage) {
+    return { video_file_url: null, video_file_expires_at: null, isPhotoPost: true };
+  }
+
   // 2. Upload to Storage.
   const path = `${row.id}.mp4`;
   const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, mp4Bytes, {
@@ -382,9 +399,21 @@ export async function runFullAnalysis(
   row.video_file_url = fileResult.video_file_url;
   row.video_file_expires_at = fileResult.video_file_expires_at;
 
-  // 2. Acquire transcript. For photo posts this still works — the VPS
-  //    /extract-audio endpoint pulls the post's audio track from the /video/ URL.
-  const transcript = await acquireTranscript(row);
+  // 2. Acquire transcript. For photo posts this still works when the post has
+  //    an audio track (TikTok slideshows) — but a plain photo has none, so
+  //    audio-class failures are tolerated there and analysis proceeds from
+  //    the caption alone instead of failing the whole video.
+  let transcript = "";
+  try {
+    transcript = await acquireTranscript(row);
+  } catch (err) {
+    const code = err instanceof AnalyzerError ? err.code : null;
+    const tolerableForPhoto =
+      isPhotoPost &&
+      (code === "no_audio_stream" || code === "audio_extract_failed" ||
+        code === "audio_empty" || code === "whisper_no_text");
+    if (!tolerableForPhoto) throw err;
+  }
   row.transcript = transcript;
 
   // 3. Acquire visual breakdown (may return null on failure — keep going).
