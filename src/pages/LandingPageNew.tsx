@@ -37,7 +37,7 @@ import ViralWall from "@/components/landing/ViralWall";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /* =============================================================================
-   The locked editorial system — Ink + Aqua + Honey + EB Garamond + Figtree
+   The tech-modern system — Ink + Aqua + Honey + Inter Tight + Inter
    Scoped to the .landing-editorial wrapper class. No global tokens touched.
    ============================================================================= */
 
@@ -366,7 +366,7 @@ export default function LandingPageNew() {
     window.addEventListener("resize", onScroll, { passive: true });
 
     const RADIUS = 70;
-    const DELTA = 220;
+    const DELTA = 200; // base 600 → 800 (Inter Tight's max weight) at cursor
     const MAX_OFFSET = 1.8; // peak translate in px — small enough that
                              // composition stays put, big enough to feel
     let raf: number | null = null;
@@ -392,7 +392,7 @@ export default function LandingPageNew() {
           const dist = Math.hypot(dx, dy);
           if (dist < RADIUS) {
             const t = 1 - dist / RADIUS;
-            const w = Math.round(400 + DELTA * t);
+            const w = Math.round(600 + DELTA * t);
             const safeDist = Math.max(dist, 0.01);
             const ox = (dx / safeDist) * MAX_OFFSET * t;
             const oy = (dy / safeDist) * MAX_OFFSET * t;
@@ -448,7 +448,7 @@ export default function LandingPageNew() {
           padding: "10px 24px",
           textAlign: "center",
           fontSize: 13,
-          fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
+          fontFamily: "'Inter', 'Inter Fallback', sans-serif",
           fontWeight: 500,
           margin: "12px 18px 0",
           borderRadius: 999,
@@ -521,7 +521,7 @@ export default function LandingPageNew() {
               style={{
                 fontSize: 14,
                 color: "rgba(10,14,18,0.72)",
-                fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
+                fontFamily: "'Inter', 'Inter Fallback', sans-serif",
                 fontWeight: 500,
               }}
             >
@@ -593,11 +593,14 @@ export default function LandingPageNew() {
         </div>
         <div className="viral-wall-veil" />
 
-        {/* Aurora — soft brand-tinted glow fields drifting behind the headline */}
+        {/* Aurora — soft brand-tinted glow fields drifting behind the headline.
+            The section clips overflow, so each orb sits deep enough that its
+            radial falloff (62% of radius) reaches transparent before the top
+            edge — a clipped orb paints a hard line against the ink above. */}
         <div
           className="glow-orb"
           style={{
-            top: -140,
+            top: 80,
             left: "-10%",
             width: 520,
             height: 520,
@@ -607,7 +610,7 @@ export default function LandingPageNew() {
         <div
           className="glow-orb"
           style={{
-            top: 60,
+            top: 140,
             right: "-12%",
             width: 600,
             height: 600,
@@ -629,18 +632,13 @@ export default function LandingPageNew() {
           <h1
             className="serif"
             style={{
-              // Playfair Display runs wider/taller than the old EB Garamond,
-              // so the max is dialed back from 88px to keep the single line
-              // inside the 1080px container instead of clipping on the right.
               fontSize: "clamp(30px, 5.4vw, 64px)",
-              lineHeight: 1.18,
-              // Heavy negative letter-spacing: each letter is in its own
-              // .prox-letter inline-block (for the rise animation), which
-              // breaks the font's natural kerning between pairs like Go,
-              // Vi, ie, Ge, Cl. -0.045em compensates so the H1 reads as
-              // tight as a normal text run.
-              letterSpacing: "-0.045em",
-              fontWeight: 500,
+              lineHeight: 1.14,
+              // Each letter is its own .prox-letter inline-block (for the
+              // rise animation), which breaks natural kerning; grotesks
+              // need only light compensation for a tight display read.
+              letterSpacing: "-0.03em",
+              fontWeight: 600,
               margin: 0,
               marginBottom: 26,
               // No nowrap: on phones the line wraps (centered) rather than
@@ -836,7 +834,7 @@ export default function LandingPageNew() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "'Figtree', 'Figtree Fallback', sans-serif",
+                    fontFamily: "'Inter', 'Inter Fallback', sans-serif",
                     fontSize: 12,
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
@@ -867,7 +865,7 @@ export default function LandingPageNew() {
             style={{
               textAlign: "center",
               marginTop: 32,
-              fontFamily: "'Playfair Display', 'Playfair Fallback', serif",
+              fontFamily: "'Inter Tight', 'Inter Tight Fallback', sans-serif",
               fontStyle: "italic",
               fontSize: 16,
               color: "rgba(10,14,18,0.50)",

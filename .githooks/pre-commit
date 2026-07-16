@@ -7,7 +7,7 @@
 set -e
 
 # Files that ARE allowed to use palette hex (landing/marketing/public surfaces).
-EXCLUDE_REGEX='(^src/landing\.css|^src/landing-main\.tsx|^src/components/landing/|^src/pages/LandingPageNew|^src/pages/PublicLandingPage|^src/pages/Index\.tsx|^src/pages/About\.tsx|^src/pages/PublicBooking|^src/pages/PublicScript|^src/pages/PublicFolderShare|^src/pages/PrivacyPolicy|^src/pages/TermsAndConditions|^src/components/LeadForm|^src/components/CanvasHeroMockup|^src/lib/branding/|^src/integrations/supabase/types\.ts|^src/index\.css|^tailwind\.config\.ts|^docs/|^supabase/|^render-worker/|^public/|^scripts/|^\.githooks/)'
+EXCLUDE_REGEX='(^src/landing\.css|^src/landing-main\.tsx|^src/components/landing/|^src/pages/LandingPageNew|^src/pages/PublicLandingPage|^src/pages/Index\.tsx|^src/pages/About\.tsx|^src/pages/PublicBooking|^src/pages/PublicScript|^src/pages/PublicFolderShare|^src/pages/thank-you\.css|^src/pages/ThankYou\.tsx|^src/pages/PrivacyPolicy|^src/pages/TermsAndConditions|^src/components/LeadForm|^src/components/CanvasHeroMockup|^src/lib/branding/|^src/integrations/supabase/types\.ts|^src/index\.css|^tailwind\.config\.ts|^docs/|^supabase/|^render-worker/|^public/|^scripts/|^\.githooks/)'
 
 # Palette hex values that should be tokenized.
 # Case-insensitive; no word boundary because BSD grep doesn't support \b.

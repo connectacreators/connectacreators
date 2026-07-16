@@ -38,7 +38,7 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         display: "inline-block",
         background: inverted ? "#fff" : "#E0A560",
         color: inverted ? "#E0A560" : "#0a0a0a",
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'Inter', sans-serif",
         fontWeight: 700,
         fontSize: small ? 12 : 15,
         letterSpacing: "0.02em",
@@ -78,7 +78,7 @@ function SectionTitle({ text }: { text: string }) {
     <div
       className="section-title"
       style={{
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'Inter Tight', 'Inter', sans-serif",
         fontWeight: 700,
         fontSize: "clamp(22px, 4vw, 38px)",
         textTransform: "uppercase",
@@ -97,7 +97,7 @@ function SectionSub({ text }: { text: string }) {
   return (
     <div
       style={{
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'Inter', sans-serif",
         fontWeight: 500,
         fontSize: 15,
         color: "rgba(255,255,255,0.5)",
@@ -202,9 +202,10 @@ export default function Index() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400..800&display=block');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background: #0a0a0a; font-family: 'Montserrat', sans-serif; }
+        html, body { background: #0a0a0a; font-family: 'Inter', sans-serif; }
 
         @keyframes vslPulse {
           0% { box-shadow: 0 0 0 0 rgba(224,165,96,0.55); }
@@ -228,7 +229,7 @@ export default function Index() {
           text-align: left;
         }
         .qqc-k {
-          font-family: 'Montserrat', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-weight: 700;
           font-size: 12px;
           text-transform: uppercase;
@@ -237,7 +238,7 @@ export default function Index() {
           margin-bottom: 8px;
         }
         .qqc-v {
-          font-family: 'Montserrat', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 15px;
           color: rgba(255,255,255,0.82);
           line-height: 1.5;
@@ -292,7 +293,7 @@ export default function Index() {
           text-align: center;
         }
         .agency-stat-num {
-          font-family: 'Montserrat', sans-serif;
+          font-family: 'Inter Tight', 'Inter', sans-serif;
           font-weight: 700;
           font-size: clamp(38px, 6vw, 56px);
           color: #fff;
@@ -301,7 +302,7 @@ export default function Index() {
           margin-bottom: 10px;
         }
         .agency-stat-label {
-          font-family: 'Montserrat', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-weight: 700;
           font-size: 11px;
           text-transform: uppercase;
@@ -418,7 +419,7 @@ export default function Index() {
           width: 60px; height: 60px; border-radius: 50%;
           background: #E0A560; color: #fff;
           display: flex; align-items: center; justify-content: center;
-          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 24px;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 24px;
           z-index: 2;
           box-shadow: 0 0 0 8px #0a0a0a, 0 8px 26px rgba(224,165,96,0.4);
         }
@@ -427,17 +428,17 @@ export default function Index() {
         .ptl-left .ptl-content { grid-column: 1; grid-row: 1; text-align: right; justify-self: end; }
         .ptl-eyebrow {
           display: inline-flex; align-items: center; gap: 8px;
-          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 12px;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 12px;
           text-transform: uppercase; letter-spacing: 0.1em; color: #E0A560; margin-bottom: 12px;
         }
         .ptl-left .ptl-eyebrow { flex-direction: row-reverse; }
         .ptl-title {
-          font-family: 'Montserrat', sans-serif; font-weight: 700;
+          font-family: 'Inter Tight', 'Inter', sans-serif; font-weight: 700;
           font-size: clamp(22px, 3vw, 32px); color: #fff;
           line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 14px;
         }
         .ptl-body {
-          font-family: 'Montserrat', sans-serif; font-size: 15px;
+          font-family: 'Inter', sans-serif; font-size: 15px;
           color: rgba(255,255,255,0.6); line-height: 1.65;
         }
 
@@ -451,7 +452,7 @@ export default function Index() {
           border-radius: 10px; padding: 28px 26px;
         }
         .cmp-head {
-          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
           text-transform: uppercase; letter-spacing: 0.08em;
           padding-bottom: 16px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);
         }
@@ -461,12 +462,12 @@ export default function Index() {
         .cmp-mark {
           flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px; margin-top: 1px;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; margin-top: 1px;
         }
         .cmp-mark-for { background: rgba(127,181,138,0.18); color: #7FB58A; }
         .cmp-mark-not { background: rgba(229,72,77,0.18); color: #ff6b6b; }
         .cmp-text {
-          font-family: 'Montserrat', sans-serif; font-size: 14px;
+          font-family: 'Inter', sans-serif; font-size: 14px;
           color: rgba(255,255,255,0.75); line-height: 1.5;
         }
         .cmp-text strong { color: #fff; font-weight: 700; }
@@ -558,7 +559,7 @@ export default function Index() {
               color: "#E0A560",
               borderRadius: 999,
               padding: "7px 16px",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontSize: 13,
               marginBottom: 26,
@@ -571,7 +572,7 @@ export default function Index() {
           <div
             className="hero-headline"
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter Tight', 'Inter', sans-serif",
               fontWeight: 700,
               fontSize: "clamp(26px, 3.3vw, 40px)",
               color: "#fff",
@@ -587,7 +588,7 @@ export default function Index() {
           <div
             className="hero-sub"
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 400,
               fontSize: "clamp(14px, 1.8vw, 17px)",
               color: "rgba(255,255,255,0.6)",
@@ -681,7 +682,7 @@ export default function Index() {
                 </span>
                 <span
                   style={{
-                    fontFamily: "'Montserrat', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     fontWeight: 600,
                     fontSize: "clamp(14px, 2.2vw, 18px)",
                     color: "#fff",
@@ -765,7 +766,7 @@ export default function Index() {
                     border: "1px solid rgba(255,255,255,0.2)",
                     color: "#fff",
                     cursor: "pointer",
-                    fontFamily: "'Montserrat', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     fontWeight: 700,
                     fontSize: 13,
                   }}
@@ -784,7 +785,7 @@ export default function Index() {
               display: "inline-block",
               background: "#E0A560",
               color: "#0a0a0a",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 16,
               letterSpacing: "0.02em",
@@ -799,7 +800,7 @@ export default function Index() {
           </button>
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 13,
               color: "rgba(255,255,255,0.45)",
               marginTop: 14,
@@ -845,7 +846,7 @@ export default function Index() {
         <div style={{ marginBottom: 56 }}>
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 14,
               textTransform: "uppercase",
@@ -879,7 +880,7 @@ export default function Index() {
         <div style={{ marginBottom: 44 }}>
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 14,
               textTransform: "uppercase",
@@ -895,10 +896,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitBefore} alt="ZiguFit before" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
                   BEFORE
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#fff" }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 24, color: "#fff" }}>
                   500 followers
                 </div>
               </div>
@@ -906,10 +907,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitAfter} alt="ZiguFit after" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E0A560", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E0A560", marginBottom: 4 }}>
                   AFTER
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#E0A560" }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 24, color: "#E0A560" }}>
                   17.6K followers
                 </div>
               </div>
@@ -921,7 +922,7 @@ export default function Index() {
         <div style={{ marginBottom: 44 }}>
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 14,
               textTransform: "uppercase",
@@ -950,7 +951,7 @@ export default function Index() {
           />
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 13,
               fontStyle: "italic",
               color: "rgba(255,255,255,0.5)",
@@ -966,7 +967,7 @@ export default function Index() {
         <div style={{ marginBottom: 44 }}>
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 14,
               textTransform: "uppercase",
@@ -987,7 +988,7 @@ export default function Index() {
           />
           <div
             style={{
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 13,
               fontStyle: "italic",
               color: "rgba(255,255,255,0.5)",
@@ -1049,7 +1050,7 @@ export default function Index() {
           <div>
             <div
               style={{
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontWeight: 700,
                 fontSize: 18,
                 textTransform: "uppercase",
@@ -1062,7 +1063,7 @@ export default function Index() {
             </div>
             <div
               style={{
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontSize: 15,
                 color: "rgba(255,255,255,0.72)",
                 lineHeight: 1.7,
@@ -1074,7 +1075,7 @@ export default function Index() {
             <a
               href="/about"
               style={{
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontWeight: 700,
                 fontSize: 12,
                 textTransform: "uppercase",
@@ -1115,7 +1116,7 @@ export default function Index() {
       >
         <div
           style={{
-            fontFamily: "'Montserrat', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 12,
             color: "#fff",
@@ -1128,7 +1129,7 @@ export default function Index() {
         </div>
         <div
           style={{
-            fontFamily: "'Montserrat', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontSize: 13,
             color: "rgba(255,255,255,0.6)",
           }}
@@ -1201,7 +1202,7 @@ function HeroStat({ number, label, sub }: { number: string; label: string; sub: 
     <div className="hero-stat">
       <div
         style={{
-          fontFamily: "'Montserrat', sans-serif",
+          fontFamily: "'Inter Tight', 'Inter', sans-serif",
           fontWeight: 700,
           fontSize: "clamp(28px, 5vw, 44px)",
           color: "#fff",
@@ -1214,7 +1215,7 @@ function HeroStat({ number, label, sub }: { number: string; label: string; sub: 
       </div>
       <div
         style={{
-          fontFamily: "'Montserrat', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 700,
           fontSize: 10,
           textTransform: "uppercase",
@@ -1227,7 +1228,7 @@ function HeroStat({ number, label, sub }: { number: string; label: string; sub: 
       </div>
       <div
         style={{
-          fontFamily: "'Montserrat', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           fontSize: 10,
           textTransform: "uppercase",
@@ -1245,19 +1246,19 @@ function BeforeAfterCaption({ platform, before, after }: { platform?: string; be
   return (
     <div className="ba-caption">
       {platform ? (
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 6, textAlign: "center" }}>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", marginBottom: 6, textAlign: "center" }}>
           {platform}
         </div>
       ) : null}
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>BEFORE</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1 }}>{before}</div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#aaa", letterSpacing: "0.08em" }}>BEFORE</div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1 }}>{before}</div>
         </div>
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E0A560", letterSpacing: "0.08em" }}>NOW</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#E0A560", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E0A560", letterSpacing: "0.08em" }}>NOW</div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, color: "#E0A560", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>
