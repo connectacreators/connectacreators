@@ -604,20 +604,25 @@ export default function ViralVideoDetail() {
         )}
       </div>
 
-      {/* Main content — single-view no-scroll layout */}
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      {/* Main content — single-view no-scroll layout. Mobile: extra bottom
+          padding clears the fixed action bar. */}
+      <div className="max-w-7xl mx-auto px-4 py-4 pb-24 md:pb-4">
         {/* Two-column grid: fixed 360px player col + flex-1 tabs col */}
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 lg:h-[calc(100vh-9rem)]">
 
           {/* ===== LEFT COLUMN: Player + stats + badges + caption ===== */}
           <div className="flex flex-col gap-3 min-w-0">
-            {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream */}
-            <ViralVideoPlayer
-              src={video.video_file_url}
-              fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
-              aspectRatio="auto"
-              onExpired={handleRefreshFile}
-            />
+            {/* ViralVideoPlayer — plays file_url or falls back to VPS proxy stream.
+                Mobile: cap the player's width so a portrait video tops out
+                around 60vh instead of pushing the analysis below the fold. */}
+            <div className="w-full max-w-[280px] mx-auto md:max-w-none">
+              <ViralVideoPlayer
+                src={video.video_file_url}
+                fallbackProxyUrl={video.video_url ? `${VPS_API}/stream-reel?url=${encodeURIComponent(video.video_url)}&nocache=1` : null}
+                aspectRatio="auto"
+                onExpired={handleRefreshFile}
+              />
+            </div>
 
             {/* Single compact metadata line */}
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -658,7 +663,10 @@ export default function ViralVideoDetail() {
             <div className="flex-1 min-h-0 border border-border rounded-2xl flex flex-col overflow-hidden">
               {(video.analysis_status === "analyzed" || (video.transcript && video.transcript.trim().length > 0)) ? (
                 <>
-                  <div className="flex gap-2 border-b border-border px-4 flex-shrink-0 overflow-x-auto">
+                  <div className="relative flex-shrink-0">
+                    {/* Right edge fade — mobile cue that the tab strip scrolls */}
+                    <div className="md:hidden pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent z-10" aria-hidden />
+                  <div className="flex gap-2 border-b border-border px-4 overflow-x-auto">
                     {(["caption", "transcript", "visual", "hook", "story", "category"] as const).map((t) => (
                       <button
                         key={t}
@@ -671,6 +679,7 @@ export default function ViralVideoDetail() {
                         {t === "story" ? "Storytelling" : t === "visual" ? "Visual Layout" : t === "category" ? "Category" : t}
                       </button>
                     ))}
+                  </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-foreground/80 whitespace-pre-wrap">
                     {activeTab === "caption" && (editingCaption ? (
@@ -794,13 +803,15 @@ export default function ViralVideoDetail() {
           </div>
         </div>
 
-        {/* ===== Action row: ghost buttons, right-aligned ===== */}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        {/* ===== Action row: ghost buttons, right-aligned. Mobile: fixed
+            bottom bar so Use in Script / Save are always one thumb-tap away. ===== */}
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 max-md:fixed max-md:bottom-0 max-md:inset-x-0 max-md:z-30 max-md:m-0 max-md:px-3 max-md:py-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))] max-md:bg-card/95 max-md:backdrop-blur-md max-md:border-t max-md:border-border">
 
-          {/* Used-in indicator (left side of the row) */}
+          {/* Used-in indicator (left side of the row; desktop only — the
+              mobile bar keeps just the actions) */}
           {usedInScripts.length > 0 && (
             <span
-              className="mr-auto text-xs text-muted-foreground"
+              className="hidden md:inline mr-auto text-xs text-muted-foreground"
               title={usedInScripts.map((s) => s.title ?? "Untitled").join("\n")}
             >
               Used in {usedInScripts.length} script{usedInScripts.length !== 1 ? "s" : ""}

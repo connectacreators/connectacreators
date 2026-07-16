@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RefreshCw, Play, Eye, Zap, Radio, ArrowRight,
   LayoutGrid, List, CheckCircle2, AlertCircle,
   Clock, Flame, Filter, SlidersHorizontal, Youtube, CheckSquare, Star,
-  Download, Facebook, Layers, ScanSearch, RotateCcw,
+  Download, Facebook, Layers, ScanSearch, RotateCcw, ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -639,7 +639,7 @@ const VideoCard = memo(function VideoCard({
               // !absolute: .vt-tip sets position:relative (for tooltip
               // anchoring on static elements) and would otherwise override
               // the corner positioning — this keeps the checkbox pinned.
-              "vt-tip vt-tip--below vt-tip--left !absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center border transition-opacity duration-150",
+              "vt-tip vt-tip--below vt-tip--left !absolute top-2 left-2 z-10 w-6 h-6 rounded-md hidden md:flex items-center justify-center border transition-opacity duration-150",
               selected
                 ? "bg-primary border-primary opacity-100"
                 : "bg-black/45 border-white/50 opacity-0 group-hover:opacity-100 hover:border-white"
@@ -654,7 +654,7 @@ const VideoCard = memo(function VideoCard({
             fading in); segments are transparent on top of it. Always mounted,
             opacity-only transition, pointer-events gated on hover. */}
         <div
-          className="absolute bottom-0 inset-x-0 z-10 flex bg-black/40 backdrop-blur-md opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-200 will-change-[opacity]"
+          className="absolute bottom-0 inset-x-0 z-10 hidden md:flex bg-black/40 backdrop-blur-md opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-200 will-change-[opacity]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Star (featured) — toggle for admins, read-only otherwise */}
@@ -729,12 +729,35 @@ const VideoCard = memo(function VideoCard({
             );
           })()}
         </div>
+
+        {/* Mobile status chip — hover doesn't exist on touch, so analysis
+            state gets a small always-visible badge instead of the hover bar.
+            Non-interactive: the whole card taps through to the detail page,
+            where Analyze/Play live full-size. Pending shows nothing. */}
+        {(() => {
+          const status = localStatus ?? video.analysis_status;
+          if (status !== "analyzed" && status !== "analyzing" && status !== "failed") return null;
+          return (
+            <div
+              className={cn(
+                "md:hidden absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none",
+                status === "analyzed" && "bg-emerald-500/90 text-white",
+                status === "failed" && "bg-red-500/90 text-white",
+              )}
+              style={status === "analyzing" ? { background: "hsl(var(--aqua) / 0.9)", color: "white" } : undefined}
+            >
+              {status === "analyzed" && <CheckCircle2 className="w-3.5 h-3.5" />}
+              {status === "analyzing" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {status === "failed" && <RotateCcw className="w-3.5 h-3.5" />}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5">
-        {/* Caption */}
-        <p className="text-[11px] text-foreground leading-snug line-clamp-1 font-medium">
+        {/* Caption — desktop only; mobile cards stay minimal */}
+        <p className="hidden md:block text-[11px] text-foreground leading-snug line-clamp-1 font-medium">
           {video.caption || <span className="text-muted-foreground italic">No caption</span>}
         </p>
 
@@ -753,16 +776,36 @@ const VideoCard = memo(function VideoCard({
             <span className="text-[10px] text-muted-foreground font-medium">@{video.channel_username}</span>
           )}
           <span
-            className="text-[10px] text-muted-foreground"
+            className="hidden md:inline text-[10px] text-muted-foreground"
             title={video.user_submitted ? "You added this from /ai" : undefined}
           >
             {timeAgo(video.posted_at)}
           </span>
         </div>
 
+        {/* Mobile stats — two signals only: outlier keeps its color (the one
+            accent per card), views stays muted. Everything else lives on the
+            detail page. */}
+        <div className="flex md:hidden items-center gap-3 pt-0.5 border-t border-border">
+          <div className="flex items-center gap-1">
+            {video.outlier_score >= 15 ? (
+              <Flame className="text-orange-400 w-3.5 h-3.5" />
+            ) : (
+              <TrendingUp className={cn("w-3 h-3", outlierColor)} />
+            )}
+            <span className={cn("text-[10px] font-semibold tabular-nums", outlierColor)}>
+              {fmtOutlier(video.outlier_score)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Eye className="w-3 h-3" />
+            <span className="text-[10px] font-medium tabular-nums">{fmtViews(video.views_count)}</span>
+          </div>
+        </div>
+
         {/* Stats row — plain colored numbers (no pills), platform icon at the
             bottom-right corner, hover tooltips name each stat. */}
-        <div className="flex items-center gap-3 pt-0.5 border-t border-border">
+        <div className="hidden md:flex items-center gap-3 pt-0.5 border-t border-border">
           {/* Outlier */}
           <div className="vt-tip vt-tip--left flex items-center gap-1" data-tip="Outlier score — views vs channel median">
             {video.outlier_score >= 15 ? (
@@ -1084,10 +1127,13 @@ interface WatchlistManagerProps {
   onRenameList: (id: string, name: string) => void;
   onDeleteList: (id: string) => void;
   onToggleInList: (channelId: string, listId: string) => void;
+  /** "sidebar" (default) = desktop-only sticky aside; "sheet" = fills a mobile bottom sheet. */
+  variant?: "sidebar" | "sheet";
 }
 function WatchlistManager({
   watchlists, activeWatchlistId, onActiveWatchlistChange, channels,
   activeWatchlistChannelIds, listsByChannel, onCreateList, onRenameList, onDeleteList, onToggleInList,
+  variant = "sidebar",
 }: WatchlistManagerProps) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -1107,8 +1153,8 @@ function WatchlistManager({
   };
 
   return (
-    <aside className="hidden lg:block w-[300px] shrink-0 self-start sticky top-2">
-      <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
+    <aside className={variant === "sheet" ? "block w-full" : "hidden lg:block w-[300px] shrink-0 self-start sticky top-2"}>
+      <div className={variant === "sheet" ? "overflow-hidden" : "rounded-xl border border-border bg-card/40 overflow-hidden"}>
         <div className="px-4 py-3 border-b border-border space-y-2">
           <div className="flex items-center gap-2">
             {/* Themed select — the native <select> rendered an OS/Chrome menu
@@ -1623,6 +1669,9 @@ export default function ViralToday() {
   const [pasteUrl, setPasteUrl] = useState("");
   const [addUrlOpen, setAddUrlOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // Channels view: the watchlist manager sidebar is desktop-only, so mobile
+  // gets it in a bottom sheet instead.
+  const [listsSheetOpen, setListsSheetOpen] = useState(false);
   const [pastingUrl, setPastingUrl] = useState(false);
 
   // ── Feed algorithm state ──────────────────────────────────────────────────
@@ -2946,9 +2995,10 @@ export default function ViralToday() {
                   {/* Main column */}
                   <div className="flex-1 min-w-0">
 
-                    {/* Slim toolbar */}
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="relative flex-1 max-w-lg">
+                    {/* Slim toolbar — on mobile the search takes its own row
+                        and the buttons wrap into a chip row below it. */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <div className="relative w-full md:w-auto md:flex-1 md:max-w-lg">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                         <input
                           type="text"
@@ -3121,7 +3171,7 @@ export default function ViralToday() {
                       variants={CALM_GRID_VARIANTS}
                       initial="hidden"
                       animate="show"
-                      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mb-6"
+                      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 mb-6"
                     >
                       {/* No AnimatePresence here on purpose: page changes used
                           to run 100 exit + 100 enter animations at once. */}
@@ -3148,7 +3198,7 @@ export default function ViralToday() {
                           <button
                             onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                             disabled={currentPage === 0}
-                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                            className="px-3 py-2 md:py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                           >
                             Previous
                           </button>
@@ -3172,7 +3222,7 @@ export default function ViralToday() {
                                     key={page}
                                     onClick={() => setCurrentPage(page)}
                                     className={cn(
-                                      "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
+                                      "px-2.5 py-2 md:px-2 md:py-1 rounded-md text-xs font-semibold transition-all border",
                                       currentPage === page
                                         ? "bg-primary text-primary-foreground border-primary"
                                         : "bg-muted text-foreground border-border hover:bg-muted/80"
@@ -3187,7 +3237,7 @@ export default function ViralToday() {
                           <button
                             onClick={() => setCurrentPage(Math.min(Math.max(0, totalPages - 1), currentPage + 1))}
                             disabled={currentPage >= totalPages - 1}
-                            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                            className="px-3 py-2 md:py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                           >
                             Next
                           </button>
@@ -3199,19 +3249,21 @@ export default function ViralToday() {
                   </div>{/* /main column */}
                 </div>{/* /two-column wrapper */}
 
-                {/* Mobile filter drawer */}
+                {/* Mobile filter sheet — slides up from the bottom (thumb-reachable),
+                    replacing the old left drawer. */}
                 {filterDrawerOpen && (
                   <div className="fixed inset-0 z-40 lg:hidden">
                     <div className="absolute inset-0 bg-black/50" onClick={() => setFilterDrawerOpen(false)} />
                     <motion.aside
-                      initial={{ x: "-100%" }}
-                      animate={{ x: 0 }}
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
                       transition={{ type: "tween", duration: 0.34, ease: CALM_EASE }}
-                      className="absolute left-0 top-0 h-full w-[280px] max-w-[85vw] bg-card border-r border-border flex flex-col"
+                      className="absolute bottom-0 inset-x-0 max-h-[85vh] bg-card border-t border-border rounded-t-2xl flex flex-col pb-[env(safe-area-inset-bottom)]"
                     >
-                      <div className="flex items-center justify-between px-3 py-3 border-b border-border">
+                      <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden />
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                         <span className="text-sm font-medium text-foreground">Filters</span>
-                        <button onClick={() => setFilterDrawerOpen(false)} className="text-muted-foreground hover:text-foreground">
+                        <button onClick={() => setFilterDrawerOpen(false)} className="p-1.5 -m-1 text-muted-foreground hover:text-foreground" aria-label="Close filters">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -3431,6 +3483,17 @@ export default function ViralToday() {
                             <SelectItem value="name" className="text-xs">Name A–Z</SelectItem>
                           </SelectContent>
                         </Select>
+                        {/* Mobile: the watchlist manager sidebar is lg-only — open it in a sheet */}
+                        <button
+                          onClick={() => setListsSheetOpen(true)}
+                          className="lg:hidden h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted text-xs font-medium text-foreground shrink-0"
+                        >
+                          <ListChecks className="w-3.5 h-3.5" />
+                          Lists
+                          {watchlistsWithCounts.length > 0 && (
+                            <span className="text-[10px] bg-background px-1.5 py-0.5 rounded-full tabular-nums">{watchlistsWithCounts.length}</span>
+                          )}
+                        </button>
                       </div>
 
                       {(() => {
@@ -3568,7 +3631,7 @@ export default function ViralToday() {
                                 <button
                                   onClick={() => setChannelPage(Math.max(0, chPage - 1))}
                                   disabled={chPage === 0}
-                                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                                  className="px-3 py-2 md:py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                                 >
                                   Previous
                                 </button>
@@ -3592,7 +3655,7 @@ export default function ViralToday() {
                                           key={page}
                                           onClick={() => setChannelPage(page)}
                                           className={cn(
-                                            "px-2 py-1 rounded-md text-xs font-semibold transition-all border",
+                                            "px-2.5 py-2 md:px-2 md:py-1 rounded-md text-xs font-semibold transition-all border",
                                             chPage === page
                                               ? "bg-primary text-primary-foreground border-primary"
                                               : "bg-muted text-foreground border-border hover:bg-muted/80"
@@ -3607,7 +3670,7 @@ export default function ViralToday() {
                                 <button
                                   onClick={() => setChannelPage(Math.min(chTotalPages - 1, chPage + 1))}
                                   disabled={chPage >= chTotalPages - 1}
-                                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
+                                  className="px-3 py-2 md:py-1.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80 transition-all"
                                 >
                                   Next
                                 </button>
@@ -3631,6 +3694,42 @@ export default function ViralToday() {
                       onDeleteList={deleteWatchlist}
                       onToggleInList={toggleChannelInList}
                     />
+                  </div>
+                )}
+
+                {/* Mobile watchlists sheet — same manager the desktop sidebar hosts */}
+                {listsSheetOpen && (
+                  <div className="fixed inset-0 z-40 lg:hidden">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setListsSheetOpen(false)} />
+                    <motion.aside
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
+                      transition={{ type: "tween", duration: 0.34, ease: CALM_EASE }}
+                      className="absolute bottom-0 inset-x-0 max-h-[85vh] bg-card border-t border-border rounded-t-2xl flex flex-col pb-[env(safe-area-inset-bottom)]"
+                    >
+                      <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden />
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                        <span className="text-sm font-medium text-foreground">Watchlists</span>
+                        <button onClick={() => setListsSheetOpen(false)} className="p-1.5 -m-1 text-muted-foreground hover:text-foreground" aria-label="Close watchlists">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto">
+                        <WatchlistManager
+                          variant="sheet"
+                          watchlists={watchlistsWithCounts}
+                          activeWatchlistId={activeWatchlistId}
+                          onActiveWatchlistChange={setActiveWatchlistId}
+                          channels={channels}
+                          activeWatchlistChannelIds={activeWatchlistChannelIds}
+                          listsByChannel={listsByChannel}
+                          onCreateList={createWatchlist}
+                          onRenameList={renameWatchlist}
+                          onDeleteList={deleteWatchlist}
+                          onToggleInList={toggleChannelInList}
+                        />
+                      </div>
+                    </motion.aside>
                   </div>
                 )}
               </motion.div>

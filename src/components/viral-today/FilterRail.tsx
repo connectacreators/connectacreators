@@ -67,8 +67,10 @@ interface FilterRailProps {
 
 const NICHES_VISIBLE_BY_DEFAULT = 8;
 const CHANNELS_VISIBLE_BY_DEFAULT = 8;
+// h-10 below lg: the rail renders inside the mobile filter sheet there, where
+// controls need finger-sized targets; the desktop rail stays compact.
 const selectClass =
-  "w-full h-8 rounded-md border border-border bg-background text-xs px-2 text-foreground";
+  "w-full h-10 lg:h-8 rounded-md border border-border bg-background text-xs px-2 text-foreground";
 
 // In-page themed dropdown — replaces native <select> so the menu matches the
 // dark UI and never renders as an OS overlay. Expands inline (pushes content
@@ -113,7 +115,7 @@ function RailDropdown({ value, onChange, options, footer, ariaLabel }: {
                   type="button"
                   onClick={() => { onChange(o.value); setOpen(false); }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-muted",
+                    "w-full flex items-center gap-2 px-2.5 py-2.5 lg:py-1.5 text-xs text-left transition-colors hover:bg-muted",
                     active ? "text-primary bg-primary/10 font-medium" : "text-foreground",
                   )}
                 >
@@ -183,7 +185,7 @@ export function FilterRail(props: FilterRailProps) {
                 key={m}
                 onClick={() => props.onFeedModeChange(m)}
                 className={
-                  "flex-1 h-7 rounded-md text-[11px] font-medium transition-colors " +
+                  "flex-1 h-9 lg:h-7 rounded-md text-[11px] font-medium transition-colors " +
                   (props.feedMode === m
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground")
@@ -355,7 +357,7 @@ export function FilterRail(props: FilterRailProps) {
         >
           Reset{activeCount > 0 ? ` (${activeCount})` : ""}
         </button>
-        <Button onClick={apply} size="sm" disabled={!dirty} className="h-7 text-xs">Apply</Button>
+        <Button onClick={apply} size="sm" disabled={!dirty} className="h-9 lg:h-7 text-xs px-4 lg:px-3">Apply</Button>
       </div>
     </div>
   );
