@@ -85,25 +85,54 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
   };
 
   const inputStyle = {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    transition: 'border-color 0.2s',
+    background: 'rgba(255,255,255,0.06)',
+    border: 'none',
+    boxShadow: '0 0 0 0 rgba(224,165,96,0)',
+    transition: 'box-shadow 0.25s ease, background 0.25s ease',
   };
+  const focusInput = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.boxShadow = '0 0 0 1.5px rgba(224,165,96,0.45), 0 0 24px -8px rgba(224,165,96,0.5)';
+    e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+  };
+  const blurInput = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.boxShadow = '0 0 0 0 rgba(224,165,96,0)';
+    e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+  };
+  const displayFont = "'Inter Tight', 'Inter', -apple-system, sans-serif";
 
   return (
     <div className="min-h-screen flex flex-col px-4 relative overflow-hidden" style={{ background: '#131315' }}>
-      <div className="absolute top-[-20%] left-[10%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
-      <div className="absolute bottom-[-15%] right-[-5%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.04) 0%, transparent 60%)', filter: 'blur(120px)' }} />
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500..700&display=swap');`}</style>
+      {/* Faint depth grid, fading out before it reaches mid-page */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+          WebkitMaskImage: 'radial-gradient(ellipse 90% 70% at 50% 0%, #000 0%, transparent 70%)',
+          maskImage: 'radial-gradient(ellipse 90% 70% at 50% 0%, #000 0%, transparent 70%)',
+        }}
+      />
+      {/* Brand aurora — honey + aqua glow fields */}
+      <div className="absolute top-[-20%] left-[5%] w-[700px] h-[700px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(143,208,213,0.10) 0%, transparent 62%)' }} />
+      <div className="absolute bottom-[-15%] right-[-5%] w-[640px] h-[640px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(224,165,96,0.12) 0%, transparent 62%)' }} />
 
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageToggle />
       </div>
 
       <div className="flex-1 flex items-center justify-center pt-12 relative z-10">
-        <div className="w-full max-w-md rounded-2xl px-10 py-12 space-y-6" style={{ background: '#16171a', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div
+          className="w-full max-w-md rounded-3xl px-10 py-12 space-y-6"
+          style={{
+            background: 'linear-gradient(165deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02))',
+            boxShadow: '0 40px 90px -40px rgba(0,0,0,0.85), 0 0 70px -28px rgba(224,165,96,0.30)',
+          }}
+        >
           <div className="text-center">
             <img src={connectaFavicon} alt="Connecta" className="w-10 h-10 object-contain mx-auto mb-5 opacity-90" />
-            <h1 className="font-serif text-xl sm:text-2xl font-light text-foreground leading-snug" style={{ letterSpacing: "0.02em" }}>
+            <h1 className="text-xl sm:text-2xl text-foreground leading-snug" style={{ fontFamily: displayFont, fontWeight: 600, letterSpacing: "-0.02em" }}>
               {(words[wordIndex] as any).pre}{" "}
               <span className="inline-block relative" style={{ minWidth: "4ch" }}>
                 <AnimatePresence mode="wait">
@@ -113,7 +142,13 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
                     animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
                     exit={{ y: -12, opacity: 0, filter: "blur(4px)" }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="text-foreground/60 italic inline-block"
+                    className="italic inline-block"
+                    style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontWeight: 500,
+                      color: 'rgba(224,165,96,0.95)',
+                      textShadow: '0 0 26px rgba(224,165,96,0.45)',
+                    }}
                   >
                     {(words[wordIndex] as any).word}
                   </motion.span>
@@ -137,17 +172,19 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
                   onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()}
                   className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
                   style={inputStyle}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onFocus={focusInput}
+                  onBlur={blurInput}
                 />
                 <button
                   onClick={handleForgotPassword}
                   disabled={loading}
-                  className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white/85 hover:text-white transition-colors disabled:opacity-30 overflow-visible"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-full transition-all hover:-translate-y-px disabled:opacity-30"
+                  style={{
+                    background: 'linear-gradient(135deg, rgb(237,192,138) 0%, rgb(224,165,96) 52%, rgb(201,138,68) 100%)',
+                    color: '#151310',
+                    boxShadow: '0 12px 34px -10px rgba(224,165,96,0.55)',
+                  }}
                 >
-                  <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
-                    <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
-                  </svg>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {tr(t.login.sendResetLink, language)}
                 </button>
@@ -164,8 +201,8 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
                   style={inputStyle}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onFocus={focusInput}
+                  onBlur={blurInput}
                 />
                 <input
                   type="password"
@@ -175,17 +212,19 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
                   onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
                   className="w-full px-3 py-2.5 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none"
                   style={inputStyle}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onFocus={focusInput}
+                  onBlur={blurInput}
                 />
                 <button
                   onClick={handleEmailAuth}
                   disabled={loading}
-                  className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white/85 hover:text-white transition-colors disabled:opacity-30 overflow-visible"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-full transition-all hover:-translate-y-px disabled:opacity-30"
+                  style={{
+                    background: 'linear-gradient(135deg, rgb(237,192,138) 0%, rgb(224,165,96) 52%, rgb(201,138,68) 100%)',
+                    color: '#151310',
+                    boxShadow: '0 12px 34px -10px rgba(224,165,96,0.55)',
+                  }}
                 >
-                  <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
-                    <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
-                  </svg>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {tr(t.login.signIn, language)}
                 </button>
@@ -197,35 +236,41 @@ export default function ScriptsLogin({ onSignIn, signInWithEmail, redirectTo = "
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/[0.06]" />
+            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14))' }} />
             <span className="text-muted-foreground/60 text-[10px] tracking-[0.2em] uppercase">{tr(t.login.or, language)}</span>
-            <div className="flex-1 h-px bg-white/[0.06]" />
+            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.14), transparent)' }} />
           </div>
 
           <button
             onClick={handleGoogle}
-            className="relative w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white/75 hover:text-white transition-colors overflow-visible"
+            className="w-full inline-flex items-center justify-center gap-2 py-3 text-sm font-medium text-white/85 hover:text-white rounded-full transition-all hover:-translate-y-px"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              boxShadow: '0 10px 28px -14px rgba(0,0,0,0.7)',
+            }}
           >
-            <svg className="scribble-btn" viewBox="0 0 320 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', overflow: 'visible', pointerEvents: 'none', opacity: 0 }}>
-              <path d="M10,3 C80,1.5 220,1 290,2 C306,2.5 316,5 317,10 C318,17 318,27 317,34 C316,40 306,42 285,43 C200,44 100,44 30,43 C12,42 2,40 2,34 C1,26 1,15 2,10 C2.5,6 5,3.5 10,3 Z" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 700, strokeDashoffset: 700 }} />
-            </svg>
-            <span className="text-orange-300/80 font-bold text-base">G</span>
+            <span className="font-bold text-base" style={{ color: 'rgba(224,165,96,0.9)' }}>G</span>
             {tr(t.login.continueGoogle, language)}
           </button>
 
+          {/* Self-serve signup retired — accounts are provisioned by the
+              Connecta team for Connecta+ clients only. */}
           {!isForgot && (
             <p className="text-center text-xs text-muted-foreground">
-              {tr(t.login.noAccount, language)}{" "}
-              <a href="/signup" className="text-foreground/80 underline">
-                {tr(t.login.signUp, language)}
-              </a>
+              {language === "es"
+                ? "Las cuentas las crea el equipo de Connecta para clientes Connecta+."
+                : "Accounts are created by the Connecta team for Connecta+ clients."}
             </p>
           )}
         </div>
       </div>
 
       <div className="py-6 flex justify-center relative z-10">
-        <a href="/" className="font-serif text-base text-foreground/60 hover:text-foreground transition-colors" style={{ letterSpacing: "0.02em" }}>
+        <a
+          href="/"
+          className="text-sm text-foreground/60 hover:text-foreground transition-colors uppercase"
+          style={{ fontFamily: displayFont, fontWeight: 700, letterSpacing: "0.08em" }}
+        >
           Connecta
         </a>
       </div>
