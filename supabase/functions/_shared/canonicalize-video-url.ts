@@ -23,7 +23,12 @@ function stripTrackingParams(u: URL): URL {
 function matchInstagram(u: URL): CanonicalVideo | null {
   const host = u.hostname.replace(/^www\./, "");
   if (host !== "instagram.com" && host !== "m.instagram.com") return null;
-  const m = u.pathname.match(/^\/(reel|reels|p)\/([A-Za-z0-9_-]+)\/?/);
+  // Two shapes, trailing slash optional in both: the share-button form
+  // /reel/SHORTCODE/ and the browser-address-bar form /username/reel/SHORTCODE
+  // (browsing a profile prefixes the owner's handle; copying from the address
+  // bar drops the trailing slash — both used to be rejected).
+  const m = u.pathname.match(/^\/(reel|reels|p)\/([A-Za-z0-9_-]+)\/?/)
+    ?? u.pathname.match(/^\/[A-Za-z0-9_.]+\/(reel|reels|p)\/([A-Za-z0-9_-]+)\/?/);
   if (!m) return null;
   const postId = m[2];
   // /p/, /reel/ and /reels/ with the same shortcode are the SAME post —

@@ -234,3 +234,10 @@ verify_jwt = false
 # Daily analyze-queue failure digest — cron-called, x-cron-secret protected
 [functions.viral-analyze-failure-summary]
 verify_jwt = false
+
+# Batch analyze queue — drain is cron-called with x-cron-secret only (no JWT);
+# enqueue validates the user JWT in-code. MUST deploy with --no-verify-jwt:
+# a deploy without it 401s every drain and silently stalls the whole queue
+# (happened 2026-07-16, ~3.5h outage).
+[functions.viral-analyze-queue]
+verify_jwt = false

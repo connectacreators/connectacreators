@@ -180,7 +180,40 @@ serve(async (req: Request) => {
   const likes = Number(vpsData?.likes) || 0;
   const comments = Number(vpsData?.comments) || 0;
   const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
-  const outlier = Number(vpsData?.outlier_score) || 5; // default high — admin curated
+
+  // Real outlier score when we can compute one: views ÷ the channel's
+  // trailing-90d median (same formula as recompute_channel_outliers). Only
+  // possible when we know the channel AND have its videos in the library;
+  // otherwise fall back to the curated default of 5 (pasted frameworks are
+  // hand-picked winners).
+  let outlier = 5;
+  let channelId: string | null = null;
+  if (channelUsername !== "unknown") {
+    const { data: channelRow } = await adminClient
+      .from("viral_channels")
+      .select("id")
+      .eq("platform", platform)
+      .eq("username", channelUsername.toLowerCase())
+      .maybeSingle();
+    channelId = channelRow?.id ?? null;
+
+    if (views > 0) {
+      const { data: peers } = await adminClient
+        .from("viral_videos")
+        .select("views_count")
+        .eq("platform", platform)
+        .eq("channel_username", channelUsername)
+        .gt("views_count", 0)
+        .gte("posted_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+        .neq("apify_video_id", postId);
+      const counts = (peers ?? []).map((p) => p.views_count as number).sort((a, b) => a - b);
+      if (counts.length >= 3) {
+        const mid = Math.floor(counts.length / 2);
+        const median = counts.length % 2 ? counts[mid] : (counts[mid - 1] + counts[mid]) / 2;
+        if (median > 0) outlier = Math.round((views / median) * 100) / 100;
+      }
+    }
+  }
 
   let postedAt: string | null = null;
   if (vpsData?.posted_at) {
@@ -215,7 +248,9 @@ serve(async (req: Request) => {
   const { data: inserted, error: insertErr } = await adminClient
     .from("viral_videos")
     .insert({
-      channel_id: null,
+      // Link to the tracked channel when we have it — future channel-wide
+      // outlier recomputes then keep this row's score honest.
+      channel_id: channelId,
       channel_username: channelUsername,
       platform,
       video_url: normalizedUrl,
