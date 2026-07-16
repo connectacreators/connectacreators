@@ -649,11 +649,10 @@ export default function LandingPageNew() {
           >
             <LetterRise text="Stop " delay={0.25} step={0.04} />
             <span
-              className="serif-italic scribble-hover"
+              className="serif-accent scribble-hover"
               style={{
                 display: "inline-block",
                 color: "var(--honey)",
-                fontWeight: 400,
                 textShadow: "0 0 32px rgba(224,165,96,0.45)",
               }}
             >
@@ -680,11 +679,10 @@ export default function LandingPageNew() {
             {isMobile && <br />}
             <LetterRise text=" Start " delay={0.86} step={0.04} />
             <span
-              className="serif-italic"
+              className="serif-accent"
               style={{
                 display: "inline-block",
                 color: "var(--aqua)",
-                fontWeight: 400,
                 textShadow: "0 0 32px rgba(143,208,213,0.45)",
               }}
             >

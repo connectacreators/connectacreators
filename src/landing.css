@@ -107,6 +107,16 @@ html, body, #root { margin: 0; padding: 0; }
      the metric-matched fallback instead, so the swap doesn't reflow. */
   font-synthesis: none;
 }
+/* Serif accent — deliberate contrast words inside the grotesk headline
+   (the clipcut-style serif-italic-inside-sans move). Playfair stays
+   imported for PublicLandingPage, so this costs nothing extra. */
+.landing-editorial .serif-accent {
+  font-family: 'Playfair Display', 'Playfair Fallback', Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-synthesis: none;
+}
 .landing-editorial em.soft {
   font-style: italic;
   font-weight: 400;
