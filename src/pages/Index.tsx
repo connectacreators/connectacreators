@@ -36,7 +36,9 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
       }}
       style={{
         display: "inline-block",
-        background: inverted ? "#fff" : "#E0A560",
+        background: inverted
+          ? "#fff"
+          : "linear-gradient(135deg, #EDC08A 0%, #E0A560 52%, #C98A44 100%)",
         color: inverted ? "#E0A560" : "#0a0a0a",
         fontFamily: "'Inter', sans-serif",
         fontWeight: 700,
@@ -47,10 +49,10 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         cursor: "pointer",
         whiteSpace: "nowrap",
         borderRadius: 999,
-        boxShadow: "0 12px 32px rgba(224,165,96,0.35)",
+        boxShadow: "0 14px 40px -10px rgba(224,165,96,0.6), 0 2px 12px -2px rgba(224,165,96,0.4)",
       }}
     >
-      Book Your Free Strategy Session →
+      Book Your Advisory Call →
     </a>
   );
 }
@@ -204,6 +206,7 @@ export default function Index() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400..800&display=block');
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,600&display=block');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { background: #0a0a0a; font-family: 'Inter', sans-serif; }
 
@@ -211,6 +214,38 @@ export default function Index() {
           0% { box-shadow: 0 0 0 0 rgba(224,165,96,0.55); }
           70% { box-shadow: 0 0 0 22px rgba(224,165,96,0); }
           100% { box-shadow: 0 0 0 0 rgba(224,165,96,0); }
+        }
+        @keyframes orbDrift {
+          from { transform: translate3d(-50%, 0, 0) scale(1); }
+          to   { transform: translate3d(-46%, 4%, 0) scale(1.1); }
+        }
+
+        /* Serif-italic accent inside the grotesk headline — the glowing
+           contrast words from the brand system. */
+        .accent-serif {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-style: italic;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: #E0A560;
+          text-shadow: 0 0 34px rgba(224,165,96,0.45);
+        }
+
+        /* Wireframe grid — the clipcut-style depth texture. Masked so it
+           fades before section edges; pure background, costs nothing. */
+        .vsl-grid {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 64px 64px;
+          -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 0%, #000 0%, transparent 72%);
+                  mask-image: radial-gradient(ellipse 95% 85% at 50% 0%, #000 0%, transparent 72%);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-orb { animation: none !important; }
         }
 
         .qqc-grid {
@@ -221,12 +256,11 @@ export default function Index() {
           margin: 0 auto;
         }
         .qqc-card {
-          background: #161616;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-left: 3px solid #E0A560;
-          border-radius: 8px;
-          padding: 22px 22px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+          border-radius: 16px;
+          padding: 24px 24px;
           text-align: left;
+          box-shadow: 0 20px 48px -24px rgba(0,0,0,0.7);
         }
         .qqc-k {
           font-family: 'Inter', sans-serif;
@@ -250,8 +284,8 @@ export default function Index() {
           width: 100%;
           max-width: 620px;
           margin: 0 auto;
-          border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          box-shadow: 0 24px 56px -24px rgba(0,0,0,0.65), 0 0 48px -18px rgba(224,165,96,0.22);
         }
 
         .calvin-socials {
@@ -265,12 +299,17 @@ export default function Index() {
           width: 100%;
           height: auto;
           display: block;
-          border-radius: 10px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px;
+          box-shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
         }
 
         .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-        .ba-card { background: #161616; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+        .ba-card {
+          background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+          overflow: hidden;
+          border-radius: 16px;
+          box-shadow: 0 22px 52px -26px rgba(0,0,0,0.7);
+        }
         .ba-img-portrait { width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; background: #161616; }
         .ba-img-landscape { width: 100%; height: auto; display: block; background: #161616; }
         .ba-caption { padding: 14px 16px; }
@@ -379,9 +418,10 @@ export default function Index() {
         .roberto-photo-wrap {
           width: 280px;
           height: 340px;
-          border-radius: 4px;
+          border-radius: 20px;
           overflow: hidden;
           flex-shrink: 0;
+          box-shadow: 0 26px 60px -26px rgba(0,0,0,0.75), 0 0 50px -18px rgba(224,165,96,0.25);
         }
         .roberto-photo {
           width: 100%;
@@ -399,11 +439,12 @@ export default function Index() {
         }
         .ptl-spine::before {
           content: ""; position: absolute; inset: 0;
-          background: repeating-linear-gradient(to bottom, rgba(224,165,96,0.35) 0 6px, transparent 6px 14px);
+          background: linear-gradient(to bottom, transparent, rgba(224,165,96,0.35) 12%, rgba(224,165,96,0.35) 88%, transparent);
         }
         .ptl-spine-fill {
           position: absolute; top: 0; left: 0; width: 100%; height: 0;
           background: #E0A560; transition: height 1.6s ease;
+          box-shadow: 0 0 14px rgba(224,165,96,0.55);
         }
         .ptl-in .ptl-spine-fill { height: 100%; }
         .ptl-row {
@@ -448,8 +489,9 @@ export default function Index() {
           max-width: 900px; margin: 0 auto; text-align: left;
         }
         .cmp-col {
-          background: #161616; border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px; padding: 28px 26px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+          border-radius: 18px; padding: 28px 26px;
+          box-shadow: 0 22px 52px -26px rgba(0,0,0,0.7);
         }
         .cmp-head {
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
@@ -505,7 +547,7 @@ export default function Index() {
           .grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; }
           .grid-2 { grid-template-columns: 1fr; gap: 10px; }
           .hero-stat-row { grid-template-columns: 1fr; gap: 8px; margin-top: 36px; }
-          .hero-headline { font-size: 26px !important; letter-spacing: -0.01em !important; }
+          .hero-headline { font-size: 29px !important; letter-spacing: -0.02em !important; }
           .hero-sub { font-size: 14px !important; margin-bottom: 28px !important; }
           .section-title { font-size: 20px !important; }
           .sys-card { padding: 22px 16px !important; text-align: center !important; }
@@ -525,17 +567,22 @@ export default function Index() {
 
       {/* ① HERO */}
       <div style={{ background: "#0a0a0a", position: "relative", overflow: "hidden" }}>
-        {/* warm glow */}
+        {/* wireframe depth grid */}
+        <div className="vsl-grid" aria-hidden />
+        {/* warm aurora — glow falls off before the section's clipped edges */}
         <div
+          className="hero-orb"
           style={{
             position: "absolute",
-            top: -140,
+            top: 0,
             left: "50%",
             transform: "translateX(-50%)",
-            width: 760,
-            height: 420,
-            background: "radial-gradient(ellipse at center, rgba(224,165,96,0.20), transparent 70%)",
+            width: 900,
+            height: 520,
+            background: "radial-gradient(ellipse at center, rgba(224,165,96,0.18), transparent 62%)",
             pointerEvents: "none",
+            animation: "orbDrift 18s ease-in-out infinite alternate",
+            willChange: "transform",
           }}
         />
         <div
@@ -554,15 +601,15 @@ export default function Index() {
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              border: "1px solid rgba(224,165,96,0.35)",
-              background: "rgba(224,165,96,0.08)",
+              background: "rgba(224,165,96,0.10)",
               color: "#E0A560",
               borderRadius: 999,
-              padding: "7px 16px",
+              padding: "8px 18px",
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontSize: 13,
               marginBottom: 26,
+              boxShadow: "0 0 28px -6px rgba(224,165,96,0.35)",
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E0A560", display: "inline-block" }} />
@@ -574,15 +621,15 @@ export default function Index() {
             style={{
               fontFamily: "'Inter Tight', 'Inter', sans-serif",
               fontWeight: 700,
-              fontSize: "clamp(26px, 3.3vw, 40px)",
+              fontSize: "clamp(28px, 4vw, 52px)",
               color: "#fff",
-              lineHeight: 1.14,
-              letterSpacing: "-0.02em",
-              maxWidth: 1240,
+              lineHeight: 1.12,
+              letterSpacing: "-0.03em",
+              maxWidth: 1000,
               margin: "0 auto 22px",
             }}
           >
-            We help professional-service experts generate <span style={{ color: "#E0A560" }}>1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
+            We help professional-service experts generate <span className="accent-serif">1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
           </div>
 
           <div
@@ -603,12 +650,12 @@ export default function Index() {
           {/* VSL Video — custom player with click-to-start gate */}
           <div
             style={{
-              maxWidth: 760,
+              maxWidth: 820,
               margin: "0 auto",
-              borderRadius: 16,
+              borderRadius: 22,
               overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+              boxShadow:
+                "0 40px 100px -30px rgba(0,0,0,0.85), 0 0 90px -20px rgba(224,165,96,0.30)",
               position: "relative",
               background: "#000",
             }}
@@ -762,8 +809,8 @@ export default function Index() {
                     height: 32,
                     padding: "0 10px",
                     borderRadius: 999,
-                    background: "rgba(255,255,255,0.12)",
-                    border: "1px solid rgba(255,255,255,0.2)",
+                    background: "rgba(255,255,255,0.16)",
+                    border: "none",
                     color: "#fff",
                     cursor: "pointer",
                     fontFamily: "'Inter', sans-serif",
@@ -781,9 +828,9 @@ export default function Index() {
           <button
             onClick={scrollToBook}
             style={{
-              marginTop: 28,
+              marginTop: 32,
               display: "inline-block",
-              background: "#E0A560",
+              background: "linear-gradient(135deg, #EDC08A 0%, #E0A560 52%, #C98A44 100%)",
               color: "#0a0a0a",
               fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
@@ -791,12 +838,13 @@ export default function Index() {
               letterSpacing: "0.02em",
               border: "none",
               borderRadius: 999,
-              padding: "16px 42px",
+              padding: "17px 44px",
               cursor: "pointer",
-              boxShadow: "0 12px 32px rgba(224,165,96,0.35)",
+              boxShadow:
+                "0 14px 40px -10px rgba(224,165,96,0.6), 0 2px 12px -2px rgba(224,165,96,0.4)",
             }}
           >
-            Book Your Free Strategy Session →
+            Book Your Advisory Call →
           </button>
           <div
             style={{
@@ -812,7 +860,7 @@ export default function Index() {
       </div>
 
       {/* ② WHAT / WHO / HOW */}
-      <div style={{ background: "#0d0d0d", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ background: "#0d0d0d" }}>
         <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
           <div className="qqc-grid">
             {[
@@ -1093,14 +1141,23 @@ export default function Index() {
       </Sec>
 
       {/* ⑨ BOOK — Calendly embed */}
-      <div id="book" style={{ background: "#0a0a0a" }}>
-        <div className="sec-inner" style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 24px 96px", textAlign: "center" }}>
-          <SectionTitle text="BOOK YOUR FREE STRATEGY SESSION" />
+      <div id="book" style={{ background: "#0a0a0a", position: "relative", overflow: "hidden" }}>
+        <div className="vsl-grid" aria-hidden />
+        <div className="sec-inner" style={{ position: "relative", maxWidth: 1080, margin: "0 auto", padding: "72px 24px 96px", textAlign: "center" }}>
+          <SectionTitle text="BOOK YOUR ADVISORY CALL" />
           <SectionSub text="30 minutes to map out exactly what this looks like for your business." />
           <div
             className="calendly-inline-widget"
-            data-url="https://calendly.com/rob_gauna/advisory_call?primary_color=ffbb35"
-            style={{ minWidth: 320, height: 700, maxWidth: 1000, margin: "0 auto", borderRadius: 16, overflow: "hidden" }}
+            data-url="https://calendly.com/rob_gauna/advisory_call?primary_color=e0a560"
+            style={{
+              minWidth: 320,
+              height: 700,
+              maxWidth: 1000,
+              margin: "0 auto",
+              borderRadius: 20,
+              overflow: "hidden",
+              boxShadow: "0 40px 90px -40px rgba(0,0,0,0.8), 0 0 70px -24px rgba(224,165,96,0.22)",
+            }}
           />
         </div>
       </div>
@@ -1109,11 +1166,18 @@ export default function Index() {
       <div
         style={{
           background: "#0a0a0a",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
           padding: "32px 24px",
           textAlign: "center",
         }}
       >
+        <div
+          style={{
+            height: 1,
+            maxWidth: 720,
+            margin: "0 auto 28px",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+          }}
+        />
         <div
           style={{
             fontFamily: "'Inter', sans-serif",
