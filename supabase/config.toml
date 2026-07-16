@@ -230,3 +230,7 @@ verify_jwt = false
 [functions.analyze-viral-video]
 verify_jwt = false
 
+
+# Daily analyze-queue failure digest — cron-called, x-cron-secret protected
+[functions.viral-analyze-failure-summary]
+verify_jwt = false

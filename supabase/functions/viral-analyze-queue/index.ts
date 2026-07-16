@@ -31,9 +31,20 @@ const CREDIT_COST = 50;
 const ACTION = "analyze_viral_video";
 const MAX_ENQUEUE = 100;
 const MAX_ATTEMPTS = 5;
-const DRAIN_CONCURRENCY = 2;
-const DRAIN_DEADLINE_MS = 110_000; // edge wall clock is ~150s; leave headroom
+const DRAIN_CONCURRENCY = 4; // single-drain lock (below) prevents overlap, so this can widen safely
+const DRAIN_DEADLINE_MS = 55_000; // finish before the next 60s cron tick so the lock releases promptly
+const DRAIN_LOCK_TTL_MS = 90_000; // lock outlives the deadline; auto-expires if a drain crashes mid-run
 const STALE_CLAIM_MINUTES = 15;
+
+// Pipeline error codes that will never succeed on retry → fail terminally. Every
+// other pipeline error (download 502, rate-limit, network, storage) is transient
+// and gets requeued with backoff.
+const PERMANENT_ERROR_CODES = new Set(["whisper_no_text", "audio_too_large", "openai_missing_key"]);
+function retryBackoffMs(message: string, attempts: number): number {
+  const rateLimited = /rate-limit|login required|429|not available/i.test(message);
+  const base = rateLimited ? 10 * 60 * 1000 : 90 * 1000;
+  return Math.min(base * Math.max(1, attempts), 30 * 60 * 1000);
+}
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -60,12 +71,17 @@ async function processQueueRow(
       .from("viral_analyze_queue")
       .update({ status, error, finished_at: new Date().toISOString() })
       .eq("id", q.id);
-  const requeue = (reason: string) =>
+  const requeue = (reason: string, backoffMs = 0) =>
     q.attempts >= MAX_ATTEMPTS
       ? finish("failed", `gave up after ${q.attempts} attempts: ${reason}`)
       : admin
           .from("viral_analyze_queue")
-          .update({ status: "queued", started_at: null, error: reason })
+          .update({
+            status: "queued",
+            started_at: null,
+            error: reason,
+            next_attempt_at: backoffMs > 0 ? new Date(Date.now() + backoffMs).toISOString() : null,
+          })
           .eq("id", q.id);
 
   const { data: rowRaw } = await admin
@@ -152,14 +168,25 @@ async function processQueueRow(
   } catch (err) {
     const code = err instanceof AnalyzerError ? err.code : "unknown_error";
     const message = err instanceof Error ? err.message : String(err);
-    await admin
-      .from("viral_videos")
-      .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
-      .eq("id", row.id);
+    // The attempt didn't complete — refund any credits charged this attempt so a
+    // later retry never double-bills (each attempt re-deducts on claim).
     if (!hasCachedTranscript) {
       await refundCredits(admin, q.requested_by, ACTION, CREDIT_COST);
     }
-    await finish("failed", `${code}: ${message}`.slice(0, 500));
+    if (PERMANENT_ERROR_CODES.has(code)) {
+      await admin
+        .from("viral_videos")
+        .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
+        .eq("id", row.id);
+      await finish("failed", `${code}: ${message}`.slice(0, 500));
+    } else {
+      // Transient failure — reset the video to pending and requeue with backoff.
+      await admin
+        .from("viral_videos")
+        .update({ analysis_status: "pending", analysis_error: `${code}: ${message}` })
+        .eq("id", row.id);
+      await requeue(`${code}: ${message}`.slice(0, 500), retryBackoffMs(message, q.attempts));
+    }
   }
 }
 
@@ -183,6 +210,22 @@ Deno.serve(async (req) => {
   if (body.action === "drain") {
     if (req.headers.get("x-cron-secret") !== CRON_SECRET) return json({ error: "unauthorized" }, 401);
 
+    // Single-drain mutex (DB lock row): only one drain runs at a time so
+    // overlapping cron ticks don't stack concurrent load on the VPS. Acquire by
+    // bumping locked_until only if the current value is already in the past — so
+    // a crashed drain's lock auto-expires after DRAIN_LOCK_TTL_MS.
+    const { data: lockRows } = await admin
+      .from("viral_analyze_drain_lock")
+      .update({ locked_until: new Date(Date.now() + DRAIN_LOCK_TTL_MS).toISOString() })
+      .eq("id", 1)
+      .lt("locked_until", new Date().toISOString())
+      .select("id");
+    if (!lockRows || lockRows.length === 0) {
+      return json({ processed: 0, skipped: "another drain holds the lock" }, 200);
+    }
+    const releaseLock = () =>
+      admin.from("viral_analyze_drain_lock").update({ locked_until: new Date().toISOString() }).eq("id", 1);
+
     const deadline = Date.now() + DRAIN_DEADLINE_MS;
     let processed = 0;
     // Rows touched this invocation — a row requeued (e.g. "claimed by another
@@ -198,6 +241,7 @@ Deno.serve(async (req) => {
           .from("viral_analyze_queue")
           .select("id, viral_video_id, requested_by, attempts")
           .eq("status", "queued")
+          .or(`next_attempt_at.is.null,next_attempt_at.lte.${new Date().toISOString()}`)
           .order("created_at", { ascending: true })
           .limit(10);
         const candidates = (rawCandidates ?? []).filter((c) => !touched.has(c.id));
@@ -225,22 +269,26 @@ Deno.serve(async (req) => {
       }
     };
 
-    await Promise.all(Array.from({ length: DRAIN_CONCURRENCY }, () => worker()));
+    try {
+      await Promise.all(Array.from({ length: DRAIN_CONCURRENCY }, () => worker()));
 
-    // Un-stick queue rows whose invocation died mid-run (edge crash): running
-    // for >20 minutes goes back to queued (or failed once attempts run out).
-    await admin
-      .from("viral_analyze_queue")
-      .update({ status: "queued", started_at: null, error: "drain invocation died — requeued" })
-      .eq("status", "running")
-      .lt("started_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
-      .lt("attempts", MAX_ATTEMPTS);
-    await admin
-      .from("viral_analyze_queue")
-      .update({ status: "failed", error: "gave up: drain invocations kept dying", finished_at: new Date().toISOString() })
-      .eq("status", "running")
-      .lt("started_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
-      .gte("attempts", MAX_ATTEMPTS);
+      // Un-stick queue rows whose invocation died mid-run (edge crash): running
+      // for >20 minutes goes back to queued (or failed once attempts run out).
+      await admin
+        .from("viral_analyze_queue")
+        .update({ status: "queued", started_at: null, error: "drain invocation died — requeued" })
+        .eq("status", "running")
+        .lt("started_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
+        .lt("attempts", MAX_ATTEMPTS);
+      await admin
+        .from("viral_analyze_queue")
+        .update({ status: "failed", error: "gave up: drain invocations kept dying", finished_at: new Date().toISOString() })
+        .eq("status", "running")
+        .lt("started_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
+        .gte("attempts", MAX_ATTEMPTS);
+    } finally {
+      await releaseLock();
+    }
 
     return json({ processed }, 200);
   }

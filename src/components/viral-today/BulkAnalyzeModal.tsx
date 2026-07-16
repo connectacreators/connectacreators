@@ -82,6 +82,10 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
   const [batchSize, setBatchSize] = useState(0);
   const [enqueueSkipped, setEnqueueSkipped] = useState(0);
   const [progress, setProgress] = useState<QueueProgress>({ queued: 0, running: 0, done: 0, failed: 0, skipped: 0 });
+  const [retrying, setRetrying] = useState(false);
+
+  // Rough ETA: the drain runs ~4 videos concurrently at ~15s each ≈ 12/min.
+  const etaMin = runCount > 0 ? Math.max(1, Math.ceil(runCount / 12)) : 0;
 
   // Hand the batch to the server-side queue. This returns in ~1s — the actual
   // analyses run from pg_cron on the backend, so closing the tab loses nothing.
@@ -104,6 +108,44 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to queue batch");
       setPhase("confirm");
+    }
+  }
+
+  // Re-queue just the failed videos of the current batch as a fresh batch. Most
+  // transient failures already auto-retry server-side; this covers the rest
+  // (retry-exhausted or one-off) without re-running the whole batch.
+  async function retryFailed() {
+    if (!batchId) return;
+    setRetrying(true);
+    try {
+      const { data: failedRows } = await supabase
+        .from("viral_analyze_queue")
+        .select("viral_video_id")
+        .eq("batch_id", batchId)
+        .eq("status", "failed");
+      const ids = (failedRows ?? []).map((r) => r.viral_video_id as string);
+      if (ids.length === 0) {
+        toast.info("No failed videos to retry");
+        return;
+      }
+      const token = await getAuthToken();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/viral-analyze-queue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "enqueue", viral_video_ids: ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `retry failed (${res.status})`);
+      setBatchId(data.batch_id);
+      setBatchSize(data.queued ?? 0);
+      setEnqueueSkipped(data.skipped ?? 0);
+      setProgress({ queued: 0, running: 0, done: 0, failed: 0, skipped: 0 });
+      setPhase("running");
+      toast.success(`Re-queued ${data.queued} failed video${data.queued === 1 ? "" : "s"}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Retry failed");
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -239,6 +281,12 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                         )}
                       </li>
                     )}
+                    {runCount > 0 && (
+                      <li className="flex items-center gap-2">
+                        <Loader2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        Runs in the background — about {etaMin} min{etaMin === 1 ? "" : "s"}. You can close this window.
+                      </li>
+                    )}
                   </ul>
 
                   {inputError && (
@@ -335,11 +383,21 @@ export default function BulkAnalyzeModal({ videos, isFree, balance, onClose, onD
                 {progress.failed > 0 && (
                   <li className="flex items-center gap-2 text-destructive text-xs">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    {progress.failed} failed — their cards show a red "Failed — Retry" badge
+                    {progress.failed} failed — most were retried automatically; these need another pass
                   </li>
                 )}
               </ul>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {progress.failed > 0 && (
+                  <Button size="sm" variant="outline" onClick={retryFailed} disabled={retrying}>
+                    {retrying ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    Retry {progress.failed} failed
+                  </Button>
+                )}
                 <Button size="sm" onClick={onClose}>
                   Close
                 </Button>

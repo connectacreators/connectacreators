@@ -155,11 +155,19 @@ export async function acquireTranscript(row: ViralVideoRow): Promise<string> {
     }
   }
 
-  // Whisper fallback.
+  // Whisper fallback. If step 1 already downloaded the video (video_file_url set),
+  // hand the VPS that stable URL as direct_media_url so it extracts audio with
+  // ffmpeg straight from the file — no Instagram round-trip, no yt-dlp (whose IG
+  // extractor breaks whenever Instagram changes their API). Photo posts have no
+  // video_file_url, so they fall back to the VPS's Cobalt-first resolution.
   const audioRes = await fetch(`${VPS_BASE}/extract-audio`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": VPS_KEY },
-    body: JSON.stringify({ url: row.video_url, original_url: row.video_url }),
+    body: JSON.stringify({
+      url: row.video_url,
+      original_url: row.video_url,
+      ...(row.video_file_url ? { direct_media_url: row.video_file_url } : {}),
+    }),
   });
   if (!audioRes.ok) {
     const errBody = await audioRes.json().catch(() => ({}));
