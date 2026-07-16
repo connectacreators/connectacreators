@@ -54,7 +54,7 @@ const TermsAndConditions = () => {
             title: "Service Description",
             content: (
               <>
-                <P>Connecta Creators provides a subscription-based suite of AI-powered tools and business automation software, including but not limited to:</P>
+                <P>Connecta Creators provides its clients, as part of the Connecta+ service, with a suite of AI-powered tools and business automation software, including but not limited to:</P>
                 <ul className="space-y-2 mt-3" style={{ paddingLeft: 20 }}>
                   {[
                     "AI script generation, teleprompter, and video transcription tools",
@@ -109,7 +109,7 @@ const TermsAndConditions = () => {
                   This includes but is not limited to: loss of revenue, loss of profits, loss of data, loss of business opportunities, business interruption, or any other commercial or economic loss — even if we have been advised of the possibility of such damages.
                 </P>
                 <p className="mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-                  In no event shall our total aggregate liability to you for all claims arising from or related to the use of the platform exceed the total subscription fees you paid to us in the <strong style={{ color: "rgba(255,255,255,0.7)" }}>twelve (12) months immediately preceding the claim</strong>. This limitation applies regardless of the form of action, whether in contract, tort, strict liability, or otherwise.
+                  In no event shall our total aggregate liability to you for all claims arising from or related to the use of the platform exceed the total fees you paid to us under your client service agreement in the <strong style={{ color: "rgba(255,255,255,0.7)" }}>twelve (12) months immediately preceding the claim</strong>. This limitation applies regardless of the form of action, whether in contract, tort, strict liability, or otherwise.
                 </p>
               </>
             ),
@@ -141,18 +141,19 @@ const TermsAndConditions = () => {
           },
           {
             num: "6",
-            title: "Subscription & Billing",
+            title: "Accounts, Access & Billing",
             content: (
               <>
-                <P>By subscribing, you agree to the following:</P>
+                <P>
+                  Platform accounts are created exclusively by Connecta Creators for clients enrolled in the Connecta+ service. We do not offer self-service registration or standalone software subscriptions. By accessing the platform, you agree to the following:
+                </P>
                 <ul className="space-y-2 mt-3" style={{ paddingLeft: 20 }}>
                   {[
-                    "Subscriptions are billed on a recurring basis (monthly or annually) as selected at checkout.",
-                    "You authorize us to charge your payment method automatically at the start of each billing cycle.",
-                    "You may cancel your subscription at any time through your account settings; access continues until the end of the current paid billing period.",
-                    "Refunds are not issued for partial billing periods or unused time remaining on a subscription.",
-                    "We reserve the right to modify pricing with 30 days' advance notice to active subscribers.",
-                    "Failure to maintain a valid payment method may result in suspension or termination of access.",
+                    "Access to the platform is provided as part of your Connecta+ engagement and is governed by your client service agreement.",
+                    "Fees, billing schedules, payment methods, cancellations, and refunds are set out in your client service agreement.",
+                    "Accounts are personal to the client and may not be shared, transferred, or resold.",
+                    "Access may be suspended or ended when the associated client engagement ends or payment obligations under the client service agreement are not met.",
+                    "Any account created through a legacy self-service flow remains subject to these Terms; legacy subscriptions are no longer offered or renewed.",
                   ].map((item, i) => <Bullet key={i}>{item}</Bullet>)}
                 </ul>
               </>
