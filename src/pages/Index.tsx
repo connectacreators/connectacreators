@@ -36,8 +36,8 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
       }}
       style={{
         display: "inline-block",
-        background: inverted ? "#fff" : "#E8852B",
-        color: inverted ? "#E8852B" : "#0a0a0a",
+        background: inverted ? "#fff" : "#E0A560",
+        color: inverted ? "#E0A560" : "#0a0a0a",
         fontFamily: "'Montserrat', sans-serif",
         fontWeight: 700,
         fontSize: small ? 12 : 15,
@@ -47,7 +47,7 @@ function ApplyBtn({ small, inverted, onApply }: { small?: boolean; inverted?: bo
         cursor: "pointer",
         whiteSpace: "nowrap",
         borderRadius: 999,
-        boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
+        boxShadow: "0 12px 32px rgba(224,165,96,0.35)",
       }}
     >
       Book Your Free Strategy Session →
@@ -207,9 +207,9 @@ export default function Index() {
         html, body { background: #0a0a0a; font-family: 'Montserrat', sans-serif; }
 
         @keyframes vslPulse {
-          0% { box-shadow: 0 0 0 0 rgba(232,133,43,0.55); }
-          70% { box-shadow: 0 0 0 22px rgba(232,133,43,0); }
-          100% { box-shadow: 0 0 0 0 rgba(232,133,43,0); }
+          0% { box-shadow: 0 0 0 0 rgba(224,165,96,0.55); }
+          70% { box-shadow: 0 0 0 22px rgba(224,165,96,0); }
+          100% { box-shadow: 0 0 0 0 rgba(224,165,96,0); }
         }
 
         .qqc-grid {
@@ -222,7 +222,7 @@ export default function Index() {
         .qqc-card {
           background: #161616;
           border: 1px solid rgba(255,255,255,0.08);
-          border-left: 3px solid #E8852B;
+          border-left: 3px solid #E0A560;
           border-radius: 8px;
           padding: 22px 22px;
           text-align: left;
@@ -233,7 +233,7 @@ export default function Index() {
           font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: #E8852B;
+          color: #E0A560;
           margin-bottom: 8px;
         }
         .qqc-v {
@@ -286,7 +286,7 @@ export default function Index() {
           margin: 0 auto;
         }
         .agency-stat {
-          background: #E8852B;
+          background: #E0A560;
           border-radius: 6px;
           padding: 28px 22px;
           text-align: center;
@@ -398,11 +398,11 @@ export default function Index() {
         }
         .ptl-spine::before {
           content: ""; position: absolute; inset: 0;
-          background: repeating-linear-gradient(to bottom, rgba(232,133,43,0.35) 0 6px, transparent 6px 14px);
+          background: repeating-linear-gradient(to bottom, rgba(224,165,96,0.35) 0 6px, transparent 6px 14px);
         }
         .ptl-spine-fill {
           position: absolute; top: 0; left: 0; width: 100%; height: 0;
-          background: #E8852B; transition: height 1.6s ease;
+          background: #E0A560; transition: height 1.6s ease;
         }
         .ptl-in .ptl-spine-fill { height: 100%; }
         .ptl-row {
@@ -416,11 +416,11 @@ export default function Index() {
         .ptl-node {
           grid-column: 2; grid-row: 1; justify-self: center;
           width: 60px; height: 60px; border-radius: 50%;
-          background: #E8852B; color: #fff;
+          background: #E0A560; color: #fff;
           display: flex; align-items: center; justify-content: center;
           font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 24px;
           z-index: 2;
-          box-shadow: 0 0 0 8px #0a0a0a, 0 8px 26px rgba(232,133,43,0.4);
+          box-shadow: 0 0 0 8px #0a0a0a, 0 8px 26px rgba(224,165,96,0.4);
         }
         .ptl-content { max-width: 440px; }
         .ptl-right .ptl-content { grid-column: 3; grid-row: 1; text-align: left; justify-self: start; }
@@ -428,7 +428,7 @@ export default function Index() {
         .ptl-eyebrow {
           display: inline-flex; align-items: center; gap: 8px;
           font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 12px;
-          text-transform: uppercase; letter-spacing: 0.1em; color: #E8852B; margin-bottom: 12px;
+          text-transform: uppercase; letter-spacing: 0.1em; color: #E0A560; margin-bottom: 12px;
         }
         .ptl-left .ptl-eyebrow { flex-direction: row-reverse; }
         .ptl-title {
@@ -533,7 +533,7 @@ export default function Index() {
             transform: "translateX(-50%)",
             width: 760,
             height: 420,
-            background: "radial-gradient(ellipse at center, rgba(232,133,43,0.20), transparent 70%)",
+            background: "radial-gradient(ellipse at center, rgba(224,165,96,0.20), transparent 70%)",
             pointerEvents: "none",
           }}
         />
@@ -553,9 +553,9 @@ export default function Index() {
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              border: "1px solid rgba(232,133,43,0.35)",
-              background: "rgba(232,133,43,0.08)",
-              color: "#E8852B",
+              border: "1px solid rgba(224,165,96,0.35)",
+              background: "rgba(224,165,96,0.08)",
+              color: "#E0A560",
               borderRadius: 999,
               padding: "7px 16px",
               fontFamily: "'Montserrat', sans-serif",
@@ -564,7 +564,7 @@ export default function Index() {
               marginBottom: 26,
             }}
           >
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E8852B", display: "inline-block" }} />
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E0A560", display: "inline-block" }} />
             Organic Acquisition Funnel
           </div>
 
@@ -581,7 +581,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            We help professional-service experts generate <span style={{ color: "#E8852B" }}>1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
+            We help professional-service experts generate <span style={{ color: "#E0A560" }}>1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
           </div>
 
           <div
@@ -670,7 +670,7 @@ export default function Index() {
                     width: 76,
                     height: 76,
                     borderRadius: "50%",
-                    background: "#E8852B",
+                    background: "#E0A560",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -719,7 +719,7 @@ export default function Index() {
                     width: 42,
                     height: 42,
                     borderRadius: "50%",
-                    background: "#E8852B",
+                    background: "#E0A560",
                     border: "none",
                     cursor: "pointer",
                     display: "flex",
@@ -746,7 +746,7 @@ export default function Index() {
                     style={{
                       width: `${Math.round(videoProgress * 100)}%`,
                       height: "100%",
-                      background: "#E8852B",
+                      background: "#E0A560",
                       borderRadius: 999,
                       transition: "width 0.2s linear",
                     }}
@@ -782,7 +782,7 @@ export default function Index() {
             style={{
               marginTop: 28,
               display: "inline-block",
-              background: "#E8852B",
+              background: "#E0A560",
               color: "#0a0a0a",
               fontFamily: "'Montserrat', sans-serif",
               fontWeight: 700,
@@ -792,7 +792,7 @@ export default function Index() {
               borderRadius: 999,
               padding: "16px 42px",
               cursor: "pointer",
-              boxShadow: "0 12px 32px rgba(232,133,43,0.35)",
+              boxShadow: "0 12px 32px rgba(224,165,96,0.35)",
             }}
           >
             Book Your Free Strategy Session →
@@ -857,11 +857,11 @@ export default function Index() {
             DR. CALVIN, CHIROPRACTOR
           </div>
 
-          <div style={{ maxWidth: 620, marginBottom: 20 }}>
+          <div style={{ maxWidth: 620, margin: "0 auto 20px" }}>
             <VSLPlayer
               src={CALVIN_TESTIMONIAL_VIDEO}
               poster={CALVIN_TESTIMONIAL_POSTER}
-              accent="#E8852B"
+              accent="#E0A560"
               autoPlay={false}
             />
           </div>
@@ -906,10 +906,10 @@ export default function Index() {
             <div className="ba-card">
               <img src={zigufitAfter} alt="ZiguFit after" className="ba-img-portrait" />
               <div className="ba-caption">
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E8852B", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "#E0A560", marginBottom: 4 }}>
                   AFTER
                 </div>
-                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#E8852B" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 24, color: "#E0A560" }}>
                   17.6K followers
                 </div>
               </div>
@@ -1079,9 +1079,9 @@ export default function Index() {
                 fontSize: 12,
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
-                color: "#E8852B",
+                color: "#E0A560",
                 textDecoration: "none",
-                borderBottom: "2px solid #E8852B",
+                borderBottom: "2px solid #E0A560",
                 paddingBottom: 2,
               }}
             >
@@ -1136,7 +1136,7 @@ export default function Index() {
           Have questions? Email us at:{" "}
           <a
             href="mailto:admin@connectacreators.com"
-            style={{ color: "#E8852B", fontWeight: 700 }}
+            style={{ color: "#E0A560", fontWeight: 700 }}
           >
             admin@connectacreators.com
           </a>
@@ -1256,8 +1256,8 @@ function BeforeAfterCaption({ platform, before, after }: { platform?: string; be
         </div>
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 14, color: "#ccc" }}>→</div>
         <div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E8852B", letterSpacing: "0.08em" }}>NOW</div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#E8852B", lineHeight: 1 }}>{after}</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 9, textTransform: "uppercase", color: "#E0A560", letterSpacing: "0.08em" }}>NOW</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 18, color: "#E0A560", lineHeight: 1 }}>{after}</div>
         </div>
       </div>
     </div>

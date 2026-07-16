@@ -439,10 +439,11 @@ export default function LandingPageNew() {
 
   return (
     <div className="landing-editorial" ref={scrollRoot}>
-      {/* ===== Inverted banner (ink bg, bone text) on top of the page ===== */}
+      {/* ===== Glass banner strip on top of the page ===== */}
       <div
         style={{
-          background: "var(--ink)",
+          background:
+            "linear-gradient(90deg, rgba(143,208,213,0.10), rgba(234,230,220,0.05) 45%, rgba(224,165,96,0.10))",
           color: "var(--bone)",
           padding: "10px 24px",
           textAlign: "center",
@@ -463,7 +464,7 @@ export default function LandingPageNew() {
         </Link>
       </div>
 
-      {/* ===== Floating nav — wisprflow style: bone pill, centered, compact width ===== */}
+      {/* ===== Floating nav — frosted-glass bone pill, centered, compact width ===== */}
       <nav
         style={{
           position: "sticky",
@@ -472,11 +473,13 @@ export default function LandingPageNew() {
           maxWidth: 760,
           width: "calc(100% - 36px)",
           margin: "12px auto 0",
-          background: "var(--bone)",
+          background: "rgba(234,230,220,0.88)",
+          backdropFilter: "blur(16px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(16px) saturate(1.4)",
           color: "var(--ink)",
-          border: "1px solid var(--ink)",
           borderRadius: 999,
-          boxShadow: "3px 3px 0 var(--ink)",
+          boxShadow:
+            "0 16px 48px -16px rgba(0,0,0,0.55), 0 0 36px -10px rgba(143,208,213,0.20)",
         }}
       >
         <div
@@ -549,9 +552,8 @@ export default function LandingPageNew() {
         {mobileOpen && (
           <div
             style={{
-              borderTop: "1px solid var(--ink)",
               padding: "16px 24px 22px",
-              background: "var(--bone)",
+              background: "rgba(234,230,220,0.96)",
               color: "var(--ink)",
               display: "flex",
               flexDirection: "column",
@@ -590,6 +592,29 @@ export default function LandingPageNew() {
           <ViralWall variant="background" rows={isMobile ? 3 : 4} />
         </div>
         <div className="viral-wall-veil" />
+
+        {/* Aurora — soft brand-tinted glow fields drifting behind the headline */}
+        <div
+          className="glow-orb"
+          style={{
+            top: -140,
+            left: "-10%",
+            width: 520,
+            height: 520,
+            "--orb-color": "rgba(143,208,213,0.28)",
+          } as React.CSSProperties}
+        />
+        <div
+          className="glow-orb"
+          style={{
+            top: 60,
+            right: "-12%",
+            width: 600,
+            height: 600,
+            "--orb-color": "rgba(224,165,96,0.24)",
+            animationDelay: "-8s",
+          } as React.CSSProperties}
+        />
 
         <div
           style={{
@@ -631,30 +656,25 @@ export default function LandingPageNew() {
                 display: "inline-block",
                 color: "var(--honey)",
                 fontWeight: 400,
+                textShadow: "0 0 32px rgba(224,165,96,0.45)",
               }}
             >
               <LetterRise text="Guessing," delay={0.48} step={0.04} />
-              {/* sparkles — appear on hover with spring scale */}
+              {/* sparkles — appear on hover with spring scale; pure glowing fills */}
               <svg className="spark s1" viewBox="0 0 24 24" aria-hidden>
                 <path
                   d="M12 1 L14.2 9.8 L23 12 L14.2 14.2 L12 23 L9.8 14.2 L1 12 L9.8 9.8 Z"
                   fill="var(--honey)"
-                  stroke="var(--ink)"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
                 />
               </svg>
               <svg className="spark s2" viewBox="0 0 24 24" aria-hidden>
                 <path
                   d="M12 3 L13.5 10.5 L21 12 L13.5 13.5 L12 21 L10.5 13.5 L3 12 L10.5 10.5 Z"
                   fill="var(--aqua)"
-                  stroke="var(--ink)"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
                 />
               </svg>
               <svg className="spark s3" viewBox="0 0 24 24" aria-hidden>
-                <circle cx="12" cy="12" r="5" fill="var(--bone)" stroke="var(--ink)" strokeWidth="2" />
+                <circle cx="12" cy="12" r="5" fill="var(--bone)" />
               </svg>
             </span>
             {/* On mobile the headline wraps to two balanced lines ("Stop Guessing," / "Start Growing.")
@@ -667,6 +687,7 @@ export default function LandingPageNew() {
                 display: "inline-block",
                 color: "var(--aqua)",
                 fontWeight: 400,
+                textShadow: "0 0 32px rgba(143,208,213,0.45)",
               }}
             >
               <LetterRise text="Growing." delay={1.10} step={0.04} />
@@ -795,10 +816,9 @@ export default function LandingPageNew() {
                 style={{
                   textAlign: "center",
                   padding: "36px 28px",
-                  background: "#FBF8EE",
-                  border: "1px solid var(--ink)",
+                  background: "rgba(255,255,255,0.55)",
                   borderRadius: 24,
-                  boxShadow: "4px 4px 0 var(--ink)",
+                  boxShadow: "0 28px 56px -28px rgba(20,20,20,0.32)",
                 }}
               >
                 <div
@@ -925,8 +945,9 @@ export default function LandingPageNew() {
                   width: "100%",
                   padding: 24,
                   borderRadius: 22,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background:
+                    "linear-gradient(160deg, rgba(234,230,220,0.07), rgba(234,230,220,0.025))",
+                  boxShadow: "0 28px 64px -32px rgba(0,0,0,0.65)",
                 }}
               >
                 <div>
@@ -942,7 +963,7 @@ export default function LandingPageNew() {
                       src={src}
                       alt={cs.imgs.length === 1 ? cs.name : `${cs.name} ${i === 0 ? "before" : "after"}`}
                       loading="lazy"
-                      style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", display: "block" }}
+                      style={{ width: "100%", borderRadius: 12, boxShadow: "0 12px 32px -14px rgba(0,0,0,0.55)", display: "block" }}
                     />
                   ))}
                 </div>
@@ -1010,8 +1031,8 @@ export default function LandingPageNew() {
                 height: 64,
                 borderRadius: "50%",
                 overflow: "hidden",
-                border: "2px solid var(--honey)",
-                boxShadow: "3px 3px 0 var(--honey)",
+                boxShadow:
+                  "0 0 0 4px rgba(224,165,96,0.25), 0 10px 32px -8px rgba(224,165,96,0.55)",
                 flexShrink: 0,
               }}
             >
@@ -1047,8 +1068,7 @@ export default function LandingPageNew() {
                 borderRadius: 999,
                 background: "var(--bone)",
                 color: "var(--ink)",
-                border: "1px solid var(--ink)",
-                boxShadow: "3px 3px 0 var(--honey)",
+                boxShadow: "0 10px 30px -10px rgba(224,165,96,0.60)",
                 fontFamily: "'Inter', sans-serif",
                 fontWeight: 600,
                 fontSize: 13,
@@ -1058,12 +1078,12 @@ export default function LandingPageNew() {
                 transition: "transform 0.15s ease, box-shadow 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translate(-1px, -1px)";
-                e.currentTarget.style.boxShadow = "4px 4px 0 var(--honey)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 16px 40px -10px rgba(224,165,96,0.80)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translate(0, 0)";
-                e.currentTarget.style.boxShadow = "3px 3px 0 var(--honey)";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 10px 30px -10px rgba(224,165,96,0.60)";
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -1081,8 +1101,8 @@ export default function LandingPageNew() {
               padding: 12,
               borderRadius: 16,
               background: "var(--bone)",
-              border: "1px solid var(--ink)",
-              boxShadow: "4px 4px 0 var(--honey)",
+              boxShadow:
+                "0 30px 70px -30px rgba(0,0,0,0.60), 0 0 56px -18px rgba(224,165,96,0.35)",
             }}
           >
             <img
@@ -1099,13 +1119,15 @@ export default function LandingPageNew() {
           className="scroll-rise"
           style={{ maxWidth: 920, margin: "112px auto 0", padding: "0 32px", position: "relative" }}
         >
-          {/* hairline divider so the two testimonials read as separate voices */}
+          {/* glowing divider so the two testimonials read as separate voices */}
           <div
             style={{
-              width: 64,
-              height: 1,
-              background: "var(--honey)",
-              opacity: 0.5,
+              width: 120,
+              height: 2,
+              borderRadius: 999,
+              background: "linear-gradient(90deg, transparent, var(--honey), transparent)",
+              boxShadow: "0 0 18px rgba(224,165,96,0.55)",
+              opacity: 0.8,
               margin: "0 auto 56px",
             }}
           />
@@ -1152,8 +1174,7 @@ export default function LandingPageNew() {
                   height: "auto",
                   display: "block",
                   borderRadius: 14,
-                  border: "1px solid hsl(var(--bone) / 0.10)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                  boxShadow: "0 16px 40px -12px rgba(0,0,0,0.55)",
                 }}
               />
             ))}
@@ -1166,8 +1187,8 @@ export default function LandingPageNew() {
                 height: 64,
                 borderRadius: "50%",
                 overflow: "hidden",
-                border: "2px solid var(--honey)",
-                boxShadow: "3px 3px 0 var(--honey)",
+                boxShadow:
+                  "0 0 0 4px rgba(224,165,96,0.25), 0 10px 32px -8px rgba(224,165,96,0.55)",
                 flexShrink: 0,
               }}
             >
@@ -1203,8 +1224,7 @@ export default function LandingPageNew() {
                 borderRadius: 999,
                 background: "var(--bone)",
                 color: "var(--ink)",
-                border: "1px solid var(--ink)",
-                boxShadow: "3px 3px 0 var(--honey)",
+                boxShadow: "0 10px 30px -10px rgba(224,165,96,0.60)",
                 fontFamily: "'Inter', sans-serif",
                 fontWeight: 600,
                 fontSize: 13,
@@ -1214,12 +1234,12 @@ export default function LandingPageNew() {
                 transition: "transform 0.15s ease, box-shadow 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translate(-1px, -1px)";
-                e.currentTarget.style.boxShadow = "4px 4px 0 var(--honey)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 16px 40px -10px rgba(224,165,96,0.80)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translate(0, 0)";
-                e.currentTarget.style.boxShadow = "3px 3px 0 var(--honey)";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 10px 30px -10px rgba(224,165,96,0.60)";
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -1235,8 +1255,18 @@ export default function LandingPageNew() {
           className="scroll-rise"
           style={{ maxWidth: 720, margin: "112px auto 0", padding: "0 32px", textAlign: "center" }}
         >
-          {/* hairline divider so it reads as a separate voice */}
-          <div style={{ width: 64, height: 1, background: "var(--honey)", opacity: 0.5, margin: "0 auto 56px" }} />
+          {/* glowing divider so it reads as a separate voice */}
+          <div
+            style={{
+              width: 120,
+              height: 2,
+              borderRadius: 999,
+              background: "linear-gradient(90deg, transparent, var(--honey), transparent)",
+              boxShadow: "0 0 18px rgba(224,165,96,0.55)",
+              opacity: 0.8,
+              margin: "0 auto 56px",
+            }}
+          />
 
           {/* profile screenshot + name */}
           <div
@@ -1244,8 +1274,8 @@ export default function LandingPageNew() {
               padding: 12,
               borderRadius: 16,
               background: "var(--bone)",
-              border: "1px solid var(--ink)",
-              boxShadow: "4px 4px 0 var(--honey)",
+              boxShadow:
+                "0 30px 70px -30px rgba(0,0,0,0.60), 0 0 56px -18px rgba(224,165,96,0.35)",
             }}
           >
             <img
@@ -1266,8 +1296,8 @@ export default function LandingPageNew() {
               padding: 12,
               borderRadius: 16,
               background: "var(--bone)",
-              border: "1px solid var(--ink)",
-              boxShadow: "4px 4px 0 var(--honey)",
+              boxShadow:
+                "0 30px 70px -30px rgba(0,0,0,0.60), 0 0 56px -18px rgba(224,165,96,0.35)",
             }}
           >
             <img
@@ -1295,15 +1325,37 @@ export default function LandingPageNew() {
           position: "relative",
         }}
       >
+        {/* Warm aurora inside the bone panel */}
+        <div
+          className="glow-orb"
+          style={{
+            top: -60,
+            right: "8%",
+            width: 440,
+            height: 440,
+            "--orb-color": "rgba(224,165,96,0.22)",
+          } as React.CSSProperties}
+        />
+        <div
+          className="glow-orb"
+          style={{
+            bottom: -80,
+            left: "4%",
+            width: 380,
+            height: 380,
+            "--orb-color": "rgba(143,208,213,0.18)",
+            animationDelay: "-6s",
+          } as React.CSSProperties}
+        />
         <div
           className="curl curl-hide-mobile scroll-rise"
-          style={{ bottom: 60, left: "12%", transform: "rotate(-4deg)", color: "rgba(10,14,18,0.30)" }}
+          style={{ bottom: 60, left: "12%", color: "rgba(10,14,18,0.30)" }}
         >
           a calmer creator economy starts here
         </div>
         <div
           className="curl curl-hide-mobile scroll-rise"
-          style={{ top: 80, right: "8%", transform: "rotate(6deg)", color: "rgba(10,14,18,0.30)" }}
+          style={{ top: 80, right: "8%", color: "rgba(10,14,18,0.30)" }}
         >
           your strategy team in a screen
         </div>
@@ -1313,8 +1365,8 @@ export default function LandingPageNew() {
               Both lines live in ONE ScrollFloat so they share font-size +
               animate as a single statement. */}
           <ScrollFloat
-            animationDuration={1}
-            ease="back.inOut(2)"
+            animationDuration={1.1}
+            ease="power3.out"
             scrollStart="center bottom+=30%"
             scrollEnd="bottom bottom-=30%"
             stagger={0.02}
@@ -1440,8 +1492,14 @@ export default function LandingPageNew() {
 
           <div
             style={{
-              borderTop: "1px solid var(--line)",
-              paddingTop: 22,
+              height: 1,
+              background:
+                "linear-gradient(90deg, transparent, rgba(234,230,220,0.25), transparent)",
+              marginBottom: 22,
+            }}
+          />
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",

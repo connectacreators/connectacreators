@@ -112,18 +112,24 @@ export default function ScrollFloat({
 
     // One-shot character rise on enter. No scrub and no scaleX/scaleY
     // distortion — those tied the letters to scroll position and left them
-    // half-stretched mid-scroll, which read as glitching. Letters simply
+    // half-stretched mid-scroll, which read as glitching. Letters blur +
     // fade + rise into place once, then keep their natural styling.
     const tween = gsap.fromTo(
       charElements,
-      { willChange: "opacity, transform", opacity: 0, yPercent: 100 },
+      {
+        willChange: "opacity, transform, filter",
+        opacity: 0,
+        yPercent: 60,
+        filter: "blur(8px)",
+      },
       {
         duration: animationDuration,
         ease,
         opacity: 1,
         yPercent: 0,
+        filter: "blur(0px)",
         stagger,
-        clearProps: "willChange,transform,opacity",
+        clearProps: "willChange,transform,opacity,filter",
         scrollTrigger: {
           trigger: el,
           scroller,
