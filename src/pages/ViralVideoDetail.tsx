@@ -805,7 +805,13 @@ export default function ViralVideoDetail() {
 
         {/* ===== Action row: ghost buttons, right-aligned. Mobile: fixed
             bottom bar so Use in Script / Save are always one thumb-tap away. ===== */}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 max-md:fixed max-md:bottom-0 max-md:inset-x-0 max-md:z-30 max-md:m-0 max-md:px-3 max-md:py-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))] max-md:bg-card/95 max-md:backdrop-blur-md max-md:border-t max-md:border-border">
+        {/* max-md:bg-[hsl(var(--card)/0.95)] and NOT max-md:bg-card/95: the
+            .editorial-page [class*="bg-card/"] override in index.css matches
+            the literal substring in the class attribute — a variant-prefixed
+            bg-card/95 gets forced white !important at EVERY width (it painted
+            a white bar across desktop). The arbitrary-value form dodges the
+            substring while using the same token. */}
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 max-md:fixed max-md:bottom-0 max-md:inset-x-0 max-md:z-30 max-md:m-0 max-md:px-3 max-md:py-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))] max-md:bg-[hsl(var(--card)/0.95)] max-md:backdrop-blur-md max-md:border-t max-md:border-border">
 
           {/* Used-in indicator (left side of the row; desktop only — the
               mobile bar keeps just the actions) */}
