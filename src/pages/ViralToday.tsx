@@ -756,8 +756,10 @@ const VideoCard = memo(function VideoCard({
 
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5">
-        {/* Caption — desktop only; mobile cards stay minimal */}
-        <p className="hidden md:block text-[11px] text-foreground leading-snug line-clamp-1 font-medium">
+        {/* Caption — desktop only; mobile cards stay minimal. max-md:hidden
+            (not hidden md:block) because line-clamp needs its own display
+            value (-webkit-box) — md:block would override it and un-truncate. */}
+        <p className="max-md:hidden text-[11px] text-foreground leading-snug line-clamp-1 font-medium">
           {video.caption || <span className="text-muted-foreground italic">No caption</span>}
         </p>
 
