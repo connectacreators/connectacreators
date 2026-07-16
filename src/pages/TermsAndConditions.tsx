@@ -86,6 +86,9 @@ const TermsAndConditions = () => {
                 <P>
                   Connecta Creators makes no representations or warranties that use of the platform will result in any specific business outcomes, revenue, follower growth, content virality, lead generation, or other results. The effectiveness of any content, script, automation, or strategy generated through the platform depends entirely on factors outside our control, including but not limited to market conditions, platform algorithm changes, user implementation, and audience response.
                 </P>
+                <P>
+                  <strong style={{ color: "rgba(255,255,255,0.7)" }}>1 Million Views Guarantee.</strong> Any promotional offer referencing a views guarantee — including the "1 Million Views Guarantee" advertised on our website — is a marketing summary only and does not constitute a standalone warranty. The guarantee applies exclusively to enrolled clients and is subject in full to the specific terms, conditions, eligibility requirements, and remedies set out in the client service agreement provided to and accepted by the client upon becoming a client. If there is any conflict between website marketing materials and the client service agreement, the client service agreement controls.
+                </P>
                 <p className="mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
                   We disclaim all implied warranties including merchantability, fitness for a particular purpose, and non-infringement.
                 </p>
