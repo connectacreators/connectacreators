@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Loader2, PlusCircle, DollarSign, LayoutList, Table2, PieChart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, PlusCircle, DollarSign, LayoutList, Table2, PieChart, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -22,7 +22,7 @@ import { FlatTransactionGrid } from "@/components/finances/FlatTransactionGrid";
 import { CategoryBreakdownCard } from "@/components/finances/CategoryBreakdownCard";
 import { FinanceCharts } from "@/components/finances/FinanceCharts";
 import { MonthlySummary } from "@/components/finances/MonthlySummary";
-import { useLossCarryforward } from "@/hooks/useLossCarryforward";
+import { AnnualPL } from "@/components/finances/AnnualPL";
 
 function currentMonth(): string {
   const d = new Date();
@@ -45,7 +45,7 @@ export default function Finances() {
   const [month, setMonth] = useState<string>(currentMonth());
   const [pendingEntry, setPendingEntry] = useState<ParsedFinanceEntry | null>(null);
   const [showManual, setShowManual] = useState(false);
-  const [view, setView] = useState<"cards" | "table" | "charts">("cards");
+  const [view, setView] = useState<"cards" | "table" | "charts" | "annual">("cards");
   const [incomeCatFilter, setIncomeCatFilter] = useState<FinanceCategory | null>(null);
   const [expenseCatFilter, setExpenseCatFilter] = useState<FinanceCategory | null>(null);
 
@@ -66,7 +66,6 @@ export default function Finances() {
   const toggleExpenseCat = (cat: FinanceCategory) =>
     setExpenseCatFilter((prev) => (prev === cat ? null : cat));
   const { effectiveSettings, saveSettings } = useFinanceMonthSettings(month);
-  const { carryforwardLoss } = useLossCarryforward(month);
   const { parseEntry, loading: aiLoading } = useFinanceAI();
 
   const monthLabel = useMemo(() => formatMonthLabel(month), [month]);
@@ -206,6 +205,15 @@ export default function Finances() {
       >
         <PieChart className="w-3.5 h-3.5" />
       </Button>
+      <Button
+        variant={view === "annual" ? "cta" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("annual")}
+        title="Annual P&L (CPA view)"
+      >
+        <CalendarRange className="w-3.5 h-3.5" />
+      </Button>
     </div>
   );
 
@@ -220,6 +228,7 @@ export default function Finances() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {viewToggle("hidden sm:flex")}
+            {view !== "annual" && (
             <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/60 p-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMonth((m) => shiftMonth(m, -1))}>
                 <ChevronLeft className="w-4 h-4" />
@@ -229,9 +238,14 @@ export default function Finances() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            )}
           </div>
         </div>
 
+        {view === "annual" ? (
+          <AnnualPL />
+        ) : (
+        <>
         {/* Mobile totals strip — the full Summary card sits below the lists on
             phones, so surface the three headline numbers up top. Mirrors the
             Summary card's math (collected excludes A/R). */}
@@ -344,7 +358,6 @@ export default function Finances() {
               income={income}
               expenses={expenses}
               settings={effectiveSettings}
-              carryforwardLoss={carryforwardLoss}
               onSaveSettings={(patch) => { void saveSettings(patch); }}
               onExportCsv={handleCsvExport}
             />
@@ -366,6 +379,8 @@ export default function Finances() {
             )}
           </aside>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
