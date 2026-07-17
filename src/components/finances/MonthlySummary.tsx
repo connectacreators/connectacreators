@@ -8,11 +8,15 @@ type Props = {
   income: FinanceTransaction[];
   expenses: FinanceTransaction[];
   settings: { salary_payout: number; tax_rate: number; employee_salary: number };
+  /** Accumulated unabsorbed loss from prior months (>= 0). Profit replenishes
+   *  this before anything is taxable/distributable — the correct version of
+   *  "carry last month's loss forward" (never a fake expense row). */
+  carryforwardLoss?: number;
   onSaveSettings: (patch: Partial<{ salary_payout: number; tax_rate: number; employee_salary: number }>) => void;
   onExportCsv: () => void;
 };
 
-export function MonthlySummary({ income, expenses, settings, onSaveSettings, onExportCsv }: Props) {
+export function MonthlySummary({ income, expenses, settings, carryforwardLoss = 0, onSaveSettings, onExportCsv }: Props) {
   const [editingSettings, setEditingSettings] = useState(false);
   const [salaryPayout, setSalaryPayout] = useState(String(settings.salary_payout));
   const [taxRate, setTaxRate] = useState(String((settings.tax_rate * 100).toFixed(2)));
@@ -25,11 +29,16 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
   const gross = collected - totalExpenses;
   const netProfit = gross - settings.salary_payout;
   const isLoss = netProfit < 0;
-  // Tax applies only to actual profit — losses don't generate a same-month
-  // cash refund (NOLs may carry forward but that's not represented here).
-  const tax = Math.max(0, netProfit) * settings.tax_rate;
+  // Prior-month losses are absorbed before profit becomes taxable or
+  // distributable: the business replenishes the reserves it burned first
+  // (mirrors how the S-corp's annual pass-through nets months anyway).
+  const carryUsed = isLoss ? 0 : Math.min(carryforwardLoss, netProfit);
+  const adjustedProfit = netProfit - carryUsed;
+  // Tax applies only to actual profit after carryforward — losses don't
+  // generate a same-month cash refund.
+  const tax = Math.max(0, adjustedProfit) * settings.tax_rate;
   // Distribution can't be negative — you can't distribute a loss.
-  const ownerDist = Math.max(0, netProfit - tax);
+  const ownerDist = Math.max(0, adjustedProfit - tax);
   // Owner Income = total cash that hit the owner's personal account this month.
   // Two independent flows reach the owner:
   //   1. Take-Home Salary (W-2 paycheck, net of withholdings) — runs through
@@ -82,6 +91,20 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
           <Row label="↳ Payroll Tax" value={payrollTax} muted />
         )}
         <Row label={isLoss ? "Net Loss" : "Net Profit"} value={netProfit} emphasized positive={netProfit > 0} negative={netProfit < 0} />
+        {carryforwardLoss > 0 && (
+          <>
+            <Row label="Loss carried from prior months" value={-carryforwardLoss} negative />
+            {!isLoss && (
+              <Row
+                label="Profit after replenishing reserves"
+                value={adjustedProfit}
+                emphasized
+                positive={adjustedProfit > 0}
+                muted={adjustedProfit === 0}
+              />
+            )}
+          </>
+        )}
         {editingSettings ? (
           <SettingRow label="Tax Rate %">
             <Input type="number" step="0.5" className="h-7 text-xs" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
@@ -94,6 +117,13 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         {isLoss && !editingSettings && (
           <p className="text-[10px] text-muted-foreground/70 italic leading-snug -mt-1">
             No distribution on a loss month — business reserves absorbed the shortfall.
+            The loss carries forward and is repaid out of future profit automatically.
+          </p>
+        )}
+        {!isLoss && carryUsed > 0 && !editingSettings && (
+          <p className="text-[10px] text-muted-foreground/70 italic leading-snug -mt-1">
+            {formatUsd(carryUsed)} of this month's profit replenished reserves from prior
+            loss months before tax and distribution.
           </p>
         )}
         {editingSettings ? (

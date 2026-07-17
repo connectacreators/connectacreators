@@ -22,6 +22,7 @@ import { FlatTransactionGrid } from "@/components/finances/FlatTransactionGrid";
 import { CategoryBreakdownCard } from "@/components/finances/CategoryBreakdownCard";
 import { FinanceCharts } from "@/components/finances/FinanceCharts";
 import { MonthlySummary } from "@/components/finances/MonthlySummary";
+import { useLossCarryforward } from "@/hooks/useLossCarryforward";
 
 function currentMonth(): string {
   const d = new Date();
@@ -65,6 +66,7 @@ export default function Finances() {
   const toggleExpenseCat = (cat: FinanceCategory) =>
     setExpenseCatFilter((prev) => (prev === cat ? null : cat));
   const { effectiveSettings, saveSettings } = useFinanceMonthSettings(month);
+  const { carryforwardLoss } = useLossCarryforward(month);
   const { parseEntry, loading: aiLoading } = useFinanceAI();
 
   const monthLabel = useMemo(() => formatMonthLabel(month), [month]);
@@ -342,6 +344,7 @@ export default function Finances() {
               income={income}
               expenses={expenses}
               settings={effectiveSettings}
+              carryforwardLoss={carryforwardLoss}
               onSaveSettings={(patch) => { void saveSettings(patch); }}
               onExportCsv={handleCsvExport}
             />
