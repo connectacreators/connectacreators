@@ -636,6 +636,12 @@ export default function Scripts() {
   // Kept strictly separate from script rename — the two must never share state.
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [folderRenameValue, setFolderRenameValue] = useState("");
+  // Select-all must run ONCE per rename session. The input refocuses across
+  // re-renders (autoFocus + row churn), and select-on-every-focus made each
+  // keystroke replace the previous one — typing was impossible. Ref (not
+  // input-local state) so the guard survives a remount of the input itself.
+  const folderRenameSelectedOnce = useRef<string | null>(null);
+  const scriptRenameSelectedOnce = useRef<string | null>(null);
   // Single-click opens a folder only after a beat, so double-click can claim
   // the gesture for rename instead of navigating twice.
   const folderOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1431,6 +1437,7 @@ export default function Scripts() {
     setRenamingScriptId(null);
     setCreatingFolder(false);
     setNewFolderName("");
+    folderRenameSelectedOnce.current = null;
     setFolderRenameValue(name);
     setRenamingFolderId(id);
   }, []);
@@ -2872,7 +2879,7 @@ export default function Scripts() {
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
                             autoFocus
-                            onFocus={(e) => e.currentTarget.select()}
+                            onFocus={(e) => { if (scriptRenameSelectedOnce.current === renamingScriptId) return; scriptRenameSelectedOnce.current = renamingScriptId; e.currentTarget.select(); }}
                             onClick={(e) => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                             onKeyUp={(e) => e.stopPropagation()}
@@ -2965,7 +2972,7 @@ export default function Scripts() {
                                     // Mutually exclusive with folder rename/create.
                                     setRenamingFolderId(null);
                                     setCreatingFolder(false);
-                                    setRenamingScriptId(s.id);
+                                    scriptRenameSelectedOnce.current = null; setRenamingScriptId(s.id);
                                     setRenameValue(s.title);
                                   }}
                                 >
@@ -3167,7 +3174,7 @@ export default function Scripts() {
                         autoFocus
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
-                        onFocus={(e) => e.currentTarget.select()}
+                        
                         placeholder={viewingFolderId ? tr({ en: "Subfolder name", es: "Nombre de subcarpeta" }, language) : tr({ en: "Folder name", es: "Nombre de carpeta" }, language)}
                         className="h-7 text-sm border-0 px-1 flex-1"
                         style={{ background: "transparent", color: "hsl(var(--cream))" }}
@@ -3262,7 +3269,11 @@ export default function Scripts() {
                               autoFocus
                               value={folderRenameValue}
                               onChange={(e) => setFolderRenameValue(e.target.value)}
-                              onFocus={(e) => e.currentTarget.select()}
+                              onFocus={(e) => {
+                                if (folderRenameSelectedOnce.current === f.id) return;
+                                folderRenameSelectedOnce.current = f.id;
+                                e.currentTarget.select();
+                              }}
                               className="h-7 text-sm border-0 px-1"
                               style={{ background: "transparent", color: "hsl(var(--cream))" }}
                               onKeyDown={(e) => {
@@ -3344,7 +3355,7 @@ export default function Scripts() {
                               autoFocus
                               value={renameValue}
                               onChange={(e) => setRenameValue(e.target.value)}
-                              onFocus={(e) => e.currentTarget.select()}
+                              onFocus={(e) => { if (scriptRenameSelectedOnce.current === renamingScriptId) return; scriptRenameSelectedOnce.current = renamingScriptId; e.currentTarget.select(); }}
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                               className="w-full bg-muted/50 border border-primary/40 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
@@ -3461,7 +3472,11 @@ export default function Scripts() {
                                               data-rename-ui
                                               value={folderRenameValue}
                                               onChange={(e) => setFolderRenameValue(e.target.value)}
-                                              onFocus={(e) => e.currentTarget.select()}
+                                              onFocus={(e) => {
+                                                if (folderRenameSelectedOnce.current === f.id) return;
+                                                folderRenameSelectedOnce.current = f.id;
+                                                e.currentTarget.select();
+                                              }}
                                               onClick={(e) => e.stopPropagation()}
                                               className="h-6 text-xs border-0 px-1"
                                               style={{ background: "transparent", color: "hsl(var(--cream))" }}
@@ -3955,7 +3970,7 @@ export default function Scripts() {
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     autoFocus
-                    onFocus={(e) => e.currentTarget.select()}
+                    onFocus={(e) => { if (scriptRenameSelectedOnce.current === renamingScriptId) return; scriptRenameSelectedOnce.current = renamingScriptId; e.currentTarget.select(); }}
                     onKeyDown={async (e) => {
                       e.stopPropagation();
                       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
@@ -3990,7 +4005,7 @@ export default function Scripts() {
                       if (viewingScriptId) {
                         setRenamingFolderId(null);
                         setCreatingFolder(false);
-                        setRenamingScriptId(viewingScriptId);
+                        scriptRenameSelectedOnce.current = null; setRenamingScriptId(viewingScriptId);
                         setRenameValue(viewingMetadata.idea_ganadora || viewingMetadata.title || "");
                       }
                     }}
