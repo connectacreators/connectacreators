@@ -1237,7 +1237,7 @@ Transcription:
 
     // ─── Step: generate-hooks ───
     if (step === "generate-hooks") {
-      const { topic, previousHooks } = body;
+      const { topic, previousHooks, scriptBody, language } = body;
       if (!topic?.trim()) return errorResponse("topic is required for generate-hooks");
 
       // Curated subset of ~70 proven viral hook formulas (10 per category)
@@ -1334,16 +1334,35 @@ DAY IN THE LIFE:
         avoidClause = `\n\nIMPORTANT — Do NOT reuse these formula structures (already generated):\n${capped.map((h: string) => `- "${h}"`).join("\n")}\n`;
       }
 
+      // Single-language guarantee. The formula bank is English, so without an
+      // explicit rule the model sometimes returns mixed EN/ES hooks for a
+      // monolingual script. The client sends a detected `language`; if absent,
+      // the model must infer ONE language from the script itself.
+      const langClause =
+        language === "es"
+          ? "CRITICAL: Write every hook entirely in SPANISH. Translate the formula structures naturally — never leave English fragments."
+          : language === "en"
+            ? "CRITICAL: Write every hook entirely in ENGLISH."
+            : "CRITICAL: Detect the single language of the script (English or Spanish) and write EVERY hook entirely in that one language. Never mix languages within or across hooks; translate formula structures naturally.";
+
       const hooksSystem = `You are a creative hook writer for short-form social media scripts.
-Below are proven viral hook FORMULAS organized by category. Choose the ones that fit BEST for the given topic — only pick formulas where the topic naturally fills the placeholders. Do NOT force a formula that doesn't fit. Each hook must use a DIFFERENT formula structure.${avoidClause}
+Below are proven viral hook FORMULAS organized by category. Choose the ones that fit BEST for the given script — only pick formulas where the content naturally fills the placeholders. Do NOT force a formula that doesn't fit. Each hook must use a DIFFERENT formula structure.
+${langClause}${avoidClause}
 
 ${FORMULA_BANK}
 
 Return a JSON tool call only — no prose.`;
 
-      const hooksUserPrompt = `Topic: "${topic}"
+      // Ground the hooks in the FULL script when provided (capped), not just
+      // the title/current-hook line — specifics beat generic topic rewrites.
+      const bodyExcerpt =
+        typeof scriptBody === "string" && scriptBody.trim()
+          ? `\n\nFULL SCRIPT (ground every hook in this content — use its specific claims, numbers, offer, and angle; the hook must set up THIS video):\n"""\n${scriptBody.trim().slice(0, 6000)}\n"""`
+          : "";
 
-Pick the 3-7 best-fitting formulas from the bank above and adapt them by filling in the placeholders with topic-specific content. Only include formulas that genuinely fit — do not force a formula just to reach a count.`;
+      const hooksUserPrompt = `Topic: "${topic}"${bodyExcerpt}
+
+Pick the 3-7 best-fitting formulas from the bank above and adapt them by filling in the placeholders with content specific to this script. Only include formulas that genuinely fit — do not force a formula just to reach a count.`;
 
       const hooksTools = [{
         name: "return_hooks",

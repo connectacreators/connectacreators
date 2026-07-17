@@ -3,9 +3,10 @@
 // "Regenerate hook" for the script editor. Uses the SAME generator as the
 // Super Planning canvas Hook Generator node (ai-build-script step
 // "generate-hooks", backed by the proven viral-hook formula bank): sends the
-// script's context as the topic and everything already shown/used as
-// previousHooks so every round returns fresh, non-repeating variations.
-// Pick one to replace the script's hook line.
+// title+hook as the topic, the FULL script body as grounding context, the
+// detected script language (so hooks never come back bilingual), and
+// everything already shown/used as previousHooks so every round returns
+// fresh, non-repeating variations. Pick one to replace the script's hook line.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, Anchor } from "lucide-react";
@@ -34,10 +35,14 @@ interface Props {
   topic: string;
   /** The hook text currently in the script — never re-suggested. */
   currentHook: string | null;
+  /** Full script text (capped) — hooks are grounded in the whole script, not just the title. */
+  scriptBody?: string;
+  /** Detected script language — the generator writes hooks ONLY in this language. */
+  language?: "en" | "es";
   onPick: (text: string) => void;
 }
 
-export function RegenerateHookDialog({ open, onClose, topic, currentHook, onPick }: Props) {
+export function RegenerateHookDialog({ open, onClose, topic, currentHook, scriptBody, language, onPick }: Props) {
   const { showOutOfCreditsModal } = useOutOfCredits();
   const [hooks, setHooks] = useState<Array<{ category: string; text: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -56,6 +61,8 @@ export function RegenerateHookDialog({ open, onClose, topic, currentHook, onPick
         body: JSON.stringify({
           step: "generate-hooks",
           topic: topic.trim(),
+          scriptBody: scriptBody?.trim() || undefined,
+          language,
           previousHooks: seenRef.current.slice(-20),
         }),
       });
@@ -80,7 +87,7 @@ export function RegenerateHookDialog({ open, onClose, topic, currentHook, onPick
     } finally {
       setLoading(false);
     }
-  }, [topic, showOutOfCreditsModal]);
+  }, [topic, scriptBody, language, showOutOfCreditsModal]);
 
   // Fresh session per open: seed the anti-repeat list with the current hook
   // and generate the first round automatically.

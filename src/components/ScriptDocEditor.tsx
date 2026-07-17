@@ -42,6 +42,33 @@ function plainToHtml(s: string): string {
   return esc.replace(/\r?\n/g, "<br>");
 }
 
+// Full script text for the hook generator: every content line under its
+// section label, capped so the request stays small. Grounding hooks in the
+// whole script (not just title + current hook) is what makes them specific.
+function scriptBodyForHooks(blocks: ScriptLine[]): string {
+  const parts: string[] = [];
+  for (const b of blocks) {
+    const text = (b.text || "").trim();
+    if (!text) continue;
+    if (b.block_kind === "heading") parts.push(`## ${text}`);
+    else parts.push(text);
+  }
+  return parts.join("\n").slice(0, 8000);
+}
+
+// Cheap monolingual detector for the hook generator's language directive.
+// Accented characters / inverted punctuation are a hard Spanish signal;
+// otherwise compare stopword hit counts.
+function detectScriptLanguage(text: string): "es" | "en" {
+  if (/[¿¡ñÑ]|á|é|í|ó|ú/i.test(text)) return "es";
+  const lower = ` ${text.toLowerCase()} `;
+  const count = (words: string[]) =>
+    words.reduce((n, w) => n + (lower.match(new RegExp(`\\b${w}\\b`, "g"))?.length ?? 0), 0);
+  const es = count(["que", "para", "con", "los", "las", "una", "este", "esta", "pero", "porque", "gratis", "hola"]);
+  const en = count(["the", "and", "you", "for", "with", "this", "that", "your", "what", "how", "here"]);
+  return es > en ? "es" : "en";
+}
+
 type LineType = ScriptLine["line_type"];
 
 // Editorial-dark line types — colors match Scripts.tsx card-view config.
@@ -614,11 +641,20 @@ export default function ScriptDocEditor({
   // ── Regenerate hook (same generator as the canvas Hook Generator node) ──
   const [hookDialogOpen, setHookDialogOpen] = useState(false);
 
+  // A section is the hook section because of its visible NAME ("Hook" /
+  // "Gancho"), not its stored role slug — the first-created section often
+  // carries role "hook" even after being renamed to something else, and a
+  // user-added section named "Hook" carries role "body". The label is what
+  // the user sees, so the label decides.
+  const isHookHeading = (b: ScriptLine): boolean =>
+    b.block_kind === "heading" &&
+    /^\s*(hook|gancho)\b/i.test((b.text || defaultSectionLabel(b.section)).trim());
+
   // The spoken hook = the first ACTOR (voiceover) line of the first hook
   // section. Filming / editor / text-on-screen lines in the section are
   // production notes and must never be replaced by a regenerated hook.
   const findHookLine = (list: ScriptLine[]): { headingIdx: number; lineIdx: number } => {
-    const headingIdx = list.findIndex((b) => b.block_kind === "heading" && b.section === "hook");
+    const headingIdx = list.findIndex(isHookHeading);
     if (headingIdx === -1) return { headingIdx: -1, lineIdx: -1 };
     for (let i = headingIdx + 1; i < list.length; i++) {
       if (list[i].block_kind === "heading") break;
@@ -642,10 +678,14 @@ export default function ScriptDocEditor({
           prev.map((b) => (b.uid === target.uid ? { ...b, text, rich_text: plainToHtml(text) } : b)),
         );
       } else {
+        // Inherit the hook heading's actual role slug so the new line stays
+        // grouped with its section (a name-matched "Hook" section can carry a
+        // non-"hook" role, e.g. user-added sections default to "body").
+        const sectionRole = headingIdx !== -1 ? blocks[headingIdx].section : "hook";
         const newLine: ScriptLine = {
           line_number: 0,
           line_type: "actor",
-          section: "hook",
+          section: sectionRole,
           text,
           rich_text: plainToHtml(text),
           block_kind: "line",
@@ -1166,7 +1206,7 @@ export default function ScriptDocEditor({
                           onRename={handleRenameHeading}
                           onDelete={handleDeleteHeading}
                           action={
-                            (group.heading as ScriptLine).section === "hook" ? (
+                            isHookHeading(group.heading as ScriptLine) ? (
                               <button
                                 type="button"
                                 onClick={() => setHookDialogOpen(true)}
@@ -1265,6 +1305,8 @@ export default function ScriptDocEditor({
         onClose={() => setHookDialogOpen(false)}
         topic={[scriptTitle, currentHookText].filter(Boolean).join(" — ") || currentHookText || "this script"}
         currentHook={currentHookText || null}
+        scriptBody={scriptBodyForHooks(blocks)}
+        language={detectScriptLanguage(scriptBodyForHooks(blocks) || scriptTitle || "")}
         onPick={applyHook}
       />
     </div>
