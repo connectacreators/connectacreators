@@ -325,11 +325,11 @@ export default function PublicVideoReview() {
                         {(c.author_name?.trim()?.[0] || '•').toUpperCase()}
                       </div>
                       <div
-                        className="hidden group-hover:block absolute bottom-full pb-2 w-60 z-50"
+                        className="absolute bottom-full pb-2 w-60 z-50 opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto"
                         style={(() => { const p = ((c.timestamp_seconds ?? 0) / duration) * 100; return p < 14 ? { left: 0 } : p > 86 ? { right: 0 } : { left: '50%', transform: 'translateX(-50%)' }; })()}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
+                        <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left translate-y-1 transition-transform duration-150 ease-out group-hover:translate-y-0">
                           <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
                             {c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(c.timestamp_seconds!)}
                           </div>

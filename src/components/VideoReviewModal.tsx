@@ -681,12 +681,15 @@ export default function VideoReviewModal({
             pb-2 (not mb-2) keeps the chip→card path hoverable so it doesn't
             vanish as you reach for it; interactive (no pointer-events-none) so
             links are clickable; stopPropagation so clicking inside doesn't seek. */}
+        {/* Always rendered so it can transition; opacity fade lives on the
+            wrapper (no transform clash with popStyle's translateX), the small
+            slide on the inner card. ease-out, non-bouncy. */}
         <div
-          className="hidden group-hover:block absolute bottom-full pb-2 w-60 z-50"
+          className="absolute bottom-full pb-2 w-60 z-50 opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto"
           style={popStyle}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
+          <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left translate-y-1 transition-transform duration-150 ease-out group-hover:translate-y-0">
             <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: markerColor(c) }}>
               {rangeLabel}
             </div>
