@@ -754,7 +754,7 @@ export default function VideoReviewModal({
           )}
 
           {/* Left: Video */}
-          <div className={`flex flex-col p-4 overflow-hidden ${isMobile ? (mobileTab === 'video' ? 'flex-1 w-full' : 'hidden') : 'flex-[3] border-r'}`}>
+          <div className={`flex flex-col p-4 overflow-hidden ${isMobile ? (mobileTab === 'video' ? 'flex-1 w-full' : 'hidden') : 'flex-[5] border-r'}`}>
 
             {/* Source tabs — only when multiple sources */}
             {sources.length > 1 && (
@@ -776,8 +776,9 @@ export default function VideoReviewModal({
               </div>
             )}
 
-            {/* Player area */}
-            <div className="w-full flex-1 min-h-0" style={{ maxHeight: '60vh' }}>
+            {/* Player area — fills the column height (Frame.io-style dominant
+                video); no 60vh cap so a portrait reel gets the full modal. */}
+            <div className="w-full flex-1 min-h-0">
               {isActiveSupabase ? (
                 <ThemedVideoPlayer
                   src={videoUrl!}

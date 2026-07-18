@@ -218,19 +218,19 @@ export default function ThemedVideoPlayer({
             height: 8, background: 'rgba(255,255,255,0.1)',
             borderRadius: 4, marginBottom: progressOverlay ? 26 : 8,
             cursor: 'pointer', position: 'relative',
-            border: '1px solid rgba(255,255,255,0.2)',
           }}
           onClick={handleSeek}
         >
+          {/* Flat cyan fill — no glow/outline. The old 0 0 12px glow bled
+              ~12px past the fill end, making a 75% bar read as ~90%. */}
           <div style={{
             height: '100%', width: `${progress * 100}%`,
             background: CYAN, borderRadius: 4, position: 'relative',
-            boxShadow: `0 0 12px ${CYAN}`,
           }}>
             <div style={{
               position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)',
               width: 14, height: 14, borderRadius: '50%',
-              background: '#fff', boxShadow: `0 0 10px ${CYAN}, inset 0 0 4px rgba(0,0,0,0.3)`,
+              background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
             }} />
           </div>
           {progressOverlay}
