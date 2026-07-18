@@ -772,23 +772,10 @@ All colors MUST be HSL for consistency and theming.
 }
 
 /* Review timeline comment markers (Frame.io-style avatar chips below the bar).
-   Pop-in on mount; the range bracket grows out from the start. Scale/opacity
-   only (positioning + hover live on the outer wrapper, so no transform clash). */
-@keyframes reviewMarkerPop {
-  0%   { opacity: 0; transform: scale(0.4) translateY(3px); }
-  60%  { opacity: 1; transform: scale(1.12) translateY(0); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes reviewRangeGrow {
-  0%   { transform: scaleX(0); opacity: 0; }
-  100% { transform: scaleX(1); opacity: 0.7; }
-}
-.review-marker-chip {
-  animation: reviewMarkerPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
+   No appear animation — the chips just show. The range bracket keeps a subtle
+   resting opacity (previously supplied by its grow-in keyframe). */
 .review-marker-range {
-  transform-origin: left center;
-  animation: reviewRangeGrow 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  opacity: 0.75;
 }
 
 /* ReactFlow handle rebrand — Honey */
