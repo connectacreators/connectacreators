@@ -48,6 +48,26 @@ const ROLE_COLORS: Record<string, string> = {
   client: '#f59e0b',
 };
 
+// Render note text with clickable URLs (stopPropagation so a link click
+// doesn't bubble to the chip's seek handler).
+function linkify(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /(https?:\/\/[^\s]+)/g;
+  let last = 0, m: RegExpExecArray | null;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <a key={m.index} href={m[1]} target="_blank" rel="noopener noreferrer"
+        className="text-primary underline hover:opacity-80" onClick={(e) => e.stopPropagation()}>
+        {m[1]}
+      </a>
+    );
+    last = m.index + m[1].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 export default function PublicVideoReview() {
   const { videoEditId } = useParams<{ videoEditId: string }>();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -305,14 +325,15 @@ export default function PublicVideoReview() {
                         {(c.author_name?.trim()?.[0] || '•').toUpperCase()}
                       </div>
                       <div
-                        className="hidden group-hover:block absolute bottom-full mb-2 w-52 pointer-events-none z-50"
+                        className="hidden group-hover:block absolute bottom-full pb-2 w-60 z-50"
                         style={(() => { const p = ((c.timestamp_seconds ?? 0) / duration) * 100; return p < 14 ? { left: 0 } : p > 86 ? { right: 0 } : { left: '50%', transform: 'translateX(-50%)' }; })()}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
                           <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
                             {c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(c.timestamp_seconds!)}
                           </div>
-                          <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
+                          <div className="text-xs text-foreground leading-snug whitespace-pre-wrap break-words max-h-48 overflow-y-auto">{linkify(c.comment)}</div>
                           {c.author_name && <div className="text-[10px] text-muted-foreground mt-1">{c.author_name}</div>}
                         </div>
                       </div>

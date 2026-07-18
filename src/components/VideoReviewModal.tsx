@@ -677,16 +677,25 @@ export default function VideoReviewModal({
         >
           {isEnd ? '›' : initialOf(c.author_name)}
         </div>
-        {/* Hover popover — timestamp + the note itself, Frame.io-style */}
+        {/* Hover popover — timestamp + the note itself, Frame.io-style. The
+            pb-2 (not mb-2) keeps the chip→card path hoverable so it doesn't
+            vanish as you reach for it; interactive (no pointer-events-none) so
+            links are clickable; stopPropagation so clicking inside doesn't seek. */}
         <div
-          className="hidden group-hover:block absolute bottom-full mb-2 w-56 pointer-events-none z-50"
+          className="hidden group-hover:block absolute bottom-full pb-2 w-60 z-50"
           style={popStyle}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
             <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: markerColor(c) }}>
               {rangeLabel}
             </div>
-            <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
+            <div className="text-xs text-foreground leading-snug whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
+              {renderCommentWithFootageLinks(c.comment, availableFootageFiles, (filename) => {
+                setSelectedFootageFile(filename);
+                setFootagePreviewOpen(true);
+              })}
+            </div>
             {c.author_name && (
               <div className="text-[10px] text-muted-foreground mt-1">{c.author_name}</div>
             )}
