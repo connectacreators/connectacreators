@@ -272,7 +272,7 @@ export default function PublicVideoReview() {
                   <div className="w-full h-1.5 bg-muted rounded-full">
                     <div className="h-full bg-primary rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
                   </div>
-                  {/* Range bracket just under the bar */}
+                  {/* Range bracket through the dot centers (chip top 11 + 9 = 20) */}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
                     <div
                       key={`range-${c.id}`}
@@ -280,7 +280,7 @@ export default function PublicVideoReview() {
                       style={{
                         left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
                         width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
-                        top: 10, height: 3,
+                        top: 19, height: 2, zIndex: 2,
                         backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
                       }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
@@ -290,13 +290,12 @@ export default function PublicVideoReview() {
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
                     <div
                       key={c.id}
-                      className="absolute cursor-pointer transition-transform hover:scale-125"
+                      className="group absolute cursor-pointer"
                       style={{ left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`, top: 11, transform: 'translateX(-50%)', zIndex: 4 }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
-                      title={`${formatTimestamp(c.timestamp_seconds!)} · ${c.author_name ?? ''}: ${c.comment.slice(0, 50)}`}
                     >
                       <div
-                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white"
+                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white transition-transform group-hover:scale-125"
                         style={{
                           width: 18, height: 18, fontSize: 9, lineHeight: 1,
                           border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
@@ -305,18 +304,26 @@ export default function PublicVideoReview() {
                       >
                         {(c.author_name?.trim()?.[0] || '•').toUpperCase()}
                       </div>
+                      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 pointer-events-none z-50">
+                        <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
+                          <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
+                            {c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(c.timestamp_seconds!)}
+                          </div>
+                          <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
+                          {c.author_name && <div className="text-[10px] text-muted-foreground mt-1">{c.author_name}</div>}
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
                     <div
                       key={`end-${c.id}`}
-                      className="absolute cursor-pointer transition-transform hover:scale-125"
+                      className="group absolute cursor-pointer"
                       style={{ left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`, top: 11, transform: 'translateX(-50%)', zIndex: 4 }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
-                      title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}`}
                     >
                       <div
-                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white"
+                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white transition-transform group-hover:scale-125"
                         style={{
                           width: 18, height: 18, fontSize: 11, lineHeight: 1, opacity: 0.9,
                           border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
@@ -324,6 +331,14 @@ export default function PublicVideoReview() {
                         }}
                       >
                         ›
+                      </div>
+                      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 pointer-events-none z-50">
+                        <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
+                          <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
+                            {formatTimestamp(c.timestamp_seconds!)} – {formatTimestamp(c.end_timestamp_seconds!)}
+                          </div>
+                          <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
+                        </div>
                       </div>
                     </div>
                   ))}

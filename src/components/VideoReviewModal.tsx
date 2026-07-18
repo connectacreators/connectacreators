@@ -632,43 +632,61 @@ export default function VideoReviewModal({
 
   // Frame.io-style comment markers: an avatar chip (commenter's initial, role
   // color) sits just BELOW the timeline, with a bracket line spanning ranged
-  // notes. Reads unmistakably as "someone commented here" — never confused
-  // with the round white scrubber. Chips pop in; ranges grow out (index.css).
+  // notes. IMPORTANT: the chip JSX is inlined (not a component defined in
+  // render) — an inline component gets a new identity every render, so React
+  // remounted every chip on each seek and the pop-in animation replayed, which
+  // read as "all the dots jump when you click one". Inlined + stable keys =
+  // the pop-in plays exactly once, and clicking one chip only seeks the video.
   const markerColor = (c: typeof visibleComments[number]) =>
     c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b');
   const initialOf = (name: string | null) => (name?.trim()?.[0] || '•').toUpperCase();
-  const CHIP = 18;
-  const AvatarChip = ({ c, atSeconds, isEnd }: { c: typeof visibleComments[number]; atSeconds: number; isEnd?: boolean }) => (
-    <div
-      style={{
-        position: 'absolute',
-        left: `${(atSeconds / duration) * 100}%`,
-        top: 12,                              // just below the 8px bar
-        transform: 'translateX(-50%)',
-        transition: 'transform 0.14s ease',
-        zIndex: 4, cursor: 'pointer',
-      }}
-      title={`${c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(atSeconds)} · ${c.author_name ?? ''}: ${c.comment.slice(0, 50)}`}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1.25)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
-      onClick={(e) => { e.stopPropagation(); seekTo(atSeconds); }}
-    >
+  const chip = (c: typeof visibleComments[number], atSeconds: number, isEnd: boolean) => {
+    const rangeLabel = c.end_timestamp_seconds != null
+      ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}`
+      : formatTimestamp(atSeconds);
+    return (
       <div
-        className="review-marker-chip"
+        key={isEnd ? `end-${c.id}` : c.id}
+        className="group"
         style={{
-          width: CHIP, height: CHIP, borderRadius: '50%',
-          background: markerColor(c),
-          border: '2px solid #fff',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1,
-          opacity: isEnd ? 0.9 : 1,
+          position: 'absolute',
+          left: `${(atSeconds / duration) * 100}%`,
+          top: 12, transform: 'translateX(-50%)',
+          zIndex: 4, cursor: 'pointer',
         }}
+        onClick={(e) => { e.stopPropagation(); seekTo(atSeconds); }}
       >
-        {isEnd ? '›' : initialOf(c.author_name)}
+        <div
+          className="review-marker-chip transition-transform group-hover:scale-125"
+          style={{
+            width: 18, height: 18, borderRadius: '50%',
+            background: markerColor(c),
+            border: '2px solid #fff',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: isEnd ? 11 : 9, fontWeight: 700, color: '#fff', lineHeight: 1,
+            opacity: isEnd ? 0.9 : 1,
+          }}
+        >
+          {isEnd ? '›' : initialOf(c.author_name)}
+        </div>
+        {/* Hover popover — timestamp + the note itself, Frame.io-style */}
+        <div
+          className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 pointer-events-none z-50"
+        >
+          <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
+            <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: markerColor(c) }}>
+              {rangeLabel}
+            </div>
+            <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
+            {c.author_name && (
+              <div className="text-[10px] text-muted-foreground mt-1">{c.author_name}</div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
   const progressOverlay = duration > 0 ? (
     <>
       {/* Range bracket — a thin rounded line just under the bar, start→end */}
@@ -680,29 +698,25 @@ export default function VideoReviewModal({
             position: 'absolute',
             left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
             width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
-            top: 11, height: 3, borderRadius: 2,
+            // Passes through the dot centers: chip top 12 + half of 18 = 21.
+            top: 20, height: 2, borderRadius: 1,
             cursor: 'pointer',
             backgroundColor: markerColor(c),
             zIndex: 2,
           }}
-          title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
       {/* Start chips (avatar) */}
-      {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
-        <AvatarChip key={c.id} c={c} atSeconds={c.timestamp_seconds!} />
-      ))}
+      {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => chip(c, c.timestamp_seconds!, false))}
       {/* End caps for ranged notes */}
-      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
-        <AvatarChip key={`end-${c.id}`} c={c} atSeconds={c.end_timestamp_seconds!} isEnd />
-      ))}
+      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => chip(c, c.end_timestamp_seconds!, true))}
     </>
   ) : undefined;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className={`flex flex-col p-0 gap-0 [&>button:last-child]:hidden ${isMobile ? 'w-screen h-[100dvh] max-w-none rounded-none border-0' : 'max-w-6xl w-[95vw] h-[85vh]'}`}>
+      <DialogContent className={`flex flex-col p-0 gap-0 [&>button:last-child]:hidden ${isMobile ? 'w-screen h-[100dvh] max-w-none rounded-none border-0' : 'max-w-[92rem] w-[96vw] h-[92vh]'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="text-lg font-semibold truncate">{title || 'Video Review'}</h2>
