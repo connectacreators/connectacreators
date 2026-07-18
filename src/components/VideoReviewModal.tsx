@@ -707,10 +707,9 @@ export default function VideoReviewModal({
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
-      {/* Start chips (avatar) */}
+      {/* One avatar chip per note, at its start. For ranged notes the line
+          alone marks the end — no end-cap dot. */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => chip(c, c.timestamp_seconds!, false))}
-      {/* End caps for ranged notes */}
-      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => chip(c, c.end_timestamp_seconds!, true))}
     </>
   ) : undefined;
 

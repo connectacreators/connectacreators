@@ -315,33 +315,7 @@ export default function PublicVideoReview() {
                       </div>
                     </div>
                   ))}
-                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
-                    <div
-                      key={`end-${c.id}`}
-                      className="group absolute cursor-pointer"
-                      style={{ left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`, top: 11, transform: 'translateX(-50%)', zIndex: 4 }}
-                      onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
-                    >
-                      <div
-                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white transition-transform group-hover:scale-125"
-                        style={{
-                          width: 18, height: 18, fontSize: 11, lineHeight: 1, opacity: 0.9,
-                          border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                          backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
-                        }}
-                      >
-                        ›
-                      </div>
-                      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 pointer-events-none z-50">
-                        <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
-                          <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
-                            {formatTimestamp(c.timestamp_seconds!)} – {formatTimestamp(c.end_timestamp_seconds!)}
-                          </div>
-                          <div className="text-xs text-foreground leading-snug line-clamp-4">{c.comment}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  {/* No end-cap dot for ranged notes — the line marks the end. */}
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <Button variant="ghost" size="sm" onClick={() => {
