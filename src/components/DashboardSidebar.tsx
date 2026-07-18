@@ -18,7 +18,7 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
-  Film, TrendingUp, ClipboardList,
+  Film, TrendingUp, ClipboardList, Send,
 } from "lucide-react";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
@@ -177,6 +177,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { label: L("Trainings", "Entrenamientos"), icon: BookOpen, path: "/trainings" },
         { type: 'group', label: L('Business', 'Negocio') },
         { label: L("Finances", "Finanzas"), icon: DollarSign, path: "/finances" },
+        { label: "Outbound", icon: Send, path: "/outbound" },
         { label: L("API Usage", "Uso de API"), icon: BarChart3, path: "/api-usage" },
         { type: 'group', label: L('Agency', 'Agencia') },
         { label: L("Clients", "Clientes"), icon: Users, path: "/clients" },
