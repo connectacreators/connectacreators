@@ -644,6 +644,13 @@ export default function VideoReviewModal({
     const rangeLabel = c.end_timestamp_seconds != null
       ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}`
       : formatTimestamp(atSeconds);
+    // Edge-aware popover: a centered card clips at the player edges (a note at
+    // 0:00 lost its left half). Anchor the card to the chip's side near the ends.
+    const pct = (atSeconds / duration) * 100;
+    const popStyle: React.CSSProperties =
+      pct < 14 ? { left: 0, transform: 'none' }
+      : pct > 86 ? { right: 0, transform: 'none' }
+      : { left: '50%', transform: 'translateX(-50%)' };
     return (
       <div
         key={isEnd ? `end-${c.id}` : c.id}
@@ -672,7 +679,8 @@ export default function VideoReviewModal({
         </div>
         {/* Hover popover — timestamp + the note itself, Frame.io-style */}
         <div
-          className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 pointer-events-none z-50"
+          className="hidden group-hover:block absolute bottom-full mb-2 w-56 pointer-events-none z-50"
+          style={popStyle}
         >
           <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
             <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: markerColor(c) }}>

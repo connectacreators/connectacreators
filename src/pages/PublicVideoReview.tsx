@@ -304,7 +304,10 @@ export default function PublicVideoReview() {
                       >
                         {(c.author_name?.trim()?.[0] || '•').toUpperCase()}
                       </div>
-                      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 pointer-events-none z-50">
+                      <div
+                        className="hidden group-hover:block absolute bottom-full mb-2 w-52 pointer-events-none z-50"
+                        style={(() => { const p = ((c.timestamp_seconds ?? 0) / duration) * 100; return p < 14 ? { left: 0 } : p > 86 ? { right: 0 } : { left: '50%', transform: 'translateX(-50%)' }; })()}
+                      >
                         <div className="rounded-lg bg-popover border border-border shadow-xl px-3 py-2 text-left">
                           <div className="text-[10px] font-mono font-semibold mb-1" style={{ color: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b') }}>
                             {c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(c.timestamp_seconds!)}
