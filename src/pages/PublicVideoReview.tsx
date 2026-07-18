@@ -278,19 +278,26 @@ export default function PublicVideoReview() {
                       style={{
                         left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
                         width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
-                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-                        opacity: 0.45,
+                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
+                        opacity: 0.65,
                       }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
                     />
                   ))}
+                  {/* Bold flag markers rising above the bar — a flat dot blended
+                      into the progress fill and confused editors. */}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
                     <div
                       key={c.id}
-                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-background cursor-pointer hover:scale-125 transition-transform"
+                      className="absolute cursor-pointer hover:scale-y-110 transition-transform"
                       style={{
                         left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
-                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+                        top: -7, transform: 'translateX(-50%)',
+                        width: 5, height: 20, borderRadius: 3,
+                        border: '2px solid #fff',
+                        boxShadow: '0 1px 5px rgba(0,0,0,0.55)',
+                        zIndex: 3,
+                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
                       }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
                     />
@@ -298,10 +305,16 @@ export default function PublicVideoReview() {
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
                     <div
                       key={`end-${c.id}`}
-                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-background cursor-pointer hover:scale-125 transition-transform"
+                      className="absolute cursor-pointer hover:scale-y-110 transition-transform"
                       style={{
                         left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`,
-                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
+                        top: -7, transform: 'translateX(-50%)',
+                        width: 5, height: 20, borderRadius: 3,
+                        border: '2px solid #fff',
+                        boxShadow: '0 1px 5px rgba(0,0,0,0.55)',
+                        opacity: 0.85,
+                        zIndex: 3,
+                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
                       }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
                     />

@@ -630,9 +630,27 @@ export default function VideoReviewModal({
     return filtered.filter(c => !c.source_ref || c.source_ref === activeSource?.label);
   }, [sortedComments, sources.length, activeSource, isAdmin]);
 
+  // Flag-style marker: a bold colored pin standing ABOVE the 8px bar with a
+  // white ring + shadow. Deliberately tall and un-round so editors never
+  // confuse a revision mark with the round white scrubber handle or the bar
+  // fill (the old flat dots blended into the cyan progress bar).
+  const markerStyle = (color: string): React.CSSProperties => ({
+    position: 'absolute',
+    top: -7,                       // rise above the bar (bar is 8px tall)
+    transform: 'translateX(-50%)',
+    width: 6, height: 22, borderRadius: 3,
+    backgroundColor: color,
+    border: '2px solid #fff',
+    boxShadow: '0 1px 5px rgba(0,0,0,0.7)',
+    cursor: 'pointer',
+    zIndex: 3,
+    transition: 'transform 0.12s ease, height 0.12s ease',
+  });
+  const markerColor = (c: typeof visibleComments[number]) =>
+    c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b');
   const progressOverlay = duration > 0 ? (
     <>
-      {/* Range segments — behind the dots */}
+      {/* Range segments — a clear shaded span between the two flags */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={`range-${c.id}`}
@@ -641,52 +659,35 @@ export default function VideoReviewModal({
             left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
             width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
             top: '50%', transform: 'translateY(-50%)',
-            height: 6, borderRadius: 3,
+            height: 8, borderRadius: 4,
             cursor: 'pointer',
-            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-            opacity: 0.45,
+            backgroundColor: markerColor(c),
+            opacity: 0.65,
             zIndex: 1,
           }}
           title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
+      {/* Start-of-note flags */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={c.id}
-          style={{
-            position: 'absolute',
-            left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
-            top: '50%', transform: 'translateY(-50%)',
-            width: 10, height: 10, borderRadius: '50%',
-            border: '2px solid rgba(0,0,0,0.6)',
-            cursor: 'pointer',
-            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-            zIndex: 2,
-          }}
+          style={{ ...markerStyle(markerColor(c)), left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%` }}
           title={`${formatTimestamp(c.timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%) scale(1.3)'; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%)'; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scaleY(1.2)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
-      {/* End dots for ranged notes */}
+      {/* End-of-range flags */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={`end-${c.id}`}
-          style={{
-            position: 'absolute',
-            left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`,
-            top: '50%', transform: 'translateY(-50%)',
-            width: 10, height: 10, borderRadius: '50%',
-            border: '2px solid rgba(0,0,0,0.6)',
-            cursor: 'pointer',
-            backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#888'),
-            zIndex: 2,
-          }}
+          style={{ ...markerStyle(markerColor(c)), left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`, opacity: 0.85 }}
           title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%) scale(1.3)'; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-50%)'; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scaleY(1.2)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
           onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
         />
       ))}
