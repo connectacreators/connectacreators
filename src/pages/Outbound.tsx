@@ -85,7 +85,7 @@ export default function Outbound() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Send className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Outbound</h1>
+            <h1 className="text-2xl font-bold text-foreground">DM Outbound</h1>
           </div>
           <div className="flex items-center gap-0 rounded-xl border border-border/60 bg-card/60 p-1">
             <Button variant={view === "month" ? "cta" : "ghost"} size="sm" className="h-8 px-3 text-xs" onClick={() => setView("month")}>
