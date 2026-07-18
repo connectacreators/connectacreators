@@ -267,57 +267,65 @@ export default function PublicVideoReview() {
             {/* Progress bar with markers (Supabase only) */}
             {isSupabaseVideo && videoUrl && (
               <>
-                <div className="mt-3 relative cursor-pointer" onClick={handleProgressClick}>
+                {/* pb-7 leaves room for the avatar chips that sit below the bar */}
+                <div className="mt-3 pb-7 relative cursor-pointer" onClick={handleProgressClick}>
                   <div className="w-full h-1.5 bg-muted rounded-full">
                     <div className="h-full bg-primary rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
                   </div>
+                  {/* Range bracket just under the bar */}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
                     <div
                       key={`range-${c.id}`}
-                      className="absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full cursor-pointer"
+                      className="review-marker-range absolute rounded-full cursor-pointer"
                       style={{
                         left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
                         width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
+                        top: 10, height: 3,
                         backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
-                        opacity: 0.65,
                       }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
                     />
                   ))}
-                  {/* Bold flag markers rising above the bar — a flat dot blended
-                      into the progress fill and confused editors. */}
+                  {/* Frame.io-style avatar chips below the bar (commenter initial) */}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
                     <div
                       key={c.id}
-                      className="absolute cursor-pointer hover:scale-y-110 transition-transform"
-                      style={{
-                        left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
-                        top: -7, transform: 'translateX(-50%)',
-                        width: 5, height: 20, borderRadius: 3,
-                        border: '2px solid #fff',
-                        boxShadow: '0 1px 5px rgba(0,0,0,0.55)',
-                        zIndex: 3,
-                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
-                      }}
+                      className="absolute cursor-pointer transition-transform hover:scale-125"
+                      style={{ left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`, top: 11, transform: 'translateX(-50%)', zIndex: 4 }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
-                    />
+                      title={`${formatTimestamp(c.timestamp_seconds!)} · ${c.author_name ?? ''}: ${c.comment.slice(0, 50)}`}
+                    >
+                      <div
+                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white"
+                        style={{
+                          width: 18, height: 18, fontSize: 9, lineHeight: 1,
+                          border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                          backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
+                        }}
+                      >
+                        {(c.author_name?.trim()?.[0] || '•').toUpperCase()}
+                      </div>
+                    </div>
                   ))}
                   {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
                     <div
                       key={`end-${c.id}`}
-                      className="absolute cursor-pointer hover:scale-y-110 transition-transform"
-                      style={{
-                        left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`,
-                        top: -7, transform: 'translateX(-50%)',
-                        width: 5, height: 20, borderRadius: 3,
-                        border: '2px solid #fff',
-                        boxShadow: '0 1px 5px rgba(0,0,0,0.55)',
-                        opacity: 0.85,
-                        zIndex: 3,
-                        backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
-                      }}
+                      className="absolute cursor-pointer transition-transform hover:scale-125"
+                      style={{ left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`, top: 11, transform: 'translateX(-50%)', zIndex: 4 }}
                       onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
-                    />
+                      title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}`}
+                    >
+                      <div
+                        className="review-marker-chip flex items-center justify-center rounded-full font-bold text-white"
+                        style={{
+                          width: 18, height: 18, fontSize: 11, lineHeight: 1, opacity: 0.9,
+                          border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                          backgroundColor: c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b'),
+                        }}
+                      >
+                        ›
+                      </div>
+                    </div>
                   ))}
                 </div>
                 <div className="flex items-center justify-between mt-2">

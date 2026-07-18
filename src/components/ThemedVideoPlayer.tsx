@@ -210,12 +210,13 @@ export default function ThemedVideoPlayer({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress bar */}
+        {/* Progress bar — extra bottom room when comment markers (progressOverlay)
+            sit below the bar, Frame.io-style. */}
         <div
           ref={progressRef}
           style={{
             height: 8, background: 'rgba(255,255,255,0.1)',
-            borderRadius: 4, marginBottom: 8,
+            borderRadius: 4, marginBottom: progressOverlay ? 26 : 8,
             cursor: 'pointer', position: 'relative',
             border: '1px solid rgba(255,255,255,0.2)',
           }}

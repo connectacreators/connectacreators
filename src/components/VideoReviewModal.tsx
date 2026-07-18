@@ -630,66 +630,72 @@ export default function VideoReviewModal({
     return filtered.filter(c => !c.source_ref || c.source_ref === activeSource?.label);
   }, [sortedComments, sources.length, activeSource, isAdmin]);
 
-  // Flag-style marker: a bold colored pin standing ABOVE the 8px bar with a
-  // white ring + shadow. Deliberately tall and un-round so editors never
-  // confuse a revision mark with the round white scrubber handle or the bar
-  // fill (the old flat dots blended into the cyan progress bar).
-  const markerStyle = (color: string): React.CSSProperties => ({
-    position: 'absolute',
-    top: -7,                       // rise above the bar (bar is 8px tall)
-    transform: 'translateX(-50%)',
-    width: 6, height: 22, borderRadius: 3,
-    backgroundColor: color,
-    border: '2px solid #fff',
-    boxShadow: '0 1px 5px rgba(0,0,0,0.7)',
-    cursor: 'pointer',
-    zIndex: 3,
-    transition: 'transform 0.12s ease, height 0.12s ease',
-  });
+  // Frame.io-style comment markers: an avatar chip (commenter's initial, role
+  // color) sits just BELOW the timeline, with a bracket line spanning ranged
+  // notes. Reads unmistakably as "someone commented here" — never confused
+  // with the round white scrubber. Chips pop in; ranges grow out (index.css).
   const markerColor = (c: typeof visibleComments[number]) =>
     c.resolved ? '#10b981' : (ROLE_COLORS[c.author_role] || '#f59e0b');
+  const initialOf = (name: string | null) => (name?.trim()?.[0] || '•').toUpperCase();
+  const CHIP = 18;
+  const AvatarChip = ({ c, atSeconds, isEnd }: { c: typeof visibleComments[number]; atSeconds: number; isEnd?: boolean }) => (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${(atSeconds / duration) * 100}%`,
+        top: 12,                              // just below the 8px bar
+        transform: 'translateX(-50%)',
+        transition: 'transform 0.14s ease',
+        zIndex: 4, cursor: 'pointer',
+      }}
+      title={`${c.end_timestamp_seconds != null ? `${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)}` : formatTimestamp(atSeconds)} · ${c.author_name ?? ''}: ${c.comment.slice(0, 50)}`}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1.25)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
+      onClick={(e) => { e.stopPropagation(); seekTo(atSeconds); }}
+    >
+      <div
+        className="review-marker-chip"
+        style={{
+          width: CHIP, height: CHIP, borderRadius: '50%',
+          background: markerColor(c),
+          border: '2px solid #fff',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1,
+          opacity: isEnd ? 0.9 : 1,
+        }}
+      >
+        {isEnd ? '›' : initialOf(c.author_name)}
+      </div>
+    </div>
+  );
   const progressOverlay = duration > 0 ? (
     <>
-      {/* Range segments — a clear shaded span between the two flags */}
+      {/* Range bracket — a thin rounded line just under the bar, start→end */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={`range-${c.id}`}
+          className="review-marker-range"
           style={{
             position: 'absolute',
             left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%`,
             width: `${(((c.end_timestamp_seconds ?? 0) - (c.timestamp_seconds ?? 0)) / duration) * 100}%`,
-            top: '50%', transform: 'translateY(-50%)',
-            height: 8, borderRadius: 4,
+            top: 11, height: 3, borderRadius: 2,
             cursor: 'pointer',
             backgroundColor: markerColor(c),
-            opacity: 0.65,
-            zIndex: 1,
+            zIndex: 2,
           }}
           title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
           onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
         />
       ))}
-      {/* Start-of-note flags */}
+      {/* Start chips (avatar) */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
-        <div
-          key={c.id}
-          style={{ ...markerStyle(markerColor(c)), left: `${((c.timestamp_seconds ?? 0) / duration) * 100}%` }}
-          title={`${formatTimestamp(c.timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scaleY(1.2)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
-          onClick={(e) => { e.stopPropagation(); seekTo(c.timestamp_seconds!); }}
-        />
+        <AvatarChip key={c.id} c={c} atSeconds={c.timestamp_seconds!} />
       ))}
-      {/* End-of-range flags */}
+      {/* End caps for ranged notes */}
       {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
-        <div
-          key={`end-${c.id}`}
-          style={{ ...markerStyle(markerColor(c)), left: `${((c.end_timestamp_seconds ?? 0) / duration) * 100}%`, opacity: 0.85 }}
-          title={`${formatTimestamp(c.timestamp_seconds!)} – ${formatTimestamp(c.end_timestamp_seconds!)} — ${c.comment.slice(0, 40)}`}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scaleY(1.2)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%)'; }}
-          onClick={(e) => { e.stopPropagation(); seekTo(c.end_timestamp_seconds!); }}
-        />
+        <AvatarChip key={`end-${c.id}`} c={c} atSeconds={c.end_timestamp_seconds!} isEnd />
       ))}
     </>
   ) : undefined;
