@@ -11,20 +11,15 @@ import {
   STAGE_FIELDS, computeRates, pct,
   useOutboundMonth, useOutboundYear, EMPTY_COUNTS,
 } from "@/hooks/useOutboundMetrics";
+import { TikTokIcon } from "@/lib/viral-card-utils";
 
 // Admin-only outbound DM funnel tracker, modeled on the "2026 INSTAGRAM DM
 // Metrics Tracker" spreadsheet, generalized per platform. Mobile-first:
 // counts are big tap-steppers behind a live funnel readout; platform tabs
 // carry the real brand glyphs.
 
-// lucide has no TikTok/X — same inline-SVG pattern the canvas nodes use.
-function TikTokIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4h-.19z" />
-    </svg>
-  );
-}
+// TikTok comes from the shared viral-card icon set; lucide has no X logo,
+// so that one stays a local inline SVG.
 function XIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
