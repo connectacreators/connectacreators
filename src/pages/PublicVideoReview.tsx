@@ -293,7 +293,7 @@ export default function PublicVideoReview() {
                     <div className="h-full bg-primary rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
                   </div>
                   {/* Range bracket through the dot centers (chip top 11 + 9 = 20) */}
-                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null).map(c => (
+                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && !c.resolved).map(c => (
                     <div
                       key={`range-${c.id}`}
                       className="review-marker-range absolute rounded-full cursor-pointer"
@@ -307,7 +307,7 @@ export default function PublicVideoReview() {
                     />
                   ))}
                   {/* Frame.io-style avatar chips below the bar (commenter initial) */}
-                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null).map(c => (
+                  {duration > 0 && sortedComments.filter(c => c.timestamp_seconds !== null && !c.resolved).map(c => (
                     <div
                       key={c.id}
                       className="group absolute cursor-pointer"

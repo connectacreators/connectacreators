@@ -710,7 +710,7 @@ export default function VideoReviewModal({
   const progressOverlay = duration > 0 ? (
     <>
       {/* Range bracket — a thin rounded line just under the bar, start→end */}
-      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => (
+      {visibleComments.filter(c => c.timestamp_seconds !== null && c.end_timestamp_seconds !== null && !c.resolved && (isAdmin || !c.internal_only)).map(c => (
         <div
           key={`range-${c.id}`}
           className="review-marker-range"
@@ -729,7 +729,7 @@ export default function VideoReviewModal({
       ))}
       {/* One avatar chip per note, at its start. For ranged notes the line
           alone marks the end — no end-cap dot. */}
-      {visibleComments.filter(c => c.timestamp_seconds !== null && (isAdmin || !c.internal_only)).map(c => chip(c, c.timestamp_seconds!, false))}
+      {visibleComments.filter(c => c.timestamp_seconds !== null && !c.resolved && (isAdmin || !c.internal_only)).map(c => chip(c, c.timestamp_seconds!, false))}
     </>
   ) : undefined;
 
