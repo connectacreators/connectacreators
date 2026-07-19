@@ -547,7 +547,7 @@ function VaultContent({
 
       {/* ── Toolbar: client filter (master) · search · sort · stats ── */}
       {entries.length > 0 && (
-        <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <div className="flex items-center gap-2 pb-5 mb-7 border-b border-border/40 flex-wrap">
           {isMasterMode && allClients && allClients.length > 0 && (
             <Select value={filterClientId ?? "__all__"} onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}>
               <SelectTrigger className="h-8 text-xs w-44 border-border/60 bg-muted/30 shrink-0"><SelectValue /></SelectTrigger>
