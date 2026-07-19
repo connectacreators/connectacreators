@@ -15,6 +15,7 @@ import {
   Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, Sparkles, X,
   TrendingUp, Eye, Zap, Flame, Play, ExternalLink,
   Folder, FolderPlus, Search, MoreHorizontal, Pencil, Check, ChevronRight, FolderInput,
+  CheckCircle2, RotateCcw, ScanSearch,
 } from "lucide-react";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -835,6 +836,9 @@ function SavedVideoCard({
   const navigate = useNavigate();
   const video = entry.viral_video;
   const [imgError, setImgError] = useState(false);
+  const [localStatus, setLocalStatus] = useState(entry.viral_video?.analysis_status);
+  const [analyzing, setAnalyzing] = useState(false);
+  useEffect(() => { setLocalStatus(entry.viral_video?.analysis_status); }, [entry.viral_video?.analysis_status]);
   // Draggable onto folder chips. Cards stay clickable — dnd-kit's 8px
   // activation distance means a click never starts a drag.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `card-${entry.id}` });
@@ -859,6 +863,37 @@ function SavedVideoCard({
 
   const PlatformIcon = PLATFORM_ICON[video.platform] ?? PLATFORM_ICON.instagram;
   const outlierColor = getOutlierColor(video.outlier_score);
+
+  const goDetail = () => navigate(`/viral-today/video/${video.id}`);
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const s = localStatus ?? video.analysis_status;
+    if (s === "analyzed" || !video.video_url) goDetail();
+    else window.open(video.video_url, "_blank", "noopener,noreferrer");
+  };
+  const handleAnalyze = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAnalyzing(true);
+    setLocalStatus("analyzing");
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-viral-video-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ viral_video_id: video.id }),
+      });
+      if (res.status === 402) { setLocalStatus(video.analysis_status); toast.error(tr({ en: "Not enough credits to analyze", es: "Créditos insuficientes" }, language)); return; }
+      if (res.status === 409) return; // already in flight — realtime will update
+      if (!res.ok) { setLocalStatus(video.analysis_status); const err = await res.json().catch(() => ({})); throw new Error(err.message || err.error || `HTTP ${res.status}`); }
+      toast.success(tr({ en: "Analyzing…", es: "Analizando…" }, language));
+      window.dispatchEvent(new Event("credits-updated"));
+    } catch (err: any) {
+      toast.error(err.message || "Analyze failed");
+      setLocalStatus(video.analysis_status);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   return (
     <div
@@ -909,93 +944,87 @@ function SavedVideoCard({
           </div>
         )}
 
-        {/* Top right: move-to-folder · open original · unsave */}
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-          {folders && onMoveToFolder && (
+        {/* Top-right: unsave (hover corner, like Viral Today's card corner) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleUnsave(entry.id); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-red-600/80 transition-colors opacity-0 group-hover:opacity-100"
+          title={tr({ en: "Remove from Vault", es: "Eliminar del Vault" }, language)}
+        >
+          <Trash2 className="w-3 h-3 text-white/80" />
+        </button>
+
+        {/* Bottom glass action bar — folder · play · analyze (mirrors Viral Today). */}
+        <div
+          className="absolute bottom-0 inset-x-0 z-10 flex bg-black/40 backdrop-blur-md opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-200"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {/* Move to folder (replaces the Star segment) */}
+          {folders && onMoveToFolder ? (
             <Popover>
               <PopoverTrigger asChild>
-                <button
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
-                  title={tr({ en: "Move to folder", es: "Mover a carpeta" }, language)}
-                >
-                  <FolderInput className="w-3 h-3 text-white/80" />
+                <button className="flex-1 h-9 flex items-center justify-center text-white/90 hover:bg-white/10 transition-colors" title={tr({ en: "Move to folder", es: "Mover a carpeta" }, language)}>
+                  <FolderInput className="w-4 h-4" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-1 max-h-64 overflow-y-auto" align="end" onClick={(e) => e.stopPropagation()}>
+              <PopoverContent className="w-48 p-1 max-h-64 overflow-y-auto" align="start" onClick={(e) => e.stopPropagation()}>
                 <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{tr({ en: "Move to", es: "Mover a" }, language)}</div>
-                {folders.length === 0 && (
-                  <div className="px-2 py-2 text-xs text-muted-foreground">{tr({ en: "No folders yet", es: "Sin carpetas" }, language)}</div>
-                )}
+                {folders.length === 0 && (<div className="px-2 py-2 text-xs text-muted-foreground">{tr({ en: "No folders yet", es: "Sin carpetas" }, language)}</div>)}
                 {folders.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => onMoveToFolder([entry.id], f.id)}
-                    className={cn("w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left hover:bg-muted transition-colors",
-                      entry.folder_id === f.id ? "text-primary" : "text-foreground")}
-                  >
-                    <Folder className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate flex-1">{f.name}</span>
-                    {entry.folder_id === f.id && <Check className="w-3 h-3 shrink-0" />}
+                  <button key={f.id} onClick={() => onMoveToFolder([entry.id], f.id)}
+                    className={cn("w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left hover:bg-muted transition-colors", entry.folder_id === f.id ? "text-primary" : "text-foreground")}>
+                    <Folder className="w-3.5 h-3.5 shrink-0" /><span className="truncate flex-1">{f.name}</span>{entry.folder_id === f.id && <Check className="w-3 h-3 shrink-0" />}
                   </button>
                 ))}
                 {entry.folder_id && (
-                  <button
-                    onClick={() => onMoveToFolder([entry.id], null)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left text-muted-foreground hover:bg-muted transition-colors mt-0.5 border-t border-border/40"
-                  >
-                    <X className="w-3.5 h-3.5 shrink-0" />
-                    {tr({ en: "Remove from folder", es: "Quitar de carpeta" }, language)}
+                  <button onClick={() => onMoveToFolder([entry.id], null)} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left text-muted-foreground hover:bg-muted transition-colors mt-0.5 border-t border-border/40">
+                    <X className="w-3.5 h-3.5 shrink-0" />{tr({ en: "Remove from folder", es: "Quitar de carpeta" }, language)}
                   </button>
                 )}
               </PopoverContent>
             </Popover>
+          ) : (
+            video.video_url && (
+              <a href={video.video_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                className="flex-1 h-9 flex items-center justify-center text-white/90 hover:bg-white/10 transition-colors" title={tr({ en: "Open original", es: "Abrir original" }, language)}>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )
           )}
-          {video.video_url && (
-            <a
-              href={video.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors"
-              title={tr({ en: "Open original", es: "Abrir original" }, language)}
-            >
-              <ExternalLink className="w-3 h-3 text-white/80" />
-            </a>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); handleUnsave(entry.id); }}
-            className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-red-600/80 transition-colors opacity-0 group-hover:opacity-100"
-            title={tr({ en: "Remove from Vault", es: "Eliminar del Vault" }, language)}
-          >
-            <Trash2 className="w-3 h-3 text-white/80" />
+
+          {/* Play — analyzed: in-app detail; otherwise the original post */}
+          <button onClick={handlePlay}
+            className="flex-1 h-9 flex items-center justify-center border-x border-white/10 text-white/90 hover:bg-white/10 transition-colors"
+            title={(localStatus ?? video.analysis_status) === "analyzed" ? tr({ en: "Play breakdown", es: "Ver desglose" }, language) : tr({ en: "Open original post", es: "Abrir publicación" }, language)}>
+            <Play className="w-4 h-4 fill-current" />
           </button>
-        </div>
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
-          <Play className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-200" />
-        </div>
-
-        {/* Bottom-right: analyze status badge */}
-        <div className="absolute bottom-2 right-2 z-10">
-          {video.analysis_status === "analyzed" && (
-            <div
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground text-[10px] font-medium border border-primary/30"
-              title={tr({ en: "Analyzed", es: "Analizado" }, language)}
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>{tr({ en: "Analyzed", es: "Analizado" }, language)}</span>
-            </div>
-          )}
-          {video.analysis_status === "analyzing" && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium border border-white/10">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>{tr({ en: "Analyzing", es: "Analizando" }, language)}</span>
-            </div>
-          )}
+          {/* Analyze — filled segment, status-colored */}
+          {(() => {
+            const status = localStatus ?? video.analysis_status;
+            const seg = "flex-1 h-9 flex items-center justify-center text-white transition-colors disabled:opacity-60";
+            if (status === "analyzed") return (
+              <button onClick={(e) => { e.stopPropagation(); goDetail(); }} className={cn(seg, "bg-emerald-500/90 hover:bg-emerald-500")} title={tr({ en: "Analyzed — open breakdown", es: "Analizado — ver desglose" }, language)}>
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            );
+            if (status === "analyzing") return (
+              <div className={cn(seg, "cursor-default")} style={{ background: "hsl(var(--aqua) / 0.85)" }} title={tr({ en: "Analyzing…", es: "Analizando…" }, language)}>
+                <Loader2 className="w-4 h-4 animate-spin" />
+              </div>
+            );
+            if (status === "failed") return (
+              <button onClick={handleAnalyze} disabled={analyzing} className={cn(seg, "bg-red-500/90 hover:bg-red-500")} title={tr({ en: "Analysis failed — retry", es: "Falló — reintentar" }, language)}>
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            );
+            return (
+              <button onClick={handleAnalyze} disabled={analyzing} className={cn(seg, "hover:brightness-110")} style={{ background: "hsl(var(--aqua) / 0.9)" }} title={tr({ en: "Analyze video", es: "Analizar video" }, language)}>
+                <ScanSearch className="w-4 h-4" />
+              </button>
+            );
+          })()}
         </div>
       </div>
 
