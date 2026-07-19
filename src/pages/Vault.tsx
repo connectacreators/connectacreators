@@ -548,7 +548,7 @@ function VaultContent({
 
       {/* ── Toolbar: client filter (master) · search · sort · stats ── */}
       {entries.length > 0 && (
-        <div className="flex items-center gap-2 pb-5 mb-7 border-b border-border/40 flex-wrap">
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
           {isMasterMode && allClients && allClients.length > 0 && (
             <Select value={filterClientId ?? "__all__"} onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}>
               <SelectTrigger className="h-8 text-xs w-44 border-border/60 bg-muted/30 shrink-0"><SelectValue /></SelectTrigger>
@@ -658,7 +658,10 @@ function VaultContent({
         </div>
       )}
 
-      <div className="space-y-6">
+      {/* Divider sits on the grid with padding-top (padding never collapses,
+          so the gap between the line and the cards is always visible). Only
+          when there are entries — the empty state shouldn't get a stray line. */}
+      <div className={cn("space-y-6", entries.length > 0 && "pt-7 border-t border-border/40")}>
         {/* ── Entry list ── */}
         {loadingEntries ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
