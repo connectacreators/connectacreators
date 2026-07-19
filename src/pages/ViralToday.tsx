@@ -1837,6 +1837,17 @@ export default function ViralToday() {
         const e = parseFloat(opts?.engagement ?? filterEngagement);
         if (e > 0) q = q.gte("engagement_rate", e);
 
+        // Single-token search (a channel handle or one hashtag) is pushed to
+        // Postgres so it matches ALL of a channel's videos, not just the ones
+        // inside the recently-scraped window the feed loads. Multi-word queries
+        // stay client-side (the fuzzy all-words-present match below), so this
+        // never narrows a phrase search to an exact-substring match.
+        const sTok = debouncedSearch.trim();
+        if (sTok && !/\s/.test(sTok)) {
+          const esc = sTok.replace(/[%,()*]/g, "");
+          if (esc) q = q.or(`channel_username.ilike.%${esc}%,caption.ilike.%${esc}%`);
+        }
+
         q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         const { data, error } = await q;
 
@@ -1863,7 +1874,7 @@ export default function ViralToday() {
     } finally {
       setLoadingVideos(false);
     }
-  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement, user]);
+  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement, debouncedSearch, user]);
 
   // Mount-only: load channels + videos once when user becomes available
   const didMount = useRef(false);
@@ -1952,7 +1963,9 @@ export default function ViralToday() {
       if (filterGenRef.current === gen) fetchVideos();
     }, 300);
     return () => clearTimeout(timer);
-  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement]); // eslint-disable-line react-hooks/exhaustive-deps
+    // debouncedSearch included so a single-token (channel/hashtag) search
+    // refetches server-side and clearing it restores the full feed.
+  }, [filterPlatform, filterDate, filterOutlier, filterViews, filterEngagement, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch user interactions for feed algorithm ────────────────────────────
   useEffect(() => {
