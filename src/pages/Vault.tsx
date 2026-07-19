@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -14,10 +14,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Loader2, ArrowLeft, Plus, Trash2, Archive, Link2, Sparkles, X,
   TrendingUp, Eye, Zap, Flame, Play, ExternalLink,
+  Folder, FolderPlus, Search, MoreHorizontal, Pencil, Check, ChevronRight, FolderInput,
 } from "lucide-react";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useVaultFolders, moveSavedToFolder, type VaultFolder } from "@/hooks/useVaultFolders";
+import {
+  DndContext, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable, useDraggable,
+  pointerWithin, type DragEndEvent,
+} from "@dnd-kit/core";
 import {
   fmtViews,
   fmtOutlier,
@@ -54,6 +61,7 @@ interface SavedEntry {
   id: string;
   client_id: string;
   saved_at: string;
+  folder_id: string | null;
   viral_video: ViralVideoLite | null;
   clients?: { id: string; name: string } | null;
 }
@@ -115,7 +123,7 @@ export default function Vault() {
     if (isMasterMode) {
       let query = supabase
         .from("saved_videos")
-        .select("id, client_id, saved_at, viral_video:viral_videos(id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at, analysis_status), clients(id, name)")
+        .select("id, client_id, saved_at, folder_id, viral_video:viral_videos(id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at, analysis_status), clients(id, name)")
         .order("saved_at", { ascending: false });
       if (filterClientId) query = query.eq("client_id", filterClientId);
       const { data, error } = await query;
@@ -127,7 +135,7 @@ export default function Vault() {
     if (!resolvedClientId) { setLoadingEntries(false); return; }
     const { data, error } = await supabase
       .from("saved_videos")
-      .select("id, client_id, saved_at, viral_video:viral_videos(id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at, analysis_status)")
+      .select("id, client_id, saved_at, folder_id, viral_video:viral_videos(id, channel_username, platform, video_url, thumbnail_url, caption, views_count, likes_count, comments_count, engagement_rate, outlier_score, posted_at, scraped_at, analysis_status)")
       .eq("client_id", resolvedClientId)
       .order("saved_at", { ascending: false });
     if (error) console.error(error);
@@ -208,6 +216,25 @@ export default function Vault() {
     toast.success(tr({ en: "Removed from Vault", es: "Eliminado del Vault" }, language));
   };
 
+  // Folders are per-client — only available once a specific client is resolved
+  // (a folder needs an owner; master "All Clients" shows a flat grid).
+  const folderClientId = resolvedClientId ?? null;
+  const { folders, createFolder, renameFolder, deleteFolder } = useVaultFolders(folderClientId);
+
+  const handleMoveToFolder = useCallback(async (savedIds: string[], folderId: string | null) => {
+    setEntries((prev) => prev.map((e) => (savedIds.includes(e.id) ? { ...e, folder_id: folderId } : e)));
+    await moveSavedToFolder(savedIds, folderId);
+  }, []);
+
+  const folderProps = {
+    foldersEnabled: !!folderClientId,
+    folders,
+    onCreateFolder: createFolder,
+    onRenameFolder: renameFolder,
+    onDeleteFolder: deleteFolder,
+    onMoveToFolder: handleMoveToFolder,
+  };
+
   if (authLoading || clientsLoading) {
     return (
       <PageTransition className="flex-1 flex flex-col min-h-screen">
@@ -243,6 +270,7 @@ export default function Vault() {
             allClients={allClients}
             filterClientId={filterClientId}
             onFilterClient={setFilterClientId}
+            {...folderProps}
           />
         </div>
       </PageTransition>
@@ -278,6 +306,7 @@ export default function Vault() {
           handlePasteUrl={handlePasteUrl}
           handleUnsave={handleUnsave}
           language={language}
+          {...folderProps}
         />
       </div>
     </PageTransition>
@@ -285,6 +314,57 @@ export default function Vault() {
 }
 
 // ===================== VAULT CONTENT (shared) =====================
+
+// ===================== FOLDER UI =====================
+
+// Drop target wrapper — highlights when a video card hovers over it.
+function DroppableVaultFolder({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `vfolder-${id}` });
+  return (
+    <div ref={setNodeRef} className={cn("rounded-lg transition-all", isOver && "ring-2 ring-primary ring-offset-1 ring-offset-background scale-[1.03]")}>
+      {children}
+    </div>
+  );
+}
+
+function FolderChip({ label, count, active, onOpen, menu }: {
+  label: string; count: number; active: boolean; onOpen: () => void; menu?: React.ReactNode;
+}) {
+  return (
+    <div className={cn("group flex items-center gap-1.5 h-8 pl-2.5 pr-1.5 rounded-lg border text-xs font-medium transition-colors",
+      active ? "border-primary/60 bg-primary/10 text-foreground" : "border-border/60 bg-muted/30 text-muted-foreground hover:text-foreground hover:border-border")}>
+      <button onClick={onOpen} className="flex items-center gap-1.5">
+        <Folder className={cn("w-3.5 h-3.5", active ? "text-primary" : "")} />
+        <span className="max-w-[130px] truncate">{label}</span>
+        <span className="text-[10px] tabular-nums opacity-60">{count}</span>
+      </button>
+      {menu}
+    </div>
+  );
+}
+
+function FolderChipMenu({ onRename, onDelete, labels }: {
+  onRename: () => void; onDelete: () => void; labels: { rename: string; del: string };
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button onClick={(e) => e.stopPropagation()} className="p-0.5 rounded opacity-50 hover:opacity-100 transition-opacity" aria-label="Folder menu">
+          <MoreHorizontal className="w-3.5 h-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-1" align="end" onClick={(e) => e.stopPropagation()}>
+        <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-foreground hover:bg-muted transition-colors" onClick={() => { setOpen(false); onRename(); }}>
+          <Pencil className="w-4 h-4" /> {labels.rename}
+        </button>
+        <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-destructive hover:bg-destructive/10 transition-colors" onClick={() => { setOpen(false); onDelete(); }}>
+          <Trash2 className="w-4 h-4" /> {labels.del}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface VaultContentProps {
   entries: SavedEntry[];
@@ -302,13 +382,62 @@ interface VaultContentProps {
   allClients?: { id: string; name: string }[];
   filterClientId?: string | null;
   onFilterClient?: (id: string | null) => void;
+  // Folders
+  foldersEnabled: boolean;
+  folders: VaultFolder[];
+  onCreateFolder: (name: string) => Promise<string | null>;
+  onRenameFolder: (id: string, name: string) => void;
+  onDeleteFolder: (id: string) => void;
+  onMoveToFolder: (savedIds: string[], folderId: string | null) => void;
 }
+
+type SortKey = "recent" | "views" | "outlier";
 
 function VaultContent({
   entries, loadingEntries, hasClientId, showCreate, setShowCreate,
   newUrl, setNewUrl, creating, handlePasteUrl, handleUnsave,
   language, isMasterMode, allClients, filterClientId, onFilterClient,
+  foldersEnabled, folders, onCreateFolder, onRenameFolder, onDeleteFolder, onMoveToFolder,
 }: VaultContentProps) {
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("recent");
+  // null = All, "unfiled" = no folder, else a folder id.
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [folderRenameValue, setFolderRenameValue] = useState("");
+  // Select-all runs once per rename session (see the Scripts fix).
+  const renameSelectedOnce = useRef<string | null>(null);
+
+  // Per-folder counts (of non-stale saves).
+  const folderCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    let unfiled = 0;
+    for (const e of entries) {
+      if (e.folder_id) m.set(e.folder_id, (m.get(e.folder_id) ?? 0) + 1);
+      else unfiled++;
+    }
+    return { m, unfiled };
+  }, [entries]);
+
+  // Folder filter → search → sort.
+  const visibleEntries = useMemo(() => {
+    let list = entries;
+    if (activeFolder === "unfiled") list = list.filter((e) => !e.folder_id);
+    else if (activeFolder) list = list.filter((e) => e.folder_id === activeFolder);
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter((e) => {
+      const v = e.viral_video;
+      return (v?.caption?.toLowerCase().includes(q) || v?.channel_username?.toLowerCase().includes(q));
+    });
+    const sorted = [...list];
+    if (sort === "views") sorted.sort((a, b) => (b.viral_video?.views_count ?? 0) - (a.viral_video?.views_count ?? 0));
+    else if (sort === "outlier") sorted.sort((a, b) => (b.viral_video?.outlier_score ?? 0) - (a.viral_video?.outlier_score ?? 0));
+    // "recent" keeps the saved_at DESC order from the query.
+    return sorted;
+  }, [entries, activeFolder, search, sort]);
+
   const stats = useMemo(() => {
     let analyzed = 0, pending = 0;
     entries.forEach((e) => {
@@ -318,6 +447,42 @@ function VaultContent({
     });
     return { saved: entries.length, analyzed, pending };
   }, [entries]);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
+  );
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const overId = String(over.id);
+    const savedId = String(active.id).replace("card-", "");
+    if (overId.startsWith("vfolder-")) {
+      const folderId = overId.replace("vfolder-", "");
+      onMoveToFolder([savedId], folderId === "unfiled" ? null : folderId);
+    }
+  };
+
+  const commitCreateFolder = async () => {
+    const name = newFolderName.trim();
+    setCreatingFolder(false);
+    setNewFolderName("");
+    if (name) await onCreateFolder(name);
+  };
+  const startRename = (f: VaultFolder) => {
+    renameSelectedOnce.current = null;
+    setFolderRenameValue(f.name);
+    setRenamingFolderId(f.id);
+  };
+  const commitRename = () => {
+    const id = renamingFolderId;
+    setRenamingFolderId(null);
+    if (id && folderRenameValue.trim()) onRenameFolder(id, folderRenameValue.trim());
+  };
+
+  const activeFolderName = activeFolder && activeFolder !== "unfiled"
+    ? folders.find((f) => f.id === activeFolder)?.name
+    : activeFolder === "unfiled" ? tr({ en: "Unfiled", es: "Sin carpeta" }, language) : null;
 
   const closeDrawer = () => { setShowCreate(false); setNewUrl(""); };
 
@@ -352,60 +517,143 @@ function VaultContent({
               : tr({ en: "Your saved viral videos", es: "Tus videos virales guardados" }, language)}
           </p>
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          disabled={!hasClientId}
-          onClick={() => setShowCreate(true)}
-          className="h-9 px-4 gap-2 flex-shrink-0"
-          title={isMasterMode && !hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
-        >
-          <Plus className="w-4 h-4" />
-          {tr({ en: "Add by URL", es: "Añadir por URL" }, language)}
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {foldersEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setCreatingFolder(true); setNewFolderName(""); }}
+              className="h-9 px-3 gap-2"
+            >
+              <FolderPlus className="w-4 h-4" />
+              {tr({ en: "New Folder", es: "Nueva Carpeta" }, language)}
+            </Button>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            disabled={!hasClientId}
+            onClick={() => setShowCreate(true)}
+            className="h-9 px-4 gap-2"
+            title={isMasterMode && !hasClientId ? tr({ en: "Select a client filter first", es: "Selecciona un cliente primero" }, language) : undefined}
+          >
+            <Plus className="w-4 h-4" />
+            {tr({ en: "Add by URL", es: "Añadir por URL" }, language)}
+          </Button>
+        </div>
       </div>
 
-      {/* ── Stats bar ── */}
+      <DndContext sensors={dndSensors} collisionDetection={pointerWithin} onDragEnd={onDragEnd}>
+
+      {/* ── Toolbar: client filter (master) · search · sort · stats ── */}
       {entries.length > 0 && (
-        <div className="flex gap-8 py-4 mb-6 border-b border-border/40">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Saved", es: "Guardados" }, language)}</span>
-            <span className="text-foreground font-semibold text-sm ml-1.5 tabular-nums">{stats.saved}</span>
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          {isMasterMode && allClients && allClients.length > 0 && (
+            <Select value={filterClientId ?? "__all__"} onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}>
+              <SelectTrigger className="h-8 text-xs w-44 border-border/60 bg-muted/30 shrink-0"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{tr({ en: "All Clients", es: "Todos los Clientes" }, language)}</SelectItem>
+                {allClients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative flex-1 min-w-[160px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder={tr({ en: "Search saved videos…", es: "Buscar videos…" }, language)}
+              className="w-full h-8 pl-9 pr-8 bg-input border border-border/60 rounded-lg text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2"><X className="w-3 h-3 text-muted-foreground" /></button>
+            )}
           </div>
-          <div>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Analyzed", es: "Analizados" }, language)}</span>
-            <span className="text-primary font-semibold text-sm ml-1.5 tabular-nums">{stats.analyzed}</span>
-          </div>
-          <div>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{tr({ en: "Pending", es: "Pendientes" }, language)}</span>
-            <span className="text-accent font-semibold text-sm ml-1.5 tabular-nums">{stats.pending}</span>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <SelectTrigger className="h-8 text-xs w-40 border-border/60 bg-muted/30 shrink-0"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">{tr({ en: "Recently saved", es: "Guardado reciente" }, language)}</SelectItem>
+              <SelectItem value="views">{tr({ en: "Most views", es: "Más vistas" }, language)}</SelectItem>
+              <SelectItem value="outlier">{tr({ en: "Highest outlier", es: "Mayor outlier" }, language)}</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-4 text-[11px] text-muted-foreground shrink-0">
+            <span><span className="text-foreground font-semibold tabular-nums">{stats.saved}</span> {tr({ en: "saved", es: "guardados" }, language)}</span>
+            <span><span className="text-primary font-semibold tabular-nums">{stats.analyzed}</span> {tr({ en: "analyzed", es: "analizados" }, language)}</span>
           </div>
         </div>
       )}
 
-      {/* ── Master mode: client filter dropdown ── */}
-      {isMasterMode && allClients && allClients.length > 0 && (
-        <div className="flex items-center gap-3 mb-8">
-          <span className="text-xs text-muted-foreground font-medium shrink-0">Filter:</span>
-          <Select
-            value={filterClientId ?? "__all__"}
-            onValueChange={(v) => onFilterClient?.(v === "__all__" ? null : v)}
-          >
-            <SelectTrigger className="h-8 text-xs w-48 border-border/60 bg-muted/30">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">{tr({ en: "All Clients", es: "Todos los Clientes" }, language)}</SelectItem>
-              {allClients.map(client => (
-                <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filterClientId && (
-            <button onClick={() => onFilterClient?.(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Clear
-            </button>
+      {/* ── Folder row ── */}
+      {foldersEnabled && (folders.length > 0 || creatingFolder) && (
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <FolderChip
+            label={tr({ en: "All", es: "Todos" }, language)} count={entries.length}
+            active={activeFolder === null} onOpen={() => setActiveFolder(null)}
+          />
+          {folderCounts.unfiled > 0 && (
+            <DroppableVaultFolder id="unfiled">
+              <FolderChip
+                label={tr({ en: "Unfiled", es: "Sin carpeta" }, language)} count={folderCounts.unfiled}
+                active={activeFolder === "unfiled"} onOpen={() => setActiveFolder("unfiled")}
+              />
+            </DroppableVaultFolder>
           )}
+          {folders.map((f) => (
+            <DroppableVaultFolder key={f.id} id={f.id}>
+              {renamingFolderId === f.id ? (
+                <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-primary/50 bg-card">
+                  <Folder className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    autoFocus value={folderRenameValue}
+                    onChange={(e) => setFolderRenameValue(e.target.value)}
+                    onFocus={(e) => { if (renameSelectedOnce.current === f.id) return; renameSelectedOnce.current = f.id; e.currentTarget.select(); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitRename(); } if (e.key === "Escape") setRenamingFolderId(null); }}
+                    onBlur={commitRename}
+                    className="w-28 bg-transparent text-xs text-foreground focus:outline-none"
+                  />
+                </div>
+              ) : (
+                <FolderChip
+                  label={f.name} count={folderCounts.m.get(f.id) ?? 0}
+                  active={activeFolder === f.id} onOpen={() => setActiveFolder(f.id)}
+                  menu={
+                    <FolderChipMenu
+                      onRename={() => startRename(f)}
+                      onDelete={() => {
+                        if (confirm(tr({ en: `Delete folder "${f.name}"? Its videos stay in the Vault.`, es: `¿Eliminar la carpeta "${f.name}"? Sus videos permanecen en el Vault.` }, language))) {
+                          if (activeFolder === f.id) setActiveFolder(null);
+                          onDeleteFolder(f.id);
+                        }
+                      }}
+                      labels={{ rename: tr({ en: "Rename", es: "Renombrar" }, language), del: tr({ en: "Delete", es: "Eliminar" }, language) }}
+                    />
+                  }
+                />
+              )}
+            </DroppableVaultFolder>
+          ))}
+          {creatingFolder && (
+            <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-primary/50 bg-card">
+              <Folder className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <input
+                autoFocus value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitCreateFolder(); } if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); } }}
+                onBlur={commitCreateFolder}
+                placeholder={tr({ en: "Folder name", es: "Nombre" }, language)}
+                className="w-28 bg-transparent text-xs text-foreground placeholder-muted-foreground focus:outline-none"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Breadcrumb when inside a folder ── */}
+      {activeFolderName && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
+          <button onClick={() => setActiveFolder(null)} className="hover:text-foreground transition-colors">Vault</button>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-foreground font-medium">{activeFolderName}</span>
         </div>
       )}
 
@@ -432,12 +680,7 @@ function VaultContent({
                     {tr({ en: "Save a video from Viral Today, the canvas, or paste a URL to start.", es: "Guarda un video desde Viral Today, el canvas, o pega una URL para empezar." }, language)}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 rounded-xl mx-auto"
-                  onClick={() => setShowCreate(true)}
-                >
+                <Button variant="outline" size="sm" className="gap-2 rounded-xl mx-auto" onClick={() => setShowCreate(true)}>
                   <Plus className="w-4 h-4" />
                   {tr({ en: "Add by URL", es: "Añadir por URL" }, language)}
                 </Button>
@@ -453,20 +696,29 @@ function VaultContent({
               </div>
             )}
           </div>
+        ) : visibleEntries.length === 0 ? (
+          <div className="py-16 text-center text-sm text-muted-foreground">
+            {search
+              ? tr({ en: "No saved videos match your search.", es: "Ningún video coincide con tu búsqueda." }, language)
+              : tr({ en: "This folder is empty. Drag videos here to add them.", es: "Esta carpeta está vacía. Arrastra videos aquí." }, language)}
+          </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {entries.map((entry) => (
+            {visibleEntries.map((entry) => (
               <SavedVideoCard
                 key={entry.id}
                 entry={entry}
                 language={language}
                 handleUnsave={handleUnsave}
                 clientName={isMasterMode ? entry.clients?.name : undefined}
+                folders={foldersEnabled ? folders : undefined}
+                onMoveToFolder={onMoveToFolder}
               />
             ))}
           </div>
         )}
       </div>
+      </DndContext>
 
       {/* ── Slide-in Create Drawer ── */}
       <div
@@ -570,15 +822,22 @@ function SavedVideoCard({
   language,
   handleUnsave,
   clientName,
+  folders,
+  onMoveToFolder,
 }: {
   entry: SavedEntry;
   language: "en" | "es";
   handleUnsave: (id: string) => void;
   clientName?: string;
+  folders?: VaultFolder[];
+  onMoveToFolder?: (savedIds: string[], folderId: string | null) => void;
 }) {
   const navigate = useNavigate();
   const video = entry.viral_video;
   const [imgError, setImgError] = useState(false);
+  // Draggable onto folder chips. Cards stay clickable — dnd-kit's 8px
+  // activation distance means a click never starts a drag.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `card-${entry.id}` });
 
   // Stale row (viral_video deleted) — render a degraded card with just unsave.
   if (!video) {
@@ -602,7 +861,13 @@ function SavedVideoCard({
   const outlierColor = getOutlierColor(video.outlier_score);
 
   return (
-    <div className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-border/80 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{ opacity: isDragging ? 0.4 : 1 }}
+      className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-border/80 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+    >
       <div
         onClick={() => navigate(`/viral-today/video/${video.id}`)}
         className="block relative aspect-[4/5] bg-muted overflow-hidden cursor-pointer"
@@ -644,14 +909,56 @@ function SavedVideoCard({
           </div>
         )}
 
-        {/* Top right: open original + unsave */}
+        {/* Top right: move-to-folder · open original · unsave */}
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+          {folders && onMoveToFolder && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
+                  title={tr({ en: "Move to folder", es: "Mover a carpeta" }, language)}
+                >
+                  <FolderInput className="w-3 h-3 text-white/80" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-1 max-h-64 overflow-y-auto" align="end" onClick={(e) => e.stopPropagation()}>
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{tr({ en: "Move to", es: "Mover a" }, language)}</div>
+                {folders.length === 0 && (
+                  <div className="px-2 py-2 text-xs text-muted-foreground">{tr({ en: "No folders yet", es: "Sin carpetas" }, language)}</div>
+                )}
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => onMoveToFolder([entry.id], f.id)}
+                    className={cn("w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left hover:bg-muted transition-colors",
+                      entry.folder_id === f.id ? "text-primary" : "text-foreground")}
+                  >
+                    <Folder className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate flex-1">{f.name}</span>
+                    {entry.folder_id === f.id && <Check className="w-3 h-3 shrink-0" />}
+                  </button>
+                ))}
+                {entry.folder_id && (
+                  <button
+                    onClick={() => onMoveToFolder([entry.id], null)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-left text-muted-foreground hover:bg-muted transition-colors mt-0.5 border-t border-border/40"
+                  >
+                    <X className="w-3.5 h-3.5 shrink-0" />
+                    {tr({ en: "Remove from folder", es: "Quitar de carpeta" }, language)}
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          )}
           {video.video_url && (
             <a
               href={video.video_url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               className="w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors"
               title={tr({ en: "Open original", es: "Abrir original" }, language)}
             >
