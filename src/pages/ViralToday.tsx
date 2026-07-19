@@ -1844,7 +1844,9 @@ export default function ViralToday() {
         // never narrows a phrase search to an exact-substring match.
         const sTok = debouncedSearch.trim();
         if (sTok && !/\s/.test(sTok)) {
-          const esc = sTok.replace(/[%,()*]/g, "");
+          // Strip @/# (handles are stored without @; matches the client-side
+          // normalization) and PostgREST-hostile chars.
+          const esc = sTok.replace(/[@#%,()*]/g, "");
           if (esc) q = q.or(`channel_username.ilike.%${esc}%,caption.ilike.%${esc}%`);
         }
 
