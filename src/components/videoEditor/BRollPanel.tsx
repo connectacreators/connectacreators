@@ -6,6 +6,7 @@
 import { useRef, useState } from "react";
 import type { BRollClip } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
+import { assertUploadAllowed } from "@/lib/storageGuard";
 
 // Default on-screen hold for a still-image b-roll (trimmable on the timeline).
 const IMAGE_DEFAULT_DURATION_MS = 5000;
@@ -48,6 +49,7 @@ export function BRollPanel(props: Props) {
     setError(null);
     setUploading(true);
     try {
+      await assertUploadAllowed(file.size);
       const isImage = file.type.startsWith("image/");
       // Stills have no intrinsic duration — hold them for a default window the
       // user can trim on the timeline. Videos are probed for real duration.

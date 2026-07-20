@@ -6,6 +6,7 @@ import AnimatedDots from "@/components/ui/AnimatedDots";
 import FloatingCredits from "@/components/FloatingCredits";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import NamingModal from "@/components/NamingModal";
+import StorageCapBanner from "@/components/StorageCapBanner";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardLayout() {
@@ -42,6 +43,7 @@ export default function DashboardLayout() {
       )}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {showChrome && <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+        {showChrome && <StorageCapBanner />}
         {/* pb must exceed MobileBottomNav's h-16 so the last element clears it */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-24 lg:pb-0">
           <Outlet />

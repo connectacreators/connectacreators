@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Music } from "@/lib/videoEditor/edl";
 import { supabase } from "@/integrations/supabase/client";
+import { assertUploadAllowed } from "@/lib/storageGuard";
 import { useAudioImport } from "@/hooks/useAudioImport";
 
 type Props = {
@@ -39,6 +40,7 @@ export function MusicPanel({ music, videoEditId, onSet }: Props) {
     setError(null);
     setUploading(true);
     try {
+      await assertUploadAllowed(file.size);
       const safeName = file.name.replace(/[^\w.-]+/g, "-").slice(0, 80);
       const storagePath = `music/${videoEditId}/${Date.now()}-${safeName}`;
       const { error: upErr } = await supabase.storage

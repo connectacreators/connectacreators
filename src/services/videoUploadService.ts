@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import * as tus from 'tus-js-client';
 import { videoService, type UpdateVideoInput } from './videoService';
+import { assertUploadAllowed, invalidateStorageCache } from '@/lib/storageGuard';
 
 const BUCKET = 'footage';
 const FIVE_GB = 5 * 1024 * 1024 * 1024;
@@ -217,6 +218,10 @@ export const videoUploadService = {
     subfolder?: string,
     onAbortReady?: (abort: () => void) => void
   ): Promise<{ storagePath: string; storageUrl: string }> {
+    // Storage guard: refuse the upload if it would push the org past the safety
+    // ceiling (throws a user-facing message; fails open if usage is unreadable).
+    await assertUploadAllowed(file.size);
+
     const storagePath = buildStoragePath(clientId, videoEditId, file.name, subfolder);
 
     // Route by file size
@@ -225,6 +230,7 @@ export const videoUploadService = {
     } else {
       await tusUpload(file, storagePath, onProgress, 6 * 1024 * 1024, onAbortReady);
     }
+    invalidateStorageCache(); // new bytes landed — next guard read is fresh
 
     if (subfolder) {
       // Submission upload: only write file_submission — never overwrite main footage metadata

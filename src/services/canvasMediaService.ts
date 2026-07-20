@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import * as tus from 'tus-js-client';
+import { assertUploadAllowed, invalidateStorageCache } from '@/lib/storageGuard';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -255,12 +256,16 @@ export const canvasMediaService = {
     // 5. Build storage path
     const storagePath = buildStoragePath(user.id, sessionId, nodeId, file.name);
 
-    // 6. Upload — standard for <= 50 MB, TUS for larger
+    // 6. Org-wide storage guard (blocks near the 100 GB quota; fails open)
+    await assertUploadAllowed(file.size);
+
+    // 7. Upload — standard for <= 50 MB, TUS for larger
     if (file.size <= TUS_THRESHOLD) {
       await standardUpload(file, storagePath, onProgress);
     } else {
       await tusUpload(file, storagePath, onProgress);
     }
+    invalidateStorageCache();
 
     // 7. Insert tracking row
     const { data: record, error: insertError } = await supabase

@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StorageUsageTab } from "@/components/usage/StorageUsageTab";
 
 type Range = "7d" | "30d" | "90d" | "all";
 
@@ -185,27 +187,42 @@ export default function ApiUsage() {
 
   return (
     <div className="container mx-auto max-w-7xl space-y-6 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Anthropic API Usage</h1>
-          <p className="text-sm text-muted-foreground">
-            Per-call token + cost ledger across every edge function calling Claude.
-          </p>
-        </div>
-        <div className="flex gap-1 rounded-md border bg-muted p-1">
-          {(["7d", "30d", "90d", "all"] as const).map(r => (
-            <Button
-              key={r}
-              variant={range === r ? "default" : "ghost"}
-              size="sm"
-              className="h-7 px-3"
-              onClick={() => setRange(r)}
-            >
-              {r === "all" ? "All time" : `Last ${r}`}
-            </Button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold">Usage</h1>
+        <p className="text-sm text-muted-foreground">
+          AI spend and live Supabase storage.
+        </p>
       </div>
+
+      <Tabs defaultValue="ai" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="ai">AI Spend</TabsTrigger>
+          <TabsTrigger value="storage">Storage</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="storage" className="mt-2">
+          <StorageUsageTab />
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Per-call token + cost ledger across every edge function calling Claude.
+            </p>
+            <div className="flex gap-1 rounded-md border bg-muted p-1">
+              {(["7d", "30d", "90d", "all"] as const).map(r => (
+                <Button
+                  key={r}
+                  variant={range === r ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 px-3"
+                  onClick={() => setRange(r)}
+                >
+                  {r === "all" ? "All time" : `Last ${r}`}
+                </Button>
+              ))}
+            </div>
+          </div>
 
       {error && (
         <div className="rounded border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -285,6 +302,8 @@ export default function ApiUsage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

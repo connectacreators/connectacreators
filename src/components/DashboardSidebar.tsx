@@ -178,7 +178,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: L('Business', 'Negocio') },
         { label: L("Finances", "Finanzas"), icon: DollarSign, path: "/finances" },
         { label: "DM Outbound", icon: Send, path: "/outbound" },
-        { label: L("API Usage", "Uso de API"), icon: BarChart3, path: "/api-usage" },
+        { label: L("Usage", "Uso"), icon: BarChart3, path: "/api-usage" },
         { type: 'group', label: L('Agency', 'Agencia') },
         { label: L("Clients", "Clientes"), icon: Users, path: "/clients" },
         { label: L("Team Members", "Equipo"), icon: Video, path: "/videographers" },
