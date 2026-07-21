@@ -691,7 +691,7 @@ export function AssistantChat({
                         </span>
                       )}
                     </div>
-                    <div className="font-serif text-sm leading-normal tracking-tight">
+                    <div className="font-sans text-sm leading-normal tracking-tight">
                       <MarkdownText text={msg.content} tone={avatarTone} />
                     </div>
                     <button
@@ -720,7 +720,7 @@ export function AssistantChat({
                   <div className="text-foreground min-w-0 flex-1 relative pr-8">
                     {(() => {
                       const deck = parseDeck(msg.content);
-                      if (!deck) return <div className="font-serif text-sm leading-normal tracking-tight"><MarkdownText text={msg.content} tone={avatarTone} /></div>;
+                      if (!deck) return <div className="font-sans text-sm leading-normal tracking-tight"><MarkdownText text={msg.content} tone={avatarTone} /></div>;
                       const alreadyAnswered = visibleMessages
                         .slice(i + 1)
                         .some(
@@ -729,13 +729,13 @@ export function AssistantChat({
                         );
                       if (alreadyAnswered) {
                         return deck.preamble ? (
-                          <div className="font-serif text-sm leading-normal tracking-tight"><MarkdownText text={deck.preamble} tone={avatarTone} /></div>
+                          <div className="font-sans text-sm leading-normal tracking-tight"><MarkdownText text={deck.preamble} tone={avatarTone} /></div>
                         ) : null;
                       }
                       return (
                         <>
                           {deck.preamble && (
-                            <div className="mb-2 font-serif text-sm leading-normal tracking-tight">
+                            <div className="mb-2 font-sans text-sm leading-normal tracking-tight">
                               <MarkdownText text={deck.preamble} tone={avatarTone} />
                             </div>
                           )}
@@ -961,7 +961,7 @@ export function AssistantChat({
                   Preparing questions…
                 </div>
               ) : (
-                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-serif text-sm leading-normal tracking-tight">
+                <div className="text-foreground min-w-0 flex-1 streaming-bubble font-sans text-sm leading-normal tracking-tight">
                   <MarkdownText text={liveText} tone={avatarTone} />
                 </div>
               )}
