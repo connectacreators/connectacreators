@@ -138,6 +138,7 @@ const MediaNode = memo(({ data }: NodeProps) => {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const seekBarRef = useRef<HTMLDivElement | null>(null);
   const isDragging = useRef(false);
+  const [seekHover, setSeekHover] = useState(false);
 
   const formatTime = (s: number) => {
     if (!isFinite(s) || isNaN(s)) return "0:00";
@@ -757,35 +758,40 @@ const MediaNode = memo(({ data }: NodeProps) => {
               <div className="px-3 py-3">
                 {signedUrl ? (
                   <div>
-                    {/* One row: play + bar + speed */}
+                    {/* One row: play + bar + speed — minimal frosted circle + plain
+                        triangle, matching ViralVideoPlayer/VideoNode's play button. */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={togglePlay}
-                        className="nodrag flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center transition-all"
-                        style={{ background: "hsl(var(--honey))", border: "1.5px solid hsl(var(--ink-on-cream))", boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))", color: "hsl(var(--ink-on-cream))" }}
+                        aria-label={playing ? "Pause" : "Play"}
+                        className="nodrag flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center transition-transform active:scale-95"
+                        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", color: "#fff" }}
                       >
-                        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                        {playing ? <Pause className="w-3.5 h-3.5" fill="#fff" /> : <Play className="w-3.5 h-3.5 ml-0.5" fill="#fff" />}
                       </button>
                       {/* Seek bar with drag support */}
                       <div
                         ref={seekBarRef}
-                        className="nodrag flex-1 h-[18px] flex items-center cursor-pointer relative group"
+                        className="nodrag flex-1 h-[14px] flex items-center cursor-pointer relative"
                         onMouseDown={handleSeekMouseDown}
+                        onMouseEnter={() => setSeekHover(true)}
+                        onMouseLeave={() => setSeekHover(false)}
                       >
                         {/* Track */}
-                        <div className="w-full h-[3px] rounded-full bg-[hsl(var(--ink-on-cream) / 0.08)] relative overflow-hidden">
+                        <div className="w-full h-[3px] rounded-full relative overflow-hidden" style={{ background: "hsl(var(--ink-on-cream) / 0.15)" }}>
                           <div
-                            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-none"
-                            style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }}
+                            className="absolute left-0 top-0 h-full rounded-full transition-none"
+                            style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%", background: "hsl(var(--ink-on-cream))" }}
                           />
                         </div>
-                        {/* Thumb */}
+                        {/* Knob — appears on hover/drag, matching ViralVideoPlayer */}
                         <div
-                          className="absolute w-2.5 h-2.5 rounded-full bg-primary transition-transform duration-100 group-hover:scale-125"
+                          className="absolute w-2.5 h-2.5 rounded-full transition-transform duration-100"
                           style={{
                             left: duration ? `${(currentTime / duration) * 100}%` : "0%",
-                            transform: "translateX(-50%)",
-                            boxShadow: "none",
+                            top: "50%",
+                            background: "hsl(var(--ink-on-cream))",
+                            transform: `translate(-50%, -50%) scale(${seekHover || isDragging.current ? 1 : 0})`,
                           }}
                         />
                       </div>
