@@ -1440,7 +1440,10 @@ STEP 2 — Size that exact audience with CURRENT data. Use web search (at most 3
 - Complement with how many people are in that situation (prevalence, population stats, active-user counts, community sizes).
 - Use the MOST RECENT figures you can find (this year or last). Data from 1-2 years ago can be stale — for trend-sensitive topics, confirm people still search for this TODAY. Note the year of each anchor figure.
 
-STEP 3 — Call return_tam exactly once. Be decisive: a well-reasoned order-of-magnitude figure for the exact topic is the goal, not precision. Calibrate the scale: world-scale topics (Messi, the World Cup) reach billions of interested people; a solid mainstream topic tens of millions; only truly universal topics deserve "high".
+STEP 3 — Call return_tam exactly once. This is an ORDER-OF-MAGNITUDE estimate, not a precise count. First bracket it, then commit to ONE figure:
+- tam_low / tam_high: bound the plausible range you're confident the true figure sits between (keep the span to roughly one order of magnitude — tam_high about 2-5x tam_low). This is internal calibration to anchor a stable answer; it is not shown to the user.
+- tam_people: THE single most-likely figure — the best point estimate within that range (its rough midpoint), rounded to ONE significant figure (e.g. for a 5M-20M range, return 10M — never 9.3M or 12.4M). This is the number the user sees, so keep it stable and decisive; two runs on the same script should land on the same round figure.
+Calibrate the scale: world-scale topics (Messi, the World Cup) reach billions of interested people; a solid mainstream topic tens of millions; only truly universal topics deserve "high".
 ${tamLang === "es" ? "Write the audience, reasoning, and breakdown fields entirely in Spanish." : "Write the audience, reasoning, and breakdown fields entirely in English."}`;
 
       const tamUser = `Video topic: "${String(topic).slice(0, 300)}"${
@@ -1459,8 +1462,10 @@ Estimate how many people would find this video relevant and call return_tam.`;
           input_schema: {
             type: "object",
             properties: {
-              tam_people: { type: "number", description: "Estimated number of people who would find this topic relevant (absolute count, e.g. 2400000)" },
-              tam_label: { type: "string", description: "Compact human-readable form of tam_people, e.g. \"2.4M\" or \"85K\"" },
+              tam_low: { type: "number", description: "Low bound of the plausible order-of-magnitude range (absolute people count). Internal calibration — not shown to the user." },
+              tam_high: { type: "number", description: "High bound of the plausible range (absolute people count), roughly 2-5x tam_low. Internal calibration — not shown to the user." },
+              tam_people: { type: "number", description: "THE single most-likely figure the user sees — the best point estimate (rough midpoint of tam_low..tam_high), rounded to ONE significant figure (e.g. 10000000, not 9300000)." },
+              tam_label: { type: "string", description: "Compact human-readable form of tam_people, e.g. \"10M\" or \"85K\"" },
               audience: { type: "string", description: "One SHORT phrase (max ~8 words) naming who these people are, e.g. \"Short-form creators fighting early viewer dropout\"" },
               relevance: { type: "string", enum: ["low", "medium", "high"], description: "Relevance verdict by audience size: low (niche, <5M), medium (5M-200M — most solid topics land here), high (200M+, near-universal topics like the World Cup or Messi)" },
               reasoning: { type: "string", description: "1-2 sentences on how the estimate was derived, citing the key figure(s) found" },
@@ -1470,7 +1475,7 @@ Estimate how many people would find this video relevant and call return_tam.`;
                 description: "2-4 short bullets: each anchor figure found (with where it comes from) and how it narrows down to the final estimate, e.g. \"200M+ active creators globally (Linktree creator report)\"",
               },
             },
-            required: ["tam_people", "tam_label", "audience", "relevance", "reasoning", "breakdown"],
+            required: ["tam_low", "tam_high", "tam_people", "tam_label", "audience", "relevance", "reasoning", "breakdown"],
           },
         },
       ];
@@ -1490,6 +1495,10 @@ Estimate how many people would find this video relevant and call return_tam.`;
           body: JSON.stringify({
             model: "claude-haiku-4-5",
             max_tokens: 2048,
+            // temperature 0: this is an estimate the user re-runs and compares.
+            // Default 1.0 made the same script swing wildly (9M vs 20M) between
+            // runs; 0 keeps the reasoning path — and the figure — stable.
+            temperature: 0,
             system: tamSystem,
             messages: tamMessages,
             tools: tamTools,
@@ -1521,7 +1530,29 @@ Estimate how many people would find this video relevant and call return_tam.`;
         return errorResponse("Could not produce an estimate — please try again.", 502);
       }
 
-      const tamResult = { ...tam, researched_at: new Date().toISOString() };
+      // Snap the displayed figure to ONE significant figure so near-identical
+      // runs (9.2M vs 9.4M) show the same headline number. Belt-and-suspenders
+      // on top of the prompt asking Claude to round; keeps the point estimate
+      // the user sees stable and honest about its precision.
+      const round1sig = (n: number): number => {
+        if (!Number.isFinite(n) || n <= 0) return n;
+        const mag = Math.pow(10, Math.floor(Math.log10(n)));
+        return Math.round(n / mag) * mag;
+      };
+      const formatCompactCount = (n: number): string => {
+        if (!Number.isFinite(n) || n <= 0) return "0";
+        if (n >= 1_000_000_000) return `${+(n / 1_000_000_000).toFixed(1)}B`;
+        if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
+        if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}K`;
+        return String(Math.round(n));
+      };
+      const tamPeople = round1sig(tam.tam_people);
+      const tamResult = {
+        ...tam,
+        tam_people: tamPeople,
+        tam_label: formatCompactCount(tamPeople),
+        researched_at: new Date().toISOString(),
+      };
 
       if (scriptId) {
         // User-scoped client: RLS guarantees the caller owns this script.
