@@ -1435,9 +1435,12 @@ STEP 1 — Pin the ACTUAL topic. Read the script and state precisely what situat
 - "How to tell if someone actually likes you" → anyone with a crush or an ambiguous relationship — near-universal curiosity, a HUGE audience.
 Both are "dating" videos; sizing the category instead of the actual topic gets both wrong. Size the people in THIS video's exact situation.
 
-STEP 2 — Size that exact audience. Use web search (at most 3 quick searches) to anchor the estimate in real numbers: how many people are in that situation (prevalence, population stats, active-user counts, search interest, community sizes). Do NOT over-research — one or two solid anchor figures are enough.
+STEP 2 — Size that exact audience with CURRENT data. Use web search (at most 3 quick searches):
+- PRIORITIZE Google search demand: look for monthly search volume / Google Trends interest for the topic's core queries (e.g. "<core query> monthly search volume"). What people actively google right now is the strongest relevance signal.
+- Complement with how many people are in that situation (prevalence, population stats, active-user counts, community sizes).
+- Use the MOST RECENT figures you can find (this year or last). Data from 1-2 years ago can be stale — for trend-sensitive topics, confirm people still search for this TODAY. Note the year of each anchor figure.
 
-STEP 3 — Call return_tam exactly once. Be decisive: a well-reasoned order-of-magnitude figure for the exact topic is the goal, not precision.
+STEP 3 — Call return_tam exactly once. Be decisive: a well-reasoned order-of-magnitude figure for the exact topic is the goal, not precision. Calibrate the scale: world-scale topics (Messi, the World Cup) reach billions of interested people; a solid mainstream topic tens of millions; only truly universal topics deserve "high".
 ${tamLang === "es" ? "Write the audience, reasoning, and breakdown fields entirely in Spanish." : "Write the audience, reasoning, and breakdown fields entirely in English."}`;
 
       const tamUser = `Video topic: "${String(topic).slice(0, 300)}"${
@@ -1458,8 +1461,8 @@ Estimate how many people would find this video relevant and call return_tam.`;
             properties: {
               tam_people: { type: "number", description: "Estimated number of people who would find this topic relevant (absolute count, e.g. 2400000)" },
               tam_label: { type: "string", description: "Compact human-readable form of tam_people, e.g. \"2.4M\" or \"85K\"" },
-              audience: { type: "string", description: "One line describing who these people are" },
-              relevance: { type: "string", enum: ["low", "medium", "high"], description: "Relevance verdict: low (niche, <100K), medium (100K-1M), high (>1M)" },
+              audience: { type: "string", description: "One SHORT phrase (max ~8 words) naming who these people are, e.g. \"Short-form creators fighting early viewer dropout\"" },
+              relevance: { type: "string", enum: ["low", "medium", "high"], description: "Relevance verdict by audience size: low (niche, <5M), medium (5M-200M — most solid topics land here), high (200M+, near-universal topics like the World Cup or Messi)" },
               reasoning: { type: "string", description: "1-2 sentences on how the estimate was derived, citing the key figure(s) found" },
               breakdown: {
                 type: "array",

@@ -33,12 +33,13 @@ export interface TamResult {
   researched_at?: string;
 }
 
-/** Crowd meter: how many of the 5 person icons light up for a given TAM. */
+/** Crowd meter: how many of the 5 person icons light up for a given TAM.
+ *  Scaled so only world-scale topics (World Cup / Messi tier, 200M+) max out. */
 function peopleIconCount(n: number): number {
-  if (n >= 10_000_000) return 5;
-  if (n >= 1_000_000) return 4;
-  if (n >= 100_000) return 3;
-  if (n >= 10_000) return 2;
+  if (n >= 200_000_000) return 5;
+  if (n >= 50_000_000) return 4;
+  if (n >= 5_000_000) return 3;
+  if (n >= 500_000) return 2;
   return 1;
 }
 
@@ -184,48 +185,44 @@ export function TamResearchCard({ scriptId, topic, scriptBody, scriptLanguage, u
 
   return (
     <div className="editorial-card" style={{ padding: "14px 20px" }}>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <CrowdMeter lit={lit} color={color} loading={loading} />
+      <div className="flex items-center gap-3">
+        <CrowdMeter lit={lit} color={color} loading={loading} />
 
-          {loading ? (
-            <div className="text-[13px] text-muted-foreground">
-              {es ? "Investigando el tamaño de la audiencia…" : "Researching audience size…"}
+        {loading ? (
+          <div className="text-[13px] text-muted-foreground flex-1 min-w-0">
+            {es ? "Investigando el tamaño de la audiencia…" : "Researching audience size…"}
+          </div>
+        ) : result ? (
+          <>
+            <span className="font-serif font-semibold text-foreground shrink-0" style={{ fontSize: 22, lineHeight: 1 }}>
+              {label}
+            </span>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+              style={{ color, background: "hsl(var(--bone) / 0.06)" }}
+            >
+              {RELEVANCE_LABEL[result.relevance]?.[uiLanguage] ?? result.relevance}
+            </span>
+            <span className="text-[12px] text-muted-foreground truncate flex-1 min-w-0" title={result.audience}>
+              {result.audience}
+            </span>
+          </>
+        ) : (
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-foreground">
+              {es ? "Tamaño de audiencia (TAM)" : "Audience size (TAM)"}
             </div>
-          ) : result ? (
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span className="font-serif font-semibold text-foreground" style={{ fontSize: 22, lineHeight: 1 }}>
-                  {label}
-                </span>
-                <span
-                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-                  style={{ color, background: "hsl(var(--bone) / 0.06)" }}
-                >
-                  {RELEVANCE_LABEL[result.relevance]?.[uiLanguage] ?? result.relevance}
-                </span>
-              </div>
-              <div className="text-[12px] text-muted-foreground mt-0.5 truncate" title={result.audience}>
-                {result.audience}
-              </div>
+            <div className="text-[12px] text-muted-foreground truncate">
+              {es
+                ? "Investiga cuántas personas encuentran relevante este tema."
+                : "Research how many people actually find this topic relevant."}
             </div>
-          ) : (
-            <div className="min-w-0">
-              <div className="text-[13px] font-medium text-foreground">
-                {es ? "Tamaño de audiencia (TAM)" : "Audience size (TAM)"}
-              </div>
-              <div className="text-[12px] text-muted-foreground">
-                {es
-                  ? "Investiga cuántas personas encuentran relevante este tema."
-                  : "Research how many people actually find this topic relevant."}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {!loading && (
           result ? (
-            <Button variant="outline" size="sm" onClick={() => setDetailOpen(true)} className="shrink-0">
+            <Button variant="outline" size="sm" onClick={() => setDetailOpen(true)} className="shrink-0 ml-auto">
               {es ? "Ver más" : "See more"}
             </Button>
           ) : (
@@ -233,7 +230,7 @@ export function TamResearchCard({ scriptId, topic, scriptBody, scriptLanguage, u
               variant="outline"
               size="sm"
               onClick={runResearch}
-              className="gap-1.5 shrink-0"
+              className="gap-1.5 shrink-0 ml-auto"
               title={es ? "50 créditos por investigación" : "50 credits per research"}
             >
               <Search className="w-3.5 h-3.5" />
