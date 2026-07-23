@@ -16,6 +16,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/** 400 with a JSON error body. (Was referenced by several steps but never
+ *  defined — those error paths threw ReferenceError instead of returning.) */
+function errorResponse(message: string, status = 400): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 /** Fetch with automatic retry on 529/5xx errors */
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   const delays = [2000, 4000, 8000];
@@ -103,6 +112,7 @@ const CREDIT_COSTS: Record<string, number> = {
   "canvas-edit": 25,
   "generate-hooks": 25,
   "generate-ctas": 25,
+  "research-tam": 50,
   "analyze-competitor-post": 0,
 };
 
@@ -1402,6 +1412,112 @@ Pick the 3-7 best-fitting formulas from the bank above and adapt them by filling
       const hooksResult = hookToolUse.input as { hooks: Array<{ category: string; text: string }> };
 
       return new Response(JSON.stringify({ hooks: hooksResult.hooks }), {
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // ─── Step: research-tam ───
+    // Light web research to estimate the total addressable market (how many
+    // people would find this video topic relevant). Uses the server-side
+    // web_search tool (max 3 searches — "not too deep"), then returns a
+    // structured estimate via a forced-shape tool call. Optionally persists
+    // to scripts.tam_research through the USER-scoped client so RLS enforces
+    // script ownership.
+    if (step === "research-tam") {
+      const { topic, scriptBody, language: tamLang, scriptId } = body;
+      if (!topic?.trim()) return errorResponse("topic is required for research-tam");
+
+      const tamSystem = `You are a market-sizing analyst for short-form social video.
+Your job: estimate the TOTAL ADDRESSABLE MARKET of this video — how many people would genuinely find this topic relevant (people affected by / actively interested in the subject, in the audience's primary market).
+Use web search (at most 3 quick searches) to anchor the estimate in real numbers: population statistics, condition prevalence, market/industry size, community sizes, search interest. Do NOT over-research — one or two solid anchor figures are enough.
+Then call return_tam exactly once with your estimate. Be decisive: a well-reasoned order-of-magnitude figure is the goal, not precision.
+${tamLang === "es" ? "Write the audience and reasoning fields entirely in Spanish." : "Write the audience and reasoning fields entirely in English."}`;
+
+      const tamUser = `Video topic: "${String(topic).slice(0, 300)}"${
+        typeof scriptBody === "string" && scriptBody.trim()
+          ? `\n\nSCRIPT (for context on the exact angle and audience):\n"""\n${scriptBody.trim().slice(0, 4000)}\n"""`
+          : ""
+      }
+
+Estimate how many people would find this video relevant and call return_tam.`;
+
+      const tamTools = [
+        { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+        {
+          name: "return_tam",
+          description: "Return the total addressable market estimate for this video topic",
+          input_schema: {
+            type: "object",
+            properties: {
+              tam_people: { type: "number", description: "Estimated number of people who would find this topic relevant (absolute count, e.g. 2400000)" },
+              tam_label: { type: "string", description: "Compact human-readable form of tam_people, e.g. \"2.4M\" or \"85K\"" },
+              audience: { type: "string", description: "One line describing who these people are" },
+              relevance: { type: "string", enum: ["low", "medium", "high"], description: "Relevance verdict: low (niche, <100K), medium (100K-1M), high (>1M)" },
+              reasoning: { type: "string", description: "1-2 sentences on how the estimate was derived, citing the key figure(s) found" },
+            },
+            required: ["tam_people", "tam_label", "audience", "relevance", "reasoning"],
+          },
+        },
+      ];
+
+      // Web search runs server-side inside the request; loop to handle
+      // pause_turn (server tool iteration limit) and a missed tool call.
+      const tamMessages: any[] = [{ role: "user", content: tamUser }];
+      let tam: any = null;
+      for (let i = 0; i < 4 && !tam; i++) {
+        const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5",
+            max_tokens: 2048,
+            system: tamSystem,
+            messages: tamMessages,
+            tools: tamTools,
+          }),
+        });
+        if (!res.ok) {
+          console.error("TAM research Claude error:", res.status, await res.text());
+          return errorResponse("Research failed — please try again.", 502);
+        }
+        const json = await res.json();
+        if (json?.usage) logAnthropicUsage(null, {
+          functionName: "ai-build-script",
+          model: "claude-haiku-4-5",
+          usage: json.usage,
+          userId: user.id,
+          metadata: { step: "research-tam" },
+        });
+
+        const toolUse = json.content?.find((b: any) => b.type === "tool_use" && b.name === "return_tam");
+        if (toolUse) { tam = toolUse.input; break; }
+
+        tamMessages.push({ role: "assistant", content: json.content });
+        if (json.stop_reason !== "pause_turn") {
+          // Finished without calling the tool — nudge once.
+          tamMessages.push({ role: "user", content: "Call return_tam now with your best estimate based on what you found." });
+        }
+      }
+      if (!tam || typeof tam.tam_people !== "number") {
+        return errorResponse("Could not produce an estimate — please try again.", 502);
+      }
+
+      const tamResult = { ...tam, researched_at: new Date().toISOString() };
+
+      if (scriptId) {
+        // User-scoped client: RLS guarantees the caller owns this script.
+        const { error: saveErr } = await supabase
+          .from("scripts")
+          .update({ tam_research: tamResult })
+          .eq("id", scriptId);
+        if (saveErr) console.warn("TAM persist failed (non-fatal):", saveErr.message);
+      }
+
+      return new Response(JSON.stringify({ tam: tamResult }), {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }

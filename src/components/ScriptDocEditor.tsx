@@ -45,7 +45,7 @@ function plainToHtml(s: string): string {
 // Full script text for the hook generator: every content line under its
 // section label, capped so the request stays small. Grounding hooks in the
 // whole script (not just title + current hook) is what makes them specific.
-function scriptBodyForHooks(blocks: ScriptLine[]): string {
+export function scriptBodyForHooks(blocks: ScriptLine[]): string {
   const parts: string[] = [];
   for (const b of blocks) {
     const text = (b.text || "").trim();
@@ -59,7 +59,7 @@ function scriptBodyForHooks(blocks: ScriptLine[]): string {
 // Cheap monolingual detector for the hook generator's language directive.
 // Accented characters / inverted punctuation are a hard Spanish signal;
 // otherwise compare stopword hit counts.
-function detectScriptLanguage(text: string): "es" | "en" {
+export function detectScriptLanguage(text: string): "es" | "en" {
   if (/[¿¡ñÑ]|á|é|í|ó|ú/i.test(text)) return "es";
   const lower = ` ${text.toLowerCase()} `;
   const count = (words: string[]) =>

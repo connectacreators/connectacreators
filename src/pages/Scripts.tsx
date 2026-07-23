@@ -39,7 +39,8 @@ import { DndContext, closestCenter, pointerWithin, PointerSensor, TouchSensor, u
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import BatchGenerateModal from "@/components/BatchGenerateModal";
-import ScriptDocEditor from "@/components/ScriptDocEditor";
+import ScriptDocEditor, { scriptBodyForHooks, detectScriptLanguage } from "@/components/ScriptDocEditor";
+import { TamResearchCard } from "@/components/TamResearchCard";
 import { checkResourceLimit } from "@/utils/planLimits";
 import PageTransition from "@/components/PageTransition";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -4493,6 +4494,17 @@ export default function Scripts() {
             </div>
             {/* Character counter now lives INSIDE the document card (bottom-left,
                 rendered by ScriptDocEditor) per design preference. */}
+            {/* TAM research — on-demand audience-size estimate for this topic.
+                Nothing runs until the user clicks Research. */}
+            {viewingScriptId && (
+              <TamResearchCard
+                scriptId={viewingScriptId}
+                topic={viewingMetadata?.idea_ganadora ?? ""}
+                scriptBody={scriptBodyForHooks(docBlocks)}
+                scriptLanguage={detectScriptLanguage(scriptBodyForHooks(docBlocks) || viewingMetadata?.idea_ganadora || "")}
+                uiLanguage={language}
+              />
+            )}
             {/* Unified block document — single source of truth (docBlocks).
                 Renamable/custom sections, inline editing, slash, '# ', drag,
                 line-type bars, empty sections visible. Saving is owned by the
