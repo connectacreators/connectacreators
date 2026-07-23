@@ -4494,17 +4494,6 @@ export default function Scripts() {
             </div>
             {/* Character counter now lives INSIDE the document card (bottom-left,
                 rendered by ScriptDocEditor) per design preference. */}
-            {/* TAM research — on-demand audience-size estimate for this topic.
-                Nothing runs until the user clicks Research. */}
-            {viewingScriptId && (
-              <TamResearchCard
-                scriptId={viewingScriptId}
-                topic={viewingMetadata?.idea_ganadora ?? ""}
-                scriptBody={scriptBodyForHooks(docBlocks)}
-                scriptLanguage={detectScriptLanguage(scriptBodyForHooks(docBlocks) || viewingMetadata?.idea_ganadora || "")}
-                uiLanguage={language}
-              />
-            )}
             {/* Unified block document — single source of truth (docBlocks).
                 Renamable/custom sections, inline editing, slash, '# ', drag,
                 line-type bars, empty sections visible. Saving is owned by the
@@ -4569,6 +4558,18 @@ export default function Scripts() {
                 w.onload = () => w.print();
               }}
             />
+
+            {/* TAM research — on-demand audience-size estimate for this topic.
+                Nothing runs until the user clicks Research. */}
+            {viewingScriptId && (
+              <TamResearchCard
+                scriptId={viewingScriptId}
+                topic={viewingMetadata?.idea_ganadora ?? ""}
+                scriptBody={scriptBodyForHooks(docBlocks)}
+                scriptLanguage={detectScriptLanguage(scriptBodyForHooks(docBlocks) || viewingMetadata?.idea_ganadora || "")}
+                uiLanguage={language}
+              />
+            )}
 
             {/* Footage & File Submission */}
             {viewingMetadata && (() => {

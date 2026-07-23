@@ -7,11 +7,16 @@
 // Strictly on-demand — nothing runs until the user clicks Research. The
 // result persists to scripts.tam_research (saved by the edge fn under the
 // caller's RLS) so revisits show the last estimate without re-spending.
+//
+// Card stays compact: crowd meter + count + one-line audience. The full
+// breakdown (anchor figures, reasoning, re-run) lives in the See-more
+// dialog. While researching, the person icons pulse in a wave.
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Search, User } from "lucide-react";
+import { Loader2, RefreshCw, Search, User, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 
@@ -23,6 +28,8 @@ export interface TamResult {
   audience: string;
   relevance: "low" | "medium" | "high";
   reasoning: string;
+  /** 2-4 anchor-figure bullets (newer results only). */
+  breakdown?: string[];
   researched_at?: string;
 }
 
@@ -47,6 +54,53 @@ const RELEVANCE_LABEL: Record<TamResult["relevance"], { en: string; es: string }
   high: { en: "High relevance", es: "Relevancia alta" },
 };
 
+/** 5-slot person meter. While loading, the icons pulse in a rolling wave. */
+function CrowdMeter({
+  lit,
+  color,
+  loading,
+  size = 16,
+}: {
+  lit: number;
+  color?: string;
+  loading?: boolean;
+  size?: number;
+}) {
+  return (
+    <div className="flex items-end gap-0.5 shrink-0" aria-hidden>
+      {Array.from({ length: 5 }).map((_, i) => {
+        const on = !loading && lit > i;
+        return (
+          <User
+            key={i}
+            style={{
+              width: size,
+              height: size,
+              color: loading
+                ? "hsl(var(--honey))"
+                : on
+                  ? color
+                  : "hsl(var(--bone) / 0.18)",
+              fill: loading || on ? "currentColor" : "none",
+              opacity: loading ? 0.2 : 1,
+              animation: loading ? `tam-wave 1.1s ease-in-out ${i * 0.14}s infinite` : undefined,
+            }}
+          />
+        );
+      })}
+      {loading && (
+        <style>{`
+          @keyframes tam-wave {
+            0%, 100% { opacity: 0.15; transform: translateY(0); }
+            35% { opacity: 1; transform: translateY(-2px); }
+            70% { opacity: 0.15; transform: translateY(0); }
+          }
+        `}</style>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   scriptId: string;
   /** Topic sent to the researcher (winning idea / title). */
@@ -63,6 +117,7 @@ export function TamResearchCard({ scriptId, topic, scriptBody, scriptLanguage, u
   const { showOutOfCreditsModal } = useOutOfCredits();
   const [result, setResult] = useState<TamResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const es = uiLanguage === "es";
 
   // Load the saved estimate (if any) — read-only, no research triggered.
@@ -122,42 +177,35 @@ export function TamResearchCard({ scriptId, topic, scriptBody, scriptLanguage, u
 
   const lit = result ? peopleIconCount(result.tam_people) : 0;
   const color = result ? RELEVANCE_COLOR[result.relevance] ?? "hsl(var(--honey))" : undefined;
+  const label = result
+    ? result.tam_label ||
+      Intl.NumberFormat(es ? "es" : "en", { notation: "compact" }).format(result.tam_people)
+    : "";
 
   return (
-    <div className="editorial-card" style={{ padding: "16px 20px" }}>
+    <div className="editorial-card" style={{ padding: "14px 20px" }}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Crowd meter — 5 person slots, lit count scales with audience size */}
-          <div className="flex items-end gap-0.5 shrink-0" aria-hidden>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <User
-                key={i}
-                className="w-4 h-4"
-                style={{
-                  color: result && i < lit ? color : "hsl(var(--bone) / 0.18)",
-                  fill: result && i < lit ? color : "none",
-                }}
-              />
-            ))}
-          </div>
+          <CrowdMeter lit={lit} color={color} loading={loading} />
 
-          {result ? (
+          {loading ? (
+            <div className="text-[13px] text-muted-foreground">
+              {es ? "Investigando el tamaño de la audiencia…" : "Researching audience size…"}
+            </div>
+          ) : result ? (
             <div className="min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
+              <div className="flex items-baseline gap-2">
                 <span className="font-serif font-semibold text-foreground" style={{ fontSize: 22, lineHeight: 1 }}>
-                  {result.tam_label || Intl.NumberFormat(es ? "es" : "en", { notation: "compact" }).format(result.tam_people)}
-                </span>
-                <span className="text-[12px] text-muted-foreground">
-                  {es ? "personas interesadas en este tema" : "people interested in this topic"}
+                  {label}
                 </span>
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
                   style={{ color, background: "hsl(var(--bone) / 0.06)" }}
                 >
                   {RELEVANCE_LABEL[result.relevance]?.[uiLanguage] ?? result.relevance}
                 </span>
               </div>
-              <div className="text-[12px] text-muted-foreground mt-1 truncate" title={result.audience}>
+              <div className="text-[12px] text-muted-foreground mt-0.5 truncate" title={result.audience}>
                 {result.audience}
               </div>
             </div>
@@ -175,42 +223,102 @@ export function TamResearchCard({ scriptId, topic, scriptBody, scriptLanguage, u
           )}
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={runResearch}
-          disabled={loading}
-          className="gap-1.5 shrink-0"
-          title={es ? "50 créditos por investigación" : "50 credits per research"}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {es ? "Investigando…" : "Researching…"}
-            </>
-          ) : result ? (
-            <>
-              <RefreshCw className="w-3.5 h-3.5" />
-              {es ? "Reinvestigar" : "Re-run"}
-            </>
+        {!loading && (
+          result ? (
+            <Button variant="outline" size="sm" onClick={() => setDetailOpen(true)} className="shrink-0">
+              {es ? "Ver más" : "See more"}
+            </Button>
           ) : (
-            <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runResearch}
+              className="gap-1.5 shrink-0"
+              title={es ? "50 créditos por investigación" : "50 credits per research"}
+            >
               <Search className="w-3.5 h-3.5" />
               {es ? "Investigar" : "Research"}
-            </>
-          )}
-        </Button>
+            </Button>
+          )
+        )}
       </div>
 
-      {result?.reasoning && (
-        <div className="text-[11.5px] text-muted-foreground/80 mt-2 leading-relaxed">
-          {result.reasoning}
-          <span className="text-muted-foreground/50">
-            {" · "}
-            {es ? "50 créditos por ronda" : "50 credits per round"}
-          </span>
-        </div>
-      )}
+      {/* ── Detail dialog — full breakdown + re-run ── */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              {es ? "Investigación de audiencia" : "Audience research"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {result && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <CrowdMeter lit={lit} color={color} loading={loading} size={20} />
+                <span className="font-serif font-semibold text-foreground" style={{ fontSize: 30, lineHeight: 1 }}>
+                  {label}
+                </span>
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                  style={{ color, background: "hsl(var(--bone) / 0.06)" }}
+                >
+                  {RELEVANCE_LABEL[result.relevance]?.[uiLanguage] ?? result.relevance}
+                </span>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-semibold mb-1">
+                  {es ? "Quiénes son" : "Who they are"}
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">{result.audience}</p>
+              </div>
+
+              {(result.breakdown?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-semibold mb-1">
+                    {es ? "Cifras encontradas" : "Figures found"}
+                  </div>
+                  <ul className="space-y-1.5">
+                    {result.breakdown!.map((b, i) => (
+                      <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
+                        <span className="text-primary/70 shrink-0 mt-[1px]">•</span>
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-semibold mb-1">
+                  {es ? "Cómo se estimó" : "How it was estimated"}
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">{result.reasoning}</p>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                <span className="text-[11px] text-muted-foreground">
+                  {result.researched_at
+                    ? new Date(result.researched_at).toLocaleDateString(es ? "es" : "en", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : ""}
+                  {" · "}
+                  {es ? "50 créditos por ronda" : "50 credits per round"}
+                </span>
+                <Button variant="outline" size="sm" onClick={runResearch} disabled={loading} className="gap-1.5">
+                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {es ? "Reinvestigar" : "Re-run"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

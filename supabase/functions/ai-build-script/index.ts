@@ -1428,10 +1428,17 @@ Pick the 3-7 best-fitting formulas from the bank above and adapt them by filling
       if (!topic?.trim()) return errorResponse("topic is required for research-tam");
 
       const tamSystem = `You are a market-sizing analyst for short-form social video.
-Your job: estimate the TOTAL ADDRESSABLE MARKET of this video — how many people would genuinely find this topic relevant (people affected by / actively interested in the subject, in the audience's primary market).
-Use web search (at most 3 quick searches) to anchor the estimate in real numbers: population statistics, condition prevalence, market/industry size, community sizes, search interest. Do NOT over-research — one or two solid anchor figures are enough.
-Then call return_tam exactly once with your estimate. Be decisive: a well-reasoned order-of-magnitude figure is the goal, not precision.
-${tamLang === "es" ? "Write the audience and reasoning fields entirely in Spanish." : "Write the audience and reasoning fields entirely in English."}`;
+Your job: estimate the TOTAL ADDRESSABLE MARKET of this video — how many people would genuinely find this topic relevant.
+
+STEP 1 — Pin the ACTUAL topic. Read the script and state precisely what situation or question this specific video addresses — the exact need, NOT the general category. Adjacent topics in the same niche have wildly different audiences. Calibration:
+- "What to do after a first date" → only people who recently had or are about to have a first date (a slice of active daters) — a MEDIUM audience.
+- "How to tell if someone actually likes you" → anyone with a crush or an ambiguous relationship — near-universal curiosity, a HUGE audience.
+Both are "dating" videos; sizing the category instead of the actual topic gets both wrong. Size the people in THIS video's exact situation.
+
+STEP 2 — Size that exact audience. Use web search (at most 3 quick searches) to anchor the estimate in real numbers: how many people are in that situation (prevalence, population stats, active-user counts, search interest, community sizes). Do NOT over-research — one or two solid anchor figures are enough.
+
+STEP 3 — Call return_tam exactly once. Be decisive: a well-reasoned order-of-magnitude figure for the exact topic is the goal, not precision.
+${tamLang === "es" ? "Write the audience, reasoning, and breakdown fields entirely in Spanish." : "Write the audience, reasoning, and breakdown fields entirely in English."}`;
 
       const tamUser = `Video topic: "${String(topic).slice(0, 300)}"${
         typeof scriptBody === "string" && scriptBody.trim()
@@ -1454,8 +1461,13 @@ Estimate how many people would find this video relevant and call return_tam.`;
               audience: { type: "string", description: "One line describing who these people are" },
               relevance: { type: "string", enum: ["low", "medium", "high"], description: "Relevance verdict: low (niche, <100K), medium (100K-1M), high (>1M)" },
               reasoning: { type: "string", description: "1-2 sentences on how the estimate was derived, citing the key figure(s) found" },
+              breakdown: {
+                type: "array",
+                items: { type: "string" },
+                description: "2-4 short bullets: each anchor figure found (with where it comes from) and how it narrows down to the final estimate, e.g. \"200M+ active creators globally (Linktree creator report)\"",
+              },
             },
-            required: ["tam_people", "tam_label", "audience", "relevance", "reasoning"],
+            required: ["tam_people", "tam_label", "audience", "relevance", "reasoning", "breakdown"],
           },
         },
       ];
