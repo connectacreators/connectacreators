@@ -8,6 +8,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
 import { videoUploadService } from '@/services/videoUploadService';
+import { noteAttachmentService, type NoteAttachment } from '@/services/noteAttachmentService';
+import { useNoteComposerAttachments } from '@/hooks/useNoteComposerAttachments';
+import { PendingAttachmentsStrip, AttachPhotoButton, AttachmentGallery } from '@/components/NoteAttachments';
 import { toast } from 'sonner';
 import { Check, CheckCheck, Clock, Download, Loader2, Lock, Send, Trash2, X } from 'lucide-react';
 import ThemedVideoPlayer from './ThemedVideoPlayer';
@@ -211,6 +214,8 @@ export default function VideoReviewModal({
   // Double-clicking a saved note's timestamp picks/updates its END point:
   // the note's end chip follows the playhead until clicked to save.
   const [pickingEndFor, setPickingEndFor] = useState<string | null>(null);
+  // Photos being attached to the note currently being composed (uploaded on send).
+  const attach = useNoteComposerAttachments(clientId, videoEditId);
 
   // Multi-source
   const [sources, setSources] = useState<VideoSource[]>([]);
@@ -481,7 +486,7 @@ export default function VideoReviewModal({
   const resolvedCount = comments.filter(c => c.resolved).length;
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() && attach.pending.length === 0) return;
 
     let timestampSeconds: number | null = null;
     let endTimestampSeconds: number | null = null;
@@ -528,6 +533,16 @@ export default function VideoReviewModal({
     // Tag with source only when multiple sources exist
     const sourceRef = sources.length > 1 ? (activeSource?.label ?? null) : null;
 
+    // Upload any attached photos first; abort the note if uploads fail so we
+    // don't post a note that's missing the images the author expected.
+    let attachments: NoteAttachment[] = [];
+    try {
+      attachments = await attach.uploadAll();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to upload photo');
+      return;
+    }
+
     try {
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
@@ -539,6 +554,7 @@ export default function VideoReviewModal({
         author_id: user?.id || null,
         source_ref: sourceRef,
         internal_only: isAdmin ? internalOnly : false,
+        attachments,
       });
       setComments(prev => [...prev, created]);
       setNewComment('');
@@ -612,6 +628,17 @@ export default function VideoReviewModal({
       onCommentsChanged?.();
       toast.success('Note deleted');
     } catch { toast.error('Failed to delete note'); }
+  };
+
+  // Remove one photo from a saved note (admins only). Updates the row, then
+  // deletes the underlying file.
+  const handleDeletePhoto = async (comment: RevisionComment, a: NoteAttachment) => {
+    const next = comment.attachments.filter(x => x.path !== a.path);
+    try {
+      await revisionCommentService.updateAttachments(comment.id, next);
+      await noteAttachmentService.remove([a.path]);
+      setComments(prev => prev.map(c => c.id === comment.id ? { ...c, attachments: next } : c));
+    } catch { toast.error('Failed to remove photo'); }
   };
 
   const timeAgo = (dateStr: string) => {
@@ -833,8 +860,13 @@ export default function VideoReviewModal({
               )}
             </div>
 
-            {/* Note input */}
-            <div className="mt-3 flex gap-2 items-center">
+            {/* Note input — paste, drag-drop, or the 📎 button attach photos */}
+            <div
+              className="mt-3"
+              onDrop={attach.handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+            >
+            <div className="flex gap-2 items-center">
               {canSeek && (isPaused || rangeStart !== null) && (
                 rangeStart === null ? (
                   <button
@@ -904,6 +936,7 @@ export default function VideoReviewModal({
                   }
                   value={newComment}
                   onChange={handleCommentChange}
+                  onPaste={attach.handlePaste}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                   className="flex-1 h-8 text-sm"
                 />
@@ -935,9 +968,17 @@ export default function VideoReviewModal({
                   <Lock className="h-3.5 w-3.5" />
                 </button>
               )}
-              <Button size="sm" className="h-8" onClick={handleAddComment} disabled={!newComment.trim()}>
-                <Send className="h-3.5 w-3.5 mr-1" /> Add
+              <AttachPhotoButton onFiles={attach.addFiles} disabled={attach.uploading} />
+              <Button
+                size="sm"
+                className="h-8"
+                onClick={handleAddComment}
+                disabled={(!newComment.trim() && attach.pending.length === 0) || attach.uploading}
+              >
+                {attach.uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />} Add
               </Button>
+            </div>
+            <PendingAttachmentsStrip pending={attach.pending} onRemove={attach.removePending} />
             </div>
           </div>
 
@@ -1061,15 +1102,23 @@ export default function VideoReviewModal({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-words [overflow-wrap:anywhere]"
-                        onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
-                        title="Double-click to edit"
-                      >
-                        {renderCommentWithFootageLinks(c.comment, availableFootageFiles, (filename) => {
-                          setSelectedFootageFile(filename);
-                          setFootagePreviewOpen(true);
-                        })}
-                      </p>
+                      <>
+                        {c.comment.trim() && (
+                          <p className="text-sm mt-1 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/40 transition-colors break-words [overflow-wrap:anywhere]"
+                            onDoubleClick={() => { setEditingId(c.id); setEditText(c.comment); }}
+                            title="Double-click to edit"
+                          >
+                            {renderCommentWithFootageLinks(c.comment, availableFootageFiles, (filename) => {
+                              setSelectedFootageFile(filename);
+                              setFootagePreviewOpen(true);
+                            })}
+                          </p>
+                        )}
+                        <AttachmentGallery
+                          attachments={c.attachments}
+                          onDelete={isAdmin ? (a) => handleDeletePhoto(c, a) : undefined}
+                        />
+                      </>
                     )}
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
                       <span>{c.author_name} ({c.author_role}) · {timeAgo(c.created_at)}</span>

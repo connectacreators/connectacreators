@@ -1963,6 +1963,7 @@ export type Database = {
       }
       revision_comments: {
         Row: {
+          attachments: Json
           author_id: string | null
           author_name: string
           author_role: string
@@ -1977,6 +1978,7 @@ export type Database = {
           video_edit_id: string | null
         }
         Insert: {
+          attachments?: Json
           author_id?: string | null
           author_name: string
           author_role?: string
@@ -1991,6 +1993,7 @@ export type Database = {
           video_edit_id?: string | null
         }
         Update: {
+          attachments?: Json
           author_id?: string | null
           author_name?: string
           author_role?: string

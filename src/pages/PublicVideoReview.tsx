@@ -2,9 +2,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { revisionCommentService, type RevisionComment } from '@/services/revisionCommentService';
+import { type NoteAttachment } from '@/services/noteAttachmentService';
+import { useNoteComposerAttachments } from '@/hooks/useNoteComposerAttachments';
+import { PendingAttachmentsStrip, AttachPhotoButton, AttachmentGallery } from '@/components/NoteAttachments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Play, Pause, Check, Clock, X } from 'lucide-react';
+import { Send, Play, Pause, Check, Clock, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 
@@ -86,6 +89,8 @@ export default function PublicVideoReview() {
   // follows the playhead until clicked (rangeEnd null = still following).
   const [rangeStart, setRangeStart] = useState<number | null>(null);
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
+  // Photos being attached to the note currently being composed (uploaded on send).
+  const attach = useNoteComposerAttachments(video?.client_id, videoEditId);
 
   const isSupabaseVideo = video?.upload_source === 'supabase' && video?.storage_path;
   const isDriveVideo = video?.upload_source === 'gdrive' && video?.file_submission;
@@ -148,7 +153,7 @@ export default function PublicVideoReview() {
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !videoEditId) return;
+    if ((!newComment.trim() && attach.pending.length === 0) || !videoEditId) return;
 
     let timestampSeconds: number | null = null;
     let endTimestampSeconds: number | null = null;
@@ -184,6 +189,15 @@ export default function PublicVideoReview() {
     }
     if (!commentBody) commentBody = newComment.trim();
 
+    // Upload any attached photos first; abort the note if uploads fail.
+    let attachments: NoteAttachment[] = [];
+    try {
+      attachments = await attach.uploadAll();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to upload photo');
+      return;
+    }
+
     try {
       const created = await revisionCommentService.createComment({
         video_edit_id: videoEditId,
@@ -192,6 +206,7 @@ export default function PublicVideoReview() {
         comment: commentBody,
         author_name: clientName,
         author_role: 'client',
+        attachments,
       });
       setComments(prev => [...prev, created]);
       setNewComment('');
@@ -366,8 +381,13 @@ export default function PublicVideoReview() {
               </div>
             )}
 
-            {/* Comment input */}
-            <div className="mt-3 flex gap-2 items-center">
+            {/* Comment input — paste, drag-drop, or the photo button attach images */}
+            <div
+              className="mt-3"
+              onDrop={attach.handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+            >
+            <div className="flex gap-2 items-center">
               {isSupabaseVideo && (isPaused || rangeStart !== null) && (
                 rangeStart === null ? (
                   <button
@@ -434,12 +454,21 @@ export default function PublicVideoReview() {
                 }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                onPaste={attach.handlePaste}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                 className="flex-1 h-8 text-sm"
               />
-              <Button size="sm" className="h-8" onClick={handleAddComment} disabled={!newComment.trim()}>
-                <Send className="h-3.5 w-3.5 mr-1" /> Send
+              <AttachPhotoButton onFiles={attach.addFiles} disabled={attach.uploading} />
+              <Button
+                size="sm"
+                className="h-8"
+                onClick={handleAddComment}
+                disabled={(!newComment.trim() && attach.pending.length === 0) || attach.uploading}
+              >
+                {attach.uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />} Send
               </Button>
+            </div>
+            <PendingAttachmentsStrip pending={attach.pending} onRemove={attach.removePending} />
             </div>
           </div>
 
@@ -476,7 +505,8 @@ export default function PublicVideoReview() {
                         <Check className="h-3 w-3" /> Resolved
                       </span>
                     )}
-                    <p className="text-sm mt-1">{c.comment}</p>
+                    {c.comment.trim() && <p className="text-sm mt-1">{c.comment}</p>}
+                    <AttachmentGallery attachments={c.attachments} />
                     <div className="text-[11px] text-muted-foreground mt-1">
                       {c.author_name} ({c.author_role}) · {timeAgo(c.created_at)}
                     </div>

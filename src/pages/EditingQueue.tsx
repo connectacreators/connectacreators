@@ -2036,6 +2036,7 @@ export default function EditingQueue() {
             setReviewItem(null);
           }}
           videoEditId={reviewItem.id}
+          clientId={clientId ?? ''}
           title={reviewItem.title}
           uploadSource={reviewItem.uploadSource || null}
           storagePath={reviewItem.storagePath || null}

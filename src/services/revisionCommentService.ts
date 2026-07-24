@@ -1,4 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { noteAttachmentService, type NoteAttachment } from '@/services/noteAttachmentService';
+
+export type { NoteAttachment };
 
 export interface RevisionComment {
   id: string;
@@ -13,6 +16,7 @@ export interface RevisionComment {
   created_at: string;
   source_ref: string | null;
   internal_only: boolean;
+  attachments: NoteAttachment[];
 }
 
 export interface CreateCommentInput {
@@ -25,6 +29,13 @@ export interface CreateCommentInput {
   author_id?: string | null;
   source_ref?: string | null;
   internal_only?: boolean;
+  attachments?: NoteAttachment[];
+}
+
+// Rows may predate the attachments column (or arrive as null); always hand the
+// UI a real array so it never has to null-check.
+function normalize(row: any): RevisionComment {
+  return { ...row, attachments: Array.isArray(row?.attachments) ? row.attachments : [] } as RevisionComment;
 }
 
 export const revisionCommentService = {
@@ -36,18 +47,30 @@ export const revisionCommentService = {
       .order('timestamp_seconds', { ascending: true, nullsFirst: false });
 
     if (error) throw error;
-    return (data || []) as RevisionComment[];
+    return (data || []).map(normalize);
   },
 
   async createComment(input: CreateCommentInput): Promise<RevisionComment> {
     const { data, error } = await supabase
       .from('revision_comments')
-      .insert([input])
+      // attachments is a typed interface[]; the generated column type is Json,
+      // which an interface isn't structurally assignable to — cast at the boundary.
+      .insert([{ ...input, attachments: (input.attachments ?? []) as any }])
       .select()
       .single();
 
     if (error) throw error;
-    return data as RevisionComment;
+    return normalize(data);
+  },
+
+  // Replace the attachment array on a note (used when an admin removes one photo).
+  async updateAttachments(commentId: string, attachments: NoteAttachment[]): Promise<void> {
+    const { error } = await supabase
+      .from('revision_comments')
+      .update({ attachments: attachments as any })
+      .eq('id', commentId);
+
+    if (error) throw error;
   },
 
   async resolveComment(commentId: string, resolved: boolean): Promise<void> {
@@ -78,6 +101,19 @@ export const revisionCommentService = {
   },
 
   async deleteComment(commentId: string): Promise<void> {
+    // Delete the actual image files first (the DB trigger only clears the
+    // storage.objects rows on cascade — this also frees the underlying blobs).
+    const { data: existing } = await supabase
+      .from('revision_comments')
+      .select('attachments')
+      .eq('id', commentId)
+      .single();
+    const raw = existing?.attachments;
+    const paths = (Array.isArray(raw) ? (raw as unknown as NoteAttachment[]) : [])
+      .map(a => a?.path)
+      .filter(Boolean) as string[];
+    await noteAttachmentService.remove(paths);
+
     const { error } = await supabase
       .from('revision_comments')
       .delete()

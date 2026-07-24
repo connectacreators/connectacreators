@@ -1354,6 +1354,7 @@ export default function MasterDatabase() {
                       open={reviewModalOpen}
                       onClose={() => { setReviewModalOpen(false); setReviewVideo(null); }}
                       videoEditId={reviewVideo.id}
+                      clientId={reviewVideo.client_id}
                       title={reviewVideo.reel_title || 'Video'}
                       uploadSource={reviewVideo.upload_source || null}
                       storagePath={reviewVideo.storage_path || null}
