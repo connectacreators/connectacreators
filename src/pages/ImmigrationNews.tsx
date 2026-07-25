@@ -172,9 +172,8 @@ export default function ImmigrationNews() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "No se pudo generar el ángulo");
 
-      const { hook, script } = data.angle as { hook: string; script: string; why: string };
+      const { hook, script, cta } = data.angle as { hook: string; script: string; cta: string; why: string };
       const title = row.title.slice(0, 60);
-      const cta = 'Comenta la palabra "ASILO" para que te enviemos más información.';
       const raw_content = [hook, "", script, "", cta].filter(Boolean).join("\n");
 
       const { data: created, error } = await supabase
@@ -226,7 +225,7 @@ export default function ImmigrationNews() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Noticias de Inmigración</h1>
             <p className="text-sm text-muted-foreground">
-              Alertas automáticas cada ~10 min · Federal Register + Google News
+              Alertas automáticas cada ~10 min · Federal Register + Google News + Bing News
             </p>
           </div>
         </div>
@@ -301,7 +300,7 @@ export default function ImmigrationNews() {
                 {row.reason && <p className="text-sm text-muted-foreground">{row.reason}</p>}
                 <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
                   <span className="text-xs text-muted-foreground">
-                    {row.source === "federal_register" ? "Federal Register" : "Google News"}
+                    {row.source === "federal_register" ? "Federal Register" : row.source === "bing_news" ? "Bing News" : "Google News"}
                     {row.published_at ? ` · ${new Date(row.published_at).toLocaleDateString("es-US")}` : ""}
                   </span>
                   <div className="flex items-center gap-2">

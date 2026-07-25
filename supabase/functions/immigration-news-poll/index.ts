@@ -122,6 +122,17 @@ function asciiSafe(s: string): string {
   return (s || "").normalize("NFD").replace(/\p{Mn}/gu, "").replace(/[^\x20-\x7E]/g, "").trim();
 }
 
+// Google News RSS gives good volume but its links (news.google.com/rss/
+// articles/{token}) do NOT resolve to the real publisher via any server-side
+// redirect — confirmed: the token is an opaque protobuf blob (not base64-of-
+// URL), and the only hop is a 302 back to the same Google URL with locale
+// params; the real link only resolves client-side via Google's private RPC.
+// Fetching it server-side (as immigration-video-angle used to) pulled ~500KB
+// of Google's own app shell — zero real signal — which is why generated
+// scripts read generic. We keep Google News for discovery breadth but never
+// try to fetch its article bodies (see generateAngle in immigration-video-
+// angle); real grounding for those items instead comes from the richer
+// summary Haiku synthesizes at ingest time, below.
 async function fetchGoogleNews(): Promise<Candidate[]> {
   const feeds = [
     "https://news.google.com/rss/search?q=(inmigraci%C3%B3n%20OR%20asilo%20OR%20TPS%20OR%20USCIS%20OR%20%22green%20card%22%20OR%20parole%20OR%20deportaci%C3%B3n)%20when:2d&hl=es-419&gl=US&ceid=US:es",
@@ -154,7 +165,7 @@ async function fetchGoogleNews(): Promise<Candidate[]> {
           external_id: (pick("guid") || link).slice(0, 400),
           url: link,
           title,
-          summary: sourceName ? `Fuente: ${sourceName}` : "",
+          summary: "", // unfetchable server-side — Haiku synthesizes a real one at scoring time
           published_at: pick("pubDate") ? new Date(pick("pubDate")).toISOString() : null,
         });
       }
@@ -165,8 +176,55 @@ async function fetchGoogleNews(): Promise<Candidate[]> {
   return out;
 }
 
+// Bing News wraps the real URL in a plain query param (no private RPC needed)
+// — directly fetchable for real grounding text. Volume is low/unreliable
+// (Microsoft's legacy news-RSS endpoint is throttled — even huge terms like
+// "Trump" sometimes return 0 items), so this is a bonus source, not the
+// primary one: when it does surface an item, that item gets the best
+// possible grounding (real article fetch, not a synthesized summary).
+async function fetchBingNews(): Promise<Candidate[]> {
+  const feeds = [
+    "https://www.bing.com/news/search?q=inmigraci%C3%B3n+asilo+TPS+USCIS+deportaci%C3%B3n+green+card&format=RSS&setmkt=es-US&qft=interval%3d%227%22",
+    "https://www.bing.com/news/search?q=immigration+asylum+TPS+USCIS+deportation+%22green+card%22&format=RSS&setmkt=en-US&qft=interval%3d%227%22",
+  ];
+  const out: Candidate[] = [];
+  for (const feed of feeds) {
+    try {
+      const res = await fetch(feed, { headers: { "user-agent": "Mozilla/5.0 ConnectaBot" } });
+      if (!res.ok) continue;
+      const xml = await res.text();
+      const items = xml.split(/<item>/).slice(1);
+      for (const item of items.slice(0, 15)) {
+        const pick = (tag: string) => {
+          const m = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
+          return m ? decodeEntities(m[1]) : "";
+        };
+        const title = pick("title");
+        const wrapperLink = pick("link");
+        if (!title || !wrapperLink) continue;
+        let realUrl = wrapperLink;
+        try {
+          const u = new URL(wrapperLink);
+          realUrl = u.searchParams.get("url") || wrapperLink;
+        } catch { /* keep wrapper link as fallback */ }
+        out.push({
+          source: "bing_news",
+          external_id: (pick("guid") || realUrl).slice(0, 400),
+          url: realUrl,
+          title,
+          summary: pick("description"),
+          published_at: pick("pubDate") ? new Date(pick("pubDate")).toISOString() : null,
+        });
+      }
+    } catch (e) {
+      console.error("bing_news fetch failed:", e);
+    }
+  }
+  return out;
+}
+
 // ── HAIKU: relevance + country extraction ───────────────────────────────────
-type Scored = { i: number; relevant: boolean; score: number; reason: string; countries: string[] };
+type Scored = { i: number; relevant: boolean; score: number; reason: string; countries: string[]; summary?: string };
 
 // Chunk so a big batch never overruns max_tokens (truncated JSON = silent 0s).
 async function scoreWithHaiku(items: Candidate[], apiKey: string): Promise<{ scored: Scored[]; usage: { input_tokens: number; output_tokens: number } }> {
@@ -195,8 +253,10 @@ BAJA prioridad (score < 0.5) aunque mencionen inmigración — NO son "desarroll
 - Perfiles de interés humano sin implicación legal para terceros
 - Opinión, editoriales, o cobertura ya vieja repetida por otro medio
 
+Además, para cada noticia cuyo "summary" venga VACÍO (no hay snippet real disponible, solo el título), escribe tú un resumen sustancioso: 2-3 frases en español que desarrollen TODO el detalle concreto que el título ya implica — fechas, cifras, el mecanismo exacto, a quién afecta. NO inventes datos que el título no sugiere; simplemente despliega en frases completas lo que el título ya dice de forma compacta. Si el "summary" NO viene vacío (ya hay contenido real), no lo reescribas — copia el campo "generated_summary" igual al summary original.
+
 Devuelve SOLO un arreglo JSON, un objeto por noticia, en el MISMO orden e índice:
-[{"i":0,"relevant":true,"score":0.0-1.0,"reason":"≤12 palabras en español","countries":["Venezuela"]}]
+[{"i":0,"relevant":true,"score":0.0-1.0,"reason":"≤12 palabras en español","countries":["Venezuela"],"generated_summary":"2-3 frases en español"}]
 
 - "score": qué tan urgente/accionable es para un video (0=nada, 1=urgente/altísima). Un anuncio de servicio rutinario nunca pasa de 0.4.
 - "countries": nacionalidades de inmigrantes afectadas (ej. "Venezuela","Cuba","Haití","México","Nicaragua"). Si aplica a TODOS o no es específico de un país, usa ["General"].
@@ -213,7 +273,7 @@ ${JSON.stringify(list)}`;
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 3000, // headroom for the added generated_summary field (2-3 sentences × up to 12 items)
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -221,7 +281,15 @@ ${JSON.stringify(list)}`;
   const json = await res.json();
   const text = (json.content?.[0]?.text || "").trim();
   const match = text.match(/\[[\s\S]*\]/);
-  const scored = match ? JSON.parse(match[0]) : [];
+  const raw = match ? JSON.parse(match[0]) : [];
+  const scored: Scored[] = raw.map((r: Record<string, unknown>) => ({
+    i: r.i as number,
+    relevant: r.relevant as boolean,
+    score: r.score as number,
+    reason: r.reason as string,
+    countries: r.countries as string[],
+    summary: typeof r.generated_summary === "string" ? r.generated_summary : undefined,
+  }));
   return { scored, usage: json.usage };
 }
 
@@ -257,7 +325,7 @@ function alertHtml(row: {
   const badges = (row.countries || []).map((c) =>
     `<span style="display:inline-block;background:#E6C780;color:#2A2008;font-weight:700;font-size:12px;padding:4px 10px;border-radius:99px;margin:0 6px 6px 0">${escapeHtml(c)}</span>`
   ).join("");
-  const src = row.source === "federal_register" ? "Federal Register (oficial)" : "Google News";
+  const src = row.source === "federal_register" ? "Federal Register (oficial)" : row.source === "bing_news" ? "Bing News" : "Google News";
   const when = row.published_at ? new Date(row.published_at).toLocaleString("es-US", { timeZone: "America/Denver" }) : "—";
   const angleUrl = `${FUNCTIONS_BASE}/immigration-video-angle?id=${row.id}&t=${ANGLE_TOKEN}`;
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;background:#0B0A10;color:#F4F0E8;border-radius:16px;overflow:hidden;border:1px solid rgba(244,240,232,0.1)">
@@ -335,7 +403,7 @@ Deno.serve(async (req) => {
     }
 
     // 1. gather + cap
-    const gathered = [...(await fetchFederalRegister()), ...(await fetchGoogleNews())].slice(0, MAX_CANDIDATES);
+    const gathered = [...(await fetchFederalRegister()), ...(await fetchGoogleNews()), ...(await fetchBingNews())].slice(0, MAX_CANDIDATES);
     const raw = gathered.filter((c) => !isExcludedByKeyword(c));
 
     // 2. dedupe against what we've already seen
@@ -380,7 +448,10 @@ Deno.serve(async (req) => {
       const relevant = !!s?.relevant && (s?.score ?? 0) >= SETTINGS.min_relevance_score;
       return {
         source: c.source, external_id: c.external_id, url: c.url, title: c.title,
-        summary: c.summary, published_at: c.published_at,
+        // Google News items arrive with summary:"" (unfetchable server-side);
+        // Haiku's generated_summary fills that gap. Federal Register/Bing
+        // already have a real snippet, so their own summary wins.
+        summary: c.summary || s?.summary || "", published_at: c.published_at,
         relevant, relevance_score: s?.score ?? 0, reason: s?.reason ?? "", countries,
       };
     });

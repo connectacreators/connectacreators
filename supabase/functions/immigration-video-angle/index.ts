@@ -55,17 +55,24 @@ async function fetchArticleText(url: string): Promise<string> {
     const html = await res.text();
     const body = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
     const text = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    return text.slice(0, 4000);
+    return text.slice(0, 6000);
   } catch { return ""; }
 }
 
-async function generateAngle(row: { title: string; summary: string; url: string; countries: string[] }, apiKey: string) {
-  const article = await fetchArticleText(row.url);
+async function generateAngle(row: { title: string; summary: string; url: string; countries: string[]; source: string }, apiKey: string) {
+  // Google News links never resolve to the real publisher server-side (see
+  // immigration-news-poll's fetchGoogleNews comment) — fetching them just
+  // pulls Google's own SPA shell, pure noise. Skip the wasted call; those
+  // rows are grounded instead by the summary Haiku synthesized at ingest
+  // time from the headline. Federal Register + Bing links are real pages.
+  const article = row.source === "google_news" ? "" : await fetchArticleText(row.url);
   const country = (row.countries || []).find((c) => !/general/i.test(c));
   const prompt = `Eres guionista de videos cortos (talking-head, vertical) para un ABOGADO DE INMIGRACIÓN que le habla a inmigrantes en EE.UU. en español claro y cercano.
 
 Con esta noticia, escribe el ángulo del video. Devuelve SOLO JSON:
-{"hook":"1 sola frase, gancho fuerte para los primeros 3 segundos${country ? ` — cuando aplique, dirígete a la comunidad de ${country}` : ""}","script":"guion hablado de 5-8 frases: explica la noticia SIMPLIFICADA en español sencillo, qué significa para el inmigrante y qué debe hacer; cierra invitando a comentar la palabra ASILO para más info","why":"1 frase: por qué le importa a esta comunidad"}
+{"hook":"1 sola frase, gancho fuerte para los primeros 3 segundos${country ? ` — cuando aplique, dirígete a la comunidad de ${country}` : ""}","script":"guion hablado de 5-8 frases: explica la noticia SIMPLIFICADA en español sencillo, con los detalles CONCRETOS del artículo (fechas, cifras, nombres, qué cambió exactamente) — no genérico. Qué significa para el inmigrante y qué debe hacer. NO invites a comentar ni menciones ASILO aquí — ese llamado va aparte.","cta":"1 sola frase corta y específica a este tema, invitando a comentar la palabra ASILO para más información (ej. sobre este caso/fecha límite/cambio en concreto)","why":"1 frase: por qué le importa a esta comunidad"}
+
+${article ? "Usa CONTENIDO como la fuente principal de hechos — cita sus detalles específicos, no inventes ni generalices lo que ya está ahí." : "No hay CONTENIDO disponible del artículo completo — trabaja solo con TÍTULO y RESUMEN. No inventes cifras, fechas ni citas que no estén ahí; sé honesto y general en vez de inventar specifics."}
 
 TÍTULO: ${row.title}
 RESUMEN: ${row.summary}
@@ -74,13 +81,13 @@ ${article ? `CONTENIDO: ${article}` : ""}`;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 900, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 1100, messages: [{ role: "user", content: prompt }] }),
   });
   if (!res.ok) throw new Error(`Haiku ${res.status}`);
   const json = await res.json();
   const text = (json.content?.[0]?.text || "").trim();
   const m = text.match(/\{[\s\S]*\}/);
-  return { angle: m ? JSON.parse(m[0]) : { hook: "", script: text, why: "" }, usage: json.usage };
+  return { angle: m ? JSON.parse(m[0]) : { hook: "", script: text, cta: "", why: "" }, usage: json.usage };
 }
 
 Deno.serve(async (req) => {
@@ -101,14 +108,14 @@ Deno.serve(async (req) => {
   );
   const { data: row } = await supabase
     .from("immigration_news")
-    .select("id, title, summary, url, countries, angle_text")
+    .select("id, title, summary, url, countries, source, angle_text")
     .eq("id", id).maybeSingle();
   if (!row) {
     if (wantsJson) return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers: jsonHeaders });
     return page(`<p class="eyebrow">No encontrado</p><h1>No se encontró la noticia.</h1>`);
   }
 
-  let angle: { hook: string; script: string; why: string };
+  let angle: { hook: string; script: string; cta: string; why: string };
   if (row.angle_text) {
     angle = JSON.parse(row.angle_text);
   } else {
@@ -147,6 +154,7 @@ Deno.serve(async (req) => {
     <div>${badges}</div>
     <div class="card"><h2>Hook (primeros 3s)</h2><p class="hook">${escapeHtml(angle.hook || "—")}</p></div>
     <div class="card"><h2>Guion</h2><p class="body" id="script">${escapeHtml(angle.script || "")}</p></div>
+    ${angle.cta ? `<div class="card"><h2>CTA</h2><p class="body">${escapeHtml(angle.cta)}</p></div>` : ""}
     ${angle.why ? `<div class="card"><h2>Por qué les importa</h2><p class="body">${escapeHtml(angle.why)}</p></div>` : ""}
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <button id="copyBtn" onclick="copyScript()">Copiar guion</button>
