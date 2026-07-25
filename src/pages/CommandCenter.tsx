@@ -280,6 +280,23 @@ export default function CommandCenter() {
   // it for tap-to-speak auto-send — a ref sidesteps the declaration-order
   // problem instead of moving a large function around.
   const handleSendRef = useRef<(override?: string) => void>(() => {});
+  // Hands-free conversation loop: tap the orb once, then it keeps listening
+  // turn after turn (listen -> send -> speak reply -> listen again) until
+  // tapped again. State drives the UI (button/status text); the ref is read
+  // inside the async continuation after speakReply resolves, which can fire
+  // seconds later — a plain state read there could act on a stale value if
+  // the user tapped to exit while the reply was still being spoken.
+  const [voiceConversationActive, setVoiceConversationActive] = useState(false);
+  const voiceConversationActiveRef = useRef(false);
+  useEffect(() => {
+    voiceConversationActiveRef.current = voiceConversationActive;
+  }, [voiceConversationActive]);
+  // toggleVoice is recreated whenever `recognizing` changes (its own
+  // internal stop-vs-start branch depends on it) — handleSend's re-listen
+  // trigger fires from an async continuation that can run well after
+  // handleSend's own closure was created, so it needs the CURRENT
+  // toggleVoice, not whichever one was captured at call time.
+  const toggleVoiceRef = useRef<(autoSend?: boolean) => void>(() => {});
   // AbortController for the in-flight companion-chat fetch. Stop button
   // aborts this; the fetch path uses raw fetch so the signal actually
   // cancels the network call (functions.invoke doesn't accept signal).
@@ -604,9 +621,11 @@ export default function CommandCenter() {
     rec.lang = en ? "en-US" : "es-ES";
     rec.continuous = false;
     rec.interimResults = false;
+    let gotResult = false;
     rec.onresult = (e: any) => {
       const transcript = e.results[0]?.[0]?.transcript || "";
       if (!transcript) return;
+      gotResult = true;
       // Strict === true, not truthy: the composer's own mic button wires
       // onClick={onToggleVoice} directly, so a MouseEvent lands here as
       // autoSend for that call site — only the orb's explicit
@@ -619,11 +638,41 @@ export default function CommandCenter() {
       }
     };
     rec.onerror = () => setRecognizing(false);
-    rec.onend = () => setRecognizing(false);
+    rec.onend = () => {
+      setRecognizing(false);
+      // Recognition ended with nothing captured (silence timeout, denied
+      // permission, etc.) — don't leave the hands-free loop stuck "waiting"
+      // forever with no way back except knowing to tap the orb again.
+      if (!gotResult && voiceConversationActiveRef.current) {
+        setVoiceConversationActive(false);
+      }
+    };
     recognitionRef.current = rec;
     rec.start();
     setRecognizing(true);
   }, [recognizing, en]);
+
+  useEffect(() => {
+    toggleVoiceRef.current = toggleVoice;
+  }, [toggleVoice]);
+
+  /**
+   * Tapping the orb starts (or exits) a hands-free conversation: listen,
+   * auto-send, speak the reply, listen again — turn after turn — until
+   * tapped again. Say "pause"/"stop" for the video, not for the loop
+   * itself; the only way to end the conversation is another tap (voice
+   * exit phrases would collide with "stop" already meaning pause-the-video
+   * inside an open review surface).
+   */
+  const handleOrbTap = useCallback(() => {
+    if (recognizing || voiceConversationActive) {
+      setVoiceConversationActive(false);
+      if (recognizing) toggleVoice(true);
+    } else {
+      setVoiceConversationActive(true);
+      toggleVoice(true);
+    }
+  }, [recognizing, voiceConversationActive, toggleVoice]);
 
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
@@ -896,23 +945,39 @@ export default function CommandCenter() {
             );
           }
           if (action?.type === "review_surface_control" && action.control) {
-            // Only meaningful while an Action Surface is actually open —
-            // control_review_surface itself already refuses to be called
-            // otherwise per its system-prompt guidance, and RevisionReviewSurface
-            // simply won't be mounted to receive this if the user already
-            // closed it, so no extra guard is needed here.
-            setReviewSurfaceCommand(action.control as ReviewSurfaceCommand);
+            const control = action.control as ReviewSurfaceCommand;
+            if (control.action === "close") {
+              // "close" dismisses the whole Action Surface — a
+              // CommandCenter-level concern, not something
+              // VideoReviewModal/RevisionReviewSurface need to know about
+              // as a playback command.
+              setActionSurface(null);
+            } else {
+              // Only meaningful while an Action Surface is actually open —
+              // control_review_surface itself already refuses to be called
+              // otherwise per its system-prompt guidance, and RevisionReviewSurface
+              // simply won't be mounted to receive this if the user already
+              // closed it, so no extra guard is needed here.
+              setReviewSurfaceCommand(control);
+            }
           }
         }
       }
 
       // Read the reply aloud only for the turn that was itself spoken —
       // consume the flag immediately so a later typed message never
-      // inherits it.
+      // inherits it. If the hands-free conversation loop is active, listen
+      // again once the reply has been spoken (or immediately if there was
+      // nothing to speak) so the loop keeps going without another tap.
       if (lastTurnWasVoiceRef.current) {
         lastTurnWasVoiceRef.current = false;
-        if (typeof data?.reply === "string" && data.reply.trim()) {
-          void speakReply(data.reply);
+        const spokenReply = typeof data?.reply === "string" ? data.reply.trim() : "";
+        if (spokenReply) {
+          void speakReply(spokenReply).finally(() => {
+            if (voiceConversationActiveRef.current) toggleVoiceRef.current(true);
+          });
+        } else if (voiceConversationActiveRef.current) {
+          toggleVoiceRef.current(true);
         }
       }
 
@@ -1252,7 +1317,7 @@ export default function CommandCenter() {
                 // CommandOrb.tsx's ResizeObserver.
                 <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden px-4 py-4">
                   <div className="w-full max-w-2xl flex-1 flex flex-col min-h-0 items-center">
-                    <CommandOrb onTap={() => toggleVoice(true)} />
+                    <CommandOrb onTap={handleOrbTap} />
                     <div className="flex items-center gap-2 mt-3" style={{ pointerEvents: "none" }}>
                       <span
                         className="inline-block w-[5px] h-[5px] rounded-full"
@@ -1272,9 +1337,11 @@ export default function CommandCenter() {
                           ? "LISTENING…"
                           : sending
                             ? (en ? "THINKING…" : "PENSANDO…")
-                            : en
-                              ? "STANDBY · TAP TO SPEAK"
-                              : "EN ESPERA · TOCA PARA HABLAR"}
+                            : voiceConversationActive
+                              ? (en ? "CONVERSATION · TAP TO END" : "CONVERSACIÓN · TOCA PARA TERMINAR")
+                              : en
+                                ? "STANDBY · TAP TO SPEAK"
+                                : "EN ESPERA · TOCA PARA HABLAR"}
                       </span>
                     </div>
                     {!latestAssistantCaption ? (

@@ -15,9 +15,12 @@ const corsHeaders = {
 
 // "Rachel" — a stable, long-standing ElevenLabs premade voice ID.
 const VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
-// Turbo is ElevenLabs' lowest-cost, lowest-latency model tier — the right
-// default for a live HUD read-back, not a produced narration.
-const MODEL_ID = "eleven_turbo_v2_5";
+// Flash is ElevenLabs' lowest-LATENCY tier (built for real-time
+// conversational agents, ~75ms model latency vs. Turbo's ~250-300ms) —
+// upgraded from Turbo once the hands-free conversation loop made TTS
+// generation time a direct gate on how fast each turn can proceed, not
+// just a one-off read-back delay.
+const MODEL_ID = "eleven_flash_v2_5";
 const MAX_CHARS = 1000;
 
 serve(async (req) => {

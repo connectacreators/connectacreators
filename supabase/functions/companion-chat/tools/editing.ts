@@ -21,11 +21,11 @@ export const EDITING_TOOLS: ToolDef[] = [
   },
   {
     name: "control_review_surface",
-    description: "Control the in-page review panel that's CURRENTLY OPEN on the Command Deck (see ACTIVE ACTION SURFACE in context — only usable when one is open; if none is open, use open_editing_item first). Play/pause/seek the video, add a timestamped revision note, or mark all outstanding revisions resolved ('approve'). Targets the open item directly — do not pass client_name or item_title.",
+    description: "Control the in-page review panel that's CURRENTLY OPEN on the Command Deck (see ACTIVE ACTION SURFACE in context — only usable when one is open; if none is open, use open_editing_item first). Play/pause/seek the video, add a timestamped revision note, mark all outstanding revisions resolved ('approve'), or close the panel entirely. Targets the open item directly — do not pass client_name or item_title.",
     input_schema: {
       type: "object",
       properties: {
-        action: { type: "string", enum: ["play", "pause", "seek_to", "add_note", "resolve_all"], description: "play/pause the video, seek_to a timestamp, add_note (a revision comment), or resolve_all (approve — marks every outstanding revision note resolved)." },
+        action: { type: "string", enum: ["play", "pause", "seek_to", "add_note", "resolve_all", "close"], description: "play/pause the video, seek_to a timestamp, add_note (a revision comment), resolve_all (approve — marks every outstanding revision note resolved), or close (dismiss the panel, e.g. 'close this'/'close the tab', returning to the orb)." },
         seconds: { type: "number", description: "Required for seek_to. For add_note, the timestamp to anchor the note to — omit to use the current playhead if the video is paused, or leave the note untimestamped (general note) otherwise." },
         end_seconds: { type: "number", description: "Optional, add_note only — end of a ranged note ('from here to there')." },
         note_text: { type: "string", description: "Required for add_note — the revision note text, e.g. what the user says to leave as feedback." },
@@ -368,7 +368,7 @@ export async function handleEditingTool(
     const { action, seconds, end_seconds, note_text } = block.input as {
       action: string; seconds?: number; end_seconds?: number; note_text?: string;
     };
-    const validActions = ["play", "pause", "seek_to", "add_note", "resolve_all"];
+    const validActions = ["play", "pause", "seek_to", "add_note", "resolve_all", "close"];
     if (!validActions.includes(action)) {
       return { type: "tool_result", tool_use_id: block.id, content: `Invalid action "${action}". Use one of: ${validActions.join(", ")}.` };
     }
@@ -394,6 +394,7 @@ export async function handleEditingTool(
       seek_to: `Jumped to ${fmt(seconds ?? 0)}.`,
       add_note: `Added note: "${note_text}".`,
       resolve_all: "Marked all revisions resolved.",
+      close: "Closed.",
     };
     return { type: "tool_result", tool_use_id: block.id, content: confirmations[action] };
   }

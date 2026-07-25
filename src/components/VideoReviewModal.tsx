@@ -20,7 +20,10 @@ import ThemedVideoPlayer from './ThemedVideoPlayer';
 // without duplicating any of this component's own logic. Each command
 // re-uses the exact same internal handlers the manual UI calls.
 export interface ReviewSurfaceCommand {
-  action: 'play' | 'pause' | 'seek_to' | 'add_note' | 'resolve_all';
+  // "close" is intercepted by CommandCenter.tsx before it ever reaches this
+  // component (it dismisses the whole Action Surface, not a video command)
+  // — included here only so the shared action union stays exhaustive.
+  action: 'play' | 'pause' | 'seek_to' | 'add_note' | 'resolve_all' | 'close';
   seconds?: number;
   endSeconds?: number;
   noteText?: string;
