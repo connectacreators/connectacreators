@@ -54,9 +54,9 @@ Implemented exactly the recommended fix shape: `plan_id` is now a required input
 
 **Why deferred:** this changes live, user-visible assistant behavior for every admin (the assistant will start claiming to remember things, storing user-provided facts) — a product decision, not a pure bug fix, and worth a quick explicit "yes, turn it on" rather than silently flipping it live. Re-verify `assistant_memories` schema/RPC still match current DB state before flipping it on (schema drift risk, same class of issue as the DB-migration-drift pattern already tracked elsewhere in this project).
 
-### 5. Dead-end retry heuristic is regex-brittle (small, low severity)
+### 5. Dead-end retry heuristic is regex-brittle — FIXED (2026-07-25, part of the same-day speed-complaint fix)
 
-`index.ts`'s broad phrase patterns (`/\blet's\b/i`, `/\bi will\b/i`, etc.) detect unfulfilled promises and trigger a forced retry — but they test the model's *final* reply text, so a legitimate completed answer containing common phrasing ("Let's schedule that for Tuesday — done") can false-positive and burn an extra Anthropic call. Not a correctness bug (idempotent retry, not double-execution), just wasted latency/spend on false positives. Left for a future pass since it's a prompt-heuristic tuning judgment call, not a mechanical fix.
+`index.ts`'s broad phrase patterns (`/\blet's\b/i`, `/\bi will\b/i`, etc.) detected unfulfilled promises and triggered a forced retry — but tested the model's *entire* reply text, so a legitimate completed answer containing common phrasing ("Let's schedule that for Tuesday — done") could false-positive and burn an extra Anthropic call on every occurrence. This stopped being a low-priority "future pass" item the moment a live user reported replies feeling slow — tightened to match only the first 80 characters of the reply (`replyOpening`), where a genuine unfulfilled promise actually leads, instead of anywhere in the text.
 
 ## Corrected from the original spec's preliminary notes
 
