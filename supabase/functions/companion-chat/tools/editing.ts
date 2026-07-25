@@ -139,14 +139,15 @@ export const EDITING_TOOLS: ToolDef[] = [
   },
   {
     name: "permanent_delete_editing_item",
-    description: "Permanently delete an editing queue item. UNRECOVERABLE. Must be confirmed by user via propose_plan first, regardless of autonomy mode.",
+    description: "Permanently delete an editing queue item. UNRECOVERABLE. Requires an APPROVED plan_id regardless of autonomy mode — call propose_plan, wait for the user to approve, call confirm_plan, then call this with the same plan_id. Calling this without a plan_id or with one that isn't approved is refused server-side, not just discouraged by these instructions.",
     input_schema: {
       type: "object",
       properties: {
         client_name: { type: "string" },
         item_title: { type: "string" },
+        plan_id: { type: "string", description: "The plan_id from propose_plan, AFTER the user approved it via confirm_plan. Required — there is no way to call this tool without one." },
       },
-      required: ["client_name", "item_title"],
+      required: ["client_name", "item_title", "plan_id"],
     },
   },
   {
@@ -593,7 +594,24 @@ export async function handleEditingTool(
   }
 
   if (block.name === "permanent_delete_editing_item") {
-    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const { client_name, item_title, plan_id } = block.input as { client_name: string; item_title: string; plan_id?: string };
+    // Code-level gate, not just a prompt instruction — the ONE tool in this
+    // file documented as unrecoverable is the one place a model
+    // misclassification or a bad turn shouldn't be able to execute
+    // irreversibly with no approval on record.
+    if (!plan_id) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Refused: this is a permanent, unrecoverable delete. Call propose_plan first, wait for the user to approve, call confirm_plan, then retry with that plan_id." };
+    }
+    const { data: approvedPlan } = await adminClient
+      .from("pending_plans")
+      .select("id")
+      .eq("id", plan_id)
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .maybeSingle();
+    if (!approvedPlan) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: plan ${plan_id} is not an approved plan for this user. Call propose_plan, get the user's approval, call confirm_plan, then retry.` };
+    }
     const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
     const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title);

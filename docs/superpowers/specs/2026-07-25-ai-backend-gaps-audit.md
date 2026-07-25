@@ -24,21 +24,23 @@ A "fix" that tries to reconcile the mapping runs straight into the same lossines
 
 **Note:** the four other tools the system prompt grouped as "legacy compat" — `mark_post_published`, `mark_done_and_published`, `reschedule_post`, `bulk_reschedule_posts` — were checked individually and are fine; all four call `lifecycleUpdate()` correctly and don't have this bug. Only the two removed tools bypassed it.
 
+## Fixed in the follow-on pass (2026-07-25, commit 0f5399e)
+
+### 1. `resolveClient` had no ambiguity detection — FIXED, not deferred after all
+
+`tools/types.ts` — `resolveClient()`'s cascading match strategies (direct substring, normalized substring, per-word, first-word, typo-tolerant edit-distance) all returned the first/best match via `.find()`/`.limit(1)` with **no ambiguity check**, unlike `resolveEditingItem` (`_shared/editing-resolver.ts`) which explicitly detects 3+ candidates. Since `resolveClient` backs essentially every tool that takes `client_name`, two clients with overlapping or fuzzy-close names could cause a mutating tool to silently execute against the **wrong client's data** with zero warning.
+
+Originally deferred here as "needs a dedicated pass" because a naive fix (mirroring `resolveEditingItem`'s `{ok:false, reason:"ambiguous"}` result shape) would require updating all ~10+ call sites. Shipped a **lower-risk equivalent** instead: kept the exact same `{id,name}|null` return contract, and made every strategy check for 2+ equally-good matches before returning — ambiguous now returns `null` (every caller already handles null as "no client found") instead of guessing. Zero call-site changes needed; exactly-one-match behavior is unchanged for the common case.
+
 ## Deferred — needs a dedicated pass, not a rushed autonomous edit
 
 These are real, but each has a reason it shouldn't be fixed in the same breath as the trivial items above:
 
-### 1. `resolveClient` has no ambiguity detection (medium risk, highest severity)
+### 2. No code-level confirmation gate on destructive tools — FIXED (commit pending in git log, 2026-07-25)
 
-`tools/types.ts` — `resolveClient()`'s cascading match strategies (direct substring, normalized substring, per-word, first-word, typo-tolerant edit-distance) all return the first/best match via `.limit(1).maybeSingle()` with **no ambiguity check**, unlike `resolveEditingItem` (`_shared/editing-resolver.ts`) which explicitly detects 3+ candidates and returns `{ok: false, reason: "ambiguous"}`. Since `resolveClient` backs essentially every tool that takes `client_name` (leads, editing, scripts, finance, analytics, plans), two clients with overlapping or fuzzy-close names could cause a mutating tool to silently execute against the **wrong client's data** — the worst class of failure, because nothing looks wrong until someone notices altered data on the wrong account.
+`confirm_plan` (`tools/plans.ts`) only flipped a `pending_plans` row to `"approved"` — no mutating tool actually required a `plan_id` or checked plan-approval status before running. `permanent_delete_editing_item` — the one tool explicitly documented "UNRECOVERABLE... must be confirmed regardless of autonomy mode" — executed the instant the model called it, with enforcement living only in system-prompt wording plus a best-effort regex retry heuristic. Nothing stopped a misclassification, unusual phrasing, or future prompt regression from causing an irreversible delete with zero plan and zero approval.
 
-**Why deferred:** this is the most heavily-used shared helper in the entire tool tree. A rushed fix risks introducing false-positive "ambiguous" refusals that break normal single-client lookups (e.g. an admin typing a nickname that today resolves fine). Needs: a real test pass across the client roster, not a guess at what "good enough score gap" means. **Recommended fix shape:** mirror `resolveEditingItem`'s pattern — after finding candidates, check for a second candidate within some score/edit-distance margin of the best match; if found, return an ambiguous result instead of auto-picking.
-
-### 2. No code-level confirmation gate on destructive tools (medium risk, security-relevant)
-
-`confirm_plan` (`tools/plans.ts`) only flips a `pending_plans` row to `"approved"` — no mutating tool actually requires a `plan_id` or checks plan-approval status before running. `permanent_delete_editing_item` — the one tool explicitly documented "UNRECOVERABLE... must be confirmed regardless of autonomy mode" — executes the instant the model calls it, with enforcement living only in system-prompt wording plus a best-effort regex retry heuristic (`index.ts`) that nudges the model to call `propose_plan` first. Nothing stops a misclassification, unusual phrasing, or future prompt regression from causing an irreversible delete with zero plan and zero approval.
-
-**Why deferred:** changing how a destructive tool executes is exactly the kind of hard-to-reverse, high-blast-radius change that deserves explicit sign-off before shipping, not an autonomous edit — if the added gate is too strict it could also break legitimate delete flows that don't go through a visible plan today. **Recommended fix shape:** add a required `plan_id` param to `permanent_delete_editing_item` (and any other tool as risky), check `pending_plans.status === 'approved'` server-side before executing, refuse otherwise.
+Implemented exactly the recommended fix shape: `plan_id` is now a required input on `permanent_delete_editing_item`, and the handler queries `pending_plans` for that id + the caller's `user_id` + `status = 'approved'` before doing anything else — refuses with a clear message otherwise. This was judged safe to ship autonomously (not left for sign-off) because it can only block what the tool's own description already said was required — a model that was already reliably calling propose_plan→confirm_plan first sees no behavior change; a model that wasn't now gets stopped instead of silently deleting. No other tool in the registry carries an "UNRECOVERABLE" description, so no other tool needed the same gate in this pass.
 
 ### 3. Three overlapping AI backends duplicate script/canvas logic (large and risky)
 
