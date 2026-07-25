@@ -1,7 +1,7 @@
 // src/components/command-deck/AttentionRadar.tsx
 import { useEffect, useRef } from "react";
 import { useDeckMetrics } from "@/hooks/useDeckMetrics";
-import { resolveCssHsl } from "@/lib/commandDeck/cssColor";
+import { resolveCssHsl, withAlpha } from "@/lib/commandDeck/cssColor";
 import type { RadarBlip } from "@/lib/commandDeck/deckMetrics";
 
 function smoothstep(t: number): number {
@@ -51,7 +51,7 @@ export default function AttentionRadar() {
       const R = Math.min(w, h) / 2 - 4;
       ctx!.clearRect(0, 0, w, h);
 
-      ctx!.strokeStyle = aqua.replace("hsl(", "hsla(").replace(")", ", 0.14)");
+      ctx!.strokeStyle = withAlpha(aqua, 0.14);
       ctx!.lineWidth = 1;
       for (let g = 1; g <= 3; g++) {
         ctx!.beginPath();
@@ -60,8 +60,8 @@ export default function AttentionRadar() {
       }
 
       const sweepGrad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, R);
-      sweepGrad.addColorStop(0, aqua.replace("hsl(", "hsla(").replace(")", ", 0.26)"));
-      sweepGrad.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
+      sweepGrad.addColorStop(0, withAlpha(aqua, 0.26));
+      sweepGrad.addColorStop(1, withAlpha(aqua, 0));
       ctx!.save();
       ctx!.translate(cx, cy);
       ctx!.rotate(sweep);

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { fibonacciSphere, rotateX, rotateY, type Point3D } from "@/lib/commandDeck/fibonacciSphere";
-import { resolveCssHsl } from "@/lib/commandDeck/cssColor";
+import { resolveCssHsl, withAlpha } from "@/lib/commandDeck/cssColor";
 
 const TILT = (12 * Math.PI) / 180;
 
@@ -46,7 +46,7 @@ export default function CommandOrb({ className }: { className?: string }) {
       ctx!.save();
       ctx!.translate(cx, cy);
       ctx!.rotate(-t * 0.16);
-      ctx!.strokeStyle = aqua.replace("hsl(", "hsla(").replace(")", ", 0.2)");
+      ctx!.strokeStyle = withAlpha(aqua, 0.2);
       ctx!.lineWidth = 1;
       ctx!.setLineDash([2, 8]);
       ctx!.beginPath();
@@ -57,9 +57,9 @@ export default function CommandOrb({ className }: { className?: string }) {
 
       // Volumetric lit-sphere body beneath the point cloud
       const lit = ctx!.createRadialGradient(cx - R * 0.28, cy - R * 0.3, 0, cx, cy, R * 0.98);
-      lit.addColorStop(0, aqua.replace("hsl(", "hsla(").replace(")", ", 0.07)"));
-      lit.addColorStop(0.6, aqua.replace("hsl(", "hsla(").replace(")", ", 0.02)"));
-      lit.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
+      lit.addColorStop(0, withAlpha(aqua, 0.07));
+      lit.addColorStop(0.6, withAlpha(aqua, 0.02));
+      lit.addColorStop(1, withAlpha(aqua, 0));
       ctx!.fillStyle = lit;
       ctx!.beginPath();
       ctx!.arc(cx, cy, R, 0, Math.PI * 2);
@@ -77,7 +77,7 @@ export default function CommandOrb({ className }: { className?: string }) {
         const d = smoothstep((p.z + 1) / 2);
         const alpha = 0.1 + d * 0.62;
         const size = 0.55 + d * 1.4;
-        ctx!.fillStyle = aqua.replace("hsl(", "hsla(").replace(")", `, ${alpha.toFixed(2)})`);
+        ctx!.fillStyle = withAlpha(aqua, Number(alpha.toFixed(2)));
         ctx!.beginPath();
         ctx!.arc(p.x, p.y, size, 0, Math.PI * 2);
         ctx!.fill();
@@ -88,7 +88,7 @@ export default function CommandOrb({ className }: { className?: string }) {
       const core = ctx!.createRadialGradient(cx, cy, 0, cx, cy, pr + 4);
       core.addColorStop(0, bone);
       core.addColorStop(0.5, aqua);
-      core.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
+      core.addColorStop(1, withAlpha(aqua, 0));
       ctx!.fillStyle = core;
       ctx!.beginPath();
       ctx!.arc(cx, cy, pr + 4, 0, Math.PI * 2);

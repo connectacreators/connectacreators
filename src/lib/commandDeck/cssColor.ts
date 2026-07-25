@@ -7,3 +7,12 @@ export function resolveCssHsl(varName: string, fallback: string): string {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   return `hsl(${raw || fallback})`;
 }
+
+// Applies an alpha value to a `resolveCssHsl(...)` result using the CSS
+// Color 4 slash syntax (`hsl(H S% L% / A)`) — the space-separated triplet
+// `resolveCssHsl` returns is NOT valid inside a comma-separated `hsla(...)`,
+// and canvas's `addColorStop`/`fillStyle` parser throws a SyntaxError on
+// that hybrid rather than silently ignoring it.
+export function withAlpha(hslColor: string, alpha: number): string {
+  return hslColor.replace(/\)$/, ` / ${alpha})`);
+}

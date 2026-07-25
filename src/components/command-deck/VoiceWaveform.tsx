@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { resolveCssHsl } from "@/lib/commandDeck/cssColor";
+import { resolveCssHsl, withAlpha } from "@/lib/commandDeck/cssColor";
 
 export default function VoiceWaveform({ listening }: { listening: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,7 +35,7 @@ export default function VoiceWaveform({ listening }: { listening: boolean }) {
       for (let i = 0; i < bars; i++) {
         const v = Math.abs(Math.sin(i * 0.4 + phase) + Math.sin(i * 0.13 + phase * 1.7)) * 0.5 * amp;
         const bh = 2 + v * (h - 3);
-        ctx!.fillStyle = aqua.replace("hsl(", "hsla(").replace(")", `, ${(0.22 + v * 0.5).toFixed(2)})`);
+        ctx!.fillStyle = withAlpha(aqua, Number((0.22 + v * 0.5).toFixed(2)));
         ctx!.fillRect(i * 5, (h - bh) / 2, 2.2, bh);
       }
       phase += listeningRef.current ? 0.09 : 0.03;

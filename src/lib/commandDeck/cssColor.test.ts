@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { resolveCssHsl } from "./cssColor";
+import { resolveCssHsl, withAlpha } from "./cssColor";
 
 describe("resolveCssHsl", () => {
   beforeEach(() => {
@@ -44,5 +44,22 @@ describe("resolveCssHsl", () => {
     delete globalThis.document;
     expect(resolveCssHsl("--aqua", "184 41% 70%")).toBe("hsl(184 41% 70%)");
     globalThis.document = original;
+  });
+});
+
+describe("withAlpha", () => {
+  it("inserts the alpha value using CSS Color 4 slash syntax", () => {
+    expect(withAlpha("hsl(184 41% 70%)", 0.07)).toBe("hsl(184 41% 70% / 0.07)");
+  });
+
+  it("never produces a comma-separated hybrid (invalid, throws in Canvas addColorStop)", () => {
+    const result = withAlpha("hsl(184 41% 70%)", 0.26);
+    expect(result).not.toContain(",");
+    expect(result.startsWith("hsl(")).toBe(true);
+  });
+
+  it("handles alpha 0 and 1", () => {
+    expect(withAlpha("hsl(4 68% 63%)", 0)).toBe("hsl(4 68% 63% / 0)");
+    expect(withAlpha("hsl(4 68% 63%)", 1)).toBe("hsl(4 68% 63% / 1)");
   });
 });
