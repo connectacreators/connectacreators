@@ -110,6 +110,7 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
   scripts: [
     "create_script",
     "list_client_scripts",
+    "get_script",
     "update_script_status",
     "mark_script_recorded",
     "delete_script",
