@@ -18,7 +18,7 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
-  Film, TrendingUp, ClipboardList, Send,
+  Film, TrendingUp, ClipboardList, Send, Newspaper,
 } from "lucide-react";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
@@ -175,6 +175,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
         { type: 'group', label: L('Growth', 'Crecimiento') },
         { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
         { label: L("Trainings", "Entrenamientos"), icon: BookOpen, path: "/trainings" },
+        { label: L("Immigration News", "Noticias de Inmigración"), icon: Newspaper, path: "/immigration-news" },
         { type: 'group', label: L('Business', 'Negocio') },
         { label: L("Finances", "Finanzas"), icon: DollarSign, path: "/finances" },
         { label: "DM Outbound", icon: Send, path: "/outbound" },
