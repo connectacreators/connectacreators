@@ -150,7 +150,7 @@ export default function ImmigrationNews() {
         .eq("id", true);
       if (error) throw error;
       setSettings((s) => ({ ...s, target_countries, excluded_keywords }));
-      toast.success("Configuración guardada — aplica desde la próxima revisión (cada ~10 min).");
+      toast.success("Configuración guardada — aplica desde la próxima revisión (una vez al día).");
       setSettingsOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo guardar");
@@ -225,7 +225,7 @@ export default function ImmigrationNews() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Noticias de Inmigración</h1>
             <p className="text-sm text-muted-foreground">
-              Alertas automáticas cada ~10 min · Federal Register + Google News + Bing News
+              Alertas automáticas una vez al día · Federal Register + Google News + Bing News
             </p>
           </div>
         </div>

@@ -1,7 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /* =============================================================================
-   immigration-news-poll — scheduled every ~10 min via pg_cron.
+   immigration-news-poll — scheduled once daily via pg_cron (13:00 UTC).
+   Bump the schedule in cron.job (jobname 'immigration-news-poll') to poll
+   more often once volume/cost justify it — no code change needed for that.
    Pulls official + breaking immigration news, dedupes against immigration_news,
    asks Haiku to score relevance AND extract the affected immigrant countries,
    then emails an alert for each relevant item (filtered by target countries).
