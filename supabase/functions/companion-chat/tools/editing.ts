@@ -2,7 +2,7 @@
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
 import { resolveEditingItem, ambiguousMessage } from "../_shared/editing-resolver.ts";
-import { lifecycleUpdate, deriveFromLegacy, LIFECYCLE_VALUES, type LifecycleStatus } from "../../_shared/lifecycleStatus.ts";
+import { lifecycleUpdate, LIFECYCLE_VALUES, type LifecycleStatus } from "../../_shared/lifecycleStatus.ts";
 import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 
 export const EDITING_TOOLS: ToolDef[] = [
@@ -138,19 +138,6 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
-    name: "update_editing_status",
-    description: "Update the status of an item in the editing queue.",
-    input_schema: {
-      type: "object",
-      properties: {
-        client_name: { type: "string" },
-        item_title: { type: "string", description: "Title or partial title of the editing item" },
-        status: { type: "string", description: "Not started | In progress | In review | Done" },
-      },
-      required: ["client_name", "item_title", "status"],
-    },
-  },
-  {
     name: "assign_editor",
     description: "Assign an editor to an editing queue item.",
     input_schema: {
@@ -190,7 +177,7 @@ export const EDITING_TOOLS: ToolDef[] = [
   },
   {
     name: "mark_done_and_published",
-    description: "Convenience: in one call, set status=Done AND post_status=Published on an editing queue item. Use when the user says 'mark X as done and published' or similar. Saves a round-trip vs calling update_editing_status + mark_post_published separately.",
+    description: "Convenience: in one call, set status=Done AND post_status=Published on an editing queue item. Use when the user says 'mark X as done and published' or similar. Saves a round-trip vs calling set_lifecycle_status + mark_post_published separately.",
     input_schema: {
       type: "object",
       properties: {
@@ -273,19 +260,6 @@ export const EDITING_TOOLS: ToolDef[] = [
         editor_name: { type: "string" },
       },
       required: ["client_name", "item_titles", "editor_name"],
-    },
-  },
-  {
-    name: "bulk_update_status",
-    description: "Set status on multiple items in one call. Capped at 14. status: Not started | In progress | In review | Done.",
-    input_schema: {
-      type: "object",
-      properties: {
-        client_name: { type: "string" },
-        item_titles: { type: "array", items: { type: "string" } },
-        status: { type: "string" },
-      },
-      required: ["client_name", "item_titles", "status"],
     },
   },
 ];
@@ -433,18 +407,6 @@ export async function handleEditingTool(
         .eq("id", id);
       return { error };
     }, `Set lifecycle_status to "${lifecycle_status}":`);
-  }
-
-  if (block.name === "update_editing_status") {
-    const { client_name, item_title, status } = block.input;
-    const client = await resolveClient(ctx, client_name);
-    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
-    const item = await findEditItem(adminClient, client.id, item_title);
-    if (!item) return { type: "tool_result", tool_use_id: block.id, content: `No editing item found matching "${item_title}" for ${client.name}` };
-    const lifecycle = deriveFromLegacy(status, item.post_status);
-    await adminClient.from("video_edits").update({ status, lifecycle_status: lifecycle }).eq("id", item.id);
-    actions.push({ type: "refresh_data", scope: "editing_queue" });
-    return { type: "tool_result", tool_use_id: block.id, content: `"${item.reel_title}" status updated to "${status}".` };
   }
 
   if (block.name === "assign_editor") {
@@ -785,19 +747,6 @@ Caption only, no other text.`,
       const { error } = await adminClient.from("video_edits").update({ assignee: editor_name }).eq("id", id);
       return { error };
     }, `Assigned to ${editor_name}:`);
-  }
-
-  if (block.name === "bulk_update_status") {
-    const { client_name, item_titles, status } = block.input as { client_name: string; item_titles: string[]; status: string };
-    const valid = ["Not started", "In progress", "In review", "Done"];
-    if (!valid.includes(status)) {
-      return { type: "tool_result", tool_use_id: block.id, content: `Invalid status "${status}". Use one of: ${valid.join(", ")}.` };
-    }
-    const lifecycle = deriveFromLegacy(status, undefined);
-    return runBulk(client_name, item_titles, async (id) => {
-      const { error } = await adminClient.from("video_edits").update({ status, lifecycle_status: lifecycle }).eq("id", id);
-      return { error };
-    }, `Set status to "${status}":`);
   }
 
   return null;

@@ -35,14 +35,14 @@ export default function CommandDeckLayout({
       </div>
 
       <div className="flex-1 grid gap-5 min-h-0 pt-2" style={{ gridTemplateColumns: "236px minmax(360px,1fr) 236px" }}>
-        <div className="cd-fade-left flex flex-col gap-[26px] pt-1.5 overflow-y-auto">
+        <div className="cd-fade-left flex flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
           <SystemVitals />
           <TelemetryLog />
         </div>
 
         <div className="flex flex-col min-h-0 relative">{children}</div>
 
-        <div className="cd-fade-right flex flex-col gap-[26px] pt-1.5 overflow-y-auto">
+        <div className="cd-fade-right flex flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
           <VoiceWaveform listening={listening} />
           <AttentionRadar />
           <OutboundGauge />

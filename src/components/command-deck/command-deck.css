@@ -4,6 +4,19 @@
    tuned down from earlier passes that read as an obvious scanline gimmick
    (see docs/superpowers/specs/2026-07-24-ai-command-deck-design.md). */
 
+/* Boxless scroll regions: hide the native scrollbar and fade content into
+   the top edge instead, so overflow reads as an ambient edge rather than a
+   visible scrollbar chrome would break the HUD's boxless aesthetic. */
+.cd-scroll-fade-top {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(to bottom, transparent 0, black 22px, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 22px, black 100%);
+}
+.cd-scroll-fade-top::-webkit-scrollbar {
+  display: none;
+}
+
 .cd-atmos {
   position: fixed;
   inset: -2%;

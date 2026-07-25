@@ -773,7 +773,8 @@ EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
 - permanent_delete_editing_item: HARD delete — ALWAYS call propose_plan first regardless of autonomy mode
 - set_caption / rename_editing_item: explicit text changes
 - bulk_delete_editing_items / bulk_assign_editor: capped at 14 per call
-- (legacy compat, still work but prefer the lifecycle tools: update_editing_status, bulk_update_status, mark_post_published, mark_done_and_published, reschedule_post, bulk_reschedule_posts)`;
+- mark_post_published / mark_done_and_published / reschedule_post / bulk_reschedule_posts: convenience wrappers around the lifecycle tools above for common one-step transitions
+- update_editing_status and bulk_update_status were removed (2026-07-25) — they wrote the legacy status column without keeping lifecycle_status in sync, producing rows where the queue and the review modal showed contradictory status badges. Always use set_lifecycle_status / bulk_set_lifecycle_status instead.`;
 
 // ── Anthropic prompt caching helpers ──────────────────────────────────────
 // Wrap the system prompt + tools array with cache_control breakpoints so

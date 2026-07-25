@@ -57,7 +57,6 @@ const TOOL_HINTS: Record<string, SceneHint> = {
   submit_to_editing_queue:     { scene: "thinking", verb: "Sending to editing",             meta: "editing_queue · insert" },
   submit_to_editing_after_save: { scene: "thinking", verb: "Sending to editing",            meta: "editing_queue · insert" },
   mark_post_published:         { scene: "thinking", verb: "Marking as published",           meta: "scheduled_posts" },
-  update_editing_status:       { scene: "thinking", verb: "Updating editing status",        meta: "editing_queue" },
   update_lead_status:          { scene: "thinking", verb: "Updating lead status",           meta: "leads" },
   add_video_to_canvas:         { scene: "thinking", verb: "Adding the video to canvas",     meta: "canvas_states" },
   add_canvas_node:             { scene: "drafting", verb: "Adding the node to canvas",      meta: "canvas_states" },
@@ -94,7 +93,6 @@ const TOOL_HINTS: Record<string, SceneHint> = {
   // ─── Bulk operations → drafting (looks like a lot of writing) ─────────
   bulk_schedule_posts:         { scene: "drafting", verb: "Scheduling posts",               meta: "bulk · scheduled_posts" },
   bulk_assign_editor:          { scene: "drafting", verb: "Assigning editors",              meta: "bulk · editing_queue" },
-  bulk_update_status:          { scene: "drafting", verb: "Updating items",                 meta: "bulk · status" },
   bulk_reschedule_posts:       { scene: "drafting", verb: "Rescheduling posts",             meta: "bulk · scheduled_posts" },
   bulk_delete_editing_items:   { scene: "drafting", verb: "Cleaning up the queue",          meta: "bulk · editing_queue" },
 

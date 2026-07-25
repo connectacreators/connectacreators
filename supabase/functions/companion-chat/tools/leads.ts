@@ -4,6 +4,13 @@ import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { resolveClient } from "./types.ts";
 import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 
+// Matches the enum documented on update_lead_status/bulk_update_lead_status
+// below. Validated so a hallucinated or mistyped status (e.g. "won" instead
+// of "booked") is refused instead of silently written — an unrecognized
+// value would otherwise land outside any UI filter/count that assumes this
+// fixed set (see get_pipeline_summary's status grouping further down).
+const LEAD_STATUS_VALUES = ["new", "contacted", "interested", "booked", "lost", "stopped"] as const;
+
 export const LEAD_TOOLS: ToolDef[] = [
   {
     name: "get_leads",
@@ -168,6 +175,9 @@ export async function handleLeadTool(
 
   if (block.name === "update_lead_status") {
     const { client_name, lead_name, new_status } = block.input;
+    if (!LEAD_STATUS_VALUES.includes(new_status)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid new_status "${new_status}". Use one of: ${LEAD_STATUS_VALUES.join(", ")}.` };
+    }
     const client = await resolveClient(ctx, client_name);
     if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
 
@@ -258,6 +268,10 @@ export async function handleLeadTool(
       const newStatus = String(u?.new_status ?? "").trim();
       if (!leadName || !newStatus) {
         lines.push(`SKIP: missing lead_name or new_status — ${JSON.stringify(u).slice(0, 80)}`);
+        continue;
+      }
+      if (!LEAD_STATUS_VALUES.includes(newStatus as any)) {
+        lines.push(`SKIP "${leadName}": invalid new_status "${newStatus}" — use one of ${LEAD_STATUS_VALUES.join(", ")}`);
         continue;
       }
       const { data: lead } = await adminClient

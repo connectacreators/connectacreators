@@ -79,6 +79,12 @@ export async function handlePlanTool(
     if (!summary || !Array.isArray(steps) || steps.length === 0) {
       return { type: "tool_result", tool_use_id: block.id, content: "Refused: summary and at least one step are required." };
     }
+    if (steps.length > 25) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: cap is 25 steps per plan (got ${steps.length}). Split this into multiple plans.` };
+    }
+    if (Array.isArray(target_item_titles) && target_item_titles.length > 25) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Refused: cap is 25 target items per plan (got ${target_item_titles.length}). Split this into multiple plans.` };
+    }
     // Resolve a client_id if a name was passed (best-effort, optional).
     let resolvedClientId: string | null = null;
     if (client_name) {

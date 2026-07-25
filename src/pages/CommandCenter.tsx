@@ -49,6 +49,8 @@ import {
 import { AI_MODELS, type AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
 import CommandDeckLayout from "@/components/command-deck/CommandDeckLayout";
 import CommandOrb from "@/components/command-deck/CommandOrb";
+import RevisionReviewSurface from "@/components/command-deck/RevisionReviewSurface";
+import { parseEditingReviewNavigation, type EditingReviewTarget } from "@/lib/commandDeck/actionSurface";
 
 // Persisted across sessions so the user's last model/thinking choice survives
 // reloads. Keys are versioned so we can invalidate in a future migration.
@@ -266,6 +268,17 @@ export default function CommandCenter() {
   // two assistants behave identically.
   const [recognizing, setRecognizing] = useState(false);
   const recognitionRef = useRef<any>(null);
+  // Voice-mode read-back: true only for the one turn a tap-to-speak capture
+  // just auto-sent, so ElevenLabs TTS only ever fires for a turn the user
+  // actually spoke — never for typed messages. Consumed (reset to false)
+  // once handleSend's reply lands. A ref, not state, so toggleVoice (which
+  // is declared before handleSend below) can set it without depending on
+  // handleSend's identity.
+  const lastTurnWasVoiceRef = useRef(false);
+  // handleSend is declared after toggleVoice but toggleVoice needs to call
+  // it for tap-to-speak auto-send — a ref sidesteps the declaration-order
+  // problem instead of moving a large function around.
+  const handleSendRef = useRef<(override?: string) => void>(() => {});
   // AbortController for the in-flight companion-chat fetch. Stop button
   // aborts this; the fetch path uses raw fetch so the signal actually
   // cancels the network call (functions.invoke doesn't accept signal).
@@ -375,6 +388,12 @@ export default function CommandCenter() {
   // survives a reload.
   const [chatViewMode, setChatViewMode] = useState<"orb" | "chat">(() => readCache("ai_chat_view_mode", "orb"));
   useEffect(() => { writeCache("ai_chat_view_mode", chatViewMode); }, [chatViewMode]);
+
+  // Action Surface — when the assistant opens an editing item's revisions,
+  // this renders the review workflow in place of the orb instead of
+  // navigating to /clients/:id/editing-queue (see the action-dispatch loop
+  // in handleSend, and RevisionReviewSurface for the panel itself).
+  const [actionSurface, setActionSurface] = useState<EditingReviewTarget | null>(null);
 
   // Chats sidebar collapsed state — persisted to localStorage. Toggleable via
   // the panel-icon button in the header or Cmd/Ctrl+. keyboard shortcut.
@@ -554,9 +573,12 @@ export default function CommandCenter() {
 
   /**
    * Toggle Web Speech API recording. Mirrors CanvasAIPanel.toggleVoice so the
-   * two assistants behave identically. Result is appended to the input field.
+   * two assistants behave identically. Result is appended to the input
+   * field — UNLESS autoSend is true (the orb's tap-to-speak), in which case
+   * the transcript is sent immediately and marked as a voice turn so the
+   * reply gets read back aloud (see handleSend's TTS trigger below).
    */
-  const toggleVoice = useCallback(() => {
+  const toggleVoice = useCallback((autoSend?: boolean) => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
       toast.error(en ? "Voice input not supported in this browser" : "Entrada de voz no soportada en este navegador");
@@ -573,7 +595,15 @@ export default function CommandCenter() {
     rec.interimResults = false;
     rec.onresult = (e: any) => {
       const transcript = e.results[0]?.[0]?.transcript || "";
-      if (transcript) {
+      if (!transcript) return;
+      // Strict === true, not truthy: the composer's own mic button wires
+      // onClick={onToggleVoice} directly, so a MouseEvent lands here as
+      // autoSend for that call site — only the orb's explicit
+      // toggleVoice(true) should trigger auto-send.
+      if (autoSend === true) {
+        lastTurnWasVoiceRef.current = true;
+        handleSendRef.current(transcript);
+      } else {
         setInput((prev) => (prev ? prev + " " + transcript : transcript));
       }
     };
@@ -590,6 +620,46 @@ export default function CommandCenter() {
     abortControllerRef.current = null;
     setSending(false);
   }, []);
+
+  /**
+   * Read a reply aloud via ElevenLabs (tts-speak edge function). Only ever
+   * called for a turn that was itself voice-initiated (see
+   * lastTurnWasVoiceRef) so read-back — and its ElevenLabs cost — is scoped
+   * to genuine voice interactions, never typed ones. Best-effort: a failure
+   * here (unsupported browser, network, function error) is silent — voice
+   * read-back is a bonus, not a blocking part of the reply.
+   */
+  const speakReply = useCallback(
+    async (text: string) => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+        const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/tts-speak`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: ANON,
+          },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.onerror = () => URL.revokeObjectURL(url);
+        await audio.play().catch(() => {});
+      } catch (err) {
+        console.error("[ai] voice read-back failed:", err);
+      }
+    },
+    [],
+  );
 
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
   // Accepts an optional override so callers (e.g. the InlineScriptPreview
@@ -722,6 +792,15 @@ export default function CommandCenter() {
       if (Array.isArray(data?.actions)) {
         for (const action of data.actions) {
           if (action?.type === "navigate" && typeof action.path === "string") {
+            // open_editing_item's revisions/review modal resolves in-page
+            // as an Action Surface instead of leaving /ai — every other
+            // navigate action (and every other modal) is untouched below.
+            const reviewTarget = parseEditingReviewNavigation(action.path);
+            if (reviewTarget) {
+              setActionSurface(reviewTarget);
+              setChatViewMode("orb");
+              continue;
+            }
             // Navigate in the same tab. The active thread is persisted via
             // useActiveChat (localStorage), so the destination's
             // CompanionDrawer will auto-resume the conversation. Refuse
@@ -793,6 +872,16 @@ export default function CommandCenter() {
         }
       }
 
+      // Read the reply aloud only for the turn that was itself spoken —
+      // consume the flag immediately so a later typed message never
+      // inherits it.
+      if (lastTurnWasVoiceRef.current) {
+        lastTurnWasVoiceRef.current = false;
+        if (typeof data?.reply === "string" && data.reply.trim()) {
+          void speakReply(data.reply);
+        }
+      }
+
       await loadThreads();
       void refreshTasks();
     } catch (err: any) {
@@ -829,7 +918,14 @@ export default function CommandCenter() {
     imageMode,
     isResearchMode,
     pastedImage,
+    speakReply,
   ]);
+
+  // toggleVoice (declared above, before handleSend exists) calls handleSend
+  // via this ref for tap-to-speak auto-send.
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
 
   // ── MsgRow[] → AssistantMessage[] for AssistantChat ────────────────────
   //
@@ -950,6 +1046,18 @@ export default function CommandCenter() {
     return out;
   }, [messages, latestPlan, pendingEmbedsByThread, activeThreadId, sending]);
 
+  // Orb mode is voice-primary (Claude/ChatGPT voice-mode style) — it shows
+  // only the assistant's latest reply as plain caption text, never a chat
+  // transcript. "Full chat" (the floating toggle) is the escape hatch for
+  // the real back-and-forth.
+  const latestAssistantCaption = useMemo(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i--) {
+      const m = chatMessages[i];
+      if (m.role === "assistant" && m.content && !m.type && !m.is_progress) return m.content;
+    }
+    return null;
+  }, [chatMessages]);
+
   const handleApprovePlan = useCallback(async (planId: string) => {
     setLatestPlan(null);
     await handleSend(`Yes — approve plan ${planId} and execute it.`);
@@ -1017,42 +1125,24 @@ export default function CommandCenter() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 text-white relative" style={{ background: "hsl(var(--ink-on-cream))" }}>
-      {/* Floating utility toggles — absolutely positioned so they consume zero
-          layout height and never compete with the artifact's own header row
-          (the deck matches the mockup's single-header structure exactly;
-          stacking a second flow-height bar above it was what broke fidelity
-          and ate into the vertical budget that was causing the scroll/clip). */}
-      <div className="absolute top-3 right-4 z-20 flex items-center gap-2">
-        {rightTab === "chat" && (
+      {/* Floating Tasks toggle for the tasks tab only — safe to float over
+          the outer corner there since nothing else occupies it (no
+          CommandHeader clock in that branch). The chat-tab controls live
+          inside <main> instead (see below) so they never collide with
+          CommandHeader's own top-right clock/credits column. */}
+      {rightTab === "tasks" && (
+        <div className="absolute top-3 right-4 z-20 flex items-center gap-2">
           <button
-            onClick={() => setChatViewMode((m) => (m === "orb" ? "chat" : "orb"))}
-            className="flex items-center gap-1.5 text-[9.5px] font-mono uppercase transition-colors px-2 py-1 rounded-full"
-            style={{ letterSpacing: "0.1em", color: "hsl(var(--bone) / 0.4)", border: "1px solid rgba(255,255,255,0.08)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.85)"; e.currentTarget.style.borderColor = "hsl(var(--aqua) / 0.4)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
-            title={chatViewMode === "orb" ? (en ? "View full chat" : "Ver chat completo") : (en ? "Back to command deck" : "Volver al command deck")}
+            onClick={() => setRightTab("chat")}
+            className="flex items-center gap-1 text-[9.5px] transition-colors px-2 py-1 rounded-full"
+            style={{ color: "hsl(var(--bone) / 0.85)", border: "1px solid hsl(var(--aqua) / 0.4)" }}
+            title={en ? "Back to chat" : "Volver al chat"}
           >
-            <span className="inline-block w-1 h-1 rounded-full" style={{ background: "hsl(var(--aqua))" }} />
-            {chatViewMode === "orb" ? (en ? "Full chat" : "Chat completo") : (en ? "Back to deck" : "Volver")}
+            <ListChecks className="w-3 h-3" />
+            {en ? "Back to chat" : "Volver al chat"}
           </button>
-        )}
-        <button
-          onClick={() => setRightTab(rightTab === "tasks" ? "chat" : "tasks")}
-          className="flex items-center gap-1 text-[9.5px] transition-colors px-2 py-1 rounded-full"
-          style={{
-            color: rightTab === "tasks" ? "hsl(var(--bone) / 0.85)" : "hsl(var(--bone) / 0.4)",
-            border: rightTab === "tasks" ? "1px solid hsl(var(--aqua) / 0.4)" : "1px solid rgba(255,255,255,0.08)",
-          }}
-          title={en ? "Tasks" : "Tareas"}
-        >
-          <ListChecks className="w-3 h-3" />
-          {todoCount > 0 && (
-            <span className="px-1 rounded-full bg-red-500 text-white text-[8px] font-bold">
-              {todoCount}
-            </span>
-          )}
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}
       <div className="flex-1 flex min-h-0">
@@ -1067,18 +1157,65 @@ export default function CommandCenter() {
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
-              {/* Orb mode is the Command Deck default, with or without an
+              {/* Utility toggles anchored to this middle column (whose
+                  wrapper in CommandDeckLayout is position:relative), not the
+                  page corner — CommandHeader's clock/credits live in a
+                  separate row above and a different grid column would
+                  otherwise collide with a page-corner-anchored version. */}
+              <div className="absolute top-0 right-0 z-20 flex items-center gap-2">
+                <button
+                  onClick={() => setChatViewMode((m) => (m === "orb" ? "chat" : "orb"))}
+                  className="flex items-center gap-1.5 text-[9.5px] font-mono uppercase transition-colors px-2 py-1 rounded-full"
+                  style={{ letterSpacing: "0.1em", color: "hsl(var(--bone) / 0.4)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.85)"; e.currentTarget.style.borderColor = "hsl(var(--aqua) / 0.4)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+                  title={chatViewMode === "orb" ? (en ? "View full chat" : "Ver chat completo") : (en ? "Back to command deck" : "Volver al command deck")}
+                >
+                  <span className="inline-block w-1 h-1 rounded-full" style={{ background: "hsl(var(--aqua))" }} />
+                  {chatViewMode === "orb" ? (en ? "Full chat" : "Chat completo") : (en ? "Back to deck" : "Volver")}
+                </button>
+                <button
+                  onClick={() => setRightTab("tasks")}
+                  className="flex items-center gap-1 text-[9.5px] transition-colors px-2 py-1 rounded-full"
+                  style={{ color: "hsl(var(--bone) / 0.4)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  title={en ? "Tasks" : "Tareas"}
+                >
+                  <ListChecks className="w-3 h-3" />
+                  {todoCount > 0 && (
+                    <span className="px-1 rounded-full bg-red-500 text-white text-[8px] font-bold">
+                      {todoCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+              {/* Action Surface takes over the middle column regardless of
+                  chatViewMode — it's how "open the revisions for X" stays
+                  on /ai instead of navigating to the editing queue. */}
+              {actionSurface ? (
+                <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden px-4 py-4">
+                  <RevisionReviewSurface
+                    itemId={actionSurface.itemId}
+                    clientId={actionSurface.clientId}
+                    onClose={() => setActionSurface(null)}
+                  />
+                </div>
+              ) : /* Orb mode is the Command Deck default, with or without an
                   active conversation — the orb + composer stay put and the
                   latest exchange renders in a compact strip where the
                   greeting sits (reusing AssistantChat's own renderer for
                   just the last turn, not a second markdown/embeds
                   implementation). "Full chat" is an explicit opt-in via the
                   floating toggle, not something a first message forces you
-                  into. */}
-              {chatViewMode === "orb" ? (
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-4">
-                  <div className="w-full max-w-2xl flex flex-col items-center">
-                    <CommandOrb />
+                  into. */
+              chatViewMode === "orb" ? (
+                // overflow-hidden, not overflow-y-auto: the orb's own flex-1
+                // wrapper now measures and claims exactly whatever space is
+                // left after every sibling below it takes its natural
+                // height, so nothing here should ever need to scroll — see
+                // CommandOrb.tsx's ResizeObserver.
+                <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden px-4 py-4">
+                  <div className="w-full max-w-2xl flex-1 flex flex-col min-h-0 items-center">
+                    <CommandOrb onTap={() => toggleVoice(true)} />
                     <div className="flex items-center gap-2 mt-3" style={{ pointerEvents: "none" }}>
                       <span
                         className="inline-block w-[5px] h-[5px] rounded-full"
@@ -1096,12 +1233,14 @@ export default function CommandCenter() {
                       >
                         {recognizing
                           ? "LISTENING…"
-                          : en
-                            ? "STANDBY · TAP TO SPEAK"
-                            : "EN ESPERA · TOCA PARA HABLAR"}
+                          : sending
+                            ? (en ? "THINKING…" : "PENSANDO…")
+                            : en
+                              ? "STANDBY · TAP TO SPEAK"
+                              : "EN ESPERA · TOCA PARA HABLAR"}
                       </span>
                     </div>
-                    {chatMessages.length === 0 ? (
+                    {!latestAssistantCaption ? (
                       <h1
                         className="mt-3 text-center font-serif"
                         style={{ fontSize: 23, lineHeight: 1.25, color: "hsl(var(--bone))", letterSpacing: "-0.01em" }}
@@ -1119,23 +1258,22 @@ export default function CommandCenter() {
                         )}
                       </h1>
                     ) : (
-                      // Compact "latest turn" strip — reuses AssistantChat's own
-                      // renderer (markdown, embeds, thinking animation) for just
-                      // the last exchange instead of a second implementation.
+                      // Voice-mode caption — ONE dim line of Robby's latest
+                      // reply, not a chat transcript. This is a real-time
+                      // command surface, not a message log; the orb keeps
+                      // (almost) all the vertical space. Use "Full chat" for
+                      // the real back-and-forth.
                       <div
-                        className="mt-3 w-full overflow-y-auto"
-                        style={{ maxHeight: "min(260px, calc(100vh - 620px))", minHeight: 60 }}
+                        className="mt-3 w-full text-center overflow-hidden"
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.4,
+                          color: "hsl(var(--bone) / 0.4)",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
                       >
-                        <AssistantChat
-                          messages={chatMessages.slice(-2)}
-                          loading={sending}
-                          variant="full"
-                          onSaveScript={handleApproveScript}
-                          onApprovePlan={handleApprovePlan}
-                          onRejectPlan={handleRejectPlan}
-                          thinkingVerb={currentScene?.verb ?? null}
-                          thinkingMeta={currentScene?.meta ?? null}
-                        />
+                        {latestAssistantCaption}
                       </div>
                     )}
 

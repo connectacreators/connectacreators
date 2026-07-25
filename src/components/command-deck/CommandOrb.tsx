@@ -1,16 +1,48 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fibonacciSphere, ringPoints, rotateX, rotateY, type Point3D } from "@/lib/commandDeck/fibonacciSphere";
 import { resolveCssHsl, withAlpha } from "@/lib/commandDeck/cssColor";
 
 const TILT = (12 * Math.PI) / 180;
 const WING_ANGLES = [0, Math.PI];
+const MAX_ORB_PX = 600;
 
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-export default function CommandOrb({ className }: { className?: string }) {
+export default function CommandOrb({ className, onTap }: { className?: string; onTap?: () => void }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Measured from the actual flex space left over after every sibling
+  // (standby row, greeting/chat strip, composer, chips) takes its natural
+  // height — never a guessed `calc(100vh - Npx)` constant. That guess broke
+  // every time a sibling's height changed and was the root cause of the
+  // page needing to scroll on the Command Deck.
+  const [size, setSize] = useState(0);
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const measure = () => {
+      const r = wrapper.getBoundingClientRect();
+      setSize(Math.max(0, Math.floor(Math.min(r.width, r.height, MAX_ORB_PX))));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrapper);
+    return () => ro.disconnect();
+  }, []);
+
+  // Resize the canvas backing store whenever the measured size changes
+  // (container-driven resizes, not just window resizes).
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || size === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.getContext("2d")?.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }, [size]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -26,15 +58,6 @@ export default function CommandOrb({ className }: { className?: string }) {
     const equatorPoints: Point3D[] = ringPoints(90, 0.001).map((p) => rotateX(p, TILT));
     let raf = 0;
     let t = 0;
-
-    function resize() {
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas!.clientWidth;
-      const h = canvas!.clientHeight;
-      canvas!.width = w * dpr;
-      canvas!.height = h * dpr;
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
 
     function draw() {
       const w = canvas!.clientWidth;
@@ -168,36 +191,36 @@ export default function CommandOrb({ className }: { className?: string }) {
       if (!reduceMotion) raf = requestAnimationFrame(draw);
     }
 
-    resize();
     draw();
-    window.addEventListener("resize", resize);
     return () => {
-      window.removeEventListener("resize", resize);
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className={[className, "cd-orb-power-on"].filter(Boolean).join(" ")}
-      style={{
-        // Sized to the SMALLER of (a) 600px, (b) the viewport height minus
-        // everything else the page stacks around it (CommandHeader, status
-        // line, greeting, composer, chips, roll call bar, and their gaps —
-        // roughly 400px of fixed-height chrome). This guarantees the orb
-        // can never push the page into scroll/clip on a short viewport,
-        // while still growing close to the artifact's true size on a tall
-        // one — a plain `vh` value can't account for that surrounding
-        // chrome, which is what caused the clipping/scroll in earlier passes.
-        width: "min(600px, calc(100vh - 400px))",
-        height: "min(600px, calc(100vh - 400px))",
-        maxWidth: "94%",
-        display: "block",
-        filter:
-          "drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12))",
-      }}
-    />
+    <div
+      ref={wrapperRef}
+      className="flex-1 min-h-0 w-full flex items-center justify-center"
+      style={{ minHeight: 120, cursor: onTap ? "pointer" : undefined }}
+      onClick={onTap}
+      role={onTap ? "button" : undefined}
+      aria-label={onTap ? "Tap to speak" : undefined}
+    >
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={[className, "cd-orb-power-on"].filter(Boolean).join(" ")}
+        style={{
+          // Sized in JS from the wrapper's actual measured space (see the
+          // ResizeObserver effect above) — never a guessed viewport-minus-N
+          // constant, which broke every time a sibling's height changed.
+          width: size,
+          height: size,
+          display: "block",
+          filter:
+            "drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12))",
+        }}
+      />
+    </div>
   );
 }

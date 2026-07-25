@@ -1,14 +1,21 @@
 // supabase/functions/companion-chat/mode-router.ts
 //
 // Keyword-based intent classifier. Picks one of ~10 modes from the user's
-// message text; the dispatcher uses the picked mode to filter the full
-// tool registry down to a relevant subset (mode tools + COMMON_TOOLS).
-// Net effect: ~70% fewer tool definitions shipped to Claude per turn.
+// message text.
 //
-// If classification misfires, COMMON_TOOLS still includes navigate /
-// client lookup / propose_plan / respond_to_user, so the model can
-// always escape — and we ship a much broader "general" fallback when
-// no keywords match.
+// classifyMode()'s result IS used (model tiering, the mechanical fast-path,
+// skipping tool_choice forcing in refinement mode, logging — see index.ts's
+// only import of this file: `classifyMode`). COMMON_TOOLS/MODE_TOOLS/
+// toolNamesForMode below are NOT used anywhere — index.ts ships the full
+// ~90-tool array on every request regardless of detected mode. That's
+// deliberate, not a bug: per-mode filtering was tried and reverted because
+// it broke Anthropic prompt caching (cache reads run ~500x cheaper than
+// cache writes; varying the tools array per-request defeats the cache — see
+// index.ts's buildCachedTools() call sites and the comment there). Do NOT
+// wire toolNamesForMode() back into the dispatcher to "fix" per-mode
+// filtering — that reintroduces the cache-invalidation regression this
+// tradeoff was made to avoid. If you need a tool available in fewer modes,
+// that's a tool-design problem, not a router-wiring one.
 
 export type Mode =
   | "editing"
@@ -58,7 +65,6 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "permanent_delete_editing_item",
     "set_caption",
     "rename_editing_item",
-    "update_editing_status",
     "assign_editor",
     "add_revision_notes",
     "mark_post_published",
@@ -68,7 +74,6 @@ export const MODE_TOOLS: Record<Mode, string[]> = {
     "bulk_reschedule_posts",
     "bulk_delete_editing_items",
     "bulk_assign_editor",
-    "bulk_update_status",
     "get_editing_queue",
     "submit_to_editing_queue",
     "schedule_content",
