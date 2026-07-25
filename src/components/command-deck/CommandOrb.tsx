@@ -19,6 +19,7 @@ export default function CommandOrb({ className }: { className?: string }) {
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const aqua = resolveCssHsl("--aqua", "184 41% 70%");
+    const bone = resolveCssHsl("--bone", "42 23% 89%");
 
     const basePoints: Point3D[] = fibonacciSphere(560).map((p) => rotateX(p, TILT));
     let raf = 0;
@@ -56,9 +57,9 @@ export default function CommandOrb({ className }: { className?: string }) {
 
       // Volumetric lit-sphere body beneath the point cloud
       const lit = ctx!.createRadialGradient(cx - R * 0.28, cy - R * 0.3, 0, cx, cy, R * 0.98);
-      lit.addColorStop(0, "rgba(175,224,227,0.07)");
-      lit.addColorStop(0.6, "rgba(143,208,213,0.02)");
-      lit.addColorStop(1, "rgba(143,208,213,0)");
+      lit.addColorStop(0, aqua.replace("hsl(", "hsla(").replace(")", ", 0.07)"));
+      lit.addColorStop(0.6, aqua.replace("hsl(", "hsla(").replace(")", ", 0.02)"));
+      lit.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
       ctx!.fillStyle = lit;
       ctx!.beginPath();
       ctx!.arc(cx, cy, R, 0, Math.PI * 2);
@@ -85,9 +86,9 @@ export default function CommandOrb({ className }: { className?: string }) {
       // Tight, crisp core glow
       const pr = 5 + Math.sin(t * 2.4) * 1;
       const core = ctx!.createRadialGradient(cx, cy, 0, cx, cy, pr + 4);
-      core.addColorStop(0, "#EAFAFB");
+      core.addColorStop(0, bone);
       core.addColorStop(0.5, aqua);
-      core.addColorStop(1, "rgba(143,208,213,0)");
+      core.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
       ctx!.fillStyle = core;
       ctx!.beginPath();
       ctx!.arc(cx, cy, pr + 4, 0, Math.PI * 2);
