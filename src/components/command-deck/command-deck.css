@@ -17,6 +17,35 @@
   display: none;
 }
 
+/* Focus-pull when an Action Surface opens — everything except the middle
+   column (header, side telemetry, roll call bar) dims and softens, so the
+   surface reads as something that emerged from the orb rather than an
+   unrelated window that happened to appear on top of it. */
+.cd-defocused {
+  opacity: 0.28;
+  filter: blur(1.5px);
+  pointer-events: none;
+  transition: opacity 0.55s var(--ease, ease), filter 0.55s var(--ease, ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-defocused {
+    transition: none;
+  }
+}
+
+.cd-mini-orb-in {
+  animation: cd-mini-orb-in 0.5s cubic-bezier(0.16, 0.8, 0.24, 1) both;
+}
+@keyframes cd-mini-orb-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-mini-orb-in {
+    animation: none;
+  }
+}
+
 .cd-atmos {
   position: fixed;
   inset: -2%;

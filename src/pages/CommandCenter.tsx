@@ -734,6 +734,29 @@ export default function CommandCenter() {
     }
   }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback]);
 
+  /**
+   * The small floating orb shown over an open Action Surface has different
+   * semantics than the main orb: it's a recovery affordance ("the mic
+   * silently stopped — tap to speak"), not a start/stop toggle. Using
+   * handleOrbTap's toggle logic here would make the exact failure it exists
+   * to fix WORSE — if voiceConversationActive is still true but recognizing
+   * already died (the rec.start() race), handleOrbTap's toggle branch would
+   * just flip conversation mode off instead of restarting the mic. This
+   * always just ensures listening is (re)active; "Back to deck" is the
+   * surface's own real exit.
+   */
+  const handleMiniOrbTap = useCallback(() => {
+    const audio = ttsAudioRef.current;
+    if (audio && !audio.paused && !audio.ended) {
+      audio.pause();
+      toggleVoice(true);
+      return;
+    }
+    if (recognizing) return; // already listening — nothing to do
+    if (!voiceConversationActiveRef.current) setVoiceConversationActive(true);
+    toggleVoice(true);
+  }, [recognizing, toggleVoice]);
+
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -1295,6 +1318,37 @@ export default function CommandCenter() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 text-white relative" style={{ background: "hsl(var(--ink-on-cream))" }}>
+      {/* Floating mini orb — visible whenever an Action Surface is open, so
+          the review panel reads as something that came OUT of the orb
+          rather than an unrelated window. Stays tappable so a dead mic
+          (the rec.start() race — see toggleVoice) always has a visible,
+          reachable way back in without hunting for the "Back to deck"
+          button. Rendered at the top level (not nested under anything the
+          focus-pull dims) so position:fixed isn't trapped by a filtered
+          ancestor's containing block — a real CSS gotcha, not a style
+          preference. */}
+      {actionSurface && (
+        <div
+          className="fixed z-[200] flex items-center justify-center cd-mini-orb-in"
+          style={{
+            bottom: 20,
+            right: 20,
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: "hsl(var(--ink) / 0.55)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            boxShadow: recognizing
+              ? "0 0 0 3px hsl(var(--aqua) / 0.55), 0 0 26px hsl(var(--aqua) / 0.45)"
+              : "0 0 0 1px hsl(var(--aqua) / 0.28), 0 6px 22px rgba(0,0,0,0.45)",
+            transition: "box-shadow 0.3s ease",
+          }}
+          title={en ? "Tap to speak" : "Toca para hablar"}
+        >
+          <CommandOrb onTap={handleMiniOrbTap} minSize={44} maxSize={72} />
+        </div>
+      )}
       {/* Floating Tasks toggle for the tasks tab only — safe to float over
           the outer corner there since nothing else occupies it (no
           CommandHeader clock in that branch). The chat-tab controls live
@@ -1323,6 +1377,7 @@ export default function CommandCenter() {
             displayName={displayName || "Admin"}
             companionName={companionName || "Robby"}
             listening={recognizing}
+            focusMode={!!actionSurface}
           >
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}

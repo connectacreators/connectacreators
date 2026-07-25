@@ -10,7 +10,21 @@ function smoothstep(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-export default function CommandOrb({ className, onTap }: { className?: string; onTap?: () => void }) {
+export default function CommandOrb({
+  className,
+  onTap,
+  minSize = 120,
+  maxSize = MAX_ORB_PX,
+}: {
+  className?: string;
+  onTap?: () => void;
+  /** Floor for the wrapper's min-height (prevents collapse-to-0 in the main
+   *  hero view). Lower this for compact uses, e.g. a small floating orb. */
+  minSize?: number;
+  /** Ceiling for the measured size — MAX_ORB_PX (600) in the hero view,
+   *  much smaller for a compact floating instance. */
+  maxSize?: number;
+}) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Measured from the actual flex space left over after every sibling
@@ -25,13 +39,13 @@ export default function CommandOrb({ className, onTap }: { className?: string; o
     if (!wrapper) return;
     const measure = () => {
       const r = wrapper.getBoundingClientRect();
-      setSize(Math.max(0, Math.floor(Math.min(r.width, r.height, MAX_ORB_PX))));
+      setSize(Math.max(0, Math.floor(Math.min(r.width, r.height, maxSize))));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(wrapper);
     return () => ro.disconnect();
-  }, []);
+  }, [maxSize]);
 
   // Resize the canvas backing store whenever the measured size changes
   // (container-driven resizes, not just window resizes).
@@ -201,7 +215,7 @@ export default function CommandOrb({ className, onTap }: { className?: string; o
     <div
       ref={wrapperRef}
       className="flex-1 min-h-0 w-full flex items-center justify-center"
-      style={{ minHeight: 120, cursor: onTap ? "pointer" : undefined }}
+      style={{ minHeight: minSize, cursor: onTap ? "pointer" : undefined }}
       onClick={onTap}
       role={onTap ? "button" : undefined}
       aria-label={onTap ? "Tap to speak" : undefined}
