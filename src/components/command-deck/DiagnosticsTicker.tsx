@@ -1,10 +1,13 @@
-// Rotates between two real fleet-wide readouts in one HUD slot instead of
-// two permanent panels — matches the approved mockup's "Diagnostics"
+// Rotates between three real fleet-wide readouts in one HUD slot instead of
+// three permanent panels — matches the approved mockup's "Diagnostics"
 // channel-cycling pattern (5.6s per channel, crossfade).
 import { useEffect, useRef, useState } from "react";
 import { useClientViewsLeaderboard } from "@/hooks/useClientViewsLeaderboard";
 import { useFleetStrategyHealth } from "@/hooks/useFleetStrategyHealth";
+import { useAgencyGoals } from "@/hooks/useAgencyGoals";
+import { useOutboundDailyLog } from "@/hooks/useOutboundDailyLog";
 import { formatViews } from "@/lib/commandDeck/clientViews";
+import { outboundPct, outboundPaceState } from "@/lib/commandDeck/outboundPace";
 
 const STRATEGY_LABEL: Record<"hi" | "mid" | "lo", string> = {
   hi: "On track",
@@ -17,20 +20,44 @@ const STRATEGY_COLOR: Record<"hi" | "mid" | "lo", string> = {
   lo: "hsl(4 68% 63%)",
 };
 
+function GoalLine({ label, valueLabel, pct, tone }: { label: string; valueLabel: string; pct: number; tone: "good" | "warn" }) {
+  return (
+    <div className="flex flex-col gap-1 mb-2.5 last:mb-0">
+      <div className="flex justify-between font-mono" style={{ fontSize: 9.5 }}>
+        <span style={{ color: "hsl(var(--bone) / 0.3)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+        <span style={{ color: tone === "good" ? "hsl(var(--good, 141 33% 61%))" : "hsl(var(--honey))" }}>
+          {tone === "good" ? "On pace" : "Behind pace"}
+        </span>
+      </div>
+      <div className="h-[4px] rounded-[3px] overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+        <div
+          className="h-full rounded-[3px]"
+          style={{ width: `${pct}%`, background: tone === "good" ? "hsl(var(--aqua))" : "hsl(var(--honey))" }}
+        />
+      </div>
+      <div className="flex justify-between font-mono" style={{ fontSize: 9.5, color: "hsl(var(--bone) / 0.56)" }}>
+        {valueLabel}
+      </div>
+    </div>
+  );
+}
+
 export default function DiagnosticsTicker() {
   const { loading: viewsLoading, ranked: views } = useClientViewsLeaderboard();
   const { loading: healthLoading, ranked: health } = useFleetStrategyHealth();
+  const { loading: goalsLoading, revenueGoal, revenueActual, outboundDailyTarget } = useAgencyGoals();
+  const { loading: outboundLoading, sentToday } = useOutboundDailyLog();
   const [channel, setChannel] = useState(0);
   const [visible, setVisible] = useState(true);
   const channels = [
     { label: "Client Intel · Views", loading: viewsLoading, empty: views.length === 0 },
     { label: "Strategy Health", loading: healthLoading, empty: health.length === 0 },
+    { label: "Agency Goals", loading: goalsLoading || outboundLoading, empty: false },
   ];
-  const reduceMotionRef = useRef(false);
 
   useEffect(() => {
-    reduceMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotionRef.current) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
@@ -43,6 +70,10 @@ export default function DiagnosticsTicker() {
   }, []);
 
   const active = channels[channel];
+  const revenuePct = revenueGoal > 0 ? Math.round(Math.min(100, (revenueActual / revenueGoal) * 100)) : 0;
+  const revenueTone: "good" | "warn" = revenuePct >= 90 ? "good" : "warn";
+  const outboundPctVal = outboundPct(sentToday, outboundDailyTarget);
+  const outboundTone: "good" | "warn" = outboundPaceState(sentToday, outboundDailyTarget) === "behind" ? "warn" : "good";
 
   return (
     <div className="flex flex-col gap-2">
@@ -80,7 +111,7 @@ export default function DiagnosticsTicker() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : channel === 1 ? (
           <div className="flex flex-col">
             {health.slice(0, 5).map((r) => (
               <div key={r.clientId} className="grid items-center gap-2 py-[3px]" style={{ gridTemplateColumns: "1fr 26px 1fr" }}>
@@ -91,6 +122,21 @@ export default function DiagnosticsTicker() {
                 </span>
               </div>
             ))}
+          </div>
+        ) : (
+          <div>
+            <GoalLine
+              label="Revenue · /finances"
+              valueLabel={`$${Math.round(revenueActual).toLocaleString()} of $${Math.round(revenueGoal).toLocaleString()}`}
+              pct={revenuePct}
+              tone={revenueTone}
+            />
+            <GoalLine
+              label="Outbound · /outbound"
+              valueLabel={`${sentToday} sent of ${outboundDailyTarget} today`}
+              pct={outboundPctVal}
+              tone={outboundTone}
+            />
           </div>
         )}
       </div>
