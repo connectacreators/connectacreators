@@ -51,7 +51,7 @@ export default function AttentionRadar() {
       const R = Math.min(w, h) / 2 - 4;
       ctx!.clearRect(0, 0, w, h);
 
-      ctx!.strokeStyle = "rgba(143,208,213,0.14)";
+      ctx!.strokeStyle = aqua.replace("hsl(", "hsla(").replace(")", ", 0.14)");
       ctx!.lineWidth = 1;
       for (let g = 1; g <= 3; g++) {
         ctx!.beginPath();
@@ -60,8 +60,8 @@ export default function AttentionRadar() {
       }
 
       const sweepGrad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, R);
-      sweepGrad.addColorStop(0, "rgba(143,208,213,0.26)");
-      sweepGrad.addColorStop(1, "rgba(143,208,213,0)");
+      sweepGrad.addColorStop(0, aqua.replace("hsl(", "hsla(").replace(")", ", 0.26)"));
+      sweepGrad.addColorStop(1, aqua.replace("hsl(", "hsla(").replace(")", ", 0)"));
       ctx!.save();
       ctx!.translate(cx, cy);
       ctx!.rotate(sweep);
