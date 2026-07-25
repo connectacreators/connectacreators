@@ -20,6 +20,20 @@ export const EDITING_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "control_review_surface",
+    description: "Control the in-page review panel that's CURRENTLY OPEN on the Command Deck (see ACTIVE ACTION SURFACE in context — only usable when one is open; if none is open, use open_editing_item first). Play/pause/seek the video, add a timestamped revision note, or mark all outstanding revisions resolved ('approve'). Targets the open item directly — do not pass client_name or item_title.",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["play", "pause", "seek_to", "add_note", "resolve_all"], description: "play/pause the video, seek_to a timestamp, add_note (a revision comment), or resolve_all (approve — marks every outstanding revision note resolved)." },
+        seconds: { type: "number", description: "Required for seek_to. For add_note, the timestamp to anchor the note to — omit to use the current playhead if the video is paused, or leave the note untimestamped (general note) otherwise." },
+        end_seconds: { type: "number", description: "Optional, add_note only — end of a ranged note ('from here to there')." },
+        note_text: { type: "string", description: "Required for add_note — the revision note text, e.g. what the user says to leave as feedback." },
+      },
+      required: ["action"],
+    },
+  },
+  {
     name: "set_editing_queue_view",
     description: "Filter and sort the editing queue view in the user's browser. Use when the user asks 'show me only X status', 'sort by deadline', 'find everything assigned to Y', etc. If client_name is omitted, applies to the master view.",
     input_schema: {
@@ -90,6 +104,30 @@ export const EDITING_TOOLS: ToolDef[] = [
   {
     name: "restore_editing_item",
     description: "Restore a soft-deleted editing queue item from the trash.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
+    name: "archive_editing_item",
+    description: "Archive an editing-queue item — hides it from the active queue (it still counts in metrics/history) without deleting it. Different from delete_editing_item, which moves it to trash. Use when the user says 'archive this/it', 'move it out of the queue', or similar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string" },
+        item_title: { type: "string" },
+      },
+      required: ["client_name", "item_title"],
+    },
+  },
+  {
+    name: "unarchive_editing_item",
+    description: "Un-archive a previously archived editing-queue item, returning it to the active queue.",
     input_schema: {
       type: "object",
       properties: {
@@ -326,6 +364,40 @@ export async function handleEditingTool(
     return { type: "tool_result", tool_use_id: block.id, content: `Opened "${result.item.reel_title}" in ${where}${what}.` };
   }
 
+  if (block.name === "control_review_surface") {
+    const { action, seconds, end_seconds, note_text } = block.input as {
+      action: string; seconds?: number; end_seconds?: number; note_text?: string;
+    };
+    const validActions = ["play", "pause", "seek_to", "add_note", "resolve_all"];
+    if (!validActions.includes(action)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid action "${action}". Use one of: ${validActions.join(", ")}.` };
+    }
+    if (action === "seek_to" && typeof seconds !== "number") {
+      return { type: "tool_result", tool_use_id: block.id, content: "seek_to requires seconds." };
+    }
+    if (action === "add_note" && !note_text?.trim()) {
+      return { type: "tool_result", tool_use_id: block.id, content: "add_note requires note_text." };
+    }
+    // Pure signal — no DB write here. The frontend's already-open review
+    // surface executes this using its own existing handlers (play/pause the
+    // real <video> element, the same handleAddComment/handleResolveAll the
+    // manual UI uses), so there's exactly one place that owns this logic
+    // instead of a second server-side copy of it.
+    actions.push({
+      type: "review_surface_control",
+      control: { action, seconds, endSeconds: end_seconds, noteText: note_text },
+    });
+    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const confirmations: Record<string, string> = {
+      play: "Playing.",
+      pause: "Paused.",
+      seek_to: `Jumped to ${fmt(seconds ?? 0)}.`,
+      add_note: `Added note: "${note_text}".`,
+      resolve_all: "Marked all revisions resolved.",
+    };
+    return { type: "tool_result", tool_use_id: block.id, content: confirmations[action] };
+  }
+
   if (block.name === "set_editing_queue_view") {
     const { client_name, status, post_status, assignee, search, sort_by, sort_dir } = block.input as {
       client_name?: string;
@@ -483,6 +555,40 @@ export async function handleEditingTool(
     }
     actions.push({ type: "refresh_data", scope: "editing_queue" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" restored from trash.` };
+  }
+
+  if (block.name === "archive_editing_item") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
+    }
+    const { error: updErr } = await adminClient.from("video_edits").update({ archived_at: new Date().toISOString() }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" archived.` };
+  }
+
+  if (block.name === "unarchive_editing_item") {
+    const { client_name, item_title } = block.input as { client_name: string; item_title: string };
+    const client = await resolveClient(ctx, client_name);
+    if (!client) return { type: "tool_result", tool_use_id: block.id, content: `No client found: "${client_name}"` };
+    const r = await resolveEditingItem(adminClient, client.id, ctx.accessibleClientIds, item_title, { onlyLive: true });
+    if (!r.ok) {
+      if (r.reason === "ambiguous") return { type: "tool_result", tool_use_id: block.id, content: ambiguousMessage(item_title, r.candidates) };
+      return { type: "tool_result", tool_use_id: block.id, content: `No live editing item matched "${item_title}" for ${client.name}.` };
+    }
+    const { error: updErr } = await adminClient.from("video_edits").update({ archived_at: null }).eq("id", r.item.id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Update failed for "${r.item.reel_title}": ${updErr.message}` };
+    }
+    actions.push({ type: "refresh_data", scope: "editing_queue" });
+    return { type: "tool_result", tool_use_id: block.id, content: `"${r.item.reel_title}" restored to the active queue.` };
   }
 
   if (block.name === "permanent_delete_editing_item") {

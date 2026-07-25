@@ -6,11 +6,12 @@
 // /clients/:id/editing-queue. Reuses the real VideoReviewModal — same
 // playback, same timestamped/ranged notes, same footage references — so
 // this is the actual production review flow, not a re-implementation.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Play } from "lucide-react";
 import { useEditingReviewItem } from "@/hooks/useEditingReviewItem";
 import { LIFECYCLE_VALUES, type LifecycleStatus } from "@/lib/lifecycleStatus";
-import VideoReviewModal from "@/components/VideoReviewModal";
+import VideoReviewModal, { type ReviewSurfaceCommand } from "@/components/VideoReviewModal";
+import type { ActionSurfaceSnapshot } from "@/lib/commandDeck/actionSurface";
 import { toast } from "sonner";
 
 const LIFECYCLE_HUD_COLOR: Record<LifecycleStatus, string> = {
@@ -25,10 +26,20 @@ export default function RevisionReviewSurface({
   itemId,
   clientId,
   onClose,
+  externalCommand,
+  onExternalCommandHandled,
+  onSurfaceStateChange,
 }: {
   itemId: string;
   clientId: string | null;
   onClose: () => void;
+  /** Remote-controls the open VideoReviewModal — see control_review_surface. */
+  externalCommand?: ReviewSurfaceCommand | null;
+  onExternalCommandHandled?: () => void;
+  /** Fired whenever the open item or its live playback state changes, and
+   *  once more with `null` on unmount — lets the caller (CommandCenter)
+   *  keep a fresh snapshot to send as AI context without polling. */
+  onSurfaceStateChange?: (state: ActionSurfaceSnapshot | null) => void;
 }) {
   const {
     item,
@@ -42,7 +53,30 @@ export default function RevisionReviewSurface({
     syncLifecycleFromLegacyStatus,
     setAssignee,
   } = useEditingReviewItem(itemId, clientId);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  // Opens immediately (not on a manual "Watch" click) so "open the revisions
+  // for X" is actually a continuous, ready-to-control review session, not a
+  // summary panel that still requires a manual tap before anything useful
+  // is on screen. The button below becomes a "reopen" affordance for if the
+  // video dialog itself gets manually closed.
+  const [reviewOpen, setReviewOpen] = useState(true);
+
+  useEffect(() => {
+    if (!item) return;
+    onSurfaceStateChange?.({
+      itemId: item.id,
+      itemTitle: item.title,
+      clientId: item.clientId,
+      clientName: item.clientName,
+      playing: false,
+      currentTimeSeconds: 0,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, item?.title, item?.clientName]);
+
+  useEffect(() => {
+    return () => onSurfaceStateChange?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="w-full max-w-2xl flex-1 flex flex-col min-h-0 items-center justify-center overflow-y-auto py-4">
@@ -214,6 +248,18 @@ export default function RevisionReviewSurface({
               fileSubmissionUrl={item.fileSubmissionUrl}
               associatedFootage={item.footageUrl}
               onStatusChanged={syncLifecycleFromLegacyStatus}
+              externalCommand={externalCommand}
+              onExternalCommandHandled={onExternalCommandHandled}
+              onPlaybackStateChange={(state) =>
+                onSurfaceStateChange?.({
+                  itemId: item.id,
+                  itemTitle: item.title,
+                  clientId: item.clientId,
+                  clientName: item.clientName,
+                  playing: !state.isPaused,
+                  currentTimeSeconds: state.currentTime,
+                })
+              }
             />
           </>
         )}

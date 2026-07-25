@@ -15,6 +15,17 @@ import { toast } from 'sonner';
 import { Check, CheckCheck, Clock, Download, Loader2, Lock, Send, Trash2, X } from 'lucide-react';
 import ThemedVideoPlayer from './ThemedVideoPlayer';
 
+// A remote-control signal for this modal — lets an external caller (the
+// Command Deck's AI action-dispatch loop) drive playback and note-taking
+// without duplicating any of this component's own logic. Each command
+// re-uses the exact same internal handlers the manual UI calls.
+export interface ReviewSurfaceCommand {
+  action: 'play' | 'pause' | 'seek_to' | 'add_note' | 'resolve_all';
+  seconds?: number;
+  endSeconds?: number;
+  noteText?: string;
+}
+
 interface VideoReviewModalProps {
   open: boolean;
   onClose: () => void;
@@ -27,6 +38,14 @@ interface VideoReviewModalProps {
   associatedFootage?: string | null;
   onCommentsChanged?: () => void;
   onStatusChanged?: (newStatus: string) => void;
+  /** Set by the caller to remote-control this modal; cleared via
+   *  onExternalCommandHandled once applied so it doesn't re-fire. */
+  externalCommand?: ReviewSurfaceCommand | null;
+  onExternalCommandHandled?: () => void;
+  /** Fired on every play/pause/timeupdate so a caller can track live
+   *  playback state (e.g. to include it as AI context) without this modal
+   *  needing to know anything about who's listening. */
+  onPlaybackStateChange?: (state: { isPaused: boolean; currentTime: number }) => void;
 }
 
 interface VideoSource {
@@ -179,6 +198,9 @@ export default function VideoReviewModal({
   associatedFootage,
   onCommentsChanged,
   onStatusChanged,
+  externalCommand,
+  onExternalCommandHandled,
+  onPlaybackStateChange,
 }: VideoReviewModalProps) {
   const { user, isAdmin, isVideographer, isEditor } = useAuth();
   const canResolve = isAdmin || isVideographer || isEditor;
@@ -485,14 +507,24 @@ export default function VideoReviewModal({
   const unresolvedCount = comments.filter(c => !c.resolved).length;
   const resolvedCount = comments.filter(c => c.resolved).length;
 
-  const handleAddComment = async () => {
-    if (!newComment.trim() && attach.pending.length === 0) return;
+  const handleAddComment = async (overrideText?: string, overrideRange?: { start: number; end: number | null } | null) => {
+    const usingOverride = overrideText !== undefined;
+    if (!usingOverride && !newComment.trim() && attach.pending.length === 0) return;
+    if (usingOverride && !overrideText.trim()) return;
 
     let timestampSeconds: number | null = null;
     let endTimestampSeconds: number | null = null;
-    let commentBody = newComment.trim();
+    let commentBody = (usingOverride ? overrideText : newComment).trim();
 
-    if (canSeek) {
+    if (usingOverride) {
+      // AI-issued note (control_review_surface): the caller already resolved
+      // the timestamp (or deliberately omitted one for a general note) — skip
+      // the manual-input parsing paths below entirely.
+      if (overrideRange) {
+        timestampSeconds = overrideRange.start;
+        endTimestampSeconds = overrideRange.end;
+      }
+    } else if (canSeek) {
       if (rangeStart !== null) {
         // Range mode: locked end wins; otherwise take the current playhead.
         // An end that isn't past the start degrades to a plain point note.
@@ -527,7 +559,7 @@ export default function VideoReviewModal({
       }
     }
 
-    if (!commentBody) commentBody = newComment.trim();
+    if (!commentBody) commentBody = (usingOverride ? overrideText : newComment).trim();
 
     const authorName = user?.user_metadata?.full_name || user?.email || 'Admin';
     // Tag with source only when multiple sources exist
@@ -609,6 +641,48 @@ export default function VideoReviewModal({
       toast.success('All revisions marked as complete');
     } catch { toast.error('Failed to resolve all comments'); }
   };
+
+  // Remote control — executes an externally-issued command (from the
+  // Command Deck's control_review_surface tool) using the exact same
+  // handlers/refs the manual UI uses, then reports it consumed so it
+  // doesn't re-fire on the next render.
+  useEffect(() => {
+    if (!open || !externalCommand) return;
+    const cmd = externalCommand;
+    (async () => {
+      switch (cmd.action) {
+        case 'play':
+          await videoRef.current?.play().catch(() => {});
+          break;
+        case 'pause':
+          videoRef.current?.pause();
+          break;
+        case 'seek_to':
+          if (typeof cmd.seconds === 'number') seekTo(cmd.seconds);
+          break;
+        case 'add_note':
+          await handleAddComment(
+            cmd.noteText ?? '',
+            typeof cmd.seconds === 'number' ? { start: cmd.seconds, end: cmd.endSeconds ?? null } : null,
+          );
+          break;
+        case 'resolve_all':
+          await handleResolveAll();
+          break;
+      }
+      onExternalCommandHandled?.();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalCommand, open]);
+
+  // Report live playback state upward so a caller (the Command Deck) can
+  // include it as AI context — e.g. so "pause it" / "add a note here"
+  // resolve against the right moment without the caller polling this
+  // component's internals.
+  useEffect(() => {
+    onPlaybackStateChange?.({ isPaused, currentTime });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPaused, currentTime]);
 
   const handleEditComment = async (commentId: string) => {
     const trimmed = editText.trim();
@@ -972,7 +1046,7 @@ export default function VideoReviewModal({
               <Button
                 size="sm"
                 className="h-8"
-                onClick={handleAddComment}
+                onClick={() => handleAddComment()}
                 disabled={(!newComment.trim() && attach.pending.length === 0) || attach.uploading}
               >
                 {attach.uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />} Add

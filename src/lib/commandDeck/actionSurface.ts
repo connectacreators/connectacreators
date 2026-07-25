@@ -8,6 +8,20 @@ export interface EditingReviewTarget {
   clientId: string | null;
 }
 
+// Live snapshot of the open Action Surface, sent to companion-chat on every
+// message so the model can resolve "it"/"pause it"/"leave a note here" to a
+// specific open item and target it directly with control_review_surface —
+// see index.ts's active_surface handling and the ACTIVE ACTION SURFACE
+// context block it builds from this shape.
+export interface ActionSurfaceSnapshot {
+  itemId: string;
+  itemTitle: string;
+  clientId: string | null;
+  clientName: string | null;
+  playing: boolean;
+  currentTimeSeconds: number;
+}
+
 export function parseEditingReviewNavigation(path: string): EditingReviewTarget | null {
   const [pathname, query] = path.split("?");
   if (!pathname || !query) return null;

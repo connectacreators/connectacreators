@@ -766,12 +766,15 @@ If you find yourself wanting to type any of these, call the tool FIRST, then you
 
 EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
 - set_lifecycle_status / bulk_set_lifecycle_status: PRIMARY state-change tools. Values: Not started | In progress | Needs Revisions | Scheduled | Published. Use these for any "mark X as Y" / "change all to Z" / "set this to scheduled" request.
-- open_editing_item: when they want to SEE an item or its modal (revisions, footage, review, caption, deadline, schedule, delete). DEFAULT to this over plain navigation.
+- open_editing_item: when they want to SEE an item or its modal (revisions, footage, review, caption, deadline, schedule, delete). DEFAULT to this over plain navigation. On the Command Deck (/ai) this opens an in-page Action Surface, not a navigation — the item stays open and controllable (see control_review_surface below), it doesn't just flash a confirmation.
+- control_review_surface: play/pause/seek the video, add a timestamped note, or approve (resolve_all) — for the surface open_editing_item just opened, or whatever ACTIVE ACTION SURFACE context says is open. This is what makes review a CONTINUOUS interaction — after opening an item, keep using this tool for follow-ups like "pause it", "leave a note here", "okay approve it" instead of treating the conversation as done once the item is open.
 - set_editing_queue_view: for sort/filter/search across the queue
 - set_deadline: explicit deadline changes
-- delete_editing_item / restore_editing_item: soft delete / restore
+- delete_editing_item / restore_editing_item: soft delete (trash) / restore
+- archive_editing_item / unarchive_editing_item: hide from the active queue without deleting (different from trash) / bring back
 - permanent_delete_editing_item: HARD delete — ALWAYS call propose_plan first regardless of autonomy mode
 - set_caption / rename_editing_item: explicit text changes
+- generate_caption: writes a caption in the client's brand voice and returns it in your reply — this already happens in-conversation, no navigation involved
 - bulk_delete_editing_items / bulk_assign_editor: capped at 14 per call
 - mark_post_published / mark_done_and_published / reschedule_post / bulk_reschedule_posts: convenience wrappers around the lifecycle tools above for common one-step transitions
 - update_editing_status and bulk_update_status were removed (2026-07-25) — they wrote the legacy status column without keeping lifecycle_status in sync, producing rows where the queue and the review modal showed contradictory status badges. Always use set_lifecycle_status / bulk_set_lifecycle_status instead.`;
@@ -881,7 +884,7 @@ serve(async (req) => {
       return closeStream();
     }
 
-    const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId, active_client_id } = await req.json() as {
+    const { message, companion_name, current_path, autonomy_mode, thread_id: incomingThreadId, active_client_id, active_surface } = await req.json() as {
       message: string;
       companion_name: string;
       current_path?: string;
@@ -891,6 +894,20 @@ serve(async (req) => {
        *  /ai page). Treated like a URL-locked client when present — overrides
        *  the subscriber's primary-client fallback. */
       active_client_id?: string | null;
+      /** The Command Deck's in-page Action Surface, when one is open (e.g. a
+       *  revision-review panel replacing the orb) — lets the model resolve
+       *  "it"/"this"/"pause it" to a specific open item instead of requiring
+       *  the user to repeat client_name/item_title every turn, and lets
+       *  control_review_surface target the right item with no lookup. */
+      active_surface?: {
+        type: "editing_review";
+        item_id: string;
+        item_title: string;
+        client_id: string | null;
+        client_name: string | null;
+        playing: boolean;
+        current_time_seconds: number;
+      } | null;
     };
 
     if (!message?.trim()) {
@@ -1364,6 +1381,9 @@ ${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience al
     const dynamicSystemContext = `TODAY'S DATE: ${todayHuman} (ISO: ${todayIso}). When the user says "tomorrow" they mean ${tomorrowIso}. Never invent dates — derive every relative date from TODAY'S DATE above. If the user says "next Friday" or "in 2 weeks", compute the actual ISO date and use that in tool calls.
 
 Currently on page: ${current_path || "unknown"}
+${active_surface?.type === "editing_review"
+  ? `\nACTIVE ACTION SURFACE: the user is looking at an in-page review panel for editing-queue item "${active_surface.item_title}" (item_id: ${active_surface.item_id}${active_surface.client_name ? `, client: ${active_surface.client_name}` : ""}). It is currently ${active_surface.playing ? "PLAYING" : "PAUSED"} at ${Math.floor(active_surface.current_time_seconds / 60)}:${String(Math.floor(active_surface.current_time_seconds % 60)).padStart(2, "0")}. When the user says "it"/"this"/"here"/"the video" they mean THIS item — use "${active_surface.item_title}" as item_title for any editing-queue tool without asking them to repeat it. For play/pause/seek/add-a-note-here/approve-all-revisions, use control_review_surface (it targets this open surface directly, no lookup needed).`
+  : ""}
 ${urlClientId
   ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.`
   : `\nAGENCY VIEW: There is NO single active client on this page. The user is the agency owner managing many clients. Whenever they mention a client by name (e.g. "Dr Calvin", "make ideas for X", "what's Y's pipeline"), call the appropriate tool with that name as client_name — the lookup handles fuzzy matching (case, punctuation, partial names all work). NEVER assume the user IS the client; "${client.name}" is just the default credit/billing identity, not the work target. If you genuinely don't know which client they mean, call list_all_clients to see options.`}
@@ -1462,6 +1482,16 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
       // "<verb> all X" — broad bulk-action trigger. Catches "delete all", "schedule
       // all", "reschedule all", "publish all", "approve all", etc.
       /\b(mark|set|change|update|move|delete|remove|restore|rename|publish|schedule|reschedule|assign|approve|reject)\s+all\b/,
+      // control_review_surface commands (voice-mode play/pause/seek/note/
+      // approve on an open Action Surface) and archive/unarchive — all
+      // single deterministic tool calls, no reasoning needed. Previously
+      // fell through to Sonnet by default, adding needless latency to
+      // every tap-to-speak turn.
+      /\b(play|pause|resume)\b.*\b(it|this|the video)\b/,
+      /\b(approve|resolve)\b/,
+      /\b(archive|unarchive)\b/,
+      /\b(leave|add)\s+a\s+note\b/,
+      /\b(seek|jump|skip)\s+to\b/,
     ];
     const isMechanical = mechanicalPatterns.some((re) => re.test(userText));
     // Mode-aware model tiering: read-only modes always use Haiku (cheap +
@@ -1559,6 +1589,16 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
         // emitted no tool call. Push the assistant turn into the message
         // history, append a coaching user turn, and continue the loop with
         // tool_choice:any forced for the next round.
+        // Match only the OPENING of the reply, not the whole thing. A
+        // genuine stalled promise always leads with the promise ("Let me
+        // pull that up…") — a completed answer that merely contains "let's"
+        // or "going to" later on ("Let's do that next time" / "I'm going to
+        // flag this for review", both describing something already done)
+        // was matching the same patterns anywhere in the text and burning a
+        // full extra Anthropic round-trip on every false positive. That was
+        // a measurable, user-reported source of slow replies, not just a
+        // theoretical one — see docs/superpowers/specs/2026-07-25-ai-backend-gaps-audit.md.
+        const replyOpening = (reply || "").slice(0, 80);
         const looksLikeDeadEnd =
           !deadEndRetried &&
           reply &&
@@ -1566,7 +1606,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           // Anthropic call retrying with tool_choice:any when the user
           // just wanted a rewrite.
           detectedMode !== "refinement" &&
-          deadEndPatterns.some((re) => re.test(reply));
+          deadEndPatterns.some((re) => re.test(replyOpening));
         if (looksLikeDeadEnd) {
           deadEndRetried = true;
           forceToolChoiceNextRound = true;

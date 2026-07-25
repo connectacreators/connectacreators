@@ -50,7 +50,8 @@ import { AI_MODELS, type AssistantMessage } from "@/components/canvas/CanvasAIPa
 import CommandDeckLayout from "@/components/command-deck/CommandDeckLayout";
 import CommandOrb from "@/components/command-deck/CommandOrb";
 import RevisionReviewSurface from "@/components/command-deck/RevisionReviewSurface";
-import { parseEditingReviewNavigation, type EditingReviewTarget } from "@/lib/commandDeck/actionSurface";
+import { parseEditingReviewNavigation, type EditingReviewTarget, type ActionSurfaceSnapshot } from "@/lib/commandDeck/actionSurface";
+import type { ReviewSurfaceCommand } from "@/components/VideoReviewModal";
 
 // Persisted across sessions so the user's last model/thinking choice survives
 // reloads. Keys are versioned so we can invalidate in a future migration.
@@ -394,6 +395,16 @@ export default function CommandCenter() {
   // navigating to /clients/:id/editing-queue (see the action-dispatch loop
   // in handleSend, and RevisionReviewSurface for the panel itself).
   const [actionSurface, setActionSurface] = useState<EditingReviewTarget | null>(null);
+  // Live snapshot of the open surface (item + playback state), sent as AI
+  // context on every message so "pause it"/"add a note here" resolve
+  // against the right item with no lookup. A ref, not state — playback time
+  // updates ~4x/sec and reading it fresh at send-time is all that's needed;
+  // making it state would re-render the whole page every tick.
+  const activeSurfaceStateRef = useRef<ActionSurfaceSnapshot | null>(null);
+  // A pending remote-control command for the open surface (play/pause/seek/
+  // add note/approve) — state, not a ref, since setting it must propagate
+  // down as a prop change for RevisionReviewSurface's effect to fire.
+  const [reviewSurfaceCommand, setReviewSurfaceCommand] = useState<ReviewSurfaceCommand | null>(null);
 
   // Chats sidebar collapsed state — persisted to localStorage. Toggleable via
   // the panel-icon button in the header or Cmd/Ctrl+. keyboard shortcut.
@@ -735,6 +746,20 @@ export default function CommandCenter() {
           autonomy_mode: autonomyMode,
           thread_id: activeThreadId ?? null,
           active_client_id: activeClientId,
+          // Live Action Surface snapshot (item + playback state), read fresh
+          // at send-time — see control_review_surface / ACTIVE ACTION
+          // SURFACE context in companion-chat/index.ts.
+          active_surface: activeSurfaceStateRef.current
+            ? {
+                type: "editing_review" as const,
+                item_id: activeSurfaceStateRef.current.itemId,
+                item_title: activeSurfaceStateRef.current.itemTitle,
+                client_id: activeSurfaceStateRef.current.clientId,
+                client_name: activeSurfaceStateRef.current.clientName,
+                playing: activeSurfaceStateRef.current.playing,
+                current_time_seconds: activeSurfaceStateRef.current.currentTimeSeconds,
+              }
+            : null,
           // Tier-2 controls — passed through to companion-chat which already
           // honors these fields when sent (same payload Canvas uses).
           model: selectedModel,
@@ -825,7 +850,8 @@ export default function CommandCenter() {
             action?.type !== "refresh_data" &&
             action?.type !== "highlight_items" &&
             action?.type !== "show_notification" &&
-            action?.type !== "plan_proposal"
+            action?.type !== "plan_proposal" &&
+            action?.type !== "review_surface_control"
           ) {
             console.warn("[ai] unhandled action type:", action?.type, action);
           }
@@ -868,6 +894,14 @@ export default function CommandCenter() {
                 detail: { message: action.message },
               }),
             );
+          }
+          if (action?.type === "review_surface_control" && action.control) {
+            // Only meaningful while an Action Surface is actually open —
+            // control_review_surface itself already refuses to be called
+            // otherwise per its system-prompt guidance, and RevisionReviewSurface
+            // simply won't be mounted to receive this if the user already
+            // closed it, so no extra guard is needed here.
+            setReviewSurfaceCommand(action.control as ReviewSurfaceCommand);
           }
         }
       }
@@ -1197,6 +1231,9 @@ export default function CommandCenter() {
                     itemId={actionSurface.itemId}
                     clientId={actionSurface.clientId}
                     onClose={() => setActionSurface(null)}
+                    externalCommand={reviewSurfaceCommand}
+                    onExternalCommandHandled={() => setReviewSurfaceCommand(null)}
+                    onSurfaceStateChange={(state) => { activeSurfaceStateRef.current = state; }}
                   />
                 </div>
               ) : /* Orb mode is the Command Deck default, with or without an
