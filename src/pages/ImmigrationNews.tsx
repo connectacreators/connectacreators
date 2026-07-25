@@ -123,12 +123,16 @@ export default function ImmigrationNews() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (onlyRelevant && !r.relevant) return false;
+      // Filter live against the current threshold — NOT the `relevant` flag
+      // stored at ingest time, which can disagree with relevance_score (it's
+      // Haiku's own true/false call, possibly made under a different, older
+      // threshold) and made the slider look broken.
+      if (onlyRelevant && r.relevance_score < settings.min_relevance_score) return false;
       if (activeCountry && !(r.countries || []).some((c) => c.toLowerCase() === activeCountry.toLowerCase())) return false;
       if (q && !r.title.toLowerCase().includes(q) && !(r.summary || "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, onlyRelevant, activeCountry, search]);
+  }, [rows, onlyRelevant, activeCountry, search, settings.min_relevance_score]);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -283,7 +287,7 @@ export default function ImmigrationNews() {
       ) : (
         <div className="space-y-3">
           {filtered.map((row) => (
-            <Card key={row.id} className={!row.relevant ? "opacity-60" : undefined}>
+            <Card key={row.id} className={row.relevance_score < settings.min_relevance_score ? "opacity-60" : undefined}>
               <CardContent className="py-4 space-y-2.5">
                 <div className="flex flex-wrap gap-1.5">
                   {(row.countries || []).map((c) => (
