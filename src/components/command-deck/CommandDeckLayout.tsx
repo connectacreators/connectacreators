@@ -25,7 +25,7 @@ export default function CommandDeckLayout({
   listening: boolean;
 }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 px-4 py-3 gap-2.5">
+    <div className="flex-1 flex flex-col min-h-0 px-3 py-2 sm:px-4 sm:py-3 gap-2.5">
       <div className="cd-atmos" />
       <div className="cd-vignette" />
       <div className="cd-grain" />
@@ -34,15 +34,20 @@ export default function CommandDeckLayout({
         <CommandHeader credits={credits} autonomyLabel={autonomyLabel} />
       </div>
 
-      <div className="flex-1 grid gap-5 min-h-0 pt-2" style={{ gridTemplateColumns: "236px minmax(360px,1fr) 236px" }}>
-        <div className="cd-fade-left flex flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
+      {/* Below lg, the side telemetry columns hide entirely — voice + the
+          orb are the primary mobile surface, a dense metrics dashboard
+          squeezed into a phone width isn't usable. They reappear at the
+          same 1024px breakpoint the rest of the app treats as "desktop"
+          (MobileBottomNav, DashboardSidebar). */}
+      <div className="flex-1 grid gap-5 min-h-0 pt-2 grid-cols-1 lg:grid-cols-[236px_minmax(360px,1fr)_236px]">
+        <div className="hidden lg:flex cd-fade-left flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
           <SystemVitals />
           <TelemetryLog />
         </div>
 
         <div className="flex flex-col min-h-0 relative">{children}</div>
 
-        <div className="cd-fade-right flex flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
+        <div className="hidden lg:flex cd-fade-right flex-col gap-[26px] pt-1.5 overflow-y-auto min-h-0">
           <VoiceWaveform listening={listening} />
           <AttentionRadar />
           <OutboundGauge />

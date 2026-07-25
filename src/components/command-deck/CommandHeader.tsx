@@ -35,7 +35,7 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
             />
             <span className="cd-sigil-dot" />
           </div>
-          <div className="font-mono text-[12.5px] font-semibold uppercase" style={{ letterSpacing: "0.36em" }}>
+          <div className="font-mono text-[10px] sm:text-[12.5px] font-semibold uppercase" style={{ letterSpacing: "0.22em" }}>
             CONNECTA <b style={{ color: "hsl(var(--aqua))", textShadow: "0 0 12px hsl(var(--aqua) / 0.55)" }}>·</b> COMMAND
           </div>
         </div>
@@ -46,14 +46,17 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
           >
             Online
           </span>
+          {/* Secondary badges hide below sm — "Online" alone is enough
+              context on a phone-width header; the rest is available once
+              there's room. */}
           <span
-            className="font-mono text-[8px] uppercase rounded-[5px] px-[7px] py-[2.5px]"
+            className="hidden sm:inline-flex font-mono text-[8px] uppercase rounded-[5px] px-[7px] py-[2.5px]"
             style={{ letterSpacing: "0.13em", color: "hsl(var(--honey))", border: "1px solid hsl(var(--honey) / 0.4)" }}
           >
             Admin Clearance
           </span>
           <span
-            className="font-mono text-[8px] uppercase rounded-[5px] px-[7px] py-[2.5px]"
+            className="hidden sm:inline-flex font-mono text-[8px] uppercase rounded-[5px] px-[7px] py-[2.5px]"
             style={{ letterSpacing: "0.13em", color: "hsl(var(--bone) / 0.56)", border: "1px solid rgba(255,255,255,0.12)" }}
           >
             Autonomy: {autonomyLabel}
@@ -63,7 +66,7 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
 
       <div className="flex flex-col items-end gap-[3px] text-right">
         <div
-          className="font-mono text-[24px] tabular-nums"
+          className="font-mono text-[18px] sm:text-[24px] tabular-nums"
           style={{
             letterSpacing: "0.03em",
             color: "hsl(var(--aqua))",

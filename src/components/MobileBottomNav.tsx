@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Home, Flame, FileText, Clapperboard, MoreHorizontal,
+  Home, Flame, FileText, Clapperboard, MoreHorizontal, Bot,
   Users, Archive, CalendarDays, UserCheck, GraduationCap,
   CreditCard, Settings, Globe, LogOut, X, TrendingUp, DollarSign,
 } from "lucide-react";
@@ -10,12 +10,26 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { readCache } from "@/lib/sessionCache";
 
-const BOTTOM_TABS = (es: boolean) => [
-  { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
-  { icon: Flame, label: "Viral", path: "/viral-today" },
-  { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts", hero: true as const },
-  { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
-];
+// The Command Deck (/ai) is admin-only, so it only takes over the hero slot
+// for admins — everyone else keeps the original Scripts-as-hero bar
+// unchanged (a nav button that would just redirect them away is worse than
+// not having it). For admins, Scripts moves to the non-hero slot Viral used
+// to occupy and Viral moves into the "More" sheet — Scripts is the more
+// frequently-used day-to-day tool of the two.
+const BOTTOM_TABS = (es: boolean, isAdmin: boolean) =>
+  isAdmin
+    ? [
+        { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
+        { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts" },
+        { icon: Bot, label: "AI", path: "/ai", hero: true as const },
+        { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
+      ]
+    : [
+        { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
+        { icon: Flame, label: "Viral", path: "/viral-today" },
+        { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts", hero: true as const },
+        { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
+      ];
 
 const MORE_NAV_ITEMS = (es: boolean) => [
   { icon: Users, label: es ? "Clientes" : "Clients", path: "/clients" },
@@ -55,6 +69,10 @@ export default function MobileBottomNav() {
       ? [{ icon: TrendingUp, label: language === "es" ? "Estrategia" : "Strategy", path: `/clients/${selectedClientId}/strategy` }]
       : []),
     ...(isAdmin ? [{ icon: DollarSign, label: language === "es" ? "Finanzas" : "Finances", path: "/finances" }] : []),
+    // Viral only moves here for admins — it displaced from the main bar to
+    // make room for the AI hero button (see BOTTOM_TABS above). Non-admins
+    // never lost their Viral tab, so it stays out of their "More" sheet.
+    ...(isAdmin ? [{ icon: Flame, label: "Viral", path: "/viral-today" }] : []),
     ...MORE_NAV_ITEMS(language === "es"),
   ];
 
@@ -68,7 +86,7 @@ export default function MobileBottomNav() {
       {/* Bottom nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border">
         <div className="flex items-end justify-around h-16 px-2 pb-2">
-          {BOTTOM_TABS(language === "es").map((tab) => {
+          {BOTTOM_TABS(language === "es", isAdmin).map((tab) => {
             const isActive = pathname.startsWith(tab.path.split("?")[0]);
 
             if (tab.hero) {
