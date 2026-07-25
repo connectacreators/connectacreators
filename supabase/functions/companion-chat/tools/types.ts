@@ -122,13 +122,20 @@ export async function resolveClient(
     return q;
   };
 
-  // Strategy 1: direct substring (case-insensitive). Cheap, hits the common case.
-  const direct = await baseQuery()
-    .ilike("name", `%${clientName}%`)
-    .limit(1)
-    .maybeSingle();
+  // Strategy 1: direct substring (case-insensitive). Cheap, hits the common
+  // case. Fetches up to 5 (not .limit(1).maybeSingle()) so a genuine
+  // collision — e.g. "Calvin" matching both "Dr Calvin's Clinic" and
+  // "Calvin Rodriguez" — is detected instead of silently returning
+  // whichever row Postgres happens to return first (no ORDER BY makes that
+  // arbitrary, not deterministic). Ambiguous → fall through to null rather
+  // than guess; every caller already handles null as "no client found".
+  const direct = await baseQuery().ilike("name", `%${clientName}%`).limit(5);
   if (direct.error) console.warn("[resolveClient] direct query failed:", direct.error.message);
-  if (direct.data) return direct.data;
+  if (direct.data && direct.data.length === 1) return direct.data[0];
+  if (direct.data && direct.data.length > 1) {
+    console.warn(`[resolveClient] ambiguous direct match for "${clientName}":`, direct.data.map((c: any) => c.name));
+    return null;
+  }
 
   // Normalize: strip punctuation (periods, commas, apostrophes, etc), collapse
   // whitespace, lowercase. "Dr. Calvin" → "dr calvin", "Dr Calvin's Clinic" → "dr calvins clinic".
@@ -152,26 +159,43 @@ export async function resolveClient(
     normalized: norm(c.name ?? ""),
   }));
 
+  // Every strategy below uses .filter() instead of .find() and checks for
+  // more than one hit — same reasoning as Strategy 1: silently taking
+  // whichever candidate happens to come first in array order is how the
+  // wrong client gets mutated with no error and no warning.
+
   // Substring match against normalized names
-  const subMatch = candidates.find((c) => c.normalized.includes(normalizedQuery));
-  if (subMatch) return { id: subMatch.id, name: subMatch.name };
+  const subMatches = candidates.filter((c) => c.normalized.includes(normalizedQuery));
+  if (subMatches.length === 1) return { id: subMatches[0].id, name: subMatches[0].name };
+  if (subMatches.length > 1) {
+    console.warn(`[resolveClient] ambiguous normalized-substring match for "${clientName}":`, subMatches.map((c) => c.name));
+    return null;
+  }
 
   // Strategy 3: per-word — every significant (>=2 char) word in the query
   // must appear in the candidate's normalized name. Catches reordered queries
   // like "calvin clinic" → "dr calvins clinic".
   const queryWords = normalizedQuery.split(/\s+/).filter((w) => w.length >= 2);
   if (queryWords.length > 0) {
-    const wordMatch = candidates.find((c) =>
+    const wordMatches = candidates.filter((c) =>
       queryWords.every((w) => c.normalized.includes(w)),
     );
-    if (wordMatch) return { id: wordMatch.id, name: wordMatch.name };
+    if (wordMatches.length === 1) return { id: wordMatches[0].id, name: wordMatches[0].name };
+    if (wordMatches.length > 1) {
+      console.warn(`[resolveClient] ambiguous per-word match for "${clientName}":`, wordMatches.map((c) => c.name));
+      return null;
+    }
   }
 
   // Strategy 4: first-word reverse match — if the query is a single token,
   // see if any candidate name STARTS with it (catches "calvin" → "Calvin's…").
   if (queryWords.length === 1) {
-    const startsWith = candidates.find((c) => c.normalized.startsWith(queryWords[0]));
-    if (startsWith) return { id: startsWith.id, name: startsWith.name };
+    const startsWithMatches = candidates.filter((c) => c.normalized.startsWith(queryWords[0]));
+    if (startsWithMatches.length === 1) return { id: startsWithMatches[0].id, name: startsWithMatches[0].name };
+    if (startsWithMatches.length > 1) {
+      console.warn(`[resolveClient] ambiguous first-word match for "${clientName}":`, startsWithMatches.map((c) => c.name));
+      return null;
+    }
   }
 
   // Strategy 5: typo-tolerant edit-distance match. Catches "Boby" → "Bobby",
@@ -202,16 +226,28 @@ export async function resolveClient(
   // Tight on short queries (<=4 chars: 1 typo allowed), looser on longer
   // ones. Never allow more than 3 — beyond that it's not a typo.
   const threshold = Math.min(3, Math.max(1, Math.floor(queryFirst.length / 4)));
-  let bestMatch: { id: string; name: string; dist: number } | null = null;
+  // Track every candidate AT the best distance, not just the first one
+  // found — a strict "<" comparison would silently keep whichever tied
+  // candidate came first in array order and drop the other.
+  let bestDist = Infinity;
+  let bestMatches: { id: string; name: string }[] = [];
   for (const c of candidates) {
     const candidateFirst = c.normalized.split(/\s+/)[0] ?? "";
     if (!candidateFirst) continue;
     const dist = editDistance(queryFirst, candidateFirst);
-    if (dist <= threshold && (bestMatch === null || dist < bestMatch.dist)) {
-      bestMatch = { id: c.id, name: c.name, dist };
+    if (dist > threshold) continue;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestMatches = [{ id: c.id, name: c.name }];
+    } else if (dist === bestDist) {
+      bestMatches.push({ id: c.id, name: c.name });
     }
   }
-  if (bestMatch) return { id: bestMatch.id, name: bestMatch.name };
+  if (bestMatches.length === 1) return bestMatches[0];
+  if (bestMatches.length > 1) {
+    console.warn(`[resolveClient] ambiguous typo-tolerant match for "${clientName}":`, bestMatches.map((c) => c.name));
+    return null;
+  }
 
   return null;
 }
