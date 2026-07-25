@@ -11,6 +11,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const ANGLE_TOKEN = "abg-news-angle-2026";
 const MODEL = "claude-haiku-4-5-20251001";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+function escapeHtml(s: string): string {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const page = (inner: string) => new Response(
   `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ángulo de video — Connecta</title>
@@ -75,9 +84,14 @@ ${article ? `CONTENIDO: ${article}` : ""}`;
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
+  const wantsJson = url.searchParams.get("format") === "json";
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
   if (url.searchParams.get("t") !== ANGLE_TOKEN || !id) {
+    if (wantsJson) return new Response(JSON.stringify({ error: "invalid_token_or_id" }), { status: 401, headers: jsonHeaders });
     return page(`<p class="eyebrow">Acceso no válido</p><h1>Enlace inválido o vencido.</h1>`);
   }
 
@@ -89,14 +103,20 @@ Deno.serve(async (req) => {
     .from("immigration_news")
     .select("id, title, summary, url, countries, angle_text")
     .eq("id", id).maybeSingle();
-  if (!row) return page(`<p class="eyebrow">No encontrado</p><h1>No se encontró la noticia.</h1>`);
+  if (!row) {
+    if (wantsJson) return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers: jsonHeaders });
+    return page(`<p class="eyebrow">No encontrado</p><h1>No se encontró la noticia.</h1>`);
+  }
 
   let angle: { hook: string; script: string; why: string };
   if (row.angle_text) {
     angle = JSON.parse(row.angle_text);
   } else {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return page(`<h1>Falta configurar ANTHROPIC_API_KEY.</h1>`);
+    if (!apiKey) {
+      if (wantsJson) return new Response(JSON.stringify({ error: "missing_api_key" }), { status: 500, headers: jsonHeaders });
+      return page(`<h1>Falta configurar ANTHROPIC_API_KEY.</h1>`);
+    }
     try {
       const g = await generateAngle(row, apiKey);
       angle = g.angle;
@@ -108,18 +128,26 @@ Deno.serve(async (req) => {
         }).then(() => {}, () => {});
       }
     } catch (e) {
-      return page(`<p class="eyebrow">Error</p><h1>No se pudo generar el ángulo.</h1><p class="muted">${e instanceof Error ? e.message : ""}</p>`);
+      const msg = e instanceof Error ? e.message : "unknown";
+      if (wantsJson) return new Response(JSON.stringify({ error: msg }), { status: 500, headers: jsonHeaders });
+      return page(`<p class="eyebrow">Error</p><h1>No se pudo generar el ángulo.</h1><p class="muted">${escapeHtml(msg)}</p>`);
     }
   }
 
-  const badges = (row.countries || []).map((c) => `<span class="badge">${c}</span>`).join("");
+  // JSON mode: used by the in-app Noticias page to draft a script for the
+  // active client, without rendering the standalone HTML page.
+  if (wantsJson) {
+    return new Response(JSON.stringify({ id: row.id, title: row.title, url: row.url, countries: row.countries, angle }), { headers: jsonHeaders });
+  }
+
+  const badges = (row.countries || []).map((c) => `<span class="badge">${escapeHtml(c)}</span>`).join("");
   return page(`
     <p class="eyebrow">🎬 Ángulo de video · talking-head</p>
-    <h1>${row.title}</h1>
+    <h1>${escapeHtml(row.title)}</h1>
     <div>${badges}</div>
-    <div class="card"><h2>Hook (primeros 3s)</h2><p class="hook">${angle.hook || "—"}</p></div>
-    <div class="card"><h2>Guion</h2><p class="body" id="script">${(angle.script || "").replace(/</g, "&lt;")}</p></div>
-    ${angle.why ? `<div class="card"><h2>Por qué les importa</h2><p class="body">${angle.why}</p></div>` : ""}
+    <div class="card"><h2>Hook (primeros 3s)</h2><p class="hook">${escapeHtml(angle.hook || "—")}</p></div>
+    <div class="card"><h2>Guion</h2><p class="body" id="script">${escapeHtml(angle.script || "")}</p></div>
+    ${angle.why ? `<div class="card"><h2>Por qué les importa</h2><p class="body">${escapeHtml(angle.why)}</p></div>` : ""}
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <button id="copyBtn" onclick="copyScript()">Copiar guion</button>
       <a class="src" href="${row.url}" target="_blank" rel="noopener">Leer la noticia completa →</a>
