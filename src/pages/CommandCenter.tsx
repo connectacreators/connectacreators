@@ -38,6 +38,7 @@ import { useAssistantMode, useCurrentPath } from "@/hooks/useAssistantMode";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useActiveChat } from "@/hooks/useActiveChat";
 import { supabase } from "@/integrations/supabase/client";
+import { readCache, writeCache } from "@/lib/sessionCache";
 import { streamCompanionChat, type SceneEvent, type EmbedRef } from "@/lib/companion/stream-companion-chat";
 import {
   AssistantChat,
@@ -211,7 +212,12 @@ export default function CommandCenter() {
   const activeClientId = urlClientId ?? ownClientId;
 
   // ── Display name for greeting ─────────────────────────────────────────
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  // Hydrated synchronously from localStorage on first paint (same pattern
+  // AuthContext already uses for `role`) so the greeting doesn't flash
+  // empty→name while the profiles fetch is in flight.
+  const [displayName, setDisplayName] = useState<string | null>(() =>
+    user ? readCache<string | null>(`displayName_${user.id}`, null) : null,
+  );
   useEffect(() => {
     if (!user) return;
     supabase
@@ -221,7 +227,11 @@ export default function CommandCenter() {
       .maybeSingle()
       .then(({ data }) => {
         const dn = data?.display_name?.trim();
-        if (dn) setDisplayName(dn.split(" ")[0]);
+        if (dn) {
+          const firstName = dn.split(" ")[0];
+          setDisplayName(firstName);
+          writeCache(`displayName_${user.id}`, firstName);
+        }
       });
   }, [user]);
 
@@ -1042,16 +1052,9 @@ export default function CommandCenter() {
                   chat. */}
               {chatMessages.length === 0 && !sending ? (
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-4">
-                  <div className="w-full max-w-2xl h-full flex flex-col items-center">
-                    {/* Orb region grows to fill whatever space is left after the
-                        text/composer/chips below it take their natural height —
-                        this is what lets it be as large as possible without
-                        forcing the page to scroll (a fixed vh guess either
-                        undersizes on tall screens or overflows on short ones). */}
-                    <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-                      <CommandOrb />
-                    </div>
-                    <div className="flex items-center gap-2 mt-2" style={{ pointerEvents: "none" }}>
+                  <div className="w-full max-w-2xl flex flex-col items-center">
+                    <CommandOrb />
+                    <div className="flex items-center gap-2 mt-3" style={{ pointerEvents: "none" }}>
                       <span
                         className="inline-block w-[5px] h-[5px] rounded-full"
                         style={{ background: "hsl(var(--aqua))", boxShadow: "0 0 6px hsl(var(--aqua) / 0.14)" }}

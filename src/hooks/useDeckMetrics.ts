@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { monthWindow } from "@/lib/strategy/pace";
 import { scriptsPace, calendarCoverage, radarBlipsFromCounts, type RadarBlip } from "@/lib/commandDeck/deckMetrics";
+import { useManagedClientIds } from "@/hooks/useManagedClientIds";
 
 interface DeckMetrics {
   loading: boolean;
@@ -14,6 +15,7 @@ interface DeckMetrics {
 const OPEN_LIFECYCLE = ["Not started", "In progress", "Needs Revisions"] as const;
 
 export function useDeckMetrics(): DeckMetrics {
+  const { loading: clientsLoading, clients: managedClients } = useManagedClientIds();
   const [state, setState] = useState<DeckMetrics>({
     loading: true,
     scripts: null,
@@ -23,35 +25,46 @@ export function useDeckMetrics(): DeckMetrics {
   });
 
   useEffect(() => {
+    if (clientsLoading) return;
     let cancelled = false;
     const now = new Date();
     const w = monthWindow(now.getFullYear(), now.getMonth(), now);
 
     async function load() {
+      if (managedClients.length === 0) {
+        setState({ loading: false, scripts: null, editingQueueOpen: null, calendar: null, radarBlips: [] });
+        return;
+      }
+      const managedIds = managedClients.map((c) => c.id);
+
       const [scriptsRes, targetsRes, openEditsRes, needsRevRes, scheduleRes] = await Promise.all([
         supabase
           .from("scripts")
           .select("id", { count: "exact", head: true })
+          .in("client_id", managedIds)
           .is("deleted_at", null)
           .neq("status", "draft")
           .gte("created_at", w.startIso)
           .lt("created_at", w.endIso),
-        supabase.from("client_strategies").select("scripts_per_month"),
+        supabase.from("client_strategies").select("scripts_per_month").in("client_id", managedIds),
         supabase
           .from("video_edits")
           .select("id", { count: "exact", head: true })
+          .in("client_id", managedIds)
           .in("lifecycle_status", OPEN_LIFECYCLE as unknown as string[])
           .is("deleted_at", null)
           .is("archived_at", null),
         supabase
           .from("video_edits")
           .select("id", { count: "exact", head: true })
+          .in("client_id", managedIds)
           .eq("lifecycle_status", "Needs Revisions")
           .is("deleted_at", null)
           .is("archived_at", null),
         supabase
           .from("video_edits")
           .select("schedule_date")
+          .in("client_id", managedIds)
           .not("schedule_date", "is", null)
           .is("deleted_at", null)
           .is("archived_at", null),
@@ -93,7 +106,8 @@ export function useDeckMetrics(): DeckMetrics {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsLoading, managedClients.map((c) => c.id).join(",")]);
 
   return state;
 }

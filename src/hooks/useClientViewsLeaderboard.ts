@@ -6,21 +6,29 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { onboardingSocialChannels } from "@/lib/viral/channelHandle";
 import { rankClientViews, type RankedClientViews } from "@/lib/commandDeck/clientViews";
+import { useManagedClientIds } from "@/hooks/useManagedClientIds";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function useClientViewsLeaderboard(): { loading: boolean; ranked: RankedClientViews[] } {
+  const { loading: clientsLoading, clients: managedClients } = useManagedClientIds();
   const [state, setState] = useState<{ loading: boolean; ranked: RankedClientViews[] }>({
     loading: true,
     ranked: [],
   });
 
   useEffect(() => {
+    if (clientsLoading) return;
     let cancelled = false;
 
     async function load() {
+      if (managedClients.length === 0) {
+        setState({ loading: false, ranked: [] });
+        return;
+      }
+      const managedIds = managedClients.map((c) => c.id);
       const [{ data: clients }, { data: channels }] = await Promise.all([
-        supabase.from("clients").select("id, name, onboarding_data"),
+        supabase.from("clients").select("id, name, onboarding_data").in("id", managedIds),
         supabase.from("viral_channels").select("id, username, platform"),
       ]);
       if (cancelled) return;
@@ -85,7 +93,8 @@ export function useClientViewsLeaderboard(): { loading: boolean; ranked: RankedC
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsLoading, managedClients.map((c) => c.id).join(",")]);
 
   return state;
 }

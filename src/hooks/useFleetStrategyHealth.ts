@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { monthWindow, type ScoreInputs } from "@/lib/strategy/pace";
 import { rankFleetStrategyHealth, type RankedStrategyHealth } from "@/lib/commandDeck/fleetStrategyHealth";
+import { useManagedClientIds } from "@/hooks/useManagedClientIds";
 
 async function countScriptsAttributed(clientId: string, startIso: string, endIso: string): Promise<number> {
   try {
@@ -41,33 +42,38 @@ async function countVideoEdits(clientId: string, dateColumn: "file_submitted_at"
 }
 
 export function useFleetStrategyHealth(): { loading: boolean; ranked: RankedStrategyHealth[] } {
+  const { loading: clientsLoading, clients: managedClients } = useManagedClientIds();
   const [state, setState] = useState<{ loading: boolean; ranked: RankedStrategyHealth[] }>({
     loading: true,
     ranked: [],
   });
 
   useEffect(() => {
+    if (clientsLoading) return;
     let cancelled = false;
     const now = new Date();
     const w = monthWindow(now.getFullYear(), now.getMonth(), now);
 
     async function load() {
-      const [{ data: clients }, { data: strategies }] = await Promise.all([
-        supabase.from("clients").select("id, name"),
-        supabase
-          .from("client_strategies")
-          .select(
-            "client_id, scripts_per_month, videos_edited_per_month, posts_per_month, manychat_active, audience_score, uniqueness_score",
-          ),
-      ]);
+      if (managedClients.length === 0) {
+        setState({ loading: false, ranked: [] });
+        return;
+      }
+      const managedIds = managedClients.map((c) => c.id);
+      const { data: strategies } = await supabase
+        .from("client_strategies")
+        .select(
+          "client_id, scripts_per_month, videos_edited_per_month, posts_per_month, manychat_active, audience_score, uniqueness_score",
+        )
+        .in("client_id", managedIds);
       if (cancelled) return;
-      if (!clients || !strategies) {
+      if (!strategies) {
         setState({ loading: false, ranked: [] });
         return;
       }
 
       const strategyByClient = new Map(strategies.map((s) => [s.client_id, s]));
-      const clientsWithStrategy = clients.filter((c) => strategyByClient.has(c.id));
+      const clientsWithStrategy = managedClients.filter((c) => strategyByClient.has(c.id));
       if (clientsWithStrategy.length === 0) {
         setState({ loading: false, ranked: [] });
         return;
@@ -108,7 +114,8 @@ export function useFleetStrategyHealth(): { loading: boolean; ranked: RankedStra
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsLoading, managedClients.map((c) => c.id).join(",")]);
 
   return state;
 }
