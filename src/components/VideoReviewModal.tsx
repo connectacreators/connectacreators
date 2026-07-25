@@ -654,9 +654,32 @@ export default function VideoReviewModal({
     const cmd = externalCommand;
     (async () => {
       switch (cmd.action) {
-        case 'play':
-          await videoRef.current?.play().catch(() => {});
+        case 'play': {
+          // The <video> element can still be null a beat after the modal
+          // opens (source still resolving) — a voice "play it" can easily
+          // land before it's ready. One short retry covers that without
+          // silently doing nothing on the common "just opened" case.
+          let el = videoRef.current;
+          if (!el) {
+            await new Promise((r) => setTimeout(r, 400));
+            el = videoRef.current;
+          }
+          if (!el) {
+            toast.error('No video loaded yet — try again in a moment.');
+            break;
+          }
+          try {
+            await el.play();
+          } catch (err) {
+            // Browser autoplay policy blocked it (play() wasn't tied
+            // closely enough to a user gesture) — surface this instead of
+            // silently doing nothing, since that's exactly what made this
+            // look "broken" with no error anywhere.
+            console.warn('[VideoReviewModal] play() blocked:', err);
+            toast.error('Tap the video once to allow playback, then try again.');
+          }
           break;
+        }
         case 'pause':
           videoRef.current?.pause();
           break;

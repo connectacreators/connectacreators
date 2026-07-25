@@ -269,6 +269,21 @@ export default function CommandCenter() {
   // two assistants behave identically.
   const [recognizing, setRecognizing] = useState(false);
   const recognitionRef = useRef<any>(null);
+  // Single reusable <audio> element for TTS read-back — reused (not
+  // recreated per reply) so "one voice at a time" is automatic: starting a
+  // new play() on the SAME element naturally supersedes whatever it was
+  // already playing, and it gives the orb-tap handler a stable element to
+  // interrupt (pause) when the user taps while Robby is mid-sentence.
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAudioUrlRef = useRef<string | null>(null);
+  // Browsers block .play() calls that aren't tied closely enough to a real
+  // user gesture (STT -> network -> SSE -> state update is far too many
+  // async hops away from the original tap). Resuming an AudioContext
+  // synchronously inside the tap handler is the standard unlock: it
+  // "spends" the gesture upfront so later async play() calls — TTS
+  // replies, and the review video via control_review_surface — are
+  // allowed instead of silently rejecting for the rest of the session.
+  const audioUnlockCtxRef = useRef<AudioContext | null>(null);
   // Voice-mode read-back: true only for the one turn a tap-to-speak capture
   // just auto-sent, so ElevenLabs TTS only ever fires for a turn the user
   // actually spoke — never for typed messages. Consumed (reset to false)
@@ -648,13 +663,47 @@ export default function CommandCenter() {
       }
     };
     recognitionRef.current = rec;
-    rec.start();
-    setRecognizing(true);
+    // rec.start() can throw SYNCHRONOUSLY (InvalidStateError) if the browser
+    // hasn't fully released the microphone from a just-ended session yet —
+    // a known Web Speech API quirk, worse in the hands-free loop where a new
+    // session starts right after the previous turn's TTS finishes. Uncaught,
+    // this throw skips setRecognizing(true) entirely and leaves the mic
+    // silently dead with the UI still reading standby — no error shown
+    // anywhere. Catch it and retry once after a short delay instead.
+    try {
+      rec.start();
+      setRecognizing(true);
+    } catch (err) {
+      console.warn("[ai] rec.start() failed, retrying shortly:", err);
+      setTimeout(() => {
+        try {
+          rec.start();
+          setRecognizing(true);
+        } catch (err2) {
+          console.error("[ai] rec.start() retry failed:", err2);
+          setRecognizing(false);
+          if (voiceConversationActiveRef.current) setVoiceConversationActive(false);
+        }
+      }, 350);
+    }
   }, [recognizing, en]);
 
   useEffect(() => {
     toggleVoiceRef.current = toggleVoice;
   }, [toggleVoice]);
+
+  /** See audioUnlockCtxRef above — call synchronously from a real click. */
+  const primeMediaPlayback = useCallback(() => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioUnlockCtxRef.current) audioUnlockCtxRef.current = new Ctx();
+      if (audioUnlockCtxRef.current.state === "suspended") void audioUnlockCtxRef.current.resume();
+    } catch {
+      // Best-effort — browsers with a looser autoplay policy than iOS
+      // Safari's don't need this at all.
+    }
+  }, []);
 
   /**
    * Tapping the orb starts (or exits) a hands-free conversation: listen,
@@ -663,16 +712,27 @@ export default function CommandCenter() {
    * itself; the only way to end the conversation is another tap (voice
    * exit phrases would collide with "stop" already meaning pause-the-video
    * inside an open review surface).
+   *
+   * Tapping WHILE Robby is talking interrupts him instead: stop the audio
+   * immediately and start listening right away — a real conversational
+   * barge-in, not "wait for the whole sentence to finish."
    */
   const handleOrbTap = useCallback(() => {
+    const audio = ttsAudioRef.current;
+    if (audio && !audio.paused && !audio.ended) {
+      audio.pause();
+      if (voiceConversationActiveRef.current) toggleVoice(true);
+      return;
+    }
     if (recognizing || voiceConversationActive) {
       setVoiceConversationActive(false);
       if (recognizing) toggleVoice(true);
     } else {
+      primeMediaPlayback();
       setVoiceConversationActive(true);
       toggleVoice(true);
     }
-  }, [recognizing, voiceConversationActive, toggleVoice]);
+  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback]);
 
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
@@ -685,9 +745,10 @@ export default function CommandCenter() {
    * Read a reply aloud via ElevenLabs (tts-speak edge function). Only ever
    * called for a turn that was itself voice-initiated (see
    * lastTurnWasVoiceRef) so read-back — and its ElevenLabs cost — is scoped
-   * to genuine voice interactions, never typed ones. Best-effort: a failure
-   * here (unsupported browser, network, function error) is silent — voice
-   * read-back is a bonus, not a blocking part of the reply.
+   * to genuine voice interactions, never typed ones. Reuses ONE <audio>
+   * element (ttsAudioRef) instead of creating a new one per call — starting
+   * a new reply always stops whatever was still playing, so there's never
+   * more than one voice at a time even if turns overlap.
    */
   const speakReply = useCallback(
     async (text: string) => {
@@ -710,10 +771,20 @@ export default function CommandCenter() {
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.onended = () => URL.revokeObjectURL(url);
-        audio.onerror = () => URL.revokeObjectURL(url);
-        await audio.play().catch(() => {});
+
+        if (!ttsAudioRef.current) ttsAudioRef.current = new Audio();
+        const audio = ttsAudioRef.current;
+        audio.pause(); // one voice at a time — cut off anything still playing
+        if (ttsAudioUrlRef.current) URL.revokeObjectURL(ttsAudioUrlRef.current);
+        ttsAudioUrlRef.current = url;
+        audio.src = url;
+        audio.onended = () => {
+          if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
+        };
+        audio.onerror = () => {
+          if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
+        };
+        await audio.play().catch((err) => console.warn("[ai] TTS playback blocked:", err));
       } catch (err) {
         console.error("[ai] voice read-back failed:", err);
       }

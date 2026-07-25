@@ -22,9 +22,10 @@ import { ANALYTICS_TOOLS, handleAnalyticsTool } from "./tools/analytics.ts";
 import { PLAN_TOOLS, handlePlanTool } from "./tools/plans.ts";
 import { classifyMode } from "./mode-router.ts";
 import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
-// Memory subsystem disabled for now — tools/memories.ts and the
-// assistant_memories table remain in place for future reactivation.
-// import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
+// Memory subsystem — re-enabled 2026-07-25 after verifying assistant_memories'
+// columns and enforce_assistant_memory_cap's parameter signature both still
+// match this code exactly (zero schema drift) via the Management API.
+import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
 import { resolveClient, getAccessibleClientIds } from "./tools/types.ts";
 import {
   runAnalyzeMyProfile,
@@ -637,8 +638,8 @@ const TOOLS = [
   ...ANALYTICS_TOOLS,
   // Wave 6 tools (preview-and-approve plan flow)
   ...PLAN_TOOLS,
-  // Memory subsystem disabled for now — see import comment above.
-  // ...MEMORY_TOOLS,
+  // Memory subsystem — see import comment above.
+  ...MEMORY_TOOLS,
 ];
 
 // ── Static system prologue (cached) ──────────────────────────────────────
@@ -676,7 +677,7 @@ YOUR RULES — FOLLOW EXACTLY:
 8. Never say "pipeline", "leverage", "synergy", "streamline", "utilize", or "robust".
 9. CRITICAL: Never ask the user for information you can look up yourself. If someone mentions a client by name, call get_client_info immediately to get their data. Never say "tell me about X" when you can look X up.
 10. CRITICAL: If the user says "yes", "ok", "let's go", "sure", "do it" in response to something you suggested — execute it immediately using the appropriate tool. Do not ask again.
-11. MEMORY: Long-term memory is currently disabled. If the user says "remember X" or "forget X", explain briefly that you don't have persistent memory right now — they should rely on the active conversation thread (which IS preserved per chat). Do not call any save_memory / delete_memory / list_memories tools (they're not registered). Within a single conversation, you have full thread history; across conversations, you have client_strategies + onboarding_data injected at the top of every prompt.
+11. MEMORY: You have long-term memory now, via save_memory / delete_memory / list_memories / pin_memory / unpin_memory. When the user explicitly says "remember X", call save_memory with user_requested=true and confirm it landed in your reply ("Got it — saved as [key]"). When they say "forget X", call delete_memory with user_requested=true and confirm. You may ALSO save memories in the background without being asked — e.g. a recurring preference, a client's methodology, a correction they gave you — but leave user_requested=false for those and do NOT announce it; just use the fact naturally later. Use scope='client' (default) for anything tied to one client; scope='user' for the agency owner's own cross-client preferences (autonomy default, working style). What you remember is injected above as "What you remember about this client" / "What you remember about the agency owner" — treat those as facts, don't re-ask for things already there. Don't save anything that's already captured in client_strategies or onboarding_data (redundant) or anything sensitive (passwords, payment details).
 12. NEVER navigate manually. If navigation is needed, call navigate_to_page — the app takes them there. Never say "head to X", "go to X", "visit X".
 13. ONBOARDING CONTEXT: If the user is on /onboarding, do NOT navigate away. Keep filling fields using fill_onboarding_fields until the form is fully complete.
 14. PLAIN ENGLISH ONLY: Never use TOFU, MOFU, BOFU, "outlier method", or internal jargon. Translate: reach content = "content that gets new people to find you", trust = "builds authority with your audience", convert = "turns warm viewers into booked leads".
@@ -1233,15 +1234,14 @@ serve(async (req) => {
     // every chat for the same client into one 40-message blob, so unrelated
     // threads bled into each other and the model got confused context from
     // half-finished prior conversations.
-    const [strategyRes, historyRes] = await Promise.all([
+    const [strategyRes, historyRes, memoriesRes] = await Promise.all([
       adminClient.from("client_strategies").select("*").eq("client_id", client.id).maybeSingle(),
       resolvedThreadId
         ? adminClient.from("assistant_messages").select("role, content").eq("thread_id", resolvedThreadId).order("created_at", { ascending: false }).limit(40)
         : Promise.resolve({ data: [] as any[] }),
+      loadMemoriesForPrompt(adminClient, user.id, client.id),
     ]);
-    // Memory blocks intentionally empty — memory subsystem disabled.
-    const clientMemoryBlock = "";
-    const userMemoryBlock = "";
+    const { clientBlock: clientMemoryBlock, userBlock: userMemoryBlock } = memoriesRes;
     const strat = strategyRes.data;
 
     // assistant_messages.content is jsonb of shape `{type: "text", text: "..."}`.
@@ -1353,9 +1353,6 @@ Revenue goal: $${strat.monthly_revenue_goal}/month · this month: $${strat.month
 ${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience alignment: ${analysis.audience_score}/10 — ${analysis.audience_detail}\nContent uniqueness: ${analysis.uniqueness_score}/10 — ${analysis.uniqueness_detail}\nSummary: ${analysis.summary}` : ""}`;
     }
 
-    // Memory subsystem currently disabled — memoriesText is empty.
-    // (When re-enabled, restore loadMemoriesForPrompt() above and concat
-    // userMemoryBlock + clientMemoryBlock here.)
     const memoriesText = `${userMemoryBlock}${clientMemoryBlock}`;
 
     const name = companion_name || "AI";
@@ -2953,8 +2950,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           await handleClientTool(block, moduleCtx) ??
           await handleResearchTool(block, moduleCtx) ??
           await handleAnalyticsTool(block, moduleCtx) ??
-          await handlePlanTool(block, moduleCtx);
-        // handleMemoryTool removed while memory is disabled.
+          await handlePlanTool(block, moduleCtx) ??
+          await handleMemoryTool(block, moduleCtx);
         if (moduleResult) toolResults.push(moduleResult);
 
         // Fallback: ensure every tool_use_id has a matching tool_result, otherwise
