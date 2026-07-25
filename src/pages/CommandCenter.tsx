@@ -43,10 +43,11 @@ import {
   AssistantChat,
   AssistantTextInput,
   AssistantThreadList,
-  FingerprintAvatar,
   type ThreadListItem,
 } from "@/components/assistant";
 import { AI_MODELS, type AssistantMessage } from "@/components/canvas/CanvasAIPanel.shared";
+import CommandDeckLayout from "@/components/command-deck/CommandDeckLayout";
+import CommandOrb from "@/components/command-deck/CommandOrb";
 
 // Persisted across sessions so the user's last model/thinking choice survives
 // reloads. Keys are versioned so we can invalidate in a future migration.
@@ -1023,7 +1024,13 @@ export default function CommandCenter() {
       {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}
       <div className="flex-1 flex min-h-0">
         {rightTab === "chat" ? (
-          <>
+          <CommandDeckLayout
+            credits={null}
+            autonomyLabel={autonomyMode ? autonomyMode.toUpperCase() : "ASK"}
+            displayName={displayName || "Admin"}
+            companionName={companionName || "Robby"}
+            listening={recognizing}
+          >
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -1037,7 +1044,7 @@ export default function CommandCenter() {
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-8">
                   <div className="w-full max-w-2xl flex flex-col items-center">
                     {/* Greeting block */}
-                    <FingerprintAvatar size="md" tone="light" animated />
+                    <CommandOrb />
                     <h1
                       className="mt-4 text-center font-serif"
                       style={{ fontSize: 28, lineHeight: 1.2, color: "hsl(var(--bone) / 0.85)", letterSpacing: "-0.01em" }}
@@ -1223,7 +1230,7 @@ export default function CommandCenter() {
               )}
             </main>
 
-          </>
+          </CommandDeckLayout>
         ) : (
           /* Tasks tab — full-width Phase 1 task list */
           <div className="flex-1 overflow-auto p-6">
