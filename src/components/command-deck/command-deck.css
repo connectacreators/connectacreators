@@ -4,6 +4,19 @@
    tuned down from earlier passes that read as an obvious scanline gimmick
    (see docs/superpowers/specs/2026-07-24-ai-command-deck-design.md). */
 
+.cd-atmos {
+  position: fixed;
+  inset: -2%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  filter: blur(0.4px);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
 .cd-vignette {
   position: fixed;
   inset: 0;
@@ -80,10 +93,35 @@
   }
 }
 
+.cd-sigil-dot {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: hsl(var(--aqua));
+  box-shadow: 0 0 12px hsl(var(--aqua)), 0 0 26px hsl(var(--aqua) / 0.35);
+  animation: cd-corepulse 3.6s ease-in-out infinite;
+}
+@keyframes cd-corepulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.82); }
+}
+
+.cd-live-dot {
+  animation: cd-blink 2.6s ease-in-out infinite;
+}
+@keyframes cd-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cd-scan {
     animation: none;
     display: none;
+  }
+  .cd-sigil-dot,
+  .cd-live-dot {
+    animation: none;
   }
   .cd-fade-down,
   .cd-fade-left,

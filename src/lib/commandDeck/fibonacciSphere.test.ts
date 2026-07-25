@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fibonacciSphere, rotateX, rotateY } from "./fibonacciSphere";
+import { fibonacciSphere, rotateX, rotateY, ringPoints } from "./fibonacciSphere";
 
 describe("fibonacciSphere", () => {
   it("returns exactly n points", () => {
@@ -42,5 +42,24 @@ describe("rotateX", () => {
     const r = rotateX(p, Math.PI / 4);
     expect(Math.sqrt(r.y * r.y + r.z * r.z)).toBeCloseTo(Math.sqrt(p.y * p.y + p.z * p.z), 5);
     expect(r.x).toBeCloseTo(p.x, 10);
+  });
+});
+
+describe("ringPoints", () => {
+  it("returns n+1 points (closed loop)", () => {
+    expect(ringPoints(90, 0)).toHaveLength(91);
+  });
+
+  it("every point lies on the unit sphere regardless of tilt", () => {
+    for (const p of ringPoints(60, 0.4)) {
+      const r = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+      expect(r).toBeCloseTo(1, 5);
+    }
+  });
+
+  it("first and last points coincide (the loop closes)", () => {
+    const pts = ringPoints(40, 0.2);
+    expect(pts[0].x).toBeCloseTo(pts[pts.length - 1].x, 10);
+    expect(pts[0].z).toBeCloseTo(pts[pts.length - 1].z, 10);
   });
 });

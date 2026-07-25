@@ -1041,33 +1041,51 @@ export default function CommandCenter() {
                   user sends a message, fall through to the normal scrolling
                   chat. */}
               {chatMessages.length === 0 && !sending ? (
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-8">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-4">
                   <div className="w-full max-w-2xl flex flex-col items-center">
                     {/* Greeting block */}
                     <CommandOrb />
+                    <div className="flex items-center gap-2 mt-2" style={{ pointerEvents: "none" }}>
+                      <span
+                        className="inline-block w-[5px] h-[5px] rounded-full"
+                        style={{ background: "hsl(var(--aqua))", boxShadow: "0 0 6px hsl(var(--aqua) / 0.14)" }}
+                      />
+                      <span
+                        className="font-mono uppercase"
+                        style={{ fontSize: 11, letterSpacing: "0.42em", color: "hsl(var(--bone))" }}
+                      >
+                        {(companionName || "Robby").toUpperCase()}
+                      </span>
+                      <span
+                        className="font-mono uppercase"
+                        style={{ fontSize: 8.5, letterSpacing: "0.2em", color: "hsl(var(--aqua))" }}
+                      >
+                        {recognizing
+                          ? "LISTENING…"
+                          : en
+                            ? "STANDBY · TAP TO SPEAK"
+                            : "EN ESPERA · TOCA PARA HABLAR"}
+                      </span>
+                    </div>
                     <h1
-                      className="mt-4 text-center font-serif"
-                      style={{ fontSize: 28, lineHeight: 1.2, color: "hsl(var(--bone) / 0.85)", letterSpacing: "-0.01em" }}
+                      className="mt-3 text-center font-serif"
+                      style={{ fontSize: 23, lineHeight: 1.25, color: "hsl(var(--bone))", letterSpacing: "-0.01em" }}
                     >
-                      {displayName
-                        ? en
-                          ? `What are we doing today, ${displayName}?`
-                          : `¿Qué hacemos hoy, ${displayName}?`
-                        : en
-                          ? "What are we doing today?"
-                          : "¿Qué hacemos hoy?"}
+                      {displayName ? (
+                        en ? (
+                          <>What are we doing today, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
+                        ) : (
+                          <>¿Qué hacemos hoy, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
+                        )
+                      ) : en ? (
+                        "What are we doing today?"
+                      ) : (
+                        "¿Qué hacemos hoy?"
+                      )}
                     </h1>
-                    <p
-                      className="mt-2 text-center"
-                      style={{ fontSize: 13, color: "hsl(var(--bone) / 0.45)" }}
-                    >
-                      {en
-                        ? "Ask anything about your pipeline, scripts, or clients."
-                        : "Pregunta lo que sea sobre tu pipeline, scripts o clientes."}
-                    </p>
 
                     {/* Composer with mode pill on its own row inside the card */}
-                    <div className="w-full mt-6">
+                    <div className="w-full mt-5">
                       <AssistantTextInput
                         value={input}
                         onChange={setInput}
@@ -1097,19 +1115,34 @@ export default function CommandCenter() {
                       />
                     </div>
 
-                    {/* Suggestion chips below the textbox, Claude-style. */}
-                    <div className="flex flex-wrap gap-2 mt-4 justify-center">
+                    {/* Suggestion chips below the textbox — boxless, dimmed until hovered. */}
+                    <div
+                      className="flex flex-wrap gap-2 mt-3 justify-center"
+                      style={{ opacity: 0.55, transition: "opacity 0.4s var(--ease, ease)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.55"; }}
+                    >
                       {SUGGESTIONS.map((s) => (
                         <button
                           key={s}
                           onClick={() => setInput(s)}
-                          className="assistant-chip text-[11px] px-3 py-1.5"
+                          className="text-[10.5px] px-3 py-1.5"
                           style={{
-                            color: "rgba(255,255,255,0.6)",
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)",
+                            color: "hsl(var(--bone) / 0.3)",
+                            background: "transparent",
+                            border: "1px solid rgba(255,255,255,0.07)",
                             borderRadius: 999,
-                            transition: "background 160ms ease, border-color 160ms ease, color 160ms ease",
+                            transition: "color 0.3s var(--ease, ease), border-color 0.3s var(--ease, ease), box-shadow 0.3s var(--ease, ease)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "hsl(var(--bone))";
+                            e.currentTarget.style.borderColor = "hsl(var(--aqua) / 0.5)";
+                            e.currentTarget.style.boxShadow = "0 0 14px hsl(var(--aqua) / 0.14)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = "hsl(var(--bone) / 0.3)";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+                            e.currentTarget.style.boxShadow = "none";
                           }}
                         >
                           {s}

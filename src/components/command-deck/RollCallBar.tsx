@@ -1,3 +1,5 @@
+import "./command-deck.css";
+
 export default function RollCallBar({
   displayName,
   companionName,
@@ -17,7 +19,7 @@ export default function RollCallBar({
         style={{ letterSpacing: "0.18em", color: "hsl(var(--aqua) / 0.5)" }}
       >
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
+          className="cd-live-dot inline-block w-1.5 h-1.5 rounded-full"
           style={{ background: "hsl(141 33% 61%)", boxShadow: "0 0 8px hsl(141 33% 61% / 0.6)" }}
         />
         Roll call

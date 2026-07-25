@@ -32,3 +32,13 @@ export function rotateY(p: Point3D, angle: number): Point3D {
   const s = Math.sin(angle);
   return { x: p.x * c + p.z * s, y: p.y, z: -p.x * s + p.z * c };
 }
+
+/** n+1 points evenly spaced around a unit circle in the XZ plane, tilted by `tilt`. */
+export function ringPoints(n: number, tilt: number): Point3D[] {
+  const points: Point3D[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    points.push(rotateX({ x: Math.cos(a), y: 0, z: Math.sin(a) }, tilt));
+  }
+  return points;
+}

@@ -4,6 +4,12 @@ import { useDeckMetrics } from "@/hooks/useDeckMetrics";
 function Bar({ label, value, denom, pct, tone }: { label: string; value: string; denom: string; pct: number; tone: "aqua" | "warn" | "good" }) {
   const fillColor =
     tone === "good" ? "hsl(var(--good, 141 33% 61%))" : tone === "warn" ? "hsl(var(--honey))" : "hsl(var(--aqua))";
+  const fillGlow =
+    tone === "good"
+      ? "0 0 6px hsl(var(--good, 141 33% 61%) / 0.3)"
+      : tone === "warn"
+        ? "0 0 6px hsl(var(--honey) / 0.3)"
+        : "0 0 6px hsl(var(--aqua) / 0.14)";
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
@@ -16,7 +22,7 @@ function Bar({ label, value, denom, pct, tone }: { label: string; value: string;
       <div className="h-[2.5px] rounded-[2px] overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
         <div
           className="h-full rounded-[2px] transition-[width] duration-1000"
-          style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: fillColor }}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: fillColor, boxShadow: fillGlow }}
         />
       </div>
     </div>

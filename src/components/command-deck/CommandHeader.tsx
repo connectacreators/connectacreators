@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./command-deck.css";
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -32,9 +33,10 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
               className="absolute inset-[6px] rounded-full"
               style={{ border: "1px solid hsl(var(--aqua))", boxShadow: "0 0 12px hsl(var(--aqua) / 0.14)" }}
             />
+            <span className="cd-sigil-dot" />
           </div>
           <div className="font-mono text-[12.5px] font-semibold uppercase" style={{ letterSpacing: "0.36em" }}>
-            CONNECTA <b style={{ color: "hsl(var(--aqua))" }}>·</b> COMMAND
+            CONNECTA <b style={{ color: "hsl(var(--aqua))", textShadow: "0 0 12px hsl(var(--aqua) / 0.55)" }}>·</b> COMMAND
           </div>
         </div>
         <div className="flex gap-[6px] flex-wrap pl-[37px]">
@@ -60,7 +62,14 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
       </div>
 
       <div className="flex flex-col items-end gap-[3px] text-right">
-        <div className="font-mono text-[24px] tabular-nums" style={{ letterSpacing: "0.03em", color: "hsl(var(--aqua))" }}>
+        <div
+          className="font-mono text-[24px] tabular-nums"
+          style={{
+            letterSpacing: "0.03em",
+            color: "hsl(var(--aqua))",
+            textShadow: "0 0 18px hsl(var(--aqua) / 0.42), 0 0 44px hsl(var(--aqua) / 0.16)",
+          }}
+        >
           {p(now.getHours())}:{p(now.getMinutes())}:{p(now.getSeconds())}
         </div>
         <div className="font-mono text-[9.5px] uppercase" style={{ letterSpacing: "0.14em", color: "hsl(var(--bone) / 0.3)" }}>
@@ -70,6 +79,16 @@ export default function CommandHeader({ credits, autonomyLabel }: { credits: num
         <div className="flex gap-3.5 mt-1">
           <span className="font-mono text-[9px] uppercase" style={{ letterSpacing: "0.1em", color: "hsl(var(--bone) / 0.3)" }}>
             Credits <b style={{ color: "hsl(var(--bone) / 0.56)" }}>{credits === null ? "—" : credits.toLocaleString()}</b>
+          </span>
+          <span
+            className="font-mono text-[9px] uppercase flex items-center gap-1.5"
+            style={{ letterSpacing: "0.1em", color: "hsl(var(--bone) / 0.3)" }}
+          >
+            <span
+              className="cd-live-dot inline-block w-1.5 h-1.5 rounded-full"
+              style={{ background: "hsl(var(--good, 141 33% 61%))", boxShadow: "0 0 8px hsl(var(--good, 141 33% 61%))" }}
+            />
+            <b style={{ color: "hsl(var(--bone) / 0.56)" }}>Online</b>
           </span>
         </div>
       </div>

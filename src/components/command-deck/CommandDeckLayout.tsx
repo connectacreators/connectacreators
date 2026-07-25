@@ -24,6 +24,7 @@ export default function CommandDeckLayout({
 }) {
   return (
     <div className="flex-1 flex flex-col min-h-0 px-4 py-3 gap-2.5">
+      <div className="cd-atmos" />
       <div className="cd-vignette" />
       <div className="cd-grain" />
       <div className="cd-scan" />
