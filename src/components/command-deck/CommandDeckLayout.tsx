@@ -3,6 +3,7 @@ import CommandHeader from "./CommandHeader";
 import SystemVitals from "./SystemVitals";
 import TelemetryLog from "./TelemetryLog";
 import AttentionRadar from "./AttentionRadar";
+import DiagnosticsTicker from "./DiagnosticsTicker";
 import VoiceWaveform from "./VoiceWaveform";
 import RollCallBar from "./RollCallBar";
 import "./command-deck.css";
@@ -43,6 +44,7 @@ export default function CommandDeckLayout({
         <div className="cd-fade-right flex flex-col gap-[26px] pt-1.5 overflow-y-auto">
           <VoiceWaveform listening={listening} />
           <AttentionRadar />
+          <DiagnosticsTicker />
         </div>
       </div>
 

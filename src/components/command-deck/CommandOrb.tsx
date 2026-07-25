@@ -183,9 +183,11 @@ export default function CommandOrb({ className }: { className?: string }) {
       aria-hidden="true"
       className={[className, "cd-orb-power-on"].filter(Boolean).join(" ")}
       style={{
-        width: "min(38vh, 400px)",
-        height: "min(38vh, 400px)",
-        maxWidth: "96%",
+        width: "100%",
+        height: "100%",
+        maxWidth: "600px",
+        maxHeight: "600px",
+        aspectRatio: "1 / 1",
         display: "block",
         filter:
           "drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12))",

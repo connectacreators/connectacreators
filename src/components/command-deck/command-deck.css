@@ -93,6 +93,18 @@
   }
 }
 
+/* Scopes a smaller, rounder look onto the shared AssistantTextInput
+   composer for the Command Deck's ambient hero only — the component
+   itself stays untouched for every other page that reuses it. */
+.cd-composer-narrow .rounded-xl {
+  border-radius: 22px !important;
+}
+.cd-composer-narrow textarea {
+  padding-top: 10px !important;
+  padding-bottom: 6px !important;
+  min-height: 0 !important;
+}
+
 .cd-sigil-dot {
   position: absolute;
   inset: 10px;

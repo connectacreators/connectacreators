@@ -1042,9 +1042,15 @@ export default function CommandCenter() {
                   chat. */}
               {chatMessages.length === 0 && !sending ? (
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-4">
-                  <div className="w-full max-w-2xl flex flex-col items-center">
-                    {/* Greeting block */}
-                    <CommandOrb />
+                  <div className="w-full max-w-2xl h-full flex flex-col items-center">
+                    {/* Orb region grows to fill whatever space is left after the
+                        text/composer/chips below it take their natural height —
+                        this is what lets it be as large as possible without
+                        forcing the page to scroll (a fixed vh guess either
+                        undersizes on tall screens or overflows on short ones). */}
+                    <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+                      <CommandOrb />
+                    </div>
                     <div className="flex items-center gap-2 mt-2" style={{ pointerEvents: "none" }}>
                       <span
                         className="inline-block w-[5px] h-[5px] rounded-full"
@@ -1084,8 +1090,11 @@ export default function CommandCenter() {
                       )}
                     </h1>
 
-                    {/* Composer with mode pill on its own row inside the card */}
-                    <div className="w-full mt-5">
+                    {/* Composer with mode pill on its own row inside the card.
+                        cd-composer-narrow scopes a rounder, tighter look onto
+                        the shared AssistantTextInput without touching its
+                        styling on the other pages that reuse it. */}
+                    <div className="cd-composer-narrow w-full mt-5" style={{ maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
                       <AssistantTextInput
                         value={input}
                         onChange={setInput}
