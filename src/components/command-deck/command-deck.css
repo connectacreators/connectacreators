@@ -1,0 +1,95 @@
+/* src/components/command-deck/command-deck.css */
+/* Ambient depth for the Command Deck: a darkened-edge vignette, a very
+   low-opacity film-grain texture, and an occasional soft light sweep —
+   tuned down from earlier passes that read as an obvious scanline gimmick
+   (see docs/superpowers/specs/2026-07-24-ai-command-deck-design.md). */
+
+.cd-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(120% 100% at 50% 38%, transparent 40%, rgba(0, 0, 0, 0.4) 78%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.cd-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%25" height="100%25" filter="url(%23n)"/></svg>');
+  background-size: 140px 140px;
+}
+
+.cd-scan {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 240px;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    hsl(var(--aqua) / 0.014) 38%,
+    hsl(var(--aqua) / 0.022) 50%,
+    hsl(var(--aqua) / 0.014) 62%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  animation: cd-scan-move 17s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes cd-scan-move {
+  0% { top: -240px; }
+  100% { top: 100vh; }
+}
+
+.cd-fade-down { animation: cd-fade-down 0.8s cubic-bezier(0.16, 0.8, 0.24, 1) both; }
+@keyframes cd-fade-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cd-fade-left { animation: cd-fade-left 0.9s cubic-bezier(0.16, 0.8, 0.24, 1) 0.12s both; }
+@keyframes cd-fade-left {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cd-fade-right { animation: cd-fade-right 0.9s cubic-bezier(0.16, 0.8, 0.24, 1) 0.22s both; }
+@keyframes cd-fade-right {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cd-orb-power-on {
+  animation: cd-orb-power-on 1.4s cubic-bezier(0.16, 0.8, 0.24, 1) 0.08s both;
+}
+@keyframes cd-orb-power-on {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+    filter: blur(14px) drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12));
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px) drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-scan {
+    animation: none;
+    display: none;
+  }
+  .cd-fade-down,
+  .cd-fade-left,
+  .cd-fade-right,
+  .cd-orb-power-on {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
+}

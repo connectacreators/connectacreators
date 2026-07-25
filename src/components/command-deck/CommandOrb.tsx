@@ -111,7 +111,7 @@ export default function CommandOrb({ className }: { className?: string }) {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className={className}
+      className={[className, "cd-orb-power-on"].filter(Boolean).join(" ")}
       style={{
         width: "min(60vh, 600px)",
         height: "min(60vh, 600px)",
