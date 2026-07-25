@@ -48,7 +48,7 @@ type Settings = {
 
 export default function ImmigrationNews() {
   const { isAdmin, loading: authLoading } = useAuth();
-  const { selectedClientId, viewMode, clients, ownClientId, ownClientName } = useClientSwitcher();
+  const { selectedClientId } = useClientSwitcher();
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<NewsRow[]>([]);
@@ -63,11 +63,6 @@ export default function ImmigrationNews() {
   const [countriesText, setCountriesText] = useState("");
   const [keywordsText, setKeywordsText] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
-
-  const selectedClientName =
-    viewMode === "master" ? null
-    : viewMode === "me" ? (ownClientName || "Mi Marca")
-    : (clients.find((c) => c.id === viewMode)?.name ?? null);
 
   const loadNews = () => {
     setLoading(true);
@@ -214,14 +209,6 @@ export default function ImmigrationNews() {
             <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Configurar
           </Button>
         </div>
-      </div>
-
-      {/* active client banner — the "Generar guion" target */}
-      <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-muted-foreground">
-          Cliente activo para "Generar guion":{" "}
-          {selectedClientName ? <b className="text-foreground">{selectedClientName}</b> : <span className="text-amber-500">ninguno (Master) — cámbialo en la barra lateral</span>}
-        </span>
       </div>
 
       {/* filters */}
