@@ -20,7 +20,7 @@
 // (Phase A foundation; second surface using the new tables after CompanionDrawer).
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -188,7 +188,7 @@ function CompactModeSelect({
 }
 
 export default function CommandCenter() {
-  const { user } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const {
     companionName,
     clientId: ownClientId,
@@ -989,6 +989,15 @@ export default function CommandCenter() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-0" style={{ background: "hsl(var(--ink-on-cream))" }}>
+        <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/70 animate-spin" />
+      </div>
+    );
+  }
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
   return (
     <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "hsl(var(--ink-on-cream))" }}>
       {/* Top-right tasks toggle — no name, no back button, just the action. */}
