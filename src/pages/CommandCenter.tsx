@@ -369,6 +369,12 @@ export default function CommandCenter() {
 
   // ── Right-tab state (Chat vs Tasks) ────────────────────────────────────
   const [rightTab, setRightTab] = useState<RightTab>("chat");
+  // Command Deck default: the orb stays the centerpiece even mid-conversation
+  // (the last exchange renders in a compact strip below it) — "chat" mode
+  // opts into the full scrolling transcript instead. Persisted so the choice
+  // survives a reload.
+  const [chatViewMode, setChatViewMode] = useState<"orb" | "chat">(() => readCache("ai_chat_view_mode", "orb"));
+  useEffect(() => { writeCache("ai_chat_view_mode", chatViewMode); }, [chatViewMode]);
 
   // Chats sidebar collapsed state — persisted to localStorage. Toggleable via
   // the panel-icon button in the header or Cmd/Ctrl+. keyboard shortcut.
@@ -1010,26 +1016,43 @@ export default function CommandCenter() {
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 text-white" style={{ background: "hsl(var(--ink-on-cream))" }}>
-      {/* Top-right tasks toggle — no name, no back button, just the action. */}
-      <header className="flex justify-end items-center px-4 py-2.5">
+    <div className="flex-1 flex flex-col min-h-0 text-white relative" style={{ background: "hsl(var(--ink-on-cream))" }}>
+      {/* Floating utility toggles — absolutely positioned so they consume zero
+          layout height and never compete with the artifact's own header row
+          (the deck matches the mockup's single-header structure exactly;
+          stacking a second flow-height bar above it was what broke fidelity
+          and ate into the vertical budget that was causing the scroll/clip). */}
+      <div className="absolute top-3 right-4 z-20 flex items-center gap-2">
+        {rightTab === "chat" && (
+          <button
+            onClick={() => setChatViewMode((m) => (m === "orb" ? "chat" : "orb"))}
+            className="flex items-center gap-1.5 text-[9.5px] font-mono uppercase transition-colors px-2 py-1 rounded-full"
+            style={{ letterSpacing: "0.1em", color: "hsl(var(--bone) / 0.4)", border: "1px solid rgba(255,255,255,0.08)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.85)"; e.currentTarget.style.borderColor = "hsl(var(--aqua) / 0.4)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "hsl(var(--bone) / 0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+            title={chatViewMode === "orb" ? (en ? "View full chat" : "Ver chat completo") : (en ? "Back to command deck" : "Volver al command deck")}
+          >
+            <span className="inline-block w-1 h-1 rounded-full" style={{ background: "hsl(var(--aqua))" }} />
+            {chatViewMode === "orb" ? (en ? "Full chat" : "Chat completo") : (en ? "Back to deck" : "Volver")}
+          </button>
+        )}
         <button
           onClick={() => setRightTab(rightTab === "tasks" ? "chat" : "tasks")}
-          className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded ${
-            rightTab === "tasks"
-              ? "bg-white/[0.08] text-white border border-white/15"
-              : "text-white/45 hover:text-white/80 border border-transparent"
-          }`}
+          className="flex items-center gap-1 text-[9.5px] transition-colors px-2 py-1 rounded-full"
+          style={{
+            color: rightTab === "tasks" ? "hsl(var(--bone) / 0.85)" : "hsl(var(--bone) / 0.4)",
+            border: rightTab === "tasks" ? "1px solid hsl(var(--aqua) / 0.4)" : "1px solid rgba(255,255,255,0.08)",
+          }}
           title={en ? "Tasks" : "Tareas"}
         >
           <ListChecks className="w-3 h-3" />
           {todoCount > 0 && (
-            <span className="px-1 rounded bg-red-500 text-white text-[9px] font-bold">
+            <span className="px-1 rounded-full bg-red-500 text-white text-[8px] font-bold">
               {todoCount}
             </span>
           )}
         </button>
-      </header>
+      </div>
 
       {/* Main 3-column layout (chat tab) OR full-width tasks (tasks tab) */}
       <div className="flex-1 flex min-h-0">
@@ -1044,13 +1067,15 @@ export default function CommandCenter() {
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
             <main className="flex-1 flex flex-col min-w-0 min-h-0">
-              {/* Empty-state layout: Claude-style — greeting + composer + chips
-                  vertically centered in the viewport. Custom block (not the
-                  AssistantChat's empty state) because AssistantChat's internal
-                  flex-1 stretches and breaks vertical centering. As soon as the
-                  user sends a message, fall through to the normal scrolling
-                  chat. */}
-              {chatMessages.length === 0 && !sending ? (
+              {/* Orb mode is the Command Deck default, with or without an
+                  active conversation — the orb + composer stay put and the
+                  latest exchange renders in a compact strip where the
+                  greeting sits (reusing AssistantChat's own renderer for
+                  just the last turn, not a second markdown/embeds
+                  implementation). "Full chat" is an explicit opt-in via the
+                  floating toggle, not something a first message forces you
+                  into. */}
+              {chatViewMode === "orb" ? (
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto px-4 py-4">
                   <div className="w-full max-w-2xl flex flex-col items-center">
                     <CommandOrb />
@@ -1076,22 +1101,43 @@ export default function CommandCenter() {
                             : "EN ESPERA · TOCA PARA HABLAR"}
                       </span>
                     </div>
-                    <h1
-                      className="mt-3 text-center font-serif"
-                      style={{ fontSize: 23, lineHeight: 1.25, color: "hsl(var(--bone))", letterSpacing: "-0.01em" }}
-                    >
-                      {displayName ? (
-                        en ? (
-                          <>What are we doing today, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
+                    {chatMessages.length === 0 ? (
+                      <h1
+                        className="mt-3 text-center font-serif"
+                        style={{ fontSize: 23, lineHeight: 1.25, color: "hsl(var(--bone))", letterSpacing: "-0.01em" }}
+                      >
+                        {displayName ? (
+                          en ? (
+                            <>What are we doing today, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
+                          ) : (
+                            <>¿Qué hacemos hoy, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
+                          )
+                        ) : en ? (
+                          "What are we doing today?"
                         ) : (
-                          <>¿Qué hacemos hoy, <em style={{ fontStyle: "italic", color: "hsl(var(--aqua))", textShadow: "0 0 16px hsl(var(--aqua) / 0.4)" }}>{displayName}</em>?</>
-                        )
-                      ) : en ? (
-                        "What are we doing today?"
-                      ) : (
-                        "¿Qué hacemos hoy?"
-                      )}
-                    </h1>
+                          "¿Qué hacemos hoy?"
+                        )}
+                      </h1>
+                    ) : (
+                      // Compact "latest turn" strip — reuses AssistantChat's own
+                      // renderer (markdown, embeds, thinking animation) for just
+                      // the last exchange instead of a second implementation.
+                      <div
+                        className="mt-3 w-full overflow-y-auto"
+                        style={{ maxHeight: "min(260px, calc(100vh - 620px))", minHeight: 60 }}
+                      >
+                        <AssistantChat
+                          messages={chatMessages.slice(-2)}
+                          loading={sending}
+                          variant="full"
+                          onSaveScript={handleApproveScript}
+                          onApprovePlan={handleApprovePlan}
+                          onRejectPlan={handleRejectPlan}
+                          thinkingVerb={currentScene?.verb ?? null}
+                          thinkingMeta={currentScene?.meta ?? null}
+                        />
+                      </div>
+                    )}
 
                     {/* Composer with mode pill on its own row inside the card.
                         cd-composer-narrow scopes a rounder, tighter look onto

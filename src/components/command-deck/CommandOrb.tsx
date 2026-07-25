@@ -183,9 +183,17 @@ export default function CommandOrb({ className }: { className?: string }) {
       aria-hidden="true"
       className={[className, "cd-orb-power-on"].filter(Boolean).join(" ")}
       style={{
-        width: "min(60vh, 600px)",
-        height: "min(60vh, 600px)",
-        maxWidth: "96%",
+        // Sized to the SMALLER of (a) 600px, (b) the viewport height minus
+        // everything else the page stacks around it (CommandHeader, status
+        // line, greeting, composer, chips, roll call bar, and their gaps —
+        // roughly 400px of fixed-height chrome). This guarantees the orb
+        // can never push the page into scroll/clip on a short viewport,
+        // while still growing close to the artifact's true size on a tall
+        // one — a plain `vh` value can't account for that surrounding
+        // chrome, which is what caused the clipping/scroll in earlier passes.
+        width: "min(600px, calc(100vh - 400px))",
+        height: "min(600px, calc(100vh - 400px))",
+        maxWidth: "94%",
         display: "block",
         filter:
           "drop-shadow(0 0 3px hsl(var(--aqua) / 0.3)) drop-shadow(0 0 10px hsl(var(--aqua) / 0.12))",
