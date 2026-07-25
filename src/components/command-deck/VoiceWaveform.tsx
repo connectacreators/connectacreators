@@ -29,6 +29,12 @@ export default function VoiceWaveform({ listening }: { listening: boolean }) {
     function draw() {
       const w = canvas!.clientWidth;
       const h = canvas!.clientHeight;
+      // Same 0-size guard as AttentionRadar.tsx — this panel is
+      // display:none below lg, so clientWidth/clientHeight are 0 there.
+      if (w <= 0 || h <= 0) {
+        if (!reduceMotion) raf = requestAnimationFrame(draw);
+        return;
+      }
       ctx!.clearRect(0, 0, w, h);
       const bars = Math.floor(w / 5);
       const amp = listeningRef.current ? 1 : 0.28; // idle: gentle ambient hum; listening: full swing

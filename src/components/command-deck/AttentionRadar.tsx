@@ -46,6 +46,16 @@ export default function AttentionRadar() {
     function draw() {
       const w = canvas!.clientWidth;
       const h = canvas!.clientHeight;
+      // Below the lg breakpoint this panel's ancestor is display:none (see
+      // CommandDeckLayout.tsx), which collapses clientWidth/clientHeight to
+      // 0 — R would go negative (0/2 - 4 = -4) and ctx.arc() throws
+      // IndexSizeError on a negative radius, crashing the whole React tree
+      // since this runs synchronously in useEffect with no error boundary.
+      // Skip drawing entirely until there's real space to draw into.
+      if (w <= 0 || h <= 0) {
+        if (!reduceMotion) raf = requestAnimationFrame(draw);
+        return;
+      }
       const cx = w / 2;
       const cy = h / 2;
       const R = Math.min(w, h) / 2 - 4;
