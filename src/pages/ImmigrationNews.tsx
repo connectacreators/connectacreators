@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useClientSwitcher } from "@/hooks/useClientSwitcher";
+import { useScripts, type ScriptLine } from "@/hooks/useScripts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,14 @@ import {
 // throughout this codebase.
 const ANGLE_TOKEN = "abg-news-angle-2026";
 const FUNCTIONS_BASE = "https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1";
+
+// Mirrors ScriptDocEditor's local plainToHtml — the block model stores both a
+// plain-text `text` and a `rich_text` mirror for the doc editor to render.
+function plainToHtml(s: string): string {
+  if (!s) return "";
+  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc.replace(/\r?\n/g, "<br>");
+}
 
 type NewsRow = {
   id: string;
@@ -49,6 +58,7 @@ type Settings = {
 export default function ImmigrationNews() {
   const { isAdmin, loading: authLoading } = useAuth();
   const { selectedClientId } = useClientSwitcher();
+  const { saveScriptBlocks } = useScripts();
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<NewsRow[]>([]);
@@ -160,7 +170,8 @@ export default function ImmigrationNews() {
 
       const { hook, script } = data.angle as { hook: string; script: string; why: string };
       const title = row.title.slice(0, 60);
-      const raw_content = [hook, "", script].filter(Boolean).join("\n");
+      const cta = 'Comenta la palabra "ASILO" para que te enviemos más información.';
+      const raw_content = [hook, "", script, "", cta].filter(Boolean).join("\n");
 
       const { data: created, error } = await supabase
         .from("scripts")
@@ -175,6 +186,20 @@ export default function ImmigrationNews() {
         .select("id")
         .single();
       if (error) throw error;
+
+      // The editor renders script_lines (heading + line blocks per section),
+      // not raw_content — populate Hook/Body/CTA directly so they aren't
+      // empty when the script is first opened.
+      const line = (section: ScriptLine["section"], text: string, i: number): ScriptLine[] => [
+        { line_number: i * 2, line_type: "text_on_screen", section, text: section === "hook" ? "Hook" : section === "body" ? "Body" : "CTA", block_kind: "heading" },
+        { line_number: i * 2 + 1, line_type: "actor", section, text, rich_text: plainToHtml(text), block_kind: "line" },
+      ];
+      const blocks: ScriptLine[] = [
+        ...line("hook", hook, 0),
+        ...line("body", script, 1),
+        ...line("cta", cta, 2),
+      ];
+      await saveScriptBlocks(created.id, blocks);
 
       toast.success("Guion creado a partir de la noticia", {
         action: { label: "Abrir guion", onClick: () => navigate(`/clients/${selectedClientId}/scripts?scriptId=${created.id}`) },
