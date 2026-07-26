@@ -301,8 +301,8 @@ const TOOLS = [
           items: {
             type: "object",
             properties: {
-              section: { type: "string", description: "hook, body, or cta" },
-              line_type: { type: "string", description: "e.g. hook, screen_text, voiceover, body, cta" },
+              section: { type: "string", description: "hook, body, or cta — which part of the script this line belongs to" },
+              line_type: { type: "string", description: "MUST be exactly one of: filming (camera/shot direction), actor (spoken line delivered by the creator), editor (post-production note), text_on_screen (on-screen text overlay). Any other value fails to save — when unsure, use 'actor' for spoken lines." },
               text: { type: "string", description: "The actual script text for this line" },
             },
             required: ["section", "line_type", "text"],
@@ -1794,21 +1794,45 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             if (scriptErr || !script) {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Error saving script: " + (scriptErr?.message || "unknown") });
             } else {
-              // Insert script lines
+              // script_lines.line_type has a DB CHECK constraint — only
+              // filming | actor | editor | text_on_screen are valid. The
+              // tool schema above tells the model this, but the fallback
+              // here must ALSO only ever produce a valid value: a bad
+              // line_type fails the whole batch insert (Postgres rejects
+              // the entire array on one invalid row), which previously
+              // happened silently — the old fallback ("body") isn't even
+              // a line_type value, it's a section value, so every line
+              // missing an explicit line_type failed and nobody knew: the
+              // scripts row (title + raw_content) had already committed in
+              // the insert above, so the tool still reported success with
+              // an editor that opens to a genuinely empty script.
+              const VALID_LINE_TYPES = new Set(["filming", "actor", "editor", "text_on_screen"]);
               const lineRows = lines.map((l: any, i: number) => ({
                 script_id: script.id,
                 line_number: i + 1,
-                line_type: l.line_type || "body",
+                line_type: VALID_LINE_TYPES.has(l.line_type) ? l.line_type : "actor",
                 section: l.section || "body",
                 text: l.text,
               }));
-              await adminClient.from("script_lines").insert(lineRows);
+              const { error: linesErr } = await adminClient.from("script_lines").insert(lineRows);
 
-              // Navigate to the client's scripts page (suppressed on /ai so
-              // we don't unmount the chat surface mid-conversation)
-              if (!isOnAiSurface) actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
-              actions.push({ type: "refresh_data", scope: "scripts" });
-              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
+              if (linesErr) {
+                console.error("[companion-chat] create_script: script_lines insert failed:", linesErr.message);
+                // Don't leave an orphan title-only script behind — same
+                // rollback build-tool-handlers.ts's save_script uses.
+                await adminClient.from("scripts").delete().eq("id", script.id);
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: block.id,
+                  content: `Failed to save "${title}" for ${targetClient.name} (${linesErr.message}) — nothing was saved, try again.`,
+                });
+              } else {
+                // Navigate to the client's scripts page (suppressed on /ai so
+                // we don't unmount the chat surface mid-conversation)
+                if (!isOnAiSurface) actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+                actions.push({ type: "refresh_data", scope: "scripts" });
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
+              }
             }
           }
         }
@@ -2409,18 +2433,34 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             if (scriptErr || !script) {
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Error saving script: " + (scriptErr?.message || "unknown") });
             } else {
+              // line_type here previously used "hook"/"body"/"cta" — none of
+              // those are valid script_lines.line_type values (that's the
+              // `section` column's vocabulary; line_type's DB CHECK
+              // constraint only allows filming/actor/editor/text_on_screen),
+              // so every insert here violated the constraint and failed
+              // silently (unchecked error) — the script row saved with a
+              // title but zero lines. "actor" (spoken by the creator) is
+              // the correct type for hook/body/cta script text.
               const bodyLines = body.split("\n").filter(Boolean);
               const lineRows = [
-                { script_id: script.id, line_number: 1, line_type: "hook", section: "hook", text: hook },
+                { script_id: script.id, line_number: 1, line_type: "actor", section: "hook", text: hook },
                 ...bodyLines.map((line: string, i: number) => ({
-                  script_id: script.id, line_number: i + 2, line_type: "body", section: "body", text: line,
+                  script_id: script.id, line_number: i + 2, line_type: "actor", section: "body", text: line,
                 })),
-                { script_id: script.id, line_number: bodyLines.length + 2, line_type: "cta", section: "cta", text: cta },
+                { script_id: script.id, line_number: bodyLines.length + 2, line_type: "actor", section: "cta", text: cta },
               ];
-              await adminClient.from("script_lines").insert(lineRows);
-              if (!isOnAiSurface) actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
-              actions.push({ type: "refresh_data", scope: "scripts" });
-              toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
+              const { error: linesErr } = await adminClient.from("script_lines").insert(lineRows);
+              if (linesErr) {
+                console.error("[companion-chat] save_script_from_canvas: script_lines insert failed:", linesErr.message);
+                // Don't leave an orphan title-only script behind — same
+                // rollback build-tool-handlers.ts's save_script uses.
+                await adminClient.from("scripts").delete().eq("id", script.id);
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Failed to save "${title}" (${linesErr.message}) — nothing was saved, try again.` });
+              } else {
+                if (!isOnAiSurface) actions.push({ type: "navigate", path: `/clients/${targetClient.id}/scripts` });
+                actions.push({ type: "refresh_data", scope: "scripts" });
+                toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Script "${title}" saved to ${targetClient.name}'s scripts library.` });
+              }
             }
           }
         }
