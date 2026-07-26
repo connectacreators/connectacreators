@@ -1413,8 +1413,9 @@ export default function MasterEditingQueue() {
               {language === "en" ? "No items in the editing queue" : "No hay elementos en la cola de edición"}
             </div>
           ) : (
+            <>
             <motion.div
-              className="rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card eq-table-wrap"
+              className="hidden lg:block rounded-xl border border-border/50 bg-card/30 overflow-hidden glass-card eq-table-wrap"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 }}
@@ -1698,6 +1699,45 @@ export default function MasterEditingQueue() {
                 </TableBody>
               </Table>
             </motion.div>
+
+            {/* Mobile compact list — tap a row for the full breakdown (same review modal as desktop) */}
+            <div className="lg:hidden divide-y divide-border/30 rounded-xl border border-border/50 overflow-hidden">
+              {sortedItems.map((item) => {
+                const style = getLifecycleStyle(item.lifecycleStatus);
+                const unresolvedCount = unresolvedCounts[item.id] ?? 0;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => { setReviewItem(item); setReviewModalOpen(true); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left active:bg-primary/5 transition-colors ${previewIds.has(item.id) ? "ai-preview-pulse" : ""}`}
+                    style={{ borderLeft: `3px solid ${getRowStatusBorderColor(item.lifecycleStatus)}` }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {item.clientName}
+                        {" · "}
+                        {item.assignee || (language === "en" ? "Unassigned" : "Sin asignar")}
+                        {item.deadline && (
+                          <span className={getDeadlineColor(item.deadline)}>
+                            {" · "}
+                            {new Date(item.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                        {unresolvedCount > 0 && (
+                          <span className="text-destructive"> · {unresolvedCount} {language === "en" ? "unresolved" : "sin resolver"}</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${style.bg} ${style.text} ${style.border}`}>
+                      {item.lifecycleStatus}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            </>
           )}
         </div>
       </PageTransition>
