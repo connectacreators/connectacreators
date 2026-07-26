@@ -329,11 +329,11 @@ export default function CommandCenter() {
     },
     maxDurationMs: 45_000,
   });
-  // Same staleness problem as toggleVoiceRef: voiceRecorder.start is
-  // recreated on every render (its onResult closure isn't referentially
-  // stable), and handleSend's re-listen trigger fires from an async
-  // continuation that can run well after handleSend's own closure — and
-  // this hook's own — were created.
+  // voiceRecorder.start is recreated on every render (its onResult closure
+  // isn't referentially stable), and handleSend's re-listen trigger fires
+  // from an async continuation that can run well after handleSend's own
+  // closure — and this hook's own — were created, so it needs the CURRENT
+  // start, not whichever one was captured at call time.
   const voiceRecorderStartRef = useRef(voiceRecorder.start);
   useEffect(() => {
     voiceRecorderStartRef.current = voiceRecorder.start;
@@ -804,6 +804,14 @@ export default function CommandCenter() {
    * element (ttsAudioRef) instead of creating a new one per call — starting
    * a new reply always stops whatever was still playing, so there's never
    * more than one voice at a time even if turns overlap.
+   *
+   * The returned promise resolves only once playback actually finishes (or
+   * fails) — NOT as soon as .play() is called. handleSend's hands-free
+   * re-listen trigger awaits this promise before starting the mic again, so
+   * it must not resolve while Robby is still mid-sentence. A barge-in
+   * (handleOrbTap pausing this same <audio>) never fires onended, so an
+   * interrupted turn's promise simply never resolves — correct, since the
+   * barge-in path already starts the mic itself.
    */
   const speakReply = useCallback(
     async (text: string) => {
@@ -833,13 +841,21 @@ export default function CommandCenter() {
         if (ttsAudioUrlRef.current) URL.revokeObjectURL(ttsAudioUrlRef.current);
         ttsAudioUrlRef.current = url;
         audio.src = url;
-        audio.onended = () => {
-          if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
-        };
-        audio.onerror = () => {
-          if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
-        };
-        await audio.play().catch((err) => console.warn("[ai] TTS playback blocked:", err));
+
+        await new Promise<void>((resolve) => {
+          audio.onended = () => {
+            if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
+            resolve();
+          };
+          audio.onerror = () => {
+            if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
+            resolve();
+          };
+          audio.play().catch((err) => {
+            console.warn("[ai] TTS playback blocked:", err);
+            resolve();
+          });
+        });
       } catch (err) {
         console.error("[ai] voice read-back failed:", err);
       }
