@@ -23,7 +23,7 @@ export interface ReviewSurfaceCommand {
   // "close" is intercepted by CommandCenter.tsx before it ever reaches this
   // component (it dismisses the whole Action Surface, not a video command)
   // — included here only so the shared action union stays exhaustive.
-  action: 'play' | 'pause' | 'seek_to' | 'add_note' | 'resolve_all' | 'close';
+  action: 'play' | 'pause' | 'seek_to' | 'add_note' | 'resolve_all' | 'close' | 'download';
   seconds?: number;
   endSeconds?: number;
   noteText?: string;
@@ -653,6 +653,15 @@ export default function VideoReviewModal({
     if (!open || !externalCommand) return;
     const cmd = externalCommand;
     (async () => {
+      // Drive/external sources render as a Google Drive iframe embed or a
+      // plain link (see the source-type branches further down) — there is
+      // NO native <video> element and NO programmatic play/pause/seek API
+      // for those, ever, regardless of timing. canSeek (isActiveSupabase)
+      // is the same flag the manual UI already uses to know this.
+      if ((cmd.action === 'play' || cmd.action === 'pause' || cmd.action === 'seek_to') && !canSeek) {
+        toast.error('This video is an external/Drive link — use the play button on it directly, voice control only works for uploaded videos.');
+        return;
+      }
       switch (cmd.action) {
         case 'play': {
           // The <video> element can still be null a beat after the modal
@@ -694,6 +703,9 @@ export default function VideoReviewModal({
           break;
         case 'resolve_all':
           await handleResolveAll();
+          break;
+        case 'download':
+          await handleDownload();
           break;
       }
       onExternalCommandHandled?.();

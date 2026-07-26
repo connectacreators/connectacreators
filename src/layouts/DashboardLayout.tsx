@@ -42,7 +42,12 @@ export default function DashboardLayout() {
         />
       )}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {showChrome && <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+        {/* /ai has its own CommandHeader (wordmark, clock, credits) and its
+            own always-visible rail (DashboardSidebar's isOnAi special case)
+            instead of the usual off-canvas mobile sidebar — this bar would
+            just duplicate the wordmark a second time and eat vertical space
+            the orb needs. */}
+        {showChrome && <DashboardTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} hideOnMobile={location.pathname === "/ai"} />}
         {showChrome && <StorageCapBanner />}
         {/* pb must exceed MobileBottomNav's h-16 so the last element clears it */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-24 lg:pb-0">

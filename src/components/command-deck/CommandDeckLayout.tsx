@@ -31,7 +31,13 @@ export default function CommandDeckLayout({
   focusMode?: boolean;
 }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 px-3 py-2 sm:px-4 sm:py-3 gap-2.5">
+    // pl is wider than pr below lg: /ai always keeps its sidebar rail
+    // visible (DashboardSidebar's isOnAi special case) even on mobile,
+    // where it's position:fixed and 56px wide — without this clearance,
+    // content renders (and gets visually clipped) underneath it. At lg+
+    // the rail becomes a normal flex sibling and reserves its own space,
+    // so the extra left padding is no longer needed there.
+    <div className="flex-1 flex flex-col min-h-0 pl-16 pr-3 py-2 sm:pr-4 sm:py-3 lg:pl-4 gap-2.5">
       <div className="cd-atmos" />
       <div className="cd-vignette" />
       <div className="cd-grain" />

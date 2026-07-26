@@ -13,8 +13,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// "Rachel" — a stable, long-standing ElevenLabs premade voice ID.
-const VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+// "Bella" — a stable, long-standing ElevenLabs premade female voice ID,
+// switched from "Rachel" per the user's request for a different female
+// voice. The model (not the voice) is what determines language support —
+// eleven_flash_v2_5 below already generates fluent Spanish and English
+// regardless of which voice is selected.
+const VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
 // Flash is ElevenLabs' lowest-LATENCY tier (built for real-time
 // conversational agents, ~75ms model latency vs. Turbo's ~250-300ms) —
 // upgraded from Turbo once the hands-free conversation loop made TTS

@@ -52,7 +52,12 @@ export default function CommandOrb({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || size === 0) return;
-    const dpr = window.devicePixelRatio || 1;
+    // Capped at 2, not the raw devicePixelRatio (often 3 on modern
+    // iPhones) — a known WebKit failure mode renders a canvas solid WHITE
+    // when its backing store gets too large under memory pressure (a
+    // 600px orb at 3x DPR is an 1800x1800 buffer, ~13MB, vs ~5.7MB at 2x).
+    // 2x is still full retina sharpness for this kind of soft glow visual.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     canvas.getContext("2d")?.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -80,61 +85,69 @@ export default function CommandOrb({
       const cy = h / 2;
       const R = w * 0.3;
       ctx!.clearRect(0, 0, w, h);
+      // Below ~100px (the floating mini orb), the compass ring/tick marks/
+      // wing ornaments read as fuzzy noise rather than fine detail — they
+      // were designed for the ~400-600px hero size. Skip them entirely
+      // instead of just shrinking; the glow + point cloud + rotation alone
+      // still reads unmistakably as "the same orb," just cleaner at 72px.
+      const compact = w < 100;
 
-      // Outer dashed compass ring + tick marks
-      ctx!.save();
-      ctx!.translate(cx, cy);
-      ctx!.rotate(-t * 0.16);
-      ctx!.strokeStyle = withAlpha(aqua, 0.2);
-      ctx!.lineWidth = 1;
-      ctx!.setLineDash([2, 8]);
-      ctx!.beginPath();
-      ctx!.arc(0, 0, R * 1.42, 0, Math.PI * 2);
-      ctx!.stroke();
-      ctx!.setLineDash([]);
-      for (let tck = 0; tck < 32; tck++) {
-        const an = (tck / 32) * Math.PI * 2;
-        const len = tck % 8 === 0 ? 11 : 5;
-        ctx!.strokeStyle = withAlpha(aqua, tck % 8 === 0 ? 0.45 : 0.16);
-        ctx!.lineWidth = 1;
-        ctx!.beginPath();
-        ctx!.moveTo(Math.cos(an) * R * 1.5, Math.sin(an) * R * 1.5);
-        ctx!.lineTo(Math.cos(an) * (R * 1.5 - len), Math.sin(an) * (R * 1.5 - len));
-        ctx!.stroke();
-      }
-      ctx!.restore();
-
-      // Inner dashed ring hugging the sphere + wing ornaments
-      ctx!.save();
-      ctx!.translate(cx, cy);
-      ctx!.rotate(t * 0.22);
-      ctx!.strokeStyle = withAlpha(aqua, 0.3);
-      ctx!.lineWidth = 1;
-      ctx!.setLineDash([1, 5]);
-      ctx!.beginPath();
-      ctx!.arc(0, 0, R * 1.16, 0, Math.PI * 2);
-      ctx!.stroke();
-      ctx!.setLineDash([]);
-      for (const wa of WING_ANGLES) {
+      if (!compact) {
+        // Outer dashed compass ring + tick marks
         ctx!.save();
-        ctx!.rotate(wa);
-        ctx!.strokeStyle = withAlpha(aqua, 0.55);
-        ctx!.lineWidth = 1.4;
+        ctx!.translate(cx, cy);
+        ctx!.rotate(-t * 0.16);
+        ctx!.strokeStyle = withAlpha(aqua, 0.2);
+        ctx!.lineWidth = 1;
+        ctx!.setLineDash([2, 8]);
         ctx!.beginPath();
-        ctx!.moveTo(R * 1.16 - 9, -5);
-        ctx!.lineTo(R * 1.16 + 9, -5);
+        ctx!.arc(0, 0, R * 1.42, 0, Math.PI * 2);
         ctx!.stroke();
+        ctx!.setLineDash([]);
+        for (let tck = 0; tck < 32; tck++) {
+          const an = (tck / 32) * Math.PI * 2;
+          const len = tck % 8 === 0 ? 11 : 5;
+          ctx!.strokeStyle = withAlpha(aqua, tck % 8 === 0 ? 0.45 : 0.16);
+          ctx!.lineWidth = 1;
+          ctx!.beginPath();
+          ctx!.moveTo(Math.cos(an) * R * 1.5, Math.sin(an) * R * 1.5);
+          ctx!.lineTo(Math.cos(an) * (R * 1.5 - len), Math.sin(an) * (R * 1.5 - len));
+          ctx!.stroke();
+        }
+        ctx!.restore();
+
+        // Inner dashed ring hugging the sphere + wing ornaments
+        ctx!.save();
+        ctx!.translate(cx, cy);
+        ctx!.rotate(t * 0.22);
+        ctx!.strokeStyle = withAlpha(aqua, 0.3);
+        ctx!.lineWidth = 1;
+        ctx!.setLineDash([1, 5]);
         ctx!.beginPath();
-        ctx!.moveTo(R * 1.16 - 9, 5);
-        ctx!.lineTo(R * 1.16 + 9, 5);
+        ctx!.arc(0, 0, R * 1.16, 0, Math.PI * 2);
         ctx!.stroke();
-        ctx!.fillStyle = withAlpha(aqua, 0.75);
-        ctx!.beginPath();
-        ctx!.arc(R * 1.16, 0, 1.6, 0, Math.PI * 2);
-        ctx!.fill();
+        ctx!.setLineDash([]);
+        for (const wa of WING_ANGLES) {
+          ctx!.save();
+          ctx!.rotate(wa);
+          ctx!.strokeStyle = withAlpha(aqua, 0.55);
+          ctx!.lineWidth = 1.4;
+          ctx!.beginPath();
+          ctx!.moveTo(R * 1.16 - 9, -5);
+          ctx!.lineTo(R * 1.16 + 9, -5);
+          ctx!.stroke();
+          ctx!.beginPath();
+          ctx!.moveTo(R * 1.16 - 9, 5);
+          ctx!.lineTo(R * 1.16 + 9, 5);
+          ctx!.stroke();
+          ctx!.fillStyle = withAlpha(aqua, 0.75);
+          ctx!.beginPath();
+          ctx!.arc(R * 1.16, 0, 1.6, 0, Math.PI * 2);
+          ctx!.fill();
+          ctx!.restore();
+        }
         ctx!.restore();
       }
-      ctx!.restore();
 
       // Volumetric lit-sphere body beneath the point cloud + specular highlight
       const lit = ctx!.createRadialGradient(cx - R * 0.28, cy - R * 0.3, 0, cx, cy, R * 0.98);

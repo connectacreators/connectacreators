@@ -35,7 +35,9 @@ export default function AttentionRadar() {
     let sweep = 0;
 
     function resize() {
-      const dpr = window.devicePixelRatio || 1;
+      // Capped at 2 — see CommandOrb.tsx for why (WebKit renders a canvas
+      // solid white under memory pressure once its backing store gets big).
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas!.clientWidth;
       const h = canvas!.clientHeight;
       canvas!.width = w * dpr;
