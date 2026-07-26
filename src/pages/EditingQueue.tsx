@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
 import { wipeVideoEditStorage } from "@/lib/wipeVideoEditStorage";
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, isLifecycleStatus, type LifecycleStatus } from "@/lib/lifecycleStatus";
+import { useJustPublishedFlourish } from "@/hooks/useJustPublishedFlourish";
+import { LifecyclePublishedFlourish } from "@/components/LifecyclePublishedFlourish";
 import { Loader2, ArrowLeft, Play, ExternalLink, Download, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle, MessageSquare, Save, Trash2, Archive, RotateCcw, CalendarPlus, Calendar, CheckCircle, Share2, MoreHorizontal, ArrowUpRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -153,6 +155,9 @@ export default function EditingQueue() {
   const [selectedItem, setSelectedItem] = useState<EditingQueueItem | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [updatingLifecycle, setUpdatingLifecycle] = useState<string | null>(null);
+  // Watches the full (unfiltered) item list so a status-filtered view
+  // doesn't miss a row transitioning to "Published" out from under it.
+  const justPublishedIds = useJustPublishedFlourish(items);
 
   const [revisionDialogItem, setRevisionDialogItem] = useState<EditingQueueItem | null>(null);
   const [revisionText, setRevisionText] = useState("");
@@ -1431,7 +1436,8 @@ export default function EditingQueue() {
                             {/* Lifecycle Status */}
                             <TableCell onClick={e => e.stopPropagation()}>
                               {item.source === 'script' ? (
-                                <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${getLifecycleStyle(item.lifecycleStatus).bg} ${getLifecycleStyle(item.lifecycleStatus).text} ${getLifecycleStyle(item.lifecycleStatus).border}`}>
+                                <span className={`relative inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border transition-colors duration-500 ease-in-out motion-reduce:transition-none ${getLifecycleStyle(item.lifecycleStatus).bg} ${getLifecycleStyle(item.lifecycleStatus).text} ${getLifecycleStyle(item.lifecycleStatus).border}`}>
+                                  {justPublishedIds.has(item.id) && <LifecyclePublishedFlourish />}
                                   {item.lifecycleStatus}
                                 </span>
                               ) : (
@@ -1441,7 +1447,8 @@ export default function EditingQueue() {
                                       {updatingLifecycle === item.id ? (
                                         <Loader2 className="w-3 h-3 animate-spin" />
                                       ) : (
-                                        <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${getLifecycleStyle(item.lifecycleStatus).bg} ${getLifecycleStyle(item.lifecycleStatus).text} ${getLifecycleStyle(item.lifecycleStatus).border}`}>
+                                        <span className={`relative inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border transition-colors duration-500 ease-in-out motion-reduce:transition-none ${getLifecycleStyle(item.lifecycleStatus).bg} ${getLifecycleStyle(item.lifecycleStatus).text} ${getLifecycleStyle(item.lifecycleStatus).border}`}>
+                                          {justPublishedIds.has(item.id) && <LifecyclePublishedFlourish />}
                                           {item.lifecycleStatus}
                                           <ChevronDown className="w-3 h-3 opacity-60" />
                                         </span>
@@ -1672,7 +1679,8 @@ export default function EditingQueue() {
                             )}
                           </p>
                         </div>
-                        <span className={`shrink-0 inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${style.bg} ${style.text} ${style.border}`}>
+                        <span className={`relative shrink-0 inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap transition-colors duration-500 ease-in-out motion-reduce:transition-none ${style.bg} ${style.text} ${style.border}`}>
+                          {justPublishedIds.has(item.id) && <LifecyclePublishedFlourish />}
                           {item.lifecycleStatus}
                         </span>
                       </button>
@@ -1814,7 +1822,8 @@ export default function EditingQueue() {
                         {updatingLifecycle === selectedItem.id ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : (
-                          <span className={`inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border ${getLifecycleStyle(selectedItem.lifecycleStatus).bg} ${getLifecycleStyle(selectedItem.lifecycleStatus).text} ${getLifecycleStyle(selectedItem.lifecycleStatus).border}`}>
+                          <span className={`relative inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-0.5 rounded-full border transition-colors duration-500 ease-in-out motion-reduce:transition-none ${getLifecycleStyle(selectedItem.lifecycleStatus).bg} ${getLifecycleStyle(selectedItem.lifecycleStatus).text} ${getLifecycleStyle(selectedItem.lifecycleStatus).border}`}>
+                            {justPublishedIds.has(selectedItem.id) && <LifecyclePublishedFlourish />}
                             {selectedItem.lifecycleStatus}
                             <ChevronDown className="w-3 h-3 opacity-60" />
                           </span>

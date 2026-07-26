@@ -16,6 +16,8 @@ import { Check, CheckCheck, Clock, Download, Loader2, Lock, Send, Trash2, X } fr
 import ThemedVideoPlayer from './ThemedVideoPlayer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from '@/lib/lifecycleStatus';
+import { useJustPublishedFlourish } from '@/hooks/useJustPublishedFlourish';
+import { LifecyclePublishedFlourish } from '@/components/LifecyclePublishedFlourish';
 
 // A remote-control signal for this modal — lets an external caller (the
 // Command Deck's AI action-dispatch loop) drive playback and note-taking
@@ -215,6 +217,15 @@ export default function VideoReviewModal({
   // inline in the queue table, so there's nothing missing to add a tab for there.
   const [mobileTab, setMobileTab] = useState<'video' | 'notes' | 'manage'>('video');
   const [manageStatus, setManageStatus] = useState<LifecycleStatus>('Not started');
+  // Single-row feed into the shared "just landed on Published" tracker —
+  // keyed by videoEditId so reopening the modal for a different item never
+  // false-triggers, and a real Not started/In progress/Needs Revisions/
+  // Scheduled → Published transition while open plays the flourish once.
+  const manageFlourishRows = useMemo(
+    () => [{ id: videoEditId, lifecycleStatus: manageStatus }],
+    [videoEditId, manageStatus]
+  );
+  const manageJustPublishedIds = useJustPublishedFlourish(manageFlourishRows);
   const [manageDeadline, setManageDeadline] = useState('');
   const [manageSchedule, setManageSchedule] = useState('');
   const [manageAssigneeId, setManageAssigneeId] = useState<string | null>(null);
@@ -1359,10 +1370,13 @@ export default function VideoReviewModal({
                         key={value}
                         disabled={savingManageField === 'status'}
                         onClick={() => handleManageStatusChange(value)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                        className={`relative px-3 py-1.5 rounded-full text-xs font-medium border transition-colors duration-500 ease-in-out motion-reduce:transition-none disabled:opacity-50 ${
                           active ? `${style.bg} ${style.text} ${style.border}` : 'bg-transparent text-muted-foreground border-border'
                         }`}
                       >
+                        {active && value === 'Published' && manageJustPublishedIds.has(videoEditId) && (
+                          <LifecyclePublishedFlourish />
+                        )}
                         {style.label}
                       </button>
                     );

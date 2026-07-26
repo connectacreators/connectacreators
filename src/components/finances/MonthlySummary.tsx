@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FinanceTransaction } from "@/hooks/useFinanceTransactions";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 
 type Props = {
   income: FinanceTransaction[];
@@ -81,7 +82,7 @@ export function MonthlySummary({ income, expenses, settings, onSaveSettings, onE
         {payrollTax > 0 && !editingSettings && (
           <Row label="↳ Payroll Tax" value={payrollTax} muted />
         )}
-        <Row label={isLoss ? "Net Loss" : "Net Profit"} value={netProfit} emphasized positive={netProfit > 0} negative={netProfit < 0} />
+        <NetProfitRow label={isLoss ? "Net Loss" : "Net Profit"} value={netProfit} />
         {editingSettings ? (
           <SettingRow label="Tax Rate %">
             <Input type="number" step="0.5" className="h-7 text-xs" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
@@ -146,6 +147,55 @@ function Row({
     <div className="flex items-center justify-between gap-2">
       <dt className={`${emphasized ? "text-foreground font-semibold" : "text-muted-foreground"} text-xs`}>{label}</dt>
       <dd className={`${valueColor} ${emphasized ? "font-semibold text-sm" : "text-xs"} tabular-nums`}>{formatUsd(value)}</dd>
+    </div>
+  );
+}
+
+// The Net Profit figure is the one number a business owner most emotionally
+// cares about, so unlike the other summary rows it gets its own count-up
+// animation, a sign-based color transition, and a one-shot radial "sweep"
+// the instant it crosses zero (loss <-> profit).
+const NET_PROFIT_ANIM_MS = 800;
+
+function NetProfitRow({ label, value }: { label: string; value: number }) {
+  const { value: animatedValue, zeroCrossings } = useAnimatedNumber(value, NET_PROFIT_ANIM_MS);
+  const [reducedMotion] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+  );
+  const [sweepKey, setSweepKey] = useState(0);
+
+  // Fire the crossing sweep exactly once per zero-crossing reported by the
+  // hook — never on every render/re-mount.
+  useEffect(() => {
+    if (zeroCrossings > 0 && !reducedMotion) {
+      setSweepKey((k) => k + 1);
+    }
+  }, [zeroCrossings, reducedMotion]);
+
+  const displayValue = reducedMotion ? value : animatedValue;
+  const isPositive = displayValue >= 0;
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-foreground font-semibold text-xs">{label}</dt>
+      <dd className="relative">
+        {sweepKey > 0 && (
+          <span
+            key={sweepKey}
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-2 rounded-full animate-zero-crossing-sweep"
+            style={{ background: "radial-gradient(circle at 50% 50%, rgba(127,181,138,0.35), transparent 55%)" }}
+          />
+        )}
+        <span
+          className={`relative block font-semibold text-sm transition-colors ease-out ${
+            isPositive ? "text-[#7FB58A]" : "text-red-400"
+          }`}
+          style={{ transitionDuration: `${NET_PROFIT_ANIM_MS}ms`, fontVariantNumeric: "tabular-nums" }}
+        >
+          {formatUsd(displayValue)}
+        </span>
+      </dd>
     </div>
   );
 }

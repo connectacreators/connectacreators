@@ -1513,6 +1513,49 @@ All colors MUST be HSL for consistency and theming.
   will-change: opacity, filter;
 }
 
+/* Lifecycle badge "landed on Published" flourish — see
+   useJustPublishedFlourish + LifecyclePublishedFlourish. A checkmark draws
+   itself in beside the label immediately, then a soft green glow blooms
+   beneath the badge ~1.35s later (once the badge's own color crossfade has
+   settled) and drifts up while fading out. Mounted only for the ~3s the
+   hook flags the row, then unmounted by the caller — no infinite loops. */
+.lifecycle-publish-check {
+  width: 11px;
+  height: 11px;
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.lifecycle-publish-check path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: lifecycle-check-draw 0.35s ease forwards;
+}
+@keyframes lifecycle-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+.lifecycle-publish-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 22px;
+  margin-left: -23px;
+  margin-top: -11px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(127,181,138,0.5), transparent 70%);
+  filter: blur(6px);
+  opacity: 0;
+  transform: translateY(0) scale(0.8);
+  animation: lifecycle-glow-drift 1.6s ease 1.35s forwards;
+}
+@keyframes lifecycle-glow-drift {
+  0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+  30%  { opacity: 1; transform: translateY(-10px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-34px) scale(1.3); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [style*="broadcast-fade-in"],
   [style*="broadcast-type-in"],
@@ -1536,5 +1579,17 @@ All colors MUST be HSL for consistency and theming.
     animation: none !important;
     opacity: 0.8 !important;
     filter: none !important;
+  }
+  /* Defense in depth — useJustPublishedFlourish already skips mounting
+     this component under reduced motion, but if it's ever mounted anyway
+     the checkmark/glow shouldn't animate. */
+  .lifecycle-publish-check path,
+  .lifecycle-publish-glow {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+  .lifecycle-publish-check path {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
   }
 }
