@@ -52,6 +52,16 @@ import CommandOrb from "@/components/command-deck/CommandOrb";
 import RevisionReviewSurface from "@/components/command-deck/RevisionReviewSurface";
 import { parseEditingReviewNavigation, type EditingReviewTarget, type ActionSurfaceSnapshot } from "@/lib/commandDeck/actionSurface";
 import type { ReviewSurfaceCommand } from "@/components/VideoReviewModal";
+// The orb's tap-to-speak (the hands-free conversation loop) uses this
+// existing, production-proven Whisper transcription pipeline instead of
+// the Web Speech API — the browser's built-in recognizer is locked to one
+// language per session with no code-switching support, which was the
+// direct cause of poor bilingual transcription. This hook already backs
+// onboarding's voice input; reused as-is, not modified, so onboarding's
+// behavior can't regress. The composer's plain dictate-to-textbox mic
+// button keeps using the old Web Speech path below — lower stakes, no
+// reason to touch it.
+import { useVoiceRecorder } from "@/components/onboarding/hooks/useVoiceRecorder";
 
 // Persisted across sessions so the user's last model/thinking choice survives
 // reloads. Keys are versioned so we can invalidate in a future migration.
@@ -306,12 +316,28 @@ export default function CommandCenter() {
   useEffect(() => {
     voiceConversationActiveRef.current = voiceConversationActive;
   }, [voiceConversationActive]);
-  // toggleVoice is recreated whenever `recognizing` changes (its own
-  // internal stop-vs-start branch depends on it) — handleSend's re-listen
-  // trigger fires from an async continuation that can run well after
-  // handleSend's own closure was created, so it needs the CURRENT
-  // toggleVoice, not whichever one was captured at call time.
-  const toggleVoiceRef = useRef<(autoSend?: boolean) => void>(() => {});
+  // Orb tap-to-speak: Whisper-based (see the import comment above), manual
+  // tap-to-stop rather than automatic silence detection — deliberately, to
+  // avoid inventing an untunable, untestable voice-activity-detection
+  // threshold. Capped well below the hook's 15-minute onboarding default;
+  // this is a quick command/note, not a long-form interview answer, and a
+  // short cap bounds Whisper API cost per utterance too.
+  const voiceRecorder = useVoiceRecorder({
+    onResult: (text) => {
+      lastTurnWasVoiceRef.current = true;
+      handleSendRef.current(text);
+    },
+    maxDurationMs: 45_000,
+  });
+  // Same staleness problem as toggleVoiceRef: voiceRecorder.start is
+  // recreated on every render (its onResult closure isn't referentially
+  // stable), and handleSend's re-listen trigger fires from an async
+  // continuation that can run well after handleSend's own closure — and
+  // this hook's own — were created.
+  const voiceRecorderStartRef = useRef(voiceRecorder.start);
+  useEffect(() => {
+    voiceRecorderStartRef.current = voiceRecorder.start;
+  }, [voiceRecorder.start]);
   // AbortController for the in-flight companion-chat fetch. Stop button
   // aborts this; the fetch path uses raw fetch so the signal actually
   // cancels the network call (functions.invoke doesn't accept signal).
@@ -688,10 +714,6 @@ export default function CommandCenter() {
     }
   }, [recognizing, en]);
 
-  useEffect(() => {
-    toggleVoiceRef.current = toggleVoice;
-  }, [toggleVoice]);
-
   /** See audioUnlockCtxRef above — call synchronously from a real click. */
   const primeMediaPlayback = useCallback(() => {
     try {
@@ -706,56 +728,66 @@ export default function CommandCenter() {
   }, []);
 
   /**
-   * Tapping the orb starts (or exits) a hands-free conversation: listen,
-   * auto-send, speak the reply, listen again — turn after turn — until
-   * tapped again. Say "pause"/"stop" for the video, not for the loop
-   * itself; the only way to end the conversation is another tap (voice
-   * exit phrases would collide with "stop" already meaning pause-the-video
-   * inside an open review surface).
+   * Tapping the orb starts (or exits) a hands-free conversation: record,
+   * transcribe, auto-send, speak the reply, record again — turn after
+   * turn. The Whisper-based recorder has no automatic silence detection
+   * (deliberately — an untunable voice-activity-detection threshold isn't
+   * something to guess at blind), so tapping WHILE recording is how the
+   * user signals "I'm done talking," not a cancel. Say "pause"/"stop" for
+   * the video, not for the recording itself — that's still handled fine
+   * since that phrasing only matters once transcribed and sent.
    *
    * Tapping WHILE Robby is talking interrupts him instead: stop the audio
-   * immediately and start listening right away — a real conversational
+   * immediately and start recording right away — a real conversational
    * barge-in, not "wait for the whole sentence to finish."
    */
   const handleOrbTap = useCallback(() => {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       audio.pause();
-      if (voiceConversationActiveRef.current) toggleVoice(true);
+      if (voiceConversationActiveRef.current) voiceRecorder.start();
       return;
     }
-    if (recognizing || voiceConversationActive) {
-      setVoiceConversationActive(false);
-      if (recognizing) toggleVoice(true);
-    } else {
-      primeMediaPlayback();
-      setVoiceConversationActive(true);
-      toggleVoice(true);
+    if (voiceRecorder.status === "recording") {
+      voiceRecorder.stop(); // "I'm done" — sends what was recorded
+      return;
     }
-  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback]);
+    if (voiceRecorder.status === "transcribing") return; // mid-flight, ignore
+    if (voiceConversationActive) {
+      // Tapped between turns (not recording/transcribing) — this is the
+      // real "end the conversation" gesture now that a mid-recording tap
+      // means something else.
+      setVoiceConversationActive(false);
+      return;
+    }
+    primeMediaPlayback();
+    setVoiceConversationActive(true);
+    voiceRecorder.start();
+  }, [voiceConversationActive, voiceRecorder, primeMediaPlayback]);
 
   /**
    * The small floating orb shown over an open Action Surface has different
    * semantics than the main orb: it's a recovery affordance ("the mic
-   * silently stopped — tap to speak"), not a start/stop toggle. Using
-   * handleOrbTap's toggle logic here would make the exact failure it exists
-   * to fix WORSE — if voiceConversationActive is still true but recognizing
-   * already died (the rec.start() race), handleOrbTap's toggle branch would
-   * just flip conversation mode off instead of restarting the mic. This
-   * always just ensures listening is (re)active; "Back to deck" is the
-   * surface's own real exit.
+   * silently stopped — tap to speak"), not the full start/stop/finish
+   * cycle. This always just ensures recording is (re)active, or stops it
+   * if already recording (same "I'm done" meaning as the main orb); "Back
+   * to deck" is the surface's own real exit.
    */
   const handleMiniOrbTap = useCallback(() => {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       audio.pause();
-      toggleVoice(true);
+      voiceRecorder.start();
       return;
     }
-    if (recognizing) return; // already listening — nothing to do
+    if (voiceRecorder.status === "recording") {
+      voiceRecorder.stop();
+      return;
+    }
+    if (voiceRecorder.status === "transcribing") return;
     if (!voiceConversationActiveRef.current) setVoiceConversationActive(true);
-    toggleVoice(true);
-  }, [recognizing, toggleVoice]);
+    voiceRecorder.start();
+  }, [voiceRecorder]);
 
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
@@ -1068,10 +1100,10 @@ export default function CommandCenter() {
         const spokenReply = typeof data?.reply === "string" ? data.reply.trim() : "";
         if (spokenReply) {
           void speakReply(spokenReply).finally(() => {
-            if (voiceConversationActiveRef.current) toggleVoiceRef.current(true);
+            if (voiceConversationActiveRef.current) voiceRecorderStartRef.current();
           });
         } else if (voiceConversationActiveRef.current) {
-          toggleVoiceRef.current(true);
+          voiceRecorderStartRef.current();
         }
       }
 
@@ -1320,9 +1352,9 @@ export default function CommandCenter() {
     <div className="flex-1 flex flex-col min-h-0 text-white relative" style={{ background: "hsl(var(--ink-on-cream))" }}>
       {/* Floating mini orb — visible whenever an Action Surface is open, so
           the review panel reads as something that came OUT of the orb
-          rather than an unrelated window. Stays tappable so a dead mic
-          (the rec.start() race — see toggleVoice) always has a visible,
-          reachable way back in without hunting for the "Back to deck"
+          rather than an unrelated window. Stays tappable so voice always
+          has a visible, reachable way back in without hunting for the
+          "Back to deck"
           button. Rendered at the top level (not nested under anything the
           focus-pull dims) so position:fixed isn't trapped by a filtered
           ancestor's containing block — a real CSS gotcha, not a style
@@ -1339,7 +1371,7 @@ export default function CommandCenter() {
             background: "hsl(var(--ink) / 0.55)",
             backdropFilter: "blur(10px)",
             WebkitBackdropFilter: "blur(10px)",
-            boxShadow: recognizing
+            boxShadow: voiceRecorder.status === "recording"
               ? "0 0 0 3px hsl(var(--aqua) / 0.55), 0 0 26px hsl(var(--aqua) / 0.45)"
               : "0 0 0 1px hsl(var(--aqua) / 0.28), 0 6px 22px rgba(0,0,0,0.45)",
             transition: "box-shadow 0.3s ease",
@@ -1376,7 +1408,7 @@ export default function CommandCenter() {
             autonomyLabel={autonomyMode ? autonomyMode.toUpperCase() : "ASK"}
             displayName={displayName || "Admin"}
             companionName={companionName || "Robby"}
-            listening={recognizing}
+            listening={voiceRecorder.status === "recording"}
             focusMode={!!actionSurface}
           >
             {/* Chat column — chats list lives in the DashboardSidebar's
@@ -1459,15 +1491,17 @@ export default function CommandCenter() {
                         className="font-mono uppercase"
                         style={{ fontSize: 8.5, letterSpacing: "0.2em", color: "hsl(var(--aqua))" }}
                       >
-                        {recognizing
-                          ? "LISTENING…"
-                          : sending
-                            ? (en ? "THINKING…" : "PENSANDO…")
-                            : voiceConversationActive
-                              ? (en ? "CONVERSATION · TAP TO END" : "CONVERSACIÓN · TOCA PARA TERMINAR")
-                              : en
-                                ? "STANDBY · TAP TO SPEAK"
-                                : "EN ESPERA · TOCA PARA HABLAR"}
+                        {voiceRecorder.status === "recording"
+                          ? (en ? "RECORDING… TAP WHEN DONE" : "GRABANDO… TOCA AL TERMINAR")
+                          : voiceRecorder.status === "transcribing"
+                            ? (en ? "TRANSCRIBING…" : "TRANSCRIBIENDO…")
+                            : sending
+                              ? (en ? "THINKING…" : "PENSANDO…")
+                              : voiceConversationActive
+                                ? (en ? "CONVERSATION · TAP TO END" : "CONVERSACIÓN · TOCA PARA TERMINAR")
+                                : en
+                                  ? "STANDBY · TAP TO SPEAK"
+                                  : "EN ESPERA · TOCA PARA HABLAR"}
                       </span>
                     </div>
                     {!latestAssistantCaption ? (
