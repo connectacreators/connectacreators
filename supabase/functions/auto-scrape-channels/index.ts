@@ -320,7 +320,7 @@ serve(async (req) => {
     // eventually gets updated across consecutive cron runs.
     const { data: channels, error: channelsError } = await supabase
       .from("viral_channels")
-      .select("id, username, platform, last_scraped_at")
+      .select("id, username, platform, last_scraped_at, created_at")
       .eq("scrape_status", "done")
       .not("last_scraped_at", "is", null)
       .order("last_scraped_at", { ascending: true });
@@ -377,12 +377,28 @@ serve(async (req) => {
       }
     } else {
       // ── Fast lane (delta/full): everyone EXCEPT Facebook ──────────────────
-      const otherChannels = sortedChannels.filter((c: any) => (c.platform ?? "") !== "facebook");
+      const otherAll = sortedChannels.filter((c: any) => (c.platform ?? "") !== "facebook");
+      // Instagram rate-limits hardest, so cap it to the 100 most-recently-ADDED
+      // channels — keeps per-run IG load low enough to not trip a ban. TikTok /
+      // YouTube aren't throttled the same way, so they're left uncapped. Ordering
+      // below stays oldest-last_scraped-first, so coverage still rotates fairly
+      // within the capped IG set.
+      const igKeep = new Set(
+        sortedChannels
+          .filter((c: any) => (c.platform ?? "") === "instagram")
+          .sort((a: any, b: any) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+          .slice(0, 100)
+          .map((c: any) => c.id),
+      );
+      const otherChannels = otherAll.filter(
+        (c: any) => (c.platform ?? "") !== "instagram" || igKeep.has(c.id),
+      );
       const BUDGET_MS = 90_000;
-      // VPS reports maxHeavy=8 concurrent jobs, but in practice 8 parallel
-      // requests trigger occasional connection resets. 6 keeps headroom for
-      // manual scrapes and avoids the reset-by-peer errors.
-      const BATCH_SIZE = 6;
+      // Concurrency was 6, but with a small pool of healthy IG accounts a
+      // 6-wide burst concentrates on too few accounts and trips IG's rate
+      // limiter ("please wait a few minutes"). 3 keeps the per-account request
+      // rate under the ban threshold while still clearing the queue over runs.
+      const BATCH_SIZE = 3;
       for (let i = 0; i < otherChannels.length; i += BATCH_SIZE) {
         if (Date.now() - startMs > BUDGET_MS) {
           skippedCount = otherChannels.length - i;
