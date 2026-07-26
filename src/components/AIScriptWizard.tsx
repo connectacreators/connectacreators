@@ -106,6 +106,85 @@ function viralityBg(score: number) {
   return "bg-red-500/20 border-red-500/30";
 }
 
+// ==================== REDUCED MOTION ====================
+// Snapshot check (not reactive) — same pattern as the AI Command Deck
+// components (AttentionRadar, CommandOrb, VoiceWaveform): read once at the
+// moment it matters rather than subscribing to changes mid-session.
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// ==================== VIRALITY SCORE RING ====================
+// r=20 on a 48x48 viewBox → circumference ≈ 125.66. Draws in via
+// stroke-dashoffset while the number counts up, once the script has finished
+// revealing. Ring color reuses the app's existing virality tiers (viralityColor)
+// instead of inventing a new red/yellow/green split.
+const VIRALITY_RING_R = 20;
+const VIRALITY_RING_CIRC = 2 * Math.PI * VIRALITY_RING_R;
+
+function ViralityRing({ score, reducedMotion }: { score: number; reducedMotion: boolean }) {
+  const clamped = Math.max(0, Math.min(10, score));
+  const finalOffset = VIRALITY_RING_CIRC * (1 - clamped / 10);
+  const [display, setDisplay] = useState(reducedMotion ? clamped : 0);
+  const [offset, setOffset] = useState(reducedMotion ? finalOffset : VIRALITY_RING_CIRC);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setDisplay(clamped);
+      setOffset(finalOffset);
+      return;
+    }
+    setDisplay(0);
+    setOffset(VIRALITY_RING_CIRC);
+    const DURATION = 900;
+    // Kick the draw-in on the next frame so the CSS transition actually fires
+    // (setting the final offset in the same tick as the reset would be a no-op).
+    const kick = requestAnimationFrame(() => setOffset(finalOffset));
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic, pairs with the ring's cubic-bezier(0.22,1,0.36,1)
+      setDisplay(Math.round(clamped * eased * 10) / 10);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(kick); cancelAnimationFrame(raf); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clamped, reducedMotion]);
+
+  return (
+    <div className={`relative flex-shrink-0 w-11 h-11 flex items-center justify-center ${viralityColor(score)}`}>
+      <svg width="44" height="44" viewBox="0 0 48 48" className="absolute inset-0 -rotate-90">
+        <circle cx="24" cy="24" r={VIRALITY_RING_R} fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="4" />
+        <circle
+          cx="24" cy="24" r={VIRALITY_RING_R} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={VIRALITY_RING_CIRC}
+          strokeDashoffset={offset}
+          style={reducedMotion ? undefined : { transition: "stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1)" }}
+        />
+      </svg>
+      <span className="relative text-base font-black leading-none">{display}</span>
+    </div>
+  );
+}
+
+// Per-line typewriter duration — mirrors DraftingScene's typeMs() in
+// src/components/companion/scenes/DraftingScene.tsx (same 20-24ms/char feel),
+// just tuned tighter since script beats are shorter than manuscript sections.
+function typeDurationMs(text: string): number {
+  return Math.max(350, Math.min(1200, text.length * 16));
+}
+
+// Category dot colors for the live streaming preview — same hue family as
+// the existing sectionBadge map used lower in renderStep5 (hook=orange,
+// body=blue, cta=green), just a plain dot instead of a full pill.
+const SECTION_DOT_CLASS: Record<string, string> = {
+  hook: "bg-orange-400",
+  body: "bg-blue-400",
+  cta: "bg-green-400",
+};
+
 // ==================== MAIN COMPONENT ====================
 export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTemplateVideo }: AIScriptWizardProps) {
   const { language } = useLanguage();
@@ -879,6 +958,14 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
     setLoading(true);
     setStreamingLines([]);
     setIsStreaming(true);
+    // Jump to the Script step immediately so the live "watch it write" reveal
+    // (renderStep5) has somewhere to render each line as it streams in.
+    // Reduced-motion users are left on step 4's existing loader — they land
+    // on step 5 only once the full script is ready, via the advanceTo(5)
+    // below (unchanged behavior).
+    if (!prefersReducedMotion()) {
+      advanceTo(5);
+    }
     try {
       const lengthMap = ["short", "medium", "long"];
       const chosenFacts = selectedFacts.map((i) => facts[i]).filter(Boolean);
@@ -2323,7 +2410,15 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
   };
 
   const renderStep5 = () => {
-    if (!generatedScript) return (
+    const reducedMotion = prefersReducedMotion();
+    // Real per-line SSE streaming (see callAIBuildStream above) — each entry
+    // in streamingLines arrived from the server as its own JSON object, not
+    // a client-staged simulation. Skipped entirely under reduced motion: those
+    // users stay on step 4's original loader and land here only once the
+    // full script (and score) is ready to show at once.
+    const showStreamingPreview = !reducedMotion && (isStreaming || (streamingLines.length > 0 && !generatedScript));
+
+    if (!generatedScript && !showStreamingPreview) return (
       <div className="max-w-2xl mx-auto text-center py-12 space-y-4">
         <p className="text-muted-foreground">
           {tr({ en: "No script generated yet.", es: "Aún no hay script generado." }, language)}
@@ -2334,6 +2429,55 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         </Button>
       </div>
     );
+
+    if (showStreamingPreview) {
+      return (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="text-center space-y-1 pb-2">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">
+              {tr({ en: "Writing your script...", es: "Escribiendo tu script..." }, language)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {tr({ en: "AI is writing hook, body and CTA...", es: "La IA está escribiendo hook, cuerpo y CTA..." }, language)}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {streamingLines.map((line, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-4 rounded-2xl border border-border/50 bg-card/40"
+                style={{ animation: "broadcast-fade-in 0.35s ease-out both" }}
+              >
+                <span
+                  className={`flex-shrink-0 w-2 h-2 rounded-full mt-1.5 ${SECTION_DOT_CLASS[line.section] || "bg-muted-foreground"}`}
+                  title={line.section}
+                />
+                <p
+                  className="text-sm text-foreground leading-relaxed flex-1"
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    animation: `broadcast-type-in ${typeDurationMs(line.text || "")}ms steps(80, end) both`,
+                  }}
+                >
+                  {line.text}
+                </p>
+              </div>
+            ))}
+            {isStreaming && (
+              <div className="flex items-center gap-1.5 pl-4 py-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce"
+                    style={{ animationDelay: `${i * 0.12}s` }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     const lineTypeConfig: Record<string, { label: string; icon: any; bg: string; border: string; badge: string; iconColor: string }> = {
       filming: {
@@ -2392,9 +2536,7 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
           {/* Virality Score */}
           {generatedScript.virality_score != null && (
             <div className={`flex-shrink-0 flex flex-col items-center gap-0.5 p-3 rounded-2xl border ${viralityBg(generatedScript.virality_score)}`}>
-              <span className={`text-2xl font-black leading-none ${viralityColor(generatedScript.virality_score)}`}>
-                {Math.round(generatedScript.virality_score * 10) / 10}
-              </span>
+              <ViralityRing score={generatedScript.virality_score} reducedMotion={reducedMotion} />
               <span className="text-[10px] text-muted-foreground font-medium">
                 {tr({ en: "Virality", es: "Viralidad" }, language)}
               </span>
