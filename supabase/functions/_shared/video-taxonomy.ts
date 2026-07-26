@@ -26,6 +26,14 @@ export const CANONICAL_NICHES = [
   "personal_branding", "fitness", "sales", "real_estate", "finance",
   "ecommerce", "coaching", "saas_tech", "beauty", "food",
   "mindset", "relationships", "education", "lifestyle", "parenting",
+  // Added after live data showed the categorizer already independently
+  // inventing these for real content (health: 45 rows, immigration: 42,
+  // legal_services: 20) while client-industry mapping had nowhere
+  // sensible to send doctor/lawyer/immigration clients — both sides were
+  // supposed to share one vocabulary (see ViralToday.tsx's
+  // INDUSTRY_TO_NICHE comment) but had silently drifted apart, breaking
+  // "For You" relevance for those clients specifically.
+  "health", "immigration", "legal_services",
 ] as const;
 
 /**

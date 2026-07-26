@@ -113,7 +113,8 @@ EXAMPLES:
 - "Why fascia matters for hip mobility" (concept, no steps) → educational (rule 11)
 - "How I lost 50K followers in a week" (personal narrative) → storytelling (rule 10)
 
-primary_niche: STRONGLY PREFER one of: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting.
+primary_niche: STRONGLY PREFER one of: personal_branding, fitness, sales, real_estate, finance, ecommerce, coaching, saas_tech, beauty, food, mindset, relationships, education, lifestyle, parenting, health, immigration, legal_services.
+Use "health" for doctors/medical/wellness/clinic content (not "personal_branding"). Use "immigration" specifically for immigration-law content, and "legal_services" for other legal/attorney content — these are two different audiences, don't merge them.
 If the video clearly fits none of those (religion, gaming, comedy, politics, true_crime, art, music, etc.), output a new short snake_case slug. EXACTLY ONE niche.
 
 CAPTION: ${caption.slice(0, 300)}

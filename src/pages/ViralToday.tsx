@@ -2033,8 +2033,15 @@ export default function ViralToday() {
         [/teach|tutor|education|course creator|professor/i, "education"],
         [/lifestyle|vlog|travel|fashion|home decor/i, "lifestyle"],
         [/parent|mom|dad|family|baby|toddler/i, "parenting"],
-        [/lawyer|attorney|immigration|legal|law firm/i, "personal_branding"],
-        [/dentist|doctor|medical|surgeon|clinic|aesthetics|med spa/i, "personal_branding"],
+        // Immigration checked before the general legal pattern below — same
+        // vocabulary the video categorizer uses (see video-taxonomy.ts's
+        // CANONICAL_NICHES comment); these used to both fall into the
+        // generic "personal_branding" bucket, which meant a doctor or
+        // immigration-law client's "For You" feed could never match the
+        // videos already correctly tagged health/immigration/legal_services.
+        [/immigration/i, "immigration"],
+        [/lawyer|attorney|legal|law firm/i, "legal_services"],
+        [/dentist|doctor|medical|surgeon|clinic|aesthetics|med spa/i, "health"],
       ];
       const industryText = [od.industry, od.industryOther, od.niche].filter(Boolean).join(" ");
       let derivedNiche: string | null = null;
