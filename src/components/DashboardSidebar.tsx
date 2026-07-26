@@ -276,8 +276,12 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
 
   const navItems = getNavItems();
 
-  // /ai always shows the sidebar (rail or full). Off-/ai: full sidebar when
-  // open, rail on desktop when closed, slide-off on mobile when closed.
+  // /ai shows the sidebar (rail or full) on desktop only — on mobile it's
+  // hidden entirely (MobileBottomNav's AI hero button + the orb's own
+  // "Full chat" toggle already cover navigation and thread access there;
+  // a 56px rail eating into a voice-first HUD wasn't worth it). Off-/ai:
+  // full sidebar when open, rail on desktop when closed, slide-off on
+  // mobile when closed.
   const asideWidth = isOnAi
     ? (railMode ? "w-14 translate-x-0" : "w-56 translate-x-0")
     : (sidebarOpen
@@ -314,7 +318,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       );
     };
     return (
-      <aside className={`${asideWidth} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}>
+      <aside className={`${asideWidth} ${isOnAi ? "hidden lg:flex" : "flex"} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex-col flex-shrink-0 h-screen lg:sticky top-0`}>
         {/* Top: expand toggle. On /ai we flip the internal aiRailMode flag;
             off-/ai we set the external sidebarOpen prop. */}
         <div className="flex items-center justify-center py-3 border-b border-[rgba(255,255,255,0.06)]">
@@ -363,7 +367,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
   return (
     <>
     <aside
-      className={`${asideWidth} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex flex-col flex-shrink-0 h-screen lg:sticky top-0`}
+      className={`${asideWidth} ${isOnAi ? "hidden lg:flex" : "flex"} fixed lg:relative z-40 lg:z-auto transition-all duration-300 glass-sidebar flex-col flex-shrink-0 h-screen lg:sticky top-0`}
     >
       <div className="flex items-center gap-2 px-3 py-3 border-b border-[rgba(255,255,255,0.06)] relative z-10">
         <button onClick={() => navigate("/")} className="focus:outline-none hover:opacity-80 transition-opacity">

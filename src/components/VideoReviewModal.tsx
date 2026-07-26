@@ -14,6 +14,8 @@ import { PendingAttachmentsStrip, AttachPhotoButton, AttachmentGallery } from '@
 import { toast } from 'sonner';
 import { Check, CheckCheck, Clock, Download, Loader2, Lock, Send, Trash2, X } from 'lucide-react';
 import ThemedVideoPlayer from './ThemedVideoPlayer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LIFECYCLE_VALUES, LIFECYCLE_STYLE, getLifecycleStyle, lifecycleUpdate, deriveFromLegacy, type LifecycleStatus } from '@/lib/lifecycleStatus';
 
 // A remote-control signal for this modal — lets an external caller (the
 // Command Deck's AI action-dispatch loop) drive playback and note-taking
@@ -209,7 +211,16 @@ export default function VideoReviewModal({
   const canResolve = isAdmin || isVideographer || isEditor;
   const isMobile = useIsMobile();
   // On mobile the video and notes share a tabbed view (full-width each); desktop keeps both side-by-side.
-  const [mobileTab, setMobileTab] = useState<'video' | 'notes'>('video');
+  // "manage" is mobile-only — desktop already edits status/deadline/schedule/assignee
+  // inline in the queue table, so there's nothing missing to add a tab for there.
+  const [mobileTab, setMobileTab] = useState<'video' | 'notes' | 'manage'>('video');
+  const [manageStatus, setManageStatus] = useState<LifecycleStatus>('Not started');
+  const [manageDeadline, setManageDeadline] = useState('');
+  const [manageSchedule, setManageSchedule] = useState('');
+  const [manageAssigneeId, setManageAssigneeId] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ user_id: string; display_name: string }[]>([]);
+  const [clientAssignee, setClientAssignee] = useState<{ user_id: string; name: string } | null>(null);
+  const [savingManageField, setSavingManageField] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [comments, setComments] = useState<RevisionComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -326,6 +337,85 @@ export default function VideoReviewModal({
       .catch(() => toast.error('Failed to load comments'))
       .finally(() => setLoading(false));
   }, [open, videoEditId]);
+
+  // Manage tab (mobile only) — the modal isn't handed status/deadline/
+  // schedule/assignee as props (it only knows about the video + notes),
+  // so fetch them directly on open rather than threading new props
+  // through all four pages that render this modal.
+  useEffect(() => {
+    if (!open || !isMobile || !canResolve || !videoEditId) return;
+    supabase
+      .from('video_edits')
+      .select('status, post_status, deadline, schedule_date, assignee_user_id')
+      .eq('id', videoEditId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setManageStatus(deriveFromLegacy(data.status, data.post_status));
+        setManageDeadline(data.deadline ? String(data.deadline).slice(0, 10) : '');
+        setManageSchedule(data.schedule_date ? String(data.schedule_date).slice(0, 10) : '');
+        setManageAssigneeId(data.assignee_user_id ?? null);
+      });
+  }, [open, isMobile, canResolve, videoEditId]);
+
+  // Same team-member/client-assignee resolution EditingQueue.tsx uses for
+  // its own assignee dropdown — kept here rather than passed as a prop so
+  // this tab is fully self-contained.
+  useEffect(() => {
+    if (!open || !isMobile || !canResolve || !clientId) return;
+    supabase.from('clients').select('name, user_id').eq('id', clientId).maybeSingle()
+      .then(({ data }) => setClientAssignee(data?.user_id ? { user_id: data.user_id, name: data.name } : null));
+    (async () => {
+      const { data: roleRows } = await supabase.from('user_roles').select('user_id').in('role', ['admin', 'editor', 'videographer']);
+      const ids = Array.from(new Set([...(user ? [user.id] : []), ...(roleRows || []).map((r: any) => r.user_id)]));
+      if (!ids.length) { setTeamMembers([]); return; }
+      const { data } = await supabase.from('profiles').select('user_id, display_name').in('user_id', ids);
+      setTeamMembers((data || []).filter((p: any) => p.display_name));
+    })();
+  }, [open, isMobile, canResolve, clientId, user]);
+
+  async function handleManageStatusChange(next: LifecycleStatus) {
+    setSavingManageField('status');
+    const prev = manageStatus;
+    setManageStatus(next);
+    const { error } = await supabase.from('video_edits').update(lifecycleUpdate(next)).eq('id', videoEditId);
+    setSavingManageField(null);
+    if (error) {
+      setManageStatus(prev);
+      toast.error('Failed to update status');
+    } else {
+      onStatusChanged?.(next);
+    }
+  }
+
+  async function handleManageDeadlineChange(value: string) {
+    setManageDeadline(value);
+    setSavingManageField('deadline');
+    const { error } = await supabase.from('video_edits').update({ deadline: value || null }).eq('id', videoEditId);
+    setSavingManageField(null);
+    if (error) toast.error('Failed to update deadline');
+  }
+
+  async function handleManageScheduleChange(value: string) {
+    setManageSchedule(value);
+    setSavingManageField('schedule');
+    const { error } = await supabase.from('video_edits').update({ schedule_date: value || null }).eq('id', videoEditId);
+    setSavingManageField(null);
+    if (error) toast.error('Failed to update schedule date');
+  }
+
+  async function handleManageAssigneeChange(userId: string | null) {
+    setManageAssigneeId(userId);
+    setSavingManageField('assignee');
+    const member = teamMembers.find((m) => m.user_id === userId);
+    const clientName = userId && clientAssignee?.user_id === userId ? clientAssignee.name : null;
+    const displayName = userId ? (member?.display_name ?? clientName ?? '') : '';
+    const res = await supabase.functions.invoke('update-editing-status', {
+      body: { id: videoEditId, assignee: displayName || null, assignee_user_id: userId || null },
+    });
+    setSavingManageField(null);
+    if (res.error) toast.error('Failed to update assignee');
+  }
 
   // Load actual footage files from storage
   useEffect(() => {
@@ -909,6 +999,14 @@ export default function VideoReviewModal({
                 Notes · {visibleComments.length}
                 {resolvedCount > 0 && <span className="text-green-500"> ({resolvedCount}✓)</span>}
               </button>
+              {canResolve && (
+                <button
+                  onClick={() => setMobileTab('manage')}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${mobileTab === 'manage' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground'}`}
+                >
+                  Manage
+                </button>
+              )}
             </div>
           )}
 
@@ -1245,6 +1343,78 @@ export default function VideoReviewModal({
               </div>
             )}
           </div>
+
+          {/* Manage tab (mobile only) — status / deadline / schedule / assignee,
+              the same fields the desktop queue table edits inline. */}
+          {isMobile && canResolve && mobileTab === 'manage' && (
+            <div className="flex-1 w-full flex flex-col gap-6 p-4 overflow-y-auto">
+              <div>
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Status</div>
+                <div className="flex flex-wrap gap-2">
+                  {LIFECYCLE_VALUES.map((value) => {
+                    const style = getLifecycleStyle(value);
+                    const active = manageStatus === value;
+                    return (
+                      <button
+                        key={value}
+                        disabled={savingManageField === 'status'}
+                        onClick={() => handleManageStatusChange(value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                          active ? `${style.bg} ${style.text} ${style.border}` : 'bg-transparent text-muted-foreground border-border'
+                        }`}
+                      >
+                        {style.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">Deadline</label>
+                <Input
+                  type="date"
+                  value={manageDeadline}
+                  disabled={savingManageField === 'deadline'}
+                  onChange={(e) => handleManageDeadlineChange(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">Post date</label>
+                <Input
+                  type="date"
+                  value={manageSchedule}
+                  disabled={savingManageField === 'schedule'}
+                  onChange={(e) => handleManageScheduleChange(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">Assignee</label>
+                <Select
+                  value={manageAssigneeId ?? '__none__'}
+                  disabled={savingManageField === 'assignee'}
+                  onValueChange={(val) => handleManageAssigneeChange(val === '__none__' ? null : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
+                    {teamMembers
+                      .filter((m) => m.user_id !== clientAssignee?.user_id)
+                      .map((m) => (
+                        <SelectItem key={m.user_id} value={m.user_id}>{m.display_name}</SelectItem>
+                      ))}
+                    {clientAssignee && (
+                      <SelectItem value={clientAssignee.user_id}>{clientAssignee.name}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
 

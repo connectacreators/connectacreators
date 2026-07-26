@@ -110,7 +110,11 @@ serve(async (req) => {
     body: JSON.stringify({
       text,
       model_id: MODEL_ID,
-      voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      // speed is a genuine ElevenLabs voice_settings field (REST range
+      // 0.25-4.0, 1.0 = normal) — 1.15 is a noticeable but still-natural
+      // bump, picked after a user request for faster replies; much higher
+      // starts degrading audio quality per ElevenLabs' own docs.
+      voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: 1.15 },
     }),
   });
 
