@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage, type Language } from "@/hooks/useLanguage";
 import { t } from "@/i18n/translations";
 import { MobileBrandDashboard } from "./MobileBrandDashboard";
+import { ContentOpportunityCard } from "./ContentOpportunityCard";
 import {
   Sparkles,
   BarChart3,
@@ -184,6 +185,15 @@ export function SingleBrandDashboard({ firstName, brandName, clientId }: SingleB
         >
           {t.dashboard.question[language]}
         </motion.h1>
+
+        {/* Proactive "what to post" tip — only at the top level (not once a
+            folder's open, that's a distraction from the tool they picked)
+            and only with a specific client in view (a tip needs an
+            audience/niche to be meaningful). Renders nothing if there's no
+            open tip for this client. */}
+        {!folder && clientId && (
+          <ContentOpportunityCard clientId={clientId} clientName={brandName ?? firstName} en={language !== "es"} />
+        )}
 
         {/* popLayout: the exiting view pops out of the layout flow so the
             entering one (and the header above, via `layout`) animates to its

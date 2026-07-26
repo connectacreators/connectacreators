@@ -1556,6 +1556,15 @@ All colors MUST be HSL for consistency and theming.
   100% { opacity: 0; transform: translateY(-34px) scale(1.3); }
 }
 
+/* ContentOpportunityCard's radar-ping-then-bloom reveal (see that
+   component). Deliberately a different visual metaphor than
+   broadcast-type-in (AI writing) or Viral Today's grid settle (browsing
+   a feed) — this one reads as "a new signal arrived". */
+@keyframes content-opp-ping {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [style*="broadcast-fade-in"],
   [style*="broadcast-type-in"],

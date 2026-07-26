@@ -21,6 +21,7 @@ import {
 import { useTriageRows } from "@/hooks/useTriageRows";
 import { useClientProfilePics } from "@/hooks/useClientProfilePics";
 import { ClientAvatar } from "./ClientAvatar";
+import { ContentOpportunityCard } from "./ContentOpportunityCard";
 import { relativeDate } from "@/lib/triage/relativeDate";
 import { pipelineMilestoneLabel, type TriageRow, type PipelineMilestone } from "@/lib/triage/types";
 import { useLanguage, type Language } from "@/hooks/useLanguage";
@@ -216,6 +217,12 @@ export function MobileBrandDashboard({ firstName, brandName, clientId }: Props) 
             👋
           </motion.span>
         </motion.h1>
+
+        {/* Proactive "what to post" tip — renders nothing if there's no
+            open tip for this client. */}
+        {clientId && (
+          <ContentOpportunityCard clientId={clientId} clientName={brandName ?? firstName} en={language !== "es"} />
+        )}
 
         {/* Needs your attention */}
         <div
