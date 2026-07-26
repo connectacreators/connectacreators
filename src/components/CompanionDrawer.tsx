@@ -95,6 +95,12 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
   // ThinkingAnimation while a request is in flight. Cleared when the
   // stream closes (done or error).
   const [currentScene, setCurrentScene] = useState<SceneEvent | null>(null);
+  // Live reply text as companion-chat streams it in (text_delta events) —
+  // fed straight into AssistantChat's existing remoteStreamingContent prop,
+  // which already knows how to render a trailing streaming bubble and step
+  // the "thinking" animation aside for it. null (not "") while idle so
+  // AssistantChat's waitingForResponse check works correctly.
+  const [remoteStreamingText, setRemoteStreamingText] = useState<string | null>(null);
   // Embeds collected from the SSE stream (e.g. video-card previews for
   // find_viral_videos results). Keyed by thread_id so they only attach
   // to messages in the thread they were emitted from — prevents the
@@ -254,6 +260,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    setRemoteStreamingText(null);
 
     try {
       const {
@@ -276,6 +283,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
           thread_id: activeThreadId ?? null,
         },
         callbacks: {
+          onTextDelta: (event) => setRemoteStreamingText((prev) => (prev ?? "") + event.text),
           onScene: (scene) => setCurrentScene(scene),
           onEmbeds: (event) => {
             // Use the thread we just submitted into (might not be set yet
@@ -290,6 +298,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
         },
       });
       setCurrentScene(null);
+      setRemoteStreamingText(null);
       const data = streamResult.done ?? null;
 
       // If we collected embeds under the __pending__ sentinel (brand-new
@@ -378,6 +387,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
       await loadThreads();
     } finally {
       setSending(false);
+      setRemoteStreamingText(null);
     }
   }, [
     input,
@@ -535,6 +545,7 @@ export default function CompanionDrawer({ closing = false }: { closing?: boolean
                 <AssistantChat
                   messages={chatMessages}
                   loading={sending}
+                  remoteStreamingContent={remoteStreamingText}
                   variant="full"
                   greeting="What are we doing today?"
                   greetingSubtitle="Ask anything about your work."
