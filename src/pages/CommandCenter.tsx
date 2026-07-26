@@ -698,6 +698,59 @@ export default function CommandCenter() {
     toggleVoiceRef.current = toggleVoice;
   }, [toggleVoice]);
 
+  /**
+   * Voice-activated barge-in — a throwaway recognizer that runs WHILE
+   * Robby is talking, listening only for "did the user start speaking,"
+   * not for what they said (the real utterance gets captured fresh via
+   * toggleVoice once the interrupt fires and the mic reopens). Only arms
+   * during the hands-free loop (voiceConversationActive), matching the
+   * tap-to-interrupt path's own restart condition.
+   *
+   * Real, communicated-up-front risk: on a device playing TTS through
+   * speakers (not headphones), his own voice can bleed into the mic and
+   * false-trigger this. Mitigated, not eliminated: a short arming delay
+   * after playback starts (skips the first instant, when a false trigger
+   * would be most jarring) and a minimum transcript length (filters
+   * single-syllable noise/echo blips) — not a content-based echo filter,
+   * which would need comparing against the exact reply text.
+   */
+  const bargeInRecRef = useRef<any>(null);
+  const stopBargeIn = useCallback(() => {
+    const rec = bargeInRecRef.current;
+    if (!rec) return;
+    bargeInRecRef.current = null;
+    rec.onresult = null;
+    rec.onend = null;
+    rec.onerror = null;
+    try { rec.stop(); } catch { /* already stopped */ }
+  }, []);
+  const startBargeIn = useCallback(() => {
+    if (!voiceConversationActiveRef.current) return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    stopBargeIn();
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (e: any) => {
+      const last = e.results[e.results.length - 1]?.[0]?.transcript || "";
+      if (last.trim().length < 3) return; // filter noise/echo blips
+      stopBargeIn();
+      const audio = ttsAudioRef.current;
+      if (audio && !audio.paused) audio.pause();
+      toggleVoiceRef.current(true);
+    };
+    rec.onerror = () => { bargeInRecRef.current = null; };
+    rec.onend = () => { bargeInRecRef.current = null; };
+    try {
+      rec.start();
+      bargeInRecRef.current = rec;
+    } catch {
+      // Mic likely still held by the just-ended main recognizer — skip
+      // this turn's barge-in rather than fighting for the microphone.
+    }
+  }, [stopBargeIn]);
+
   /** See audioUnlockCtxRef above — call synchronously from a real click. */
   const primeMediaPlayback = useCallback(() => {
     try {
@@ -726,6 +779,7 @@ export default function CommandCenter() {
   const handleOrbTap = useCallback(() => {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
+      stopBargeIn();
       audio.pause();
       if (voiceConversationActiveRef.current) toggleVoice(true);
       return;
@@ -738,7 +792,7 @@ export default function CommandCenter() {
       setVoiceConversationActive(true);
       toggleVoice(true);
     }
-  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback]);
+  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback, stopBargeIn]);
 
   /**
    * The small floating orb shown over an open Action Surface has different
@@ -754,6 +808,7 @@ export default function CommandCenter() {
   const handleMiniOrbTap = useCallback(() => {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
+      stopBargeIn();
       audio.pause();
       toggleVoice(true);
       return;
@@ -761,7 +816,7 @@ export default function CommandCenter() {
     if (recognizing) return; // already listening — nothing to do
     if (!voiceConversationActiveRef.current) setVoiceConversationActive(true);
     toggleVoice(true);
-  }, [recognizing, toggleVoice]);
+  }, [recognizing, toggleVoice, stopBargeIn]);
 
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
@@ -818,14 +873,21 @@ export default function CommandCenter() {
 
         await new Promise<void>((resolve) => {
           audio.onended = () => {
+            stopBargeIn();
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
           audio.onerror = () => {
+            stopBargeIn();
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
-          audio.play().catch((err) => {
+          audio.play().then(() => {
+            // Short grace delay before arming — skip the first instant of
+            // his own speech (interrupting immediately would be jarring)
+            // and let the audio pipeline stabilize first.
+            setTimeout(startBargeIn, 500);
+          }).catch((err) => {
             console.warn("[ai] TTS playback blocked:", err);
             resolve();
           });
@@ -834,7 +896,7 @@ export default function CommandCenter() {
         console.error("[ai] voice read-back failed:", err);
       }
     },
-    [],
+    [startBargeIn, stopBargeIn],
   );
 
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
