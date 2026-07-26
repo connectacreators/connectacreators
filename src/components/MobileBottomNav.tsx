@@ -16,18 +16,26 @@ import { readCache } from "@/lib/sessionCache";
 // not having it). For admins, Scripts moves to the non-hero slot Viral used
 // to occupy and Viral moves into the "More" sheet — Scripts is the more
 // frequently-used day-to-day tool of the two.
-const BOTTOM_TABS = (es: boolean, isAdmin: boolean) =>
+//
+// Scripts' path is client-aware: when a client is already selected (via the
+// header's own client switcher), tapping Scripts goes straight to THAT
+// client's scripts instead of /scripts, which prompts a picker even though
+// one is already chosen in plain sight — a real "why is it asking me
+// again" moment. Falls back to the generic /scripts (which handles its own
+// picker) only in agency/master view, where there's genuinely no single
+// client to go to.
+const BOTTOM_TABS = (es: boolean, isAdmin: boolean, scriptsPath: string) =>
   isAdmin
     ? [
         { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
-        { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts" },
+        { icon: FileText, label: es ? "Guiones" : "Scripts", path: scriptsPath },
         { icon: Bot, label: "AI", path: "/ai", hero: true as const },
         { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
       ]
     : [
         { icon: Home, label: es ? "Inicio" : "Home", path: "/dashboard" },
         { icon: Flame, label: "Viral", path: "/viral-today" },
-        { icon: FileText, label: es ? "Guiones" : "Scripts", path: "/scripts", hero: true as const },
+        { icon: FileText, label: es ? "Guiones" : "Scripts", path: scriptsPath, hero: true as const },
         { icon: Clapperboard, label: es ? "Cola" : "Queue", path: "/editing-queue" },
       ];
 
@@ -63,6 +71,7 @@ export default function MobileBottomNav() {
     : null;
   const selectedClientId =
     urlClientId ?? (viewMode === "master" || !viewMode ? null : viewMode === "me" ? ownClientId : viewMode);
+  const scriptsPath = selectedClientId ? `/clients/${selectedClientId}/scripts` : "/scripts";
 
   const moreItems = [
     ...(selectedClientId
@@ -86,7 +95,7 @@ export default function MobileBottomNav() {
       {/* Bottom nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border">
         <div className="flex items-end justify-around h-16 px-2 pb-2">
-          {BOTTOM_TABS(language === "es", isAdmin).map((tab) => {
+          {BOTTOM_TABS(language === "es", isAdmin, scriptsPath).map((tab) => {
             const isActive = pathname.startsWith(tab.path.split("?")[0]);
 
             if (tab.hero) {
