@@ -5,11 +5,21 @@ import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import CompanionDrawer from "./CompanionDrawer";
+import CommandOrb from "@/components/command-deck/CommandOrb";
 
 /**
  * Floating companion trigger — a 52px circle pinned to the bottom-right.
  * Click to toggle the right-side <CompanionDrawer>. The badge + pulse
  * indicator surface urgent task counts. The drawer owns all chat/threads UI.
+ *
+ * Renders the same small orb used as the /ai Action Surface's floating
+ * recovery orb (CommandOrb at a compact size) instead of a flat icon
+ * button — one consistent "this is Robby" visual identity site-wide,
+ * not a separate flat sticker style just for pages other than /ai. The
+ * dark ink+blur backing circle is deliberate even on light-background
+ * pages: the orb's canvas rendering (glow, point-cloud) is designed
+ * against a dark ground and reads as a little window into the Command
+ * Deck wherever it appears, not a mismatched light-mode variant.
  *
  * NOTE: We used to auto-open the drawer on route change when a thread had
  * been "recently updated" (within 60s). That fired on every page nav for
@@ -45,43 +55,34 @@ export default function CompanionBubble() {
 
   return (
     <>
-      {/* Floating bubble — editorial sticker: bone fill, ink stroke + offset shadow */}
+      {/* Floating bubble — the same small orb as /ai's Action Surface mini-orb */}
       <div className="fixed bottom-5 right-5 z-50">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="relative flex items-center justify-center rounded-full"
+        <div
+          className="relative rounded-full"
           style={{
             width: 52,
             height: 52,
-            background: "hsl(var(--cream))",
-            border: "1px solid hsl(var(--ink-on-cream))",
-            boxShadow: "3px 3px 0 hsl(var(--ink-on-cream))",
-            transition: "box-shadow 120ms, transform 120ms",
+            background: "hsl(var(--ink) / 0.85)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            boxShadow: isOpen
+              ? "0 0 0 1px hsl(var(--aqua) / 0.28), 0 6px 22px rgba(0,0,0,0.45)"
+              : "0 0 0 1px hsl(var(--aqua) / 0.28), 0 6px 22px rgba(0,0,0,0.45), 0 0 18px hsl(var(--aqua) / 0.25)",
+            transition: "box-shadow 0.3s ease",
           }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget;
-            el.style.boxShadow = "4px 4px 0 hsl(var(--ink-on-cream))";
-            el.style.transform = "translate(-1px,-1px)";
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget;
-            el.style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))";
-            el.style.transform = "none";
-          }}
-          aria-label={en ? `Open ${companionName}` : `Abrir ${companionName}`}
         >
           {isOpen ? (
-            <X className="w-5 h-5" style={{ color: "hsl(var(--ink-on-cream))" }} />
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-full h-full flex items-center justify-center rounded-full"
+              aria-label={en ? `Close ${companionName}` : `Cerrar ${companionName}`}
+            >
+              <X className="w-5 h-5" style={{ color: "hsl(var(--bone))" }} />
+            </button>
           ) : (
-            <img
-              src="/favicon-transparent.png"
-              alt="Connecta"
-              className="w-6 h-6 object-contain"
-              style={{ filter: "brightness(0)" }}
-              /* ink-tinted: matches the bone sticker treatment of the bubble */
-            />
+            <CommandOrb onTap={() => setIsOpen(true)} minSize={52} maxSize={56} />
           )}
-        </button>
+        </div>
         {/* Dismiss button — hides the bubble site-wide. Restore from Settings → AI Assistant. */}
         {!isOpen && (
           <button
