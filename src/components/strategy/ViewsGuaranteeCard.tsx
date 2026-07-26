@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Pencil, Check } from "lucide-react";
 import { fmtViews, PLATFORM_ICON } from "@/lib/viral-card-utils";
@@ -31,6 +31,16 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
   const [draftGoal, setDraftGoal] = useState(String(viewsGoal));
   const [draftStart, setDraftStart] = useState("");
   const [draftDuration, setDraftDuration] = useState<string>(String(durationMonths ?? ""));
+
+  // "Goal hit" celebration — ripple + badge spring-in + number pulse, fired
+  // once on the real false→true transition (never on mount/page-load, since
+  // byPlatform starts null → total=0 → hit=false, so the first real fetch
+  // could just be re-confirming a goal already hit in a prior session).
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [celebrate, setCelebrate] = useState(false);
+  const [rippleScale, setRippleScale] = useState(12);
+  const prevHitRef = useRef<boolean | null>(null);
+  const hasLoadedOnceRef = useRef(false);
 
   // Window: explicit start > onboarding call > trailing default-duration window.
   const startIso = startedAt || fallbackStart || new Date(Date.now() - DEFAULT_DURATION_MONTHS * 30 * 86_400_000).toISOString();
@@ -87,6 +97,29 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
         ? "#8FD0D5"
         : total >= expectedByNow ? "#22c55e" : total >= expectedByNow * 0.6 ? "#f59e0b" : "#ef4444";
 
+  // First real data (byPlatform !== null) only ever establishes the
+  // baseline — it never fires the celebration, even if already hit. After
+  // that, any live false→true flip (a refetch crossing the line, or a goal
+  // edit that makes an already-fetched total newly clear the bar) fires it.
+  useEffect(() => {
+    if (byPlatform === null) return;
+    if (!hasLoadedOnceRef.current) {
+      hasLoadedOnceRef.current = true;
+      prevHitRef.current = hit;
+      return;
+    }
+    const justHit = prevHitRef.current === false && hit === true;
+    prevHitRef.current = hit;
+    if (!justHit) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rect = cardRef.current?.getBoundingClientRect();
+    const targetPx = rect ? Math.max(240, Math.max(rect.width, rect.height) * 1.2) : 480;
+    setRippleScale(targetPx / 40);
+    setCelebrate(true);
+    const t = setTimeout(() => setCelebrate(false), 2000);
+    return () => clearTimeout(t);
+  }, [hit, byPlatform]);
+
   const fmtDate = (d: Date) => d.toLocaleDateString(en ? "en-US" : "es-MX", { month: "short", day: "numeric", year: "numeric" });
 
   const saveEdit = () => {
@@ -104,13 +137,46 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
   };
 
   return (
-    <div className="glass-card rounded-xl p-5" style={{ border: `1px solid ${color}33` }}>
+    <div ref={cardRef} className="glass-card rounded-xl p-5" style={{ border: `1px solid ${color}33` }}>
+      {celebrate && (
+        <>
+          <style>{`
+            @keyframes vg-ripple {
+              from { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+              to   { transform: translate(-50%, -50%) scale(var(--vg-ripple-scale, 12)); opacity: 0; }
+            }
+            @keyframes vg-badge-pop {
+              from { opacity: 0; transform: scale(0.6); }
+              to   { opacity: 1; transform: scale(1); }
+            }
+            @keyframes vg-number-pulse {
+              0%, 100% { transform: scale(1); text-shadow: 0 0 0 hsl(var(--honey) / 0); }
+              50%      { transform: scale(1.04); text-shadow: 0 0 18px hsl(var(--honey) / 0.55); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .vg-ripple, .vg-badge-pop, .vg-number-pulse { animation: none !important; }
+            }
+          `}</style>
+          <span
+            className="vg-ripple pointer-events-none absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width: 40,
+              height: 40,
+              border: "1.5px solid hsl(var(--honey))",
+              opacity: 0.9,
+              zIndex: 5,
+              animation: "vg-ripple 1.1s cubic-bezier(0.22,1,0.36,1) forwards",
+              "--vg-ripple-scale": rippleScale,
+            } as React.CSSProperties}
+          />
+        </>
+      )}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] font-bold tracking-[1px] uppercase" style={{ color }}>
           {fmtViews(viewsGoal)} {en ? "views guarantee" : "vistas garantizadas"}
         </span>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${color}12`, border: `1px solid ${color}38`, color }}>
+          <span className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full${celebrate ? " vg-badge-pop" : ""}`} style={{ background: `${color}12`, border: `1px solid ${color}38`, color, animation: celebrate ? "vg-badge-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) 1.15s both" : undefined }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
             {hit
               ? (en ? "Goal hit" : "Meta cumplida")
@@ -162,7 +228,7 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
       ) : null}
 
       <div className="flex items-baseline gap-2">
-        <span className="text-3xl font-black" style={{ color }}>
+        <span className={`text-3xl font-black${celebrate ? " vg-number-pulse" : ""}`} style={{ color, animation: celebrate ? "vg-number-pulse 0.5s ease-out 1.2s both" : undefined }}>
           {byPlatform === null ? "…" : fmtViews(total)}
         </span>
         <span className="text-xs text-white/35">/ {fmtViews(viewsGoal)} {en ? "views" : "vistas"}</span>
