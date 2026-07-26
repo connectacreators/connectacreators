@@ -844,10 +844,115 @@ async function dualWriteCompanionTurn(
   }
 }
 
+// ─── Streaming Anthropic calls ──────────────────────────────────────────────
+// The main round loop previously called Anthropic with an implicit
+// `stream: false` and awaited the full response body before doing anything
+// — for any turn needing 2+ tool-call rounds (e.g. "open the next video
+// that needs my revisions": list the queue, THEN open the item), that meant
+// 2+ fully sequential multi-second waits with nothing shown to the user
+// until everything finished. This wraps Anthropic's real SSE streaming API
+// and reconstructs a `result` object with the EXACT shape a non-streaming
+// call already returns ({content: [...blocks], stop_reason, usage}) — every
+// downstream line of tool-dispatch logic is unchanged and unaware streaming
+// is even happening. The only new behavior is emitting a `text_delta` event
+// the moment each chunk of reply TEXT arrives, so the frontend can render
+// the reply as it's written instead of waiting for the whole round to
+// finish. Tool-use JSON deltas are buffered and parsed once complete (same
+// as they'd arrive in one piece from a non-streaming call) — never
+// surfaced to the frontend mid-assembly, so a partial/malformed JSON
+// fragment can never reach the tool-dispatch code.
+async function streamAnthropicCall(
+  apiKey: string,
+  body: Record<string, unknown>,
+  emit: (event: Record<string, unknown>) => void,
+): Promise<{ content: any[]; stop_reason: string | null; usage: any; ok: true } | { ok: false; status: number; error: any }> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+
+  if (!res.ok || !res.body) {
+    let error: any;
+    try { error = await res.json(); } catch { error = { message: await res.text().catch(() => "") }; }
+    return { ok: false, status: res.status, error };
+  }
+
+  const blocks: any[] = [];
+  let stopReason: string | null = null;
+  let usage: any = undefined;
+  // Accumulates partial_json fragments per content-block index until that
+  // block's content_block_stop — mirrors how a non-streaming call hands
+  // tool_use.input to us already-complete, never partially parsed.
+  const jsonBuffers = new Map<number, string>();
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE frames are separated by a blank line; each frame is 1+ lines,
+      // the one we care about is "data: {...}".
+      let sepIdx: number;
+      while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0, sepIdx);
+        buffer = buffer.slice(sepIdx + 2);
+        const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
+        if (!dataLine) continue;
+        let evt: any;
+        try { evt = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
+
+        if (evt.type === "content_block_start") {
+          blocks[evt.index] = evt.content_block.type === "tool_use"
+            ? { type: "tool_use", id: evt.content_block.id, name: evt.content_block.name, input: {} }
+            : { type: "text", text: "" };
+          if (evt.content_block.type === "tool_use") jsonBuffers.set(evt.index, "");
+        } else if (evt.type === "content_block_delta") {
+          if (evt.delta.type === "text_delta") {
+            blocks[evt.index].text += evt.delta.text;
+            emit({ type: "text_delta", text: evt.delta.text });
+          } else if (evt.delta.type === "input_json_delta") {
+            jsonBuffers.set(evt.index, (jsonBuffers.get(evt.index) ?? "") + evt.delta.partial_json);
+          }
+        } else if (evt.type === "content_block_stop") {
+          if (jsonBuffers.has(evt.index)) {
+            const raw = jsonBuffers.get(evt.index)!;
+            try { blocks[evt.index].input = raw ? JSON.parse(raw) : {}; } catch {
+              console.error("[companion-chat] failed to parse streamed tool input:", raw.slice(0, 300));
+              blocks[evt.index].input = {};
+            }
+          }
+        } else if (evt.type === "message_delta") {
+          if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason;
+          if (evt.usage) usage = { ...(usage ?? {}), ...evt.usage };
+        } else if (evt.type === "message_start") {
+          if (evt.message?.usage) usage = evt.message.usage;
+        } else if (evt.type === "error") {
+          return { ok: false, status: 200, error: evt.error };
+        }
+      }
+    }
+  } finally {
+    try { reader.releaseLock(); } catch { /* already released */ }
+  }
+
+  return { ok: true, content: blocks.filter(Boolean), stop_reason: stopReason, usage };
+}
+
 // ─── SSE plumbing ───────────────────────────────────────────────────────────
 // companion-chat streams its response as Server-Sent Events so the FE can
 // render live scene events (Searching Viral Today…, Drafting hook…, etc.)
 // before the model finishes its full tool loop. Event types:
+//   - { type: "text_delta", text } — a chunk of the reply as Claude writes it
 //   - { type: "scene", scene, verb, meta } — emitted before each tool fires
 //   - { type: "done", reply, actions, thread_id } — emitted once at the end
 //   - { type: "error", message } — fatal failures
@@ -1528,14 +1633,13 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
     let deadEndRetried = false;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // streamAnthropicCall emits `text_delta` events as the reply is
+      // written and returns a `result` shaped exactly like a non-streaming
+      // call's JSON body — every line below is unchanged from before
+      // streaming was added. See the function's own comment for why.
+      const streamRes = await streamAnthropicCall(
+        Deno.env.get("ANTHROPIC_API_KEY")!,
+        {
           model: chosenModel,
           max_tokens: 4096,
           system: buildCachedSystem(STATIC_SYSTEM_PROLOGUE, dynamicSystemContext),
@@ -1555,10 +1659,20 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
             ? { tool_choice: { type: "any" } }
             : {}),
           messages,
-        }),
-      });
-      const result = await apiRes.json();
-      const usage = result?.usage as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number; input_tokens?: number; output_tokens?: number } | undefined;
+        },
+        emit,
+      );
+      if (!streamRes.ok) {
+        console.error("[companion-chat] Claude API error:", streamRes.error);
+        const errMsg = `Anthropic returned an error (${streamRes.status}). Try again in a moment.`;
+        // If we already have a partial reply from earlier rounds, append the
+        // failure marker so the user knows the response was cut short rather
+        // than seeing a misleadingly complete-looking message.
+        reply = reply ? `${reply}\n\n— ${errMsg}` : errMsg;
+        break;
+      }
+      const result = streamRes;
+      const usage = result.usage as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number; input_tokens?: number; output_tokens?: number } | undefined;
       if (usage) {
         console.log(`[companion-chat][cache] round=${round} create=${usage.cache_creation_input_tokens ?? 0} read=${usage.cache_read_input_tokens ?? 0} input=${usage.input_tokens ?? 0} output=${usage.output_tokens ?? 0}`);
         logAnthropicUsage(adminClient, {
@@ -1568,15 +1682,6 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           userId: user.id,
           metadata: { round, mode: detectedMode, autonomy_mode },
         });
-      }
-      if (!apiRes.ok) {
-        console.error("[companion-chat] Claude API error:", result?.error || result);
-        const errMsg = `Anthropic returned an error (${apiRes.status}). Try again in a moment.`;
-        // If we already have a partial reply from earlier rounds, append the
-        // failure marker so the user knows the response was cut short rather
-        // than seeing a misleadingly complete-looking message.
-        reply = reply ? `${reply}\n\n— ${errMsg}` : errMsg;
-        break;
       }
 
       const textBlocks = (result.content || []).filter((b: any) => b.type === "text");

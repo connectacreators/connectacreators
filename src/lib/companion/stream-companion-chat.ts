@@ -4,10 +4,16 @@
 // use the onScene/onDone callbacks to react to events as they arrive.
 //
 // Backend event types:
+//   - { type: "text_delta", text } — a chunk of the reply as Claude writes it
 //   - { type: "scene", scene, verb, meta, tool } — emitted before each tool
 //   - { type: "done", reply, actions, thread_id, build_session_id? } — final
 //   - { type: "error", message, status? } — fatal
 import type { SceneType, EmbedRef } from "./turn-script";
+
+export interface TextDeltaEvent {
+  type: "text_delta";
+  text: string;
+}
 
 export interface SceneEvent {
   type: "scene";
@@ -40,9 +46,10 @@ export interface ErrorEvent {
   status?: number;
 }
 
-export type CompanionChatEvent = SceneEvent | EmbedsEvent | DoneEvent | ErrorEvent;
+export type CompanionChatEvent = TextDeltaEvent | SceneEvent | EmbedsEvent | DoneEvent | ErrorEvent;
 
 export interface StreamCallbacks {
+  onTextDelta?: (event: TextDeltaEvent) => void;
   onScene?: (event: SceneEvent) => void;
   onEmbeds?: (event: EmbedsEvent) => void;
   onDone?: (event: DoneEvent) => void;
@@ -136,7 +143,9 @@ export async function streamCompanionChat({
           continue;
         }
 
-        if (event.type === "scene") {
+        if (event.type === "text_delta") {
+          callbacks?.onTextDelta?.(event);
+        } else if (event.type === "scene") {
           callbacks?.onScene?.(event);
         } else if (event.type === "embeds") {
           callbacks?.onEmbeds?.(event);

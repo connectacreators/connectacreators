@@ -265,6 +265,12 @@ export default function CommandCenter() {
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Live preview of the reply as companion-chat streams it in — separate
+  // from `messages` so a partial/in-progress reply never touches the array
+  // that gets persisted/dual-written; only the final `done` event's reply
+  // does that, exactly as before streaming was added. Cleared once `done`/
+  // `error` lands so latestAssistantCaption (below) takes back over.
+  const [streamingCaption, setStreamingCaption] = useState("");
   // Voice input via Web Speech API. Pattern matches CanvasAIPanel.tsx so the
   // two assistants behave identically.
   const [recognizing, setRecognizing] = useState(false);
@@ -847,6 +853,7 @@ export default function CommandCenter() {
     const text = raw.trim();
     if (!overrideText) setInput("");
     setSending(true);
+    setStreamingCaption("");
 
     const optimistic: MsgRow = {
       id: `tmp-${Date.now()}`,
@@ -930,6 +937,7 @@ export default function CommandCenter() {
         },
         signal: controller.signal,
         callbacks: {
+          onTextDelta: (event) => setStreamingCaption((prev) => prev + event.text),
           onScene: (scene) => setCurrentScene(scene),
           onEmbeds: (event) => {
             const tid = activeThreadId ?? "__pending__";
@@ -944,6 +952,7 @@ export default function CommandCenter() {
       // starts fresh — same UX as Canvas.
       setPastedImage(null);
       setCurrentScene(null);
+      setStreamingCaption("");
       const data = streamResult.done ?? null;
 
       // If we collected embeds under the __pending__ sentinel (brand-new
@@ -1102,6 +1111,7 @@ export default function CommandCenter() {
         console.error("[ai] handleSend error:", err);
         toast.error(en ? "Failed to send. Try again." : "Error al enviar. Inténtalo de nuevo.");
       }
+      setStreamingCaption("");
     } finally {
       // Only clear the controller if it's still ours (stopGeneration may have
       // already nulled it).
@@ -1478,7 +1488,7 @@ export default function CommandCenter() {
                         {recognizing
                           ? "LISTENING…"
                           : sending
-                            ? (en ? "THINKING…" : "PENSANDO…")
+                            ? (streamingCaption ? (en ? "REPLYING…" : "RESPONDIENDO…") : (en ? "THINKING…" : "PENSANDO…"))
                             : voiceConversationActive
                               ? (en ? "CONVERSATION · TAP TO END" : "CONVERSACIÓN · TOCA PARA TERMINAR")
                               : en
@@ -1486,7 +1496,7 @@ export default function CommandCenter() {
                                 : "EN ESPERA · TOCA PARA HABLAR"}
                       </span>
                     </div>
-                    {!latestAssistantCaption ? (
+                    {!streamingCaption && !latestAssistantCaption ? (
                       <h1
                         className="mt-3 text-center font-serif"
                         style={{ fontSize: 23, lineHeight: 1.25, color: "hsl(var(--bone))", letterSpacing: "-0.01em" }}
@@ -1519,7 +1529,7 @@ export default function CommandCenter() {
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {latestAssistantCaption}
+                        {streamingCaption || latestAssistantCaption}
                       </div>
                     )}
 
