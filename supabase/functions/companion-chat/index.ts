@@ -166,7 +166,7 @@ const TOOLS = [
   },
   {
     name: "get_editing_queue",
-    description: "Check the current status of the editing queue for a client. Shows what's in progress, pending, and done. Each item's marker tells you whether it's actually ready to review — [SUBMITTED] means there's a real edited file to open; [raw footage only] means the editor hasn't delivered a cut yet, so opening it for revisions/review would show an empty player.",
+    description: "Check the current status of the editing queue for a client. Shows what's in progress, pending, and done. Each item shows its lifecycle_status (Not started | In progress | Needs Revisions | Scheduled | Published) AND a readiness marker — [SUBMITTED] means there's a real edited file to open; [raw footage only] means the editor hasn't delivered a cut yet, so opening it for revisions/review would show an empty player. A [SUBMITTED] item can ALSO already be Published or Scheduled (its file is still there, it just already went out) — when looking for 'the next one that needs revisions', match on lifecycle_status = 'Needs Revisions' specifically, not just the [SUBMITTED] marker, or you'll reopen something already finished.",
     input_schema: {
       type: "object",
       properties: {
@@ -775,7 +775,7 @@ EDITING-QUEUE TOOLS — when the user mentions a specific video / reel / edit:
   - "Stop" almost always means pause the video (control_review_surface action=pause), not end the conversation — never confuse this with the user tapping the orb to end their voice session.
   - If the user says "leave a note" / "leave a revision" with no text yet, DON'T call add_note with empty text — ask "What would you like to say?" via respond_to_user and wait for their answer, THEN call add_note with what they say.
   - After add_note or resolve_all, briefly confirm what happened and ask a short "continue?" / "anything else?" — this is a live voice conversation, not a one-shot command; keep it going rather than going silent.
-  - "close it, open the next one" / "next video" / "the next video that needs my revisions" — after control_review_surface(action=close), call get_editing_queue for the client (pass assignee_name = the caller's own identity whenever they say "my"/"mine"/"assigned to me", even alongside an explicit client_name — see AGENCY VIEW context) to find the next item that you haven't just reviewed. Only open an item marked "[SUBMITTED — ready to review]" — NEVER open one marked "[raw footage only]" or "[nothing uploaded yet]", there's nothing to watch and the review panel will just show empty. If every remaining item lacks a submission, say so instead of opening one. Don't ask which one unless the queue is ambiguous or empty.
+  - "close it, open the next one" / "next video" / "the next video that needs my revisions" — after control_review_surface(action=close), call get_editing_queue for the client (pass assignee_name = the caller's own identity whenever they say "my"/"mine"/"assigned to me", even alongside an explicit client_name — see AGENCY VIEW context / CALLER IDENTITY) to find the next item that you haven't just reviewed. TWO conditions must BOTH hold, not just one: (a) marked "[SUBMITTED — ready to review]" — NEVER open one marked "[raw footage only]" or "[nothing uploaded yet]", there's nothing to watch and the review panel will just show empty; AND (b) lifecycle_status is "Needs Revisions" (or "In progress"/"Not started" if they haven't been looked at yet) — NEVER open one already "Published" or "Scheduled" just because it happens to still show [SUBMITTED] (the file stays attached after it goes out, so the readiness marker alone doesn't mean it's still awaiting review). If nothing matches both conditions, say so instead of opening one. Don't ask which one unless the queue is ambiguous or empty.
 - set_editing_queue_view: for sort/filter/search across the queue
 - set_deadline: explicit deadline changes
 - delete_editing_item / restore_editing_item: soft delete (trash) / restore
@@ -1231,6 +1231,24 @@ serve(async (req) => {
       return closeStream();
     }
 
+    // The caller's OWN display name — for "assigned to me"/"my revisions"
+    // resolution. This is deliberately NOT client.name: client.name is a
+    // business/brand record (which client's DATA to scope tool calls to),
+    // while the editing-queue "assignee" column is populated from
+    // profiles.display_name (see useEditingReviewItem.ts's team-member
+    // picker, the same source humans use to assign items) — for an agency
+    // admin these are usually two different strings entirely (their
+    // fallback "client" record, if any, is a business name, not their own
+    // name), so using client.name here silently filtered "my revisions" to
+    // the wrong assignee. Falls back to client.name only if this admin
+    // genuinely has no profile display_name set.
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const callerDisplayName = callerProfile?.display_name || client.name || "";
+
     // Centralized client lookup used by every inline handler. Delegates to
     // resolveClient (tools/types.ts) so we get the same multi-strategy fuzzy
     // matching: direct ilike → punctuation-stripped → per-word → prefix.
@@ -1510,7 +1528,7 @@ ${active_surface?.type === "editing_review"
 ${urlClientId
   ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.`
   : `\nAGENCY VIEW: There is NO single active client on this page. The user is the agency owner managing many clients. Whenever they mention a client by name (e.g. "Dr Calvin", "make ideas for X", "what's Y's pipeline"), call the appropriate tool with that name as client_name — the lookup handles fuzzy matching (case, punctuation, partial names all work). Do NOT assume the user IS the client for a THIRD-PARTY question ("what's the pipeline looking like" with no name given still needs list_all_clients, not a guess). EXCEPTION: when they use a first-person possessive with no other client named — "my video", "my revisions", "the last one that needs MY revisions", "my queue" — that DOES mean their own record: use "${client.name}" as client_name. "${client.name}" is the default credit/billing identity AND the answer whenever they say "my"/"mine" with nothing else named. If you genuinely don't know which client they mean, call list_all_clients to see options.
-CALLER IDENTITY: "${client.name}" is ALSO this caller's own name as it appears in the editing-queue "assignee" column (editors/reviewers are assigned by this exact name). When they say "assigned to me"/"my revisions"/"my videos" TOGETHER WITH a different client_name (e.g. "the next video from Dr Calvin that needs MY revisions"), that means: client_name=the named client, AND filter to items assigned to them specifically — pass assignee_name="${client.name}" to get_editing_queue, or assignee="${client.name}" to set_editing_queue_view. Do not silently drop the "my"/"mine" part just because a client was also named.`}
+CALLER IDENTITY: "${callerDisplayName}" is this caller's own name as it appears in the editing-queue "assignee" column (editors/reviewers are assigned by this exact name — NOT the same as the client/billing identity "${client.name}" mentioned above). When they say "assigned to me"/"my revisions"/"my videos" — whether alone or TOGETHER WITH a different client_name (e.g. "the next video from Dr Calvin that needs MY revisions") — that means: filter to items assigned to them specifically — pass assignee_name="${callerDisplayName}" to get_editing_queue, or assignee="${callerDisplayName}" to set_editing_queue_view. Do not silently drop the "my"/"mine" part just because a client was also named.`}
 ${openAlertsCount > 0 ? `\nALERTS: There are ${openAlertsCount} open alert(s) the user hasn't dismissed (stuck clients, overdue scripts, stale leads, etc.). When the user opens a fresh conversation OR asks "what's up", "what needs attention", "catch me up", call get_open_alerts to surface 1-2 of the most relevant items in your reply. Do NOT dump the full list every turn — be selective and conversational.` : ""}
 ${brandLines ? `\nOnboarding data:\n${brandLines}` : "\nNo onboarding data yet."}
 ${strategyContext}
@@ -2244,7 +2262,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           } else {
             let queueQuery = adminClient
               .from("video_edits")
-              .select("reel_title, status, assignee, schedule_date, post_status, footage, file_url, file_submission, storage_path, storage_url, deadline")
+              .select("reel_title, status, lifecycle_status, assignee, schedule_date, post_status, footage, file_url, file_submission, storage_path, storage_url, deadline")
               .eq("client_id", targetClient.id)
               .is("deleted_at", null);
             if (assignee_name) queueQuery = queueQuery.ilike("assignee", `%${assignee_name}%`);
@@ -2263,7 +2281,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                   ? "[raw footage only — editor hasn't delivered a cut yet, nothing to review]"
                   : "[nothing uploaded yet]";
               const deadlineMark = i.deadline ? ` deadline ${String(i.deadline).slice(0, 10)}` : "";
-              return `${i.reel_title || "Untitled"} — ${i.status}${i.assignee ? ` (assignee: ${i.assignee})` : " (no assignee)"} ${readyMark}${i.schedule_date ? ` — posts ${String(i.schedule_date).slice(0, 10)}` : ""}${deadlineMark}`;
+              // lifecycle_status (not the legacy status column) is the real
+              // state — a Published/Scheduled item can still show [SUBMITTED]
+              // above since its file never goes away, so this is what
+              // actually distinguishes "still needs revisions" from "already
+              // finished, still has last month's file attached."
+              return `${i.reel_title || "Untitled"} — lifecycle: ${i.lifecycle_status || i.status}${i.assignee ? ` (assignee: ${i.assignee})` : " (no assignee)"} ${readyMark}${i.schedule_date ? ` — posts ${String(i.schedule_date).slice(0, 10)}` : ""}${deadlineMark}`;
             }).join("\n");
             const assigneeNote = assignee_name ? ` (filtered to assignee: ${assignee_name})` : "";
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Editing queue for ${targetClient.name}${assigneeNote}:\n${info || "(no matching items)"}` });

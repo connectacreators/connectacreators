@@ -19,6 +19,7 @@ interface Props {
 }
 
 const CYAN = 'hsl(var(--aqua))';
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -44,6 +45,7 @@ export default function ThemedVideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetHideTimer = useCallback(() => {
@@ -99,6 +101,23 @@ export default function ThemedVideoPlayer({
     setMuted(v.muted);
     resetHideTimer();
   }, [ref, resetHideTimer]);
+
+  const cyclePlaybackRate = useCallback(() => {
+    const next = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(playbackRate) + 1) % PLAYBACK_RATES.length];
+    setPlaybackRate(next);
+    resetHideTimer();
+  }, [playbackRate, resetHideTimer]);
+
+  // Re-apply on both a rate change AND a new src — playbackRate is a plain
+  // property of the <video> element, not a JSX attribute, so React's src
+  // update alone wouldn't touch it, and some browsers reset it on load.
+  // Keeping the chosen speed across videos (not resetting per-src) is
+  // deliberate — reviewing a queue of clips back to back at 1.5x shouldn't
+  // mean re-picking the speed every single time.
+  useEffect(() => {
+    const v = ref.current;
+    if (v) v.playbackRate = playbackRate;
+  }, [ref, playbackRate, src]);
 
   const toggleFullscreen = useCallback(() => {
     const el = containerRef.current;
@@ -257,6 +276,18 @@ export default function ThemedVideoPlayer({
             {fmt(currentTime)} / {fmt(duration)}
           </span>
           <div style={{ flex: 1 }} />
+          <button
+            onClick={cyclePlaybackRate}
+            title="Playback speed"
+            style={{
+              background: 'none', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 4,
+              cursor: 'pointer', color: 'rgba(255,255,255,0.75)', padding: '2px 6px',
+              fontSize: 11, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+              lineHeight: 1.4,
+            }}
+          >
+            {playbackRate}x
+          </button>
           <button onClick={toggleFullscreen} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'rgba(255,255,255,0.6)', padding: 0, display: 'flex', alignItems: 'center',

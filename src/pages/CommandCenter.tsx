@@ -138,6 +138,24 @@ function extractQuotedHook(text: string): { hook: string } | null {
   return { hook: quoted };
 }
 
+// Voice-activated barge-in's known, explicitly-accepted risk (see
+// startBargeIn's own comment): on speaker playback, Robby's own voice can
+// bleed into the mic and false-trigger an interrupt. The arming delay +
+// minimum-length filter mitigate but don't eliminate it. This adds the
+// fuller fix the original comment flagged as deferred: compare what the
+// mic heard against what's actually playing right now — if most of the
+// recognized words are already IN the currently-spoken text, it's an echo
+// of Robby's own voice, not the user actually talking over him.
+function isLikelyOwnVoiceEcho(recognized: string, currentlyPlaying: string): boolean {
+  if (!currentlyPlaying) return false;
+  const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, "").trim();
+  const recWords = norm(recognized).split(/\s+/).filter((w) => w.length > 1);
+  if (recWords.length === 0) return false;
+  const playingNorm = ` ${norm(currentlyPlaying)} `;
+  const matching = recWords.filter((w) => playingNorm.includes(` ${w} `));
+  return matching.length / recWords.length >= 0.6;
+}
+
 interface ThreadRow {
   id: string;
   title: string | null;
@@ -299,6 +317,10 @@ export default function CommandCenter() {
   const speechRunningRef = useRef(false);
   const speechAbortResolveRef = useRef<(() => void) | null>(null);
   const spokeAnythingRef = useRef(false);
+  // The text of whatever chunk is CURRENTLY playing (or "" between chunks)
+  // — lets startBargeIn's recognizer tell "the user started talking" apart
+  // from "Robby's own voice bled into the mic" (see isLikelyOwnVoiceEcho).
+  const currentlyPlayingTextRef = useRef("");
   // Browsers block .play() calls that aren't tied closely enough to a real
   // user gesture (STT -> network -> SSE -> state update is far too many
   // async hops away from the original tap). Resuming an AudioContext
@@ -807,6 +829,11 @@ export default function CommandCenter() {
     rec.onresult = (e: any) => {
       const last = e.results[e.results.length - 1]?.[0]?.transcript || "";
       if (last.trim().length < 3) return; // filter noise/echo blips
+      // The arming delay alone doesn't stop Robby's own voice from bleeding
+      // into the mic through speakers for the REST of a long reply, not
+      // just its first instant — compare against what's actually playing
+      // right now before treating this as a real interrupt.
+      if (isLikelyOwnVoiceEcho(last, currentlyPlayingTextRef.current)) return;
       stopBargeIn();
       interruptSpeech();
       toggleVoiceRef.current(true);
@@ -942,14 +969,17 @@ export default function CommandCenter() {
         ttsAudioUrlRef.current = url;
         audio.src = url;
 
+        currentlyPlayingTextRef.current = text;
         await new Promise<void>((resolve) => {
           audio.onended = () => {
             stopBargeIn();
+            currentlyPlayingTextRef.current = "";
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
           audio.onerror = () => {
             stopBargeIn();
+            currentlyPlayingTextRef.current = "";
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
@@ -960,6 +990,7 @@ export default function CommandCenter() {
             setTimeout(startBargeIn, 500);
           }).catch((err) => {
             console.warn("[ai] TTS playback blocked:", err);
+            currentlyPlayingTextRef.current = "";
             resolve();
           });
         });
