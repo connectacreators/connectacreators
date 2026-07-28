@@ -6,6 +6,8 @@
 // Backend event types:
 //   - { type: "text_delta", text } — a chunk of the reply as Claude writes it
 //   - { type: "scene", scene, verb, meta, tool } — emitted before each tool
+//   - { type: "speech_reset" } — discard any buffered/queued speech; the
+//     text streamed so far was a dead-end that's being silently retried
 //   - { type: "done", reply, actions, thread_id, build_session_id? } — final
 //   - { type: "error", message, status? } — fatal
 import type { SceneType, EmbedRef } from "./turn-script";
@@ -13,6 +15,10 @@ import type { SceneType, EmbedRef } from "./turn-script";
 export interface TextDeltaEvent {
   type: "text_delta";
   text: string;
+}
+
+export interface SpeechResetEvent {
+  type: "speech_reset";
 }
 
 export interface SceneEvent {
@@ -46,11 +52,12 @@ export interface ErrorEvent {
   status?: number;
 }
 
-export type CompanionChatEvent = TextDeltaEvent | SceneEvent | EmbedsEvent | DoneEvent | ErrorEvent;
+export type CompanionChatEvent = TextDeltaEvent | SceneEvent | SpeechResetEvent | EmbedsEvent | DoneEvent | ErrorEvent;
 
 export interface StreamCallbacks {
   onTextDelta?: (event: TextDeltaEvent) => void;
   onScene?: (event: SceneEvent) => void;
+  onSpeechReset?: (event: SpeechResetEvent) => void;
   onEmbeds?: (event: EmbedsEvent) => void;
   onDone?: (event: DoneEvent) => void;
   onError?: (event: ErrorEvent) => void;
@@ -147,6 +154,8 @@ export async function streamCompanionChat({
           callbacks?.onTextDelta?.(event);
         } else if (event.type === "scene") {
           callbacks?.onScene?.(event);
+        } else if (event.type === "speech_reset") {
+          callbacks?.onSpeechReset?.(event);
         } else if (event.type === "embeds") {
           callbacks?.onEmbeds?.(event);
         } else if (event.type === "done") {

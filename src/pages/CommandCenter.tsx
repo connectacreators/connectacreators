@@ -40,6 +40,7 @@ import { useActiveChat } from "@/hooks/useActiveChat";
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/sessionCache";
 import { streamCompanionChat, type SceneEvent, type EmbedRef } from "@/lib/companion/stream-companion-chat";
+import { extractCompleteSentences } from "@/lib/companion/sentence-chunks";
 import {
   AssistantChat,
   AssistantTextInput,
@@ -282,6 +283,21 @@ export default function CommandCenter() {
   // interrupt (pause) when the user taps while Robby is mid-sentence.
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
+  // Sentence-at-a-time voice queue — see interruptSpeech/enqueueSpeech below.
+  // speechBufferRef accumulates streamed text not yet resolved into a
+  // complete sentence; speechQueueRef holds sentences ready to synthesize;
+  // speechRunningRef guards against starting a second drain loop; a chunk's
+  // speakReply() await is raced against speechAbortResolveRef so an
+  // interrupt/dead-end-discard can unstick a loop that's mid-chunk (a
+  // manual .pause() alone never resolves speakReply's onended-based
+  // promise); spokeAnythingRef backs the end-of-turn fallback for replies
+  // whose text never streamed as text_delta (shouldn't happen post
+  // 2026-07-28's respond_to_user emit, but kept as a safety net).
+  const speechBufferRef = useRef("");
+  const speechQueueRef = useRef<string[]>([]);
+  const speechRunningRef = useRef(false);
+  const speechAbortResolveRef = useRef<(() => void) | null>(null);
+  const spokeAnythingRef = useRef(false);
   // Browsers block .play() calls that aren't tied closely enough to a real
   // user gesture (STT -> network -> SSE -> state update is far too many
   // async hops away from the original tap). Resuming an AudioContext
@@ -699,6 +715,25 @@ export default function CommandCenter() {
   }, [toggleVoice]);
 
   /**
+   * Stops whatever Robby is currently saying AND abandons the rest of the
+   * sentence queue behind it — used by every interrupt path (tap-to-stop,
+   * barge-in, a dead-end round getting silently discarded) so none of them
+   * have to know about the queue's internals. Pausing ttsAudioRef alone
+   * isn't enough once speech is chunked: the queue-drain loop below awaits
+   * each chunk's speakReply() call, which only resolves on the audio
+   * element's onended/onerror — a manual .pause() fires neither, so without
+   * this the loop would hang forever instead of moving on. Racing that
+   * await against speechAbortResolveRef unsticks it immediately.
+   */
+  const interruptSpeech = useCallback(() => {
+    speechQueueRef.current = [];
+    speechBufferRef.current = "";
+    const audio = ttsAudioRef.current;
+    if (audio && !audio.paused) audio.pause();
+    speechAbortResolveRef.current?.();
+  }, []);
+
+  /**
    * Voice-activated barge-in — a throwaway recognizer that runs WHILE
    * Robby is talking, listening only for "did the user start speaking,"
    * not for what they said (the real utterance gets captured fresh via
@@ -736,8 +771,7 @@ export default function CommandCenter() {
       const last = e.results[e.results.length - 1]?.[0]?.transcript || "";
       if (last.trim().length < 3) return; // filter noise/echo blips
       stopBargeIn();
-      const audio = ttsAudioRef.current;
-      if (audio && !audio.paused) audio.pause();
+      interruptSpeech();
       toggleVoiceRef.current(true);
     };
     rec.onerror = () => { bargeInRecRef.current = null; };
@@ -749,7 +783,7 @@ export default function CommandCenter() {
       // Mic likely still held by the just-ended main recognizer — skip
       // this turn's barge-in rather than fighting for the microphone.
     }
-  }, [stopBargeIn]);
+  }, [stopBargeIn, interruptSpeech]);
 
   /** See audioUnlockCtxRef above — call synchronously from a real click. */
   const primeMediaPlayback = useCallback(() => {
@@ -780,7 +814,7 @@ export default function CommandCenter() {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       stopBargeIn();
-      audio.pause();
+      interruptSpeech();
       if (voiceConversationActiveRef.current) toggleVoice(true);
       return;
     }
@@ -792,7 +826,7 @@ export default function CommandCenter() {
       setVoiceConversationActive(true);
       toggleVoice(true);
     }
-  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback, stopBargeIn]);
+  }, [recognizing, voiceConversationActive, toggleVoice, primeMediaPlayback, stopBargeIn, interruptSpeech]);
 
   /**
    * The small floating orb shown over an open Action Surface has different
@@ -809,14 +843,14 @@ export default function CommandCenter() {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       stopBargeIn();
-      audio.pause();
+      interruptSpeech();
       toggleVoice(true);
       return;
     }
     if (recognizing) return; // already listening — nothing to do
     if (!voiceConversationActiveRef.current) setVoiceConversationActive(true);
     toggleVoice(true);
-  }, [recognizing, toggleVoice, stopBargeIn]);
+  }, [recognizing, toggleVoice, stopBargeIn, interruptSpeech]);
 
   /** Stop the in-flight companion-chat request. */
   const stopGeneration = useCallback(() => {
@@ -899,6 +933,42 @@ export default function CommandCenter() {
     [startBargeIn, stopBargeIn],
   );
 
+  /**
+   * Drains speechQueueRef one sentence at a time — the reason voice starts
+   * talking after the first sentence instead of waiting for the whole
+   * reply. Guarded by speechRunningRef so enqueueSpeech can call this on
+   * every new sentence without spawning parallel drain loops; each chunk's
+   * play is raced against speechAbortResolveRef so interruptSpeech can
+   * unstick a hung chunk (see interruptSpeech's own comment for why a bare
+   * .pause() can't do this alone).
+   */
+  const runSpeechQueue = useCallback(() => {
+    if (speechRunningRef.current) return;
+    speechRunningRef.current = true;
+    (async () => {
+      while (speechQueueRef.current.length > 0) {
+        const chunk = speechQueueRef.current.shift()!;
+        await Promise.race([
+          speakReply(chunk),
+          new Promise<void>((resolve) => { speechAbortResolveRef.current = resolve; }),
+        ]);
+        speechAbortResolveRef.current = null;
+      }
+      speechRunningRef.current = false;
+    })();
+  }, [speakReply]);
+
+  const enqueueSpeech = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      spokeAnythingRef.current = true;
+      speechQueueRef.current.push(trimmed);
+      runSpeechQueue();
+    },
+    [runSpeechQueue],
+  );
+
   // ── Send a message via companion-chat (dual-writes to new tables) ──────
   // Accepts an optional override so callers (e.g. the InlineScriptPreview
   // Approve button) can send a synthetic message without going through the
@@ -916,6 +986,13 @@ export default function CommandCenter() {
     if (!overrideText) setInput("");
     setSending(true);
     setStreamingCaption("");
+    // Defensive reset: a previous turn aborted mid-stream (Stop button)
+    // skips the end-of-turn flush entirely (it lives past the try/catch's
+    // abort branch), which would otherwise leave stale unspoken text
+    // sitting in the buffer for this new turn to inherit.
+    speechBufferRef.current = "";
+    speechQueueRef.current = [];
+    spokeAnythingRef.current = false;
 
     const optimistic: MsgRow = {
       id: `tmp-${Date.now()}`,
@@ -999,7 +1076,20 @@ export default function CommandCenter() {
         },
         signal: controller.signal,
         callbacks: {
-          onTextDelta: (event) => setStreamingCaption((prev) => prev + event.text),
+          onTextDelta: (event) => {
+            setStreamingCaption((prev) => prev + event.text);
+            // Sentence-at-a-time voice: only for the turn the user actually
+            // spoke (matches speakReply's own scoping), queue each complete
+            // sentence for TTS as soon as it's ready instead of waiting for
+            // the whole reply to finish streaming.
+            if (lastTurnWasVoiceRef.current) {
+              speechBufferRef.current += event.text;
+              const { chunks, remainder } = extractCompleteSentences(speechBufferRef.current);
+              speechBufferRef.current = remainder;
+              for (const chunk of chunks) enqueueSpeech(chunk);
+            }
+          },
+          onSpeechReset: () => interruptSpeech(),
           onScene: (scene) => setCurrentScene(scene),
           onEmbeds: (event) => {
             const tid = activeThreadId ?? "__pending__";
@@ -1147,16 +1237,32 @@ export default function CommandCenter() {
 
       // Read the reply aloud only for the turn that was itself spoken —
       // consume the flag immediately so a later typed message never
-      // inherits it. If the hands-free conversation loop is active, listen
-      // again once the reply has been spoken (or immediately if there was
-      // nothing to speak) so the loop keeps going without another tap.
+      // inherits it. Sentences already streamed in via onTextDelta are
+      // mid-queue or already spoken by now; this just flushes whatever
+      // trailing partial sentence is left in the buffer (the reply's last
+      // clause never got a lookahead match since nothing followed it in
+      // the stream) and, as a last-resort safety net, speaks data.reply
+      // whole if for some reason nothing was ever queued incrementally. If
+      // the hands-free conversation loop is active, listen again once the
+      // whole queue has drained (or immediately if there was nothing to
+      // speak) so the loop keeps going without another tap.
       if (lastTurnWasVoiceRef.current) {
         lastTurnWasVoiceRef.current = false;
+        const tail = speechBufferRef.current.trim();
+        speechBufferRef.current = "";
+        if (tail) enqueueSpeech(tail);
         const spokenReply = typeof data?.reply === "string" ? data.reply.trim() : "";
-        if (spokenReply) {
-          void speakReply(spokenReply).finally(() => {
-            if (voiceConversationActiveRef.current) toggleVoiceRef.current(true);
+        if (!spokeAnythingRef.current && spokenReply) enqueueSpeech(spokenReply);
+        spokeAnythingRef.current = false;
+        if (speechQueueRef.current.length > 0 || speechRunningRef.current) {
+          await new Promise<void>((resolve) => {
+            const check = () => {
+              if (!speechRunningRef.current && speechQueueRef.current.length === 0) resolve();
+              else setTimeout(check, 50);
+            };
+            check();
           });
+          if (voiceConversationActiveRef.current) toggleVoiceRef.current(true);
         } else if (voiceConversationActiveRef.current) {
           toggleVoiceRef.current(true);
         }
@@ -1199,7 +1305,8 @@ export default function CommandCenter() {
     imageMode,
     isResearchMode,
     pastedImage,
-    speakReply,
+    enqueueSpeech,
+    interruptSpeech,
   ]);
 
   // toggleVoice (declared above, before handleSend exists) calls handleSend

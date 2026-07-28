@@ -1732,6 +1732,12 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           // succeed on retry. If retry fails, the next iteration will set
           // reply to the new response.
           reply = "";
+          // Tell the FE to discard any speech it's already queued/buffered
+          // from this round's text_delta stream — the dead-end text was
+          // just streamed to it live (for the "watch it write" caption) but
+          // must never be spoken aloud, since it's about to be replaced by
+          // the retry's real answer.
+          emit({ type: "speech_reset" });
           continue;
         }
 
@@ -1763,6 +1769,14 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           if (msg) {
             reply = msg;
             if (round === 0) turn1Reply = reply;
+            // respond_to_user's text arrives as complete tool-call JSON
+            // input (Anthropic streams it as input_json_delta, which
+            // streamAnthropicCall buffers and never forwards as text_delta)
+            // — emit it through the same text_delta channel real text
+            // blocks use so the FE's incremental voice-chunking picks it up
+            // like any other reply instead of only hearing it via the
+            // end-of-turn fallback.
+            emit({ type: "text_delta", text: msg });
           }
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Message sent." });
         }
