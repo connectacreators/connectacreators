@@ -13,14 +13,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// "Lily" — an ElevenLabs voice explicitly trained/tagged for a neutral
-// Latin American Spanish accent (not a native-English voice pressed into
-// Spanish via the multilingual model). Switched from "Bella" (a native-
-// English voice) after a live report that replies sounded English-accented
-// in Spanish — the ACCENT lives in the voice's training data, not just the
-// model, so a genuinely English-native voice carries that accent into every
-// language it's asked to speak regardless of model choice.
-const VOICE_ID = "zl7szWVBXnpgrJmAalgz";
+// "Danielle" — swapped from "Lily" 2026-07-28 after a live report that
+// English replies sounded accented. Checked ElevenLabs' own voice metadata
+// (GET /v2/voices) rather than guessing: Lily's verified_languages had ZERO
+// English entries at all — she was never actually verified for English,
+// only pressed into it via the multilingual model, same mechanism as the
+// earlier Bella→Lily swap but in reverse (a Spanish-trained voice carries
+// ITS accent into English, mirroring why an English-trained voice carried
+// its accent into Spanish before). Danielle is one of the few voices in
+// the account's library with BOTH en(canadian) and es(latin) as genuinely
+// verified languages, not just multilingual-model-attempted — Canadian
+// English reads as neutral/unaccented to most listeners, and es(latin)
+// keeps the Latin American Spanish match the original swap was for.
+// NOT verified by ear (no audio playback available when this was chosen)
+// — flag it if this still isn't right and we'll pick a different one from
+// the same verified-both-languages shortlist.
+const VOICE_ID = "FVQMzxJGPUBtfz1Azdoy";
 // eleven_multilingual_v2 — ElevenLabs' most life-like/emotionally rich
 // model, prioritizing cross-lingual quality over raw speed. Switched from
 // eleven_flash_v2_5 (their lowest-latency tier, optimized for speed over
