@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ExternalLink,
   Archive, Wand2, Loader2, CheckCircle2, Pencil, Check, X as XIcon,
-  NotebookPen,
+  NotebookPen, Download,
 } from "lucide-react";
 import UseInScriptModal from "@/components/viral-today/UseInScriptModal";
 import { videoUrlLookupVariants } from "@/lib/canonicalize-video-url";
@@ -22,6 +22,7 @@ import { useOutOfCredits } from "@/contexts/OutOfCreditsContext";
 import { cn } from "@/lib/utils";
 import { CONTENT_FORMATS, nicheLabel } from "@/lib/video-taxonomy";
 import { fmtViews, fmtOutlier, timeAgo, getOutlierColor } from "@/lib/viral-card-utils";
+import { buildViralVideoCsvRow, VIRAL_VIDEO_CSV_HEADERS, csvNum, downloadCsvFile } from "@/lib/viralVideoCsv";
 
 // ==================== TYPES ====================
 interface FormatDetection {
@@ -72,6 +73,8 @@ interface ViralVideo {
   analysis_error: string | null;
   content_format: string | null;
   primary_niche: string | null;
+  framework_score?: number | null;
+  niche_tags?: string[] | null;
 }
 
 interface ClientOption {
@@ -439,6 +442,21 @@ export default function ViralVideoDetail() {
       cancelled = true;
     };
   }, [video?.video_url, useInScriptOpen]);
+
+  // ==================== EXPORT CSV ====================
+  // Single-video counterpart to ViralToday's bulk export — same headers/
+  // formatting (shared via src/lib/viralVideoCsv.ts) so a one-off download
+  // here is a strict subset of what the bulk export produces. No extra
+  // fetch needed: this page already loaded the full row via select("*").
+  const handleExportSingleCsv = () => {
+    if (!video) return;
+    const csv = "﻿"
+      + VIRAL_VIDEO_CSV_HEADERS.map((h) => csvNum(h)).join(",")
+      + "\r\n"
+      + buildViralVideoCsvRow(video);
+    downloadCsvFile(csv, `viral-video-${video.channel_username}-${video.id.slice(0, 8)}.csv`);
+    toast.success("Exported video metadata");
+  };
 
   // ==================== REMIX SCRIPT ====================
   const handleRemixScript = () => {
@@ -822,6 +840,17 @@ export default function ViralVideoDetail() {
             >
               Used in {usedInScripts.length} script{usedInScripts.length !== 1 ? "s" : ""}
             </span>
+          )}
+
+          {/* Export this video's metadata as CSV — single-video counterpart
+              to the bulk export on the Viral Today list page. Admin-only,
+              matching that export's gating (the columns include internal
+              analysis fields like transcript/hook_text). */}
+          {isAdmin && (
+            <Button onClick={handleExportSingleCsv} variant="ghost" size="sm" className="gap-2">
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           )}
 
           {/* Use in Script — attach to an existing script (idea / format lane)
