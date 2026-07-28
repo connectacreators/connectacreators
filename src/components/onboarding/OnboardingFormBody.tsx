@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RichTextField from "./RichTextField";
 import ProfilesField from "./ProfilesField";
 import type { OnboardingData } from "@/lib/onboarding/types";
@@ -241,7 +242,16 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
         <SectionHeader n={5}>Market &amp; Goals</SectionHeader>
         <div className="space-y-5 md:space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="targetClient">Who is {Your} Target Client?</Label>
+            <Label htmlFor="targetClient">
+              What is {Your}{" "}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help underline decoration-dotted underline-offset-2">ICP</span>
+                </TooltipTrigger>
+                <TooltipContent>Ideal Client Profile</TooltipContent>
+              </Tooltip>
+              ?
+            </Label>
             <RichTextField
               id="targetClient"
               value={formData.targetClient}

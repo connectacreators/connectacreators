@@ -53,7 +53,7 @@ const SECTIONS = [
   {
     title: "Market & Goals",
     fields: [
-      { key: "targetClient", label: "Target Client" },
+      { key: "targetClient", label: "ICP" },
       { key: "top3Profiles", label: "Top Profiles" },
       { key: "callLink", label: "Call Link" },
       { key: "additionalNotes", label: "Notes" },
