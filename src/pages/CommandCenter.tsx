@@ -51,6 +51,7 @@ import { AI_MODELS, type AssistantMessage } from "@/components/canvas/CanvasAIPa
 import CommandDeckLayout from "@/components/command-deck/CommandDeckLayout";
 import CommandOrb from "@/components/command-deck/CommandOrb";
 import RevisionReviewSurface from "@/components/command-deck/RevisionReviewSurface";
+import ScriptEditSurface, { type ScriptSurfaceState } from "@/components/command-deck/ScriptEditSurface";
 import { parseEditingReviewNavigation, type EditingReviewTarget, type ActionSurfaceSnapshot } from "@/lib/commandDeck/actionSurface";
 import type { ReviewSurfaceCommand } from "@/components/VideoReviewModal";
 
@@ -459,6 +460,23 @@ export default function CommandCenter() {
   // add note/approve) — state, not a ref, since setting it must propagate
   // down as a prop change for RevisionReviewSurface's effect to fire.
   const [reviewSurfaceCommand, setReviewSurfaceCommand] = useState<ReviewSurfaceCommand | null>(null);
+
+  // Script Surface — companion to actionSurface above, for create_script /
+  // edit_script_live's script_surface_update action. Kept as a SEPARATE
+  // state (not folded into actionSurface's EditingReviewTarget type) since
+  // it's a different kind of thing entirely; the render below treats the
+  // two as mutually exclusive (whichever fired most recently wins the
+  // orb's spot), matching how a real conversation only has one open focus
+  // at a time.
+  const [scriptSurface, setScriptSurface] = useState<ScriptSurfaceState | null>(null);
+  const scriptSurfaceRef = useRef<ScriptSurfaceState | null>(null);
+  useEffect(() => { scriptSurfaceRef.current = scriptSurface; }, [scriptSurface]);
+  // Line ids touched by the most recent edit, so ScriptEditSurface only
+  // replays the reveal animation for what actually changed. Cleared after
+  // the reveal's own duration via the timeout below rather than lingering
+  // — a much later unrelated edit shouldn't inherit an old highlight.
+  const [recentlyChangedLineIds, setRecentlyChangedLineIds] = useState<Set<string> | null>(null);
+  const scriptHighlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Chats sidebar collapsed state — persisted to localStorage. Toggleable via
   // the panel-icon button in the header or Cmd/Ctrl+. keyboard shortcut.
@@ -1064,6 +1082,18 @@ export default function CommandCenter() {
                 playing: activeSurfaceStateRef.current.playing,
                 current_time_seconds: activeSurfaceStateRef.current.currentTimeSeconds,
               }
+            : scriptSurfaceRef.current
+            ? {
+                type: "script_edit" as const,
+                script_id: scriptSurfaceRef.current.scriptId,
+                title: scriptSurfaceRef.current.title,
+                client_name: scriptSurfaceRef.current.clientName,
+                lines: scriptSurfaceRef.current.lines.map((l) => ({
+                  section: l.section,
+                  line_type: l.line_type,
+                  text: l.text,
+                })),
+              }
             : null,
           // Tier-2 controls — passed through to companion-chat which already
           // honors these fields when sent (same payload Canvas uses).
@@ -1231,6 +1261,30 @@ export default function CommandCenter() {
               // closed it, so no extra guard is needed here.
               setReviewSurfaceCommand(control);
             }
+          }
+          if (action?.type === "script_surface_update" && typeof action.script_id === "string") {
+            setActionSurface(null); // mutually exclusive with the revision surface
+            setChatViewMode("orb");
+            const lines = Array.isArray(action.lines) ? (action.lines as ScriptSurfaceState["lines"]) : [];
+            setScriptSurface({
+              scriptId: action.script_id,
+              clientId: typeof action.client_id === "string" ? action.client_id : null,
+              clientName: typeof action.client_name === "string" ? action.client_name : null,
+              title: typeof action.title === "string" ? action.title : "Untitled",
+              lines,
+              changeSummary: typeof action.change_summary === "string" ? action.change_summary : undefined,
+            });
+            const changedNumbers = Array.isArray(action.changed_line_numbers) ? (action.changed_line_numbers as number[]) : [];
+            const changedIds = new Set(
+              changedNumbers.map((n) => lines[n - 1]?.id).filter((id): id is string => !!id),
+            );
+            setRecentlyChangedLineIds(changedIds.size > 0 ? changedIds : null);
+            if (scriptHighlightTimeoutRef.current) clearTimeout(scriptHighlightTimeoutRef.current);
+            // Long enough for the slowest per-line typewriter reveal
+            // (ScriptEditSurface caps a single line at 1400ms) plus a beat —
+            // after this the "just changed" set clears so a later edit's
+            // reveal isn't dulled by stale highlighted lines.
+            scriptHighlightTimeoutRef.current = setTimeout(() => setRecentlyChangedLineIds(null), 2500);
           }
         }
       }
@@ -1522,7 +1576,7 @@ export default function CommandCenter() {
           focus-pull dims) so position:fixed isn't trapped by a filtered
           ancestor's containing block — a real CSS gotcha, not a style
           preference. */}
-      {actionSurface && (
+      {(actionSurface || scriptSurface) && (
         <div
           className="fixed z-[200] flex items-center justify-center cd-mini-orb-in"
           style={{
@@ -1572,7 +1626,7 @@ export default function CommandCenter() {
             displayName={displayName || "Admin"}
             companionName={companionName || "Robby"}
             listening={recognizing}
-            focusMode={!!actionSurface}
+            focusMode={!!actionSurface || !!scriptSurface}
           >
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
@@ -1620,6 +1674,14 @@ export default function CommandCenter() {
                     externalCommand={reviewSurfaceCommand}
                     onExternalCommandHandled={() => setReviewSurfaceCommand(null)}
                     onSurfaceStateChange={(state) => { activeSurfaceStateRef.current = state; }}
+                  />
+                </div>
+              ) : scriptSurface ? (
+                <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden px-4 py-4">
+                  <ScriptEditSurface
+                    surface={scriptSurface}
+                    recentlyChangedLineIds={recentlyChangedLineIds}
+                    onClose={() => setScriptSurface(null)}
                   />
                 </div>
               ) : /* Orb mode is the Command Deck default, with or without an

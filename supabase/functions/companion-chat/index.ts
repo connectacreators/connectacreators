@@ -687,6 +687,8 @@ YOUR RULES — FOLLOW EXACTLY:
 17. WORKFLOW GUIDE: (1) Onboarding complete → (2) Instagram handle added → (3) Viral references researched → (4) Winning idea identified → (5) Script created → (6) Client films → (7) Footage submitted to editing queue → (8) Editor assigned → (9) Approved → (10) Scheduled → (11) Posted. Always know where the client is and name the next step.
 18. SCRIPT CREATION: Explicit "build me a script" requests are routed to a separate dedicated build flow before reaching you. If a user picks a content idea or asks you to write a script directly here, follow the framework-first workflow: (a) call find_viral_videos with keywords from their idea to surface a viral reference, (b) tell the user which reference you'll model the script after and ask them to confirm or pick another, (c) ONLY THEN call create_script and use the reference's hook/body/CTA structure. Never call create_script as your first move on an idea — viewers want content shaped by proven viral patterns, not bare-knowledge writing.
 
+18-SCRIPT-SURFACE: On the Command Deck (/ai), create_script opens the new script in-page as a Script Surface (orb shrinks back, script shown live) instead of navigating away — the conversation keeps going right there. Once it's open (or ACTIVE ACTION SURFACE already shows one), use edit_script_live for every follow-up edit ("make the hook punchier", "add a stat", "shorten the CTA") — this is a live, continuous editing conversation, not one-shot creation. See ACTIVE ACTION SURFACE below for the exact tool contract and current content when a Script Surface is open.
+
 18-NICHE/FORMAT AWARENESS: Every viral_videos row is tagged with a primary_niche (audience/industry the creator targets — see the BRAND CONTEXT block for the active client's slug) and a content_format (structural pattern: storytelling, educational, comparison, listicle, tutorial, vlog, reaction, authority, selling, funny, caption_post). When you call find_viral_videos:
 - PREFER passing the niche param — if the user names the active client (per BRAND CONTEXT) use that primary_niche slug. If the user names a DIFFERENT client (e.g. "viral hooks for Boby" when Calvin is active), either (a) call list_all_clients first to resolve Boby's industry → niche, OR (b) just call find_viral_videos WITHOUT a niche filter as a fallback. Returning a topic-only result is always better than freezing.
 - INFER the content_format param from the user's wording and pass it when possible. Examples: "tell a story" / "share an experience" → storytelling · "explain how X works" / "teach" → educational · "how-to" / "step by step" → tutorial · "X vs Y" / "comparing two things" → comparison · "top 3" / "5 reasons" → listicle · "react to" / "hot take on" → reaction · "as a doctor I" / "expert perspective" → authority · "day in my life" / "behind the scenes" → vlog · "pitch" / "selling" / "close" → selling · "funny" / "comedy" / "skit" → funny · "text overlay only" → caption_post.
@@ -1018,6 +1020,18 @@ serve(async (req) => {
         client_name: string | null;
         playing: boolean;
         current_time_seconds: number;
+      } | {
+        /** The Script Surface — shows a script's lines in-page, orb shrunk
+         *  back, so the user can dictate live edits ("make the hook
+         *  punchier") without re-stating which script or repasting its
+         *  content. Lines are included directly (not fetched via
+         *  get_script) so edit_script_live always has the exact current
+         *  text to reproduce unchanged. */
+        type: "script_edit";
+        script_id: string;
+        title: string;
+        client_name: string | null;
+        lines: Array<{ section: string; line_type: string; text: string }>;
       } | null;
     };
 
@@ -1490,6 +1504,8 @@ ${analysis?.summary ? `\nAUDIENCE ANALYSIS (from Instagram scrape):\nAudience al
 Currently on page: ${current_path || "unknown"}
 ${active_surface?.type === "editing_review"
   ? `\nACTIVE ACTION SURFACE: the user is looking at an in-page review panel for editing-queue item "${active_surface.item_title}" (item_id: ${active_surface.item_id}${active_surface.client_name ? `, client: ${active_surface.client_name}` : ""}). It is currently ${active_surface.playing ? "PLAYING" : "PAUSED"} at ${Math.floor(active_surface.current_time_seconds / 60)}:${String(Math.floor(active_surface.current_time_seconds % 60)).padStart(2, "0")}. When the user says "it"/"this"/"here"/"the video" they mean THIS item — use "${active_surface.item_title}" as item_title for any editing-queue tool without asking them to repeat it. For play/pause/seek/add-a-note-here/approve-all-revisions, use control_review_surface (it targets this open surface directly, no lookup needed).`
+  : active_surface?.type === "script_edit"
+  ? `\nACTIVE ACTION SURFACE: the user is looking at an in-page Script Surface showing "${active_surface.title}"${active_surface.client_name ? ` (client: ${active_surface.client_name})` : ""} (script_id: ${active_surface.script_id}). Its EXACT current content, in order:\n${active_surface.lines.map((l, i) => `${i + 1}. [${l.section}/${l.line_type}] ${l.text}`).join("\n")}\nWhen the user says "it"/"this"/"the hook"/"the script" they mean THIS script — no need to look it up. For ANY requested change ("make the hook punchier", "cut the CTA to one line", "add a stat about X"), call edit_script_live with script_id "${active_surface.script_id}" and the COMPLETE new lines array — copy every line that isn't part of the request byte-for-byte from the content above, only changing what was actually asked for. Do not use create_script or get_script for this script while this surface is open — edit_script_live IS the read+write path here.`
   : ""}
 ${urlClientId
   ? `\nACTIVE CLIENT (locked from URL): ${client.name} (id: ${client.id}). Every tool call that takes client_name MUST use "${client.name}" — do NOT name-match other clients. The URL is the source of truth.`
@@ -1822,6 +1838,7 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
               // an editor that opens to a genuinely empty script.
               const VALID_LINE_TYPES = new Set(["filming", "actor", "editor", "text_on_screen"]);
               const lineRows = lines.map((l: any, i: number) => ({
+                id: crypto.randomUUID(),
                 script_id: script.id,
                 line_number: i + 1,
                 line_type: VALID_LINE_TYPES.has(l.line_type) ? l.line_type : "actor",
@@ -1841,9 +1858,25 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
                   content: `Failed to save "${title}" for ${targetClient.name} (${linesErr.message}) — nothing was saved, try again.`,
                 });
               } else {
-                // Navigate to the client's scripts page (suppressed on /ai so
-                // we don't unmount the chat surface mid-conversation)
-                if (!isOnAiSurface) actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+                // On the Command Deck, open the new script as a Script
+                // Surface in-page (orb shrinks back, script shows live)
+                // instead of navigating to the Scripts page — same
+                // in-page-surface treatment open_editing_item already gets.
+                if (!isOnAiSurface) {
+                  actions.push({ type: "navigate", path: "/clients/" + targetClient.id + "/scripts" });
+                } else {
+                  actions.push({
+                    type: "script_surface_update",
+                    script_id: script.id,
+                    title,
+                    client_id: targetClient.id,
+                    client_name: targetClient.name,
+                    lines: lineRows.map((r) => ({ id: r.id, section: r.section, line_type: r.line_type, text: r.text })),
+                    changed_line_numbers: lineRows.map((r) => r.line_number),
+                    change_summary: "Script created",
+                    was_conflicted: false,
+                  });
+                }
                 actions.push({ type: "refresh_data", scope: "scripts" });
                 toolResults.push({ type: "tool_result", tool_use_id: block.id, content: "Script saved for " + targetClient.name + " with " + lines.length + " lines." });
               }

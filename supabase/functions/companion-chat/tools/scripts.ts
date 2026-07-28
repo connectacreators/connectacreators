@@ -52,6 +52,31 @@ export const SCRIPT_TOOLS: ToolDef[] = [
       required: ["client_name", "script_title"],
     },
   },
+  {
+    name: "edit_script_live",
+    description: "Rewrite the currently-open Script Surface's content per the user's spoken instruction (e.g. \"make the hook punchier\", \"add a stat about X to the body\", \"cut the CTA to one line\"). Only usable while ACTIVE ACTION SURFACE says a Script Surface is open — for any other script, there is no live-edit path yet; tell the user to open it on the Scripts page instead. Provide the COMPLETE new lines array reflecting the requested change, not just the changed lines — copy every unrelated line byte-for-byte from the ACTIVE ACTION SURFACE content so only the intended part visibly changes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        script_id: { type: "string", description: "The open Script Surface's script_id, from ACTIVE ACTION SURFACE." },
+        lines: {
+          type: "array",
+          description: "The FULL new script, every line, in order.",
+          items: {
+            type: "object",
+            properties: {
+              section: { type: "string", description: "hook | body | cta" },
+              line_type: { type: "string", description: "filming | actor | editor | text_on_screen" },
+              text: { type: "string" },
+            },
+            required: ["section", "line_type", "text"],
+          },
+        },
+        change_summary: { type: "string", description: "One short phrase describing what changed, e.g. \"Punchier hook\" — shown as a small on-screen caption, not spoken aloud." },
+      },
+      required: ["script_id", "lines", "change_summary"],
+    },
+  },
 ];
 
 async function findScript(adminClient: any, clientId: string, titlePartial: string) {
@@ -153,6 +178,106 @@ export async function handleScriptTool(
     await adminClient.from("scripts").update({ grabado: true, status: "Recorded" }).eq("id", script.id);
     actions.push({ type: "refresh_data", scope: "scripts" });
     return { type: "tool_result", tool_use_id: block.id, content: `"${script.idea_ganadora ?? script.title}" marked as recorded.` };
+  }
+
+  if (block.name === "edit_script_live") {
+    const { script_id, lines, change_summary } = block.input as {
+      script_id: string;
+      lines: Array<{ section: string; line_type: string; text: string }>;
+      change_summary: string;
+    };
+    if (!script_id) return { type: "tool_result", tool_use_id: block.id, content: "script_id is required." };
+    if (!Array.isArray(lines) || lines.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "lines must be a non-empty array." };
+    }
+
+    const { data: script, error: scriptFetchErr } = await adminClient
+      .from("scripts")
+      .select("id, title, idea_ganadora, client_id, revision")
+      .eq("id", script_id)
+      .maybeSingle();
+    if (scriptFetchErr || !script) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Script ${script_id} not found — the Script Surface may have closed.` };
+    }
+
+    let clientName: string | null = null;
+    if (script.client_id) {
+      const { data: clientRow } = await adminClient.from("clients").select("name").eq("id", script.client_id).maybeSingle();
+      clientName = clientRow?.name ?? null;
+    }
+
+    const { data: oldLines } = await adminClient
+      .from("script_lines")
+      .select("id, text")
+      .eq("script_id", script_id)
+      .order("line_number");
+    const oldIds = (oldLines ?? []).map((l: { id: string }) => l.id);
+    const oldTexts = (oldLines ?? []).map((l: { text: string }) => l.text);
+
+    // Same DB CHECK-constraint guard create_script uses — a bad line_type
+    // fails the whole batch insert, not just that row.
+    const VALID_LINE_TYPES = new Set(["filming", "actor", "editor", "text_on_screen"]);
+    const newRows = lines.map((l, i) => ({
+      id: crypto.randomUUID(),
+      script_id,
+      line_number: i + 1,
+      line_type: VALID_LINE_TYPES.has(l.line_type) ? l.line_type : "actor",
+      section: l.section || "body",
+      text: l.text,
+    }));
+
+    const { data: rpcData, error: rpcErr } = await adminClient.rpc("save_script_blocks_atomic", {
+      p_script_id: script_id,
+      p_expected_revision: script.revision,
+      p_upserts: newRows,
+      p_delete_ids: oldIds,
+    });
+    if (rpcErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Failed to save the edit: ${rpcErr.message}` };
+    }
+
+    // raw_content is a denormalized full-text cache (same field create_script
+    // populates at insert time) — save_script_blocks_atomic only touches
+    // script_lines + revision, so it needs updating separately here.
+    await adminClient
+      .from("scripts")
+      .update({ raw_content: newRows.map((r) => r.text).join("\n") })
+      .eq("id", script_id);
+
+    // Which lines actually changed, by position — drives the Script
+    // Surface's per-line reveal animation so an edit doesn't re-flash the
+    // whole script, just the part that changed.
+    const changedLineNumbers = newRows
+      .map((r, i) => (oldTexts[i] !== r.text ? r.line_number : null))
+      .filter((n): n is number => n !== null);
+    if (newRows.length !== oldTexts.length) {
+      // Line count changed (added/removed a line) — every line from the
+      // first divergence point on has a shifted position, so just flag
+      // everything from there onward rather than a precise but fragile
+      // realignment.
+      const firstDivergence = changedLineNumbers[0] ?? 1;
+      for (let n = firstDivergence; n <= newRows.length; n++) {
+        if (!changedLineNumbers.includes(n)) changedLineNumbers.push(n);
+      }
+    }
+
+    actions.push({
+      type: "script_surface_update",
+      script_id,
+      title: script.idea_ganadora ?? script.title ?? "Untitled",
+      client_id: script.client_id,
+      client_name: clientName,
+      lines: newRows.map((r) => ({ id: r.id, section: r.section, line_type: r.line_type, text: r.text })),
+      changed_line_numbers: changedLineNumbers,
+      change_summary: change_summary || "Updated",
+      was_conflicted: !!rpcData?.[0]?.was_conflicted,
+    });
+
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Updated "${script.idea_ganadora ?? script.title}" — ${change_summary || "changes applied"}.`,
+    };
   }
 
   if (block.name === "delete_script") {
