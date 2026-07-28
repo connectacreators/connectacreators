@@ -752,6 +752,25 @@ export default function CommandCenter() {
   }, []);
 
   /**
+   * The gentler sibling of interruptSpeech, for onSpeechReset only — a
+   * dead-end round's text is discarded server-side AFTER it's already
+   * fully streamed, meaning whatever sentences it produced may already be
+   * mid-playback by the time this fires (the dead-end check itself can
+   * only run once the whole round's text is in). Cutting that off
+   * mid-word was audibly jarring for what the 2026-07-28 length-gate fix
+   * confirmed is often actually a complete, valid answer, not a real
+   * unfulfilled promise — so this only drops what HASN'T played yet
+   * (buffered text + not-yet-started queued chunks); anything already
+   * audible finishes naturally. Real user-initiated interrupts (tap,
+   * barge-in) still go through interruptSpeech's hard cut — this is
+   * deliberately narrower, not a general replacement for it.
+   */
+  const discardUnspokenSpeech = useCallback(() => {
+    speechQueueRef.current = [];
+    speechBufferRef.current = "";
+  }, []);
+
+  /**
    * Voice-activated barge-in — a throwaway recognizer that runs WHILE
    * Robby is talking, listening only for "did the user start speaking,"
    * not for what they said (the real utterance gets captured fresh via
@@ -1119,7 +1138,7 @@ export default function CommandCenter() {
               for (const chunk of chunks) enqueueSpeech(chunk);
             }
           },
-          onSpeechReset: () => interruptSpeech(),
+          onSpeechReset: () => discardUnspokenSpeech(),
           onScene: (scene) => setCurrentScene(scene),
           onEmbeds: (event) => {
             const tid = activeThreadId ?? "__pending__";
@@ -1361,6 +1380,7 @@ export default function CommandCenter() {
     pastedImage,
     enqueueSpeech,
     interruptSpeech,
+    discardUnspokenSpeech,
   ]);
 
   // toggleVoice (declared above, before handleSend exists) calls handleSend

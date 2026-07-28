@@ -1730,6 +1730,17 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           // Anthropic call retrying with tool_choice:any when the user
           // just wanted a rewrite.
           detectedMode !== "refinement" &&
+          // A genuine dead end is a promise-only stub ("Let me pull that
+          // up...") — the ENTIRE reply, not just its opening. A complete,
+          // substantive answer that merely opens with common transitional
+          // phrasing ("Let me know if you want more detail, but here's the
+          // update: ...") matches the same regexes in its first 80 chars
+          // while being 200+ characters of real content — this length gate
+          // is what actually distinguishes the two, not the phrase match
+          // alone. Discovered 2026-07-28 when voice streaming made a false
+          // positive here audible for the first time (previously just an
+          // invisible extra retry) — see speech_reset in speakReply's FE.
+          reply.length <= 140 &&
           deadEndPatterns.some((re) => re.test(replyOpening));
         if (looksLikeDeadEnd) {
           deadEndRetried = true;
