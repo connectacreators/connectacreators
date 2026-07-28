@@ -1122,8 +1122,11 @@ export function AIScriptWizard({ selectedClient, onComplete, onCancel, initialTe
         return { line_type: lineType, section, text };
       });
 
-      // Strict validation: ensure title is not empty
-      let ideaGanadora = (generatedScript.idea_ganadora || topic || "").trim();
+      // The user's own typed topic IS their intended title when they gave
+      // one — only fall back to the AI's own idea_ganadora when they left
+      // it blank. Previously this always preferred the AI's title, so
+      // typing your own was silently discarded every time.
+      let ideaGanadora = (topic || generatedScript.idea_ganadora || "").trim();
       if (!ideaGanadora) {
         ideaGanadora = "Script";
       }

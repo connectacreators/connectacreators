@@ -624,7 +624,7 @@ Apply ONLY the requested changes. Preserve the hook, structure, topic, and forma
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words)" },
+              idea_ganadora: { type: "string", description: "STRICT MAXIMUM 3-5 words. Keep the EXISTING title verbatim unless the core concept genuinely changed — refining wording/lines is not a reason to retitle." },
               target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
               virality_score: {
@@ -640,6 +640,15 @@ Apply ONLY the requested changes. Preserve the hook, structure, topic, and forma
 
       const toolUse = data.content?.find((c: any) => c.type === "tool_use");
       if (!toolUse) throw new Error("No tool use in Claude response");
+
+      // Server-side enforce 3-5 word limit on idea_ganadora — this step's
+      // schema description previously said "max 5-7 words" with no backstop
+      // at all (every other step has one), which is how a refine pass could
+      // silently balloon the title into a full sentence.
+      if (toolUse.input.idea_ganadora) {
+        const words = toolUse.input.idea_ganadora.split(/\s+/);
+        if (words.length > 5) toolUse.input.idea_ganadora = words.slice(0, 5).join(" ");
+      }
 
       return new Response(JSON.stringify(toolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -690,7 +699,7 @@ Return the translated script with the SAME structure, same number of lines, same
                   required: ["line_type", "section", "text"],
                 },
               },
-              idea_ganadora: { type: "string", description: "Short punchy title (max 5-7 words)" },
+              idea_ganadora: { type: "string", description: "Translated title — STRICT MAXIMUM 3-5 words, never more" },
               target: { type: "string" },
               formato: { type: "string", enum: ["TALKING HEAD", "B-ROLL CAPTION", "ENTREVISTA", "VARIADO"] },
             },
@@ -702,6 +711,12 @@ Return the translated script with the SAME structure, same number of lines, same
 
       const toolUse = data.content?.find((c: any) => c.type === "tool_use");
       if (!toolUse) throw new Error("No tool use in Claude response");
+
+      // Same missing backstop as refine-script above.
+      if (toolUse.input.idea_ganadora) {
+        const words = toolUse.input.idea_ganadora.split(/\s+/);
+        if (words.length > 5) toolUse.input.idea_ganadora = words.slice(0, 5).join(" ");
+      }
 
       return new Response(JSON.stringify(toolUse.input), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
