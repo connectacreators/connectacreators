@@ -265,6 +265,21 @@ async function processChannel(
     .select("id", { count: "exact", head: true })
     .eq("channel_id", channel.id);
 
+  // Cache + refresh the channel avatar. vpsData.profilePicUrl was being
+  // fetched every scrape and then silently dropped — scrape-channel (the
+  // one-time add flow) sets avatar_url at insert, but this recurring
+  // refresh never touched it, so any channel whose avatar didn't land at
+  // add-time (e.g. added during a VPS outage) stayed pictureless forever
+  // even once scraping was working fine again. IG/TikTok CDN avatar URLs
+  // expire the same way video thumbnails do, so this re-caches every run
+  // rather than only filling in a null.
+  let avatarUrl: string | null = null;
+  if (vpsData.profilePicUrl) {
+    avatarUrl = shouldCacheThumbnail(vpsData.profilePicUrl)
+      ? await cacheThumbnail(vpsData.profilePicUrl, `avatar_${platform}_${cleanUsername}`)
+      : vpsData.profilePicUrl;
+  }
+
   // Update channel stats
   await supabase
     .from("viral_channels")
@@ -273,6 +288,7 @@ async function processChannel(
       avg_views: Math.round(avgViews),
       video_count: totalVideoCount ?? videos.length,
       scrape_error: null,
+      ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
     })
     .eq("id", channel.id);
 

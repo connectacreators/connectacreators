@@ -41,113 +41,26 @@ function computeFrameworkScore(
   return outlier * Math.log(1 + engagement) * Math.exp(-daysSince / 30);
 }
 
-serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+// A row counts as "incomplete" if it was born during a scraper outage (or
+// the VPS just failed on that particular fetch) — channel/views/outlier
+// stay stuck at their placeholder values forever otherwise, since normally
+// they're only ever set once, at insert time.
+function isIncomplete(row: Record<string, unknown>): boolean {
+  return (
+    !row.channel_username ||
+    row.channel_username === "unknown" ||
+    !row.views_count ||
+    !row.outlier_score
+  );
+}
 
-  // Auth: admin only
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) return json({ error: "Unauthorized" }, 401);
-
-  const { data: roleData } = await adminClient
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (roleData?.role !== "admin") return json({ error: "Admin access required" }, 403);
-
-  let url: string;
-  try {
-    const body = await req.json();
-    url = body.url;
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400);
-  }
-  if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
-
-  // ─── Step 1: Canonicalize ───
-  const canonical = canonicalizeVideoUrl(url);
-  if (!canonical) {
-    return json({ error: "Unsupported URL format" }, 400);
-  }
-  const { platform, postId, normalizedUrl } = canonical;
-
-  // ─── Step 2: Look for existing row ───
-  const { data: existing } = await adminClient
-    .from("viral_videos")
-    .select("*")
-    .eq("platform", platform)
-    .eq("apify_video_id", postId)
-    .maybeSingle();
-
-  if (existing) {
-    // Already in DB. Mark as featured framework if not already.
-    const updates: Record<string, unknown> = {};
-    if (!existing.is_featured_framework) updates.is_featured_framework = true;
-    if (Object.keys(updates).length > 0) {
-      await adminClient.from("viral_videos").update(updates).eq("id", existing.id);
-    }
-
-    // If already fully analyzed, return cached.
-    const alreadyAnalyzed = existing.analysis_status === "analyzed"
-      && existing.transcript
-      && existing.framework_meta;
-    if (alreadyAnalyzed) {
-      return json({
-        id: existing.id,
-        channel_username: existing.channel_username,
-        platform,
-        status: "already_analyzed",
-        cached: true,
-      });
-    }
-
-    // Row exists but missing analysis — run it now.
-    try {
-      const patch = await runFullAnalysis(
-        adminClient as never,
-        existing as ViralVideoRow,
-        existing.caption ?? null,
-        SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY,
-      );
-      await adminClient
-        .from("viral_videos")
-        .update({ ...patch, analysis_status: "analyzed", analysis_error: null })
-        .eq("id", existing.id);
-      return json({
-        id: existing.id,
-        channel_username: existing.channel_username,
-        platform,
-        status: "analyzed_existing",
-      });
-    } catch (err) {
-      const code = err instanceof AnalyzerError ? err.code : "unknown_error";
-      const message = err instanceof Error ? err.message : String(err);
-      await adminClient.from("viral_videos")
-        .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
-        .eq("id", existing.id);
-      return json({
-        id: existing.id,
-        channel_username: existing.channel_username,
-        platform,
-        status: "analysis_failed",
-        error: message,
-      }, 500);
-    }
-  }
-
-  // ─── Step 3: Not in DB — fetch metadata from VPS ───
+async function fetchVideoMetadata(
+  adminClient: ReturnType<typeof createClient>,
+  rawUrl: string,
+  normalizedUrl: string,
+  platform: string,
+  postId: string,
+) {
   let vpsData: Record<string, unknown> | null = null;
   try {
     const res = await fetch(`${VPS_SERVER}/scrape-single-url`, {
@@ -166,9 +79,9 @@ serve(async (req: Request) => {
   // Reject the `/reel/SHORTCODE/` shape — that has no username, and the previous
   // regex was incorrectly capturing the shortcode itself (e.g. "DSTGcg9DkLW").
   const usernameMatch =
-    url.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/(?:reels?|p)\//i)
-    ?? url.match(/tiktok\.com\/@?([a-zA-Z0-9_.]+)/i)
-    ?? url.match(/youtube\.com\/@([a-zA-Z0-9_.-]+)/i);
+    rawUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/(?:reels?|p)\//i)
+    ?? rawUrl.match(/tiktok\.com\/@?([a-zA-Z0-9_.]+)/i)
+    ?? rawUrl.match(/youtube\.com\/@([a-zA-Z0-9_.-]+)/i);
   const channelUsername = String(
     (vpsData?.owner_username as string | undefined)
     ?? usernameMatch?.[1]
@@ -225,9 +138,6 @@ serve(async (req: Request) => {
   }
   if (!postedAt) postedAt = new Date().toISOString();
 
-  const nicheTagsFromCaption = extractNicheTags(caption);
-  const frameworkScore = computeFrameworkScore(outlier, engagementRate, postedAt);
-
   // Cache the thumbnail if VPS returned a CDN URL.
   let thumbnailUrl: string | null = (vpsData?.thumbnail as string | undefined) ?? null;
   if (thumbnailUrl && /cdninstagram\.com|fbcdn\.net|instagram\.f|scontent/.test(thumbnailUrl)) {
@@ -243,6 +153,160 @@ serve(async (req: Request) => {
       }
     } catch { /* non-blocking */ }
   }
+
+  return {
+    channelUsername,
+    channelId,
+    caption,
+    views,
+    likes,
+    comments,
+    engagementRate,
+    outlier,
+    postedAt,
+    thumbnailUrl,
+  };
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Auth: admin only
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
+  if (userError || !user) return json({ error: "Unauthorized" }, 401);
+
+  const { data: roleData } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (roleData?.role !== "admin") return json({ error: "Admin access required" }, 403);
+
+  let url: string;
+  try {
+    const body = await req.json();
+    url = body.url;
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+  if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
+
+  // ─── Step 1: Canonicalize ───
+  const canonical = canonicalizeVideoUrl(url);
+  if (!canonical) {
+    return json({ error: "Unsupported URL format" }, 400);
+  }
+  const { platform, postId, normalizedUrl } = canonical;
+
+  // ─── Step 2: Look for existing row ───
+  const { data: existing } = await adminClient
+    .from("viral_videos")
+    .select("*")
+    .eq("platform", platform)
+    .eq("apify_video_id", postId)
+    .maybeSingle();
+
+  if (existing) {
+    // Already in DB. Mark as featured framework if not already.
+    const updates: Record<string, unknown> = {};
+    if (!existing.is_featured_framework) updates.is_featured_framework = true;
+
+    // A row born during a scraper outage (unknown channel, no views, no
+    // outlier) gets its metadata re-resolved here instead of staying stuck
+    // forever — this normally only ever ran once, at insert time (Step 3/4
+    // below), so re-pasting the same URL never fixed anything.
+    let effectiveCaption: string | null = existing.caption ?? null;
+    let effectiveUsername: string = existing.channel_username;
+    if (isIncomplete(existing)) {
+      const meta = await fetchVideoMetadata(adminClient, url, normalizedUrl, platform, postId);
+      updates.channel_id = meta.channelId;
+      updates.channel_username = meta.channelUsername;
+      updates.views_count = meta.views;
+      updates.likes_count = meta.likes;
+      updates.comments_count = meta.comments;
+      updates.engagement_rate = Math.round(meta.engagementRate * 100) / 100;
+      updates.outlier_score = meta.outlier;
+      if (meta.thumbnailUrl) updates.thumbnail_url = meta.thumbnailUrl;
+      if (meta.caption) {
+        updates.caption = meta.caption;
+        effectiveCaption = meta.caption;
+      }
+      effectiveUsername = meta.channelUsername;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await adminClient.from("viral_videos").update(updates).eq("id", existing.id);
+    }
+
+    // If already fully analyzed, return cached (metadata refresh above, if
+    // any, has already landed).
+    const alreadyAnalyzed = existing.analysis_status === "analyzed"
+      && existing.transcript
+      && existing.framework_meta;
+    if (alreadyAnalyzed) {
+      return json({
+        id: existing.id,
+        channel_username: effectiveUsername,
+        platform,
+        status: "already_analyzed",
+        cached: true,
+      });
+    }
+
+    // Row exists but missing analysis — run it now.
+    try {
+      const patch = await runFullAnalysis(
+        adminClient as never,
+        { ...existing, ...updates } as ViralVideoRow,
+        effectiveCaption,
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+      );
+      await adminClient
+        .from("viral_videos")
+        .update({ ...patch, analysis_status: "analyzed", analysis_error: null })
+        .eq("id", existing.id);
+      return json({
+        id: existing.id,
+        channel_username: effectiveUsername,
+        platform,
+        status: "analyzed_existing",
+      });
+    } catch (err) {
+      const code = err instanceof AnalyzerError ? err.code : "unknown_error";
+      const message = err instanceof Error ? err.message : String(err);
+      await adminClient.from("viral_videos")
+        .update({ analysis_status: "failed", analysis_error: `${code}: ${message}` })
+        .eq("id", existing.id);
+      return json({
+        id: existing.id,
+        channel_username: effectiveUsername,
+        platform,
+        status: "analysis_failed",
+        error: message,
+      }, 500);
+    }
+  }
+
+  // ─── Step 3: Not in DB — fetch metadata from VPS ───
+  const {
+    channelUsername, channelId, caption, views, likes, comments,
+    engagementRate, outlier, postedAt, thumbnailUrl,
+  } = await fetchVideoMetadata(adminClient, url, normalizedUrl, platform, postId);
+
+  const nicheTagsFromCaption = extractNicheTags(caption);
+  const frameworkScore = computeFrameworkScore(outlier, engagementRate, postedAt);
 
   // ─── Step 4: Insert the row (pending analysis) ───
   const { data: inserted, error: insertErr } = await adminClient

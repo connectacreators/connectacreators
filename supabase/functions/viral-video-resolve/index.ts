@@ -78,6 +78,71 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
+// Same shape as scrape-framework-url's regex — matches URLs that actually
+// embed the username (e.g. /username/reel/SHORTCODE/) and deliberately does
+// NOT match the bare /reel/SHORTCODE/ shape, which has no username to give.
+function usernameFromRawUrl(rawUrl: string): string | null {
+  const m =
+    rawUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/(?:reels?|p)\//i) ??
+    rawUrl.match(/tiktok\.com\/@?([a-zA-Z0-9_.]+)/i);
+  return m ? m[1] : null;
+}
+
+// Real outlier score: views ÷ the channel's trailing-90d median (same
+// formula as recompute_channel_outliers). Needs ≥3 peer videos to be
+// meaningful; falls back to 1 ("at channel average") otherwise — this path
+// has no VPS-provided outlier to trust (the VPS always returns 0 for
+// single-URL fetches, it's not computed there).
+async function computeOutlierScore(
+  admin: ReturnType<typeof createClient>,
+  platform: string,
+  channelUsername: string,
+  postId: string,
+  views: number,
+): Promise<number> {
+  if (!channelUsername || channelUsername === "unknown" || views <= 0) return 1;
+  const { data: peers } = await admin
+    .from("viral_videos")
+    .select("views_count")
+    .eq("platform", platform)
+    .eq("channel_username", channelUsername)
+    .gt("views_count", 0)
+    .gte("posted_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .neq("apify_video_id", postId);
+  const counts = (peers ?? []).map((p) => p.views_count as number).sort((a, b) => a - b);
+  if (counts.length < 3) return 1;
+  const mid = Math.floor(counts.length / 2);
+  const median = counts.length % 2 ? counts[mid] : (counts[mid - 1] + counts[mid]) / 2;
+  return median > 0 ? Math.round((views / median) * 100) / 100 : 1;
+}
+
+async function lookupChannelId(
+  admin: ReturnType<typeof createClient>,
+  platform: string,
+  channelUsername: string,
+): Promise<string | null> {
+  if (!channelUsername || channelUsername === "unknown") return null;
+  const { data } = await admin
+    .from("viral_channels")
+    .select("id")
+    .eq("platform", platform)
+    .eq("username", channelUsername.toLowerCase())
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+// A row counts as "incomplete" if it was born during a scraper outage —
+// re-resolving it (rather than returning the stale stub forever) is how a
+// user recovers from that just by pasting the same URL again.
+function isIncomplete(row: Record<string, unknown>): boolean {
+  return (
+    !row.channel_username ||
+    row.channel_username === "unknown" ||
+    !row.views_count ||
+    !row.outlier_score
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("method not allowed", { status: 405, headers: corsHeaders });
@@ -112,14 +177,16 @@ Deno.serve(async (req) => {
     .eq("apify_video_id", canonical.postId)
     .maybeSingle();
   if (findErr) return jsonResponse({ error: "db_error", message: findErr.message }, 500);
-  if (existing) return jsonResponse({ row: existing, created: false }, 200);
+  // A row born during a scraper outage (unknown channel, no views, no
+  // outlier) gets re-resolved rather than returned stale forever — this is
+  // the only way a user can recover one just by pasting the URL again.
+  if (existing && !isIncomplete(existing)) {
+    return jsonResponse({ row: existing, created: false }, 200);
+  }
 
-  // Best-effort channel_username extraction from URL.
-  let channelUsername = "unknown";
-  const igHandle = canonical.normalizedUrl.match(/instagram\.com\/([^/]+)\/(?:reel|p)\//);
-  const ttHandle = body.url.match(/tiktok\.com\/@([^/]+)\/video\//);
-  if (igHandle) channelUsername = igHandle[1];
-  else if (ttHandle) channelUsername = ttHandle[1];
+  // Best-effort channel_username extraction from the raw URL, used only if
+  // the VPS scrape below doesn't give us one directly.
+  const regexUsername = usernameFromRawUrl(body.url);
 
   // Pull live stats from the VPS scraper BEFORE insert so the row is born
   // with views / likes / comments / channel / caption / thumb populated.
@@ -130,18 +197,18 @@ Deno.serve(async (req) => {
     meta && meta.views > 0
       ? Math.round(((meta.likes + meta.comments) / meta.views) * 100 * 100) / 100
       : 0;
+  const channelUsername = meta?.channel_username || regexUsername || "unknown";
+  const views = meta?.views ?? 0;
+  const [outlierScore, channelId] = await Promise.all([
+    computeOutlierScore(admin, canonical.platform, channelUsername, canonical.postId, views),
+    lookupChannelId(admin, canonical.platform, channelUsername),
+  ]);
 
-  // Insert pending stub.
-  const insertPayload: Record<string, unknown> = {
-    platform: canonical.platform,
-    apify_video_id: canonical.postId,
-    video_url: canonical.normalizedUrl,
-    channel_username: meta?.channel_username || channelUsername,
-    analysis_status: "pending",
-    user_submitted: true,
-    submitted_by: user.id,
-    outlier_score: meta?.outlier ?? 0,
-    views_count: meta?.views ?? 0,
+  const fields: Record<string, unknown> = {
+    channel_username: channelUsername,
+    channel_id: channelId,
+    outlier_score: outlierScore,
+    views_count: views,
     likes_count: meta?.likes ?? 0,
     comments_count: meta?.comments ?? 0,
     engagement_rate: engagementRate,
@@ -149,6 +216,28 @@ Deno.serve(async (req) => {
     thumbnail_url: meta?.thumbnail_url ?? null,
     posted_at: meta?.posted_at ?? null,
     scraped_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    const { data: updated, error: updateErr } = await admin
+      .from("viral_videos")
+      .update(fields)
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+    if (updateErr) return jsonResponse({ error: "update_failed", message: updateErr.message }, 500);
+    return jsonResponse({ row: updated, created: false }, 200);
+  }
+
+  // Insert pending stub.
+  const insertPayload: Record<string, unknown> = {
+    ...fields,
+    platform: canonical.platform,
+    apify_video_id: canonical.postId,
+    video_url: canonical.normalizedUrl,
+    analysis_status: "pending",
+    user_submitted: true,
+    submitted_by: user.id,
   };
 
   const { data: inserted, error: insertErr } = await admin
