@@ -52,6 +52,7 @@ import CommandDeckLayout from "@/components/command-deck/CommandDeckLayout";
 import CommandOrb from "@/components/command-deck/CommandOrb";
 import RevisionReviewSurface from "@/components/command-deck/RevisionReviewSurface";
 import ScriptEditSurface, { type ScriptSurfaceState } from "@/components/command-deck/ScriptEditSurface";
+import DailyBriefingSurface, { type BriefingState } from "@/components/command-deck/DailyBriefingSurface";
 import { parseEditingReviewNavigation, type EditingReviewTarget, type ActionSurfaceSnapshot } from "@/lib/commandDeck/actionSurface";
 import type { ReviewSurfaceCommand } from "@/components/VideoReviewModal";
 
@@ -493,6 +494,7 @@ export default function CommandCenter() {
   const [scriptSurface, setScriptSurface] = useState<ScriptSurfaceState | null>(null);
   const scriptSurfaceRef = useRef<ScriptSurfaceState | null>(null);
   useEffect(() => { scriptSurfaceRef.current = scriptSurface; }, [scriptSurface]);
+  const [briefingSurface, setBriefingSurface] = useState<BriefingState | null>(null);
   // Line ids touched by the most recent edit, so ScriptEditSurface only
   // replays the reveal animation for what actually changed. Cleared after
   // the reveal's own duration via the timeout below rather than lingering
@@ -1312,8 +1314,24 @@ export default function CommandCenter() {
               setReviewSurfaceCommand(control);
             }
           }
+          if (action?.type === "briefing_surface") {
+            // All three surfaces share the middle column, so opening one
+            // closes the others.
+            setActionSurface(null);
+            setScriptSurface(null);
+            setChatViewMode("orb");
+            setBriefingSurface({
+              revisions: Array.isArray(action.revisions) ? (action.revisions as BriefingState["revisions"]) : [],
+              outbound:
+                action.outbound && typeof action.outbound === "object"
+                  ? (action.outbound as BriefingState["outbound"])
+                  : { sent: 0, target: 0, remaining: 0 },
+              scriptGaps: Array.isArray(action.script_gaps) ? (action.script_gaps as BriefingState["scriptGaps"]) : [],
+            });
+          }
           if (action?.type === "script_surface_update" && typeof action.script_id === "string") {
             setActionSurface(null); // mutually exclusive with the revision surface
+            setBriefingSurface(null);
             setChatViewMode("orb");
             const lines = Array.isArray(action.lines) ? (action.lines as ScriptSurfaceState["lines"]) : [];
             setScriptSurface({
@@ -1627,7 +1645,7 @@ export default function CommandCenter() {
           focus-pull dims) so position:fixed isn't trapped by a filtered
           ancestor's containing block — a real CSS gotcha, not a style
           preference. */}
-      {(actionSurface || scriptSurface) && (
+      {(actionSurface || scriptSurface || briefingSurface) && (
         <div
           className="fixed z-[200] flex items-center justify-center cd-mini-orb-in"
           style={{
@@ -1677,7 +1695,7 @@ export default function CommandCenter() {
             displayName={displayName || "Admin"}
             companionName={companionName || "Robby"}
             listening={recognizing}
-            focusMode={!!actionSurface || !!scriptSurface}
+            focusMode={!!actionSurface || !!scriptSurface || !!briefingSurface}
           >
             {/* Chat column — chats list lives in the DashboardSidebar's
                 lower half (RecentChatsPanel) so it's intentionally absent here. */}
@@ -1725,6 +1743,13 @@ export default function CommandCenter() {
                     externalCommand={reviewSurfaceCommand}
                     onExternalCommandHandled={() => setReviewSurfaceCommand(null)}
                     onSurfaceStateChange={(state) => { activeSurfaceStateRef.current = state; }}
+                  />
+                </div>
+              ) : briefingSurface ? (
+                <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden px-4 py-4">
+                  <DailyBriefingSurface
+                    briefing={briefingSurface}
+                    onClose={() => setBriefingSurface(null)}
                   />
                 </div>
               ) : scriptSurface ? (

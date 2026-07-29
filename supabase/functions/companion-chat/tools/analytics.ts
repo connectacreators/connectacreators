@@ -85,6 +85,12 @@ export const ANALYTICS_TOOLS: ToolDef[] = [
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "get_today_briefing",
+    description:
+      "The caller's actionable to-do list for TODAY, as structured data: videos assigned to them awaiting revision, how many outbound DMs are still owed against the daily target, and which clients are behind their monthly script quota. Call this for 'what do I have today?', 'what's on my plate?', 'what do I need to do?'. Distinct from get_morning_brief, which reports what CHANGED (passive news); this is what the caller still OWES (open work). Renders as an animated checklist on /ai — so after calling it, reply with one short spoken-style sentence summarizing the load (e.g. 'Three videos to review and 50 DMs still to send'), NOT a re-listing of every item; the surface already shows them.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "get_overdue_items",
     description:
       "Cross-cutting overdue list: video_edits past their deadline that aren't Done, leads whose next_follow_up_at is in the past and aren't closed, scripts approved >7d ago that haven't been recorded. Use when the user asks 'what's stuck?' or 'what's behind?'. Complements the alerts pipeline — alerts batch every 6h, this is fresh.",
@@ -379,6 +385,101 @@ Output ${numPosts} lines, nothing else.`;
       tool_use_id: block.id,
       content: `Morning brief — last 24h:\n${lines.join("\n")}`,
     };
+  }
+
+  if (block.name === "get_today_briefing") {
+    const { data: userClients } = await adminClient.from("clients").select("id, name").eq("user_id", userId);
+    const clientIds = (userClients ?? []).map((c: any) => c.id);
+    const idLookup: Record<string, string> = Object.fromEntries(
+      (userClients ?? []).map((c: any) => [c.id, c.name]),
+    );
+
+    // Match the caller against video_edits.assignee, which stores a display
+    // name rather than a user_id — so "my revisions" means THIS person, not
+    // whatever the model guessed. Falls back to the client name only if the
+    // profile has no display_name.
+    const { data: callerProfile } = await adminClient
+      .from("profiles").select("display_name").eq("user_id", userId).maybeSingle();
+    const callerName = (callerProfile?.display_name || "").trim();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const monthStart = `${month}-01`;
+
+    const [revisionsRes, goalsRes, dayLogRes, strategiesRes, scriptsRes] = await Promise.all([
+      clientIds.length
+        ? adminClient
+            .from("video_edits")
+            .select("id, reel_title, client_id, assignee, deadline")
+            .in("client_id", clientIds)
+            .eq("lifecycle_status", "Needs Revisions")
+            .is("deleted_at", null)
+            .order("deadline", { ascending: true, nullsFirst: false })
+            .limit(12)
+        : Promise.resolve({ data: [] }),
+      (adminClient as any).from("agency_goals").select("outbound_daily_target").eq("user_id", userId).maybeSingle(),
+      (adminClient as any).from("outbound_daily_log").select("stage, delta").eq("user_id", userId).gte("logged_at", todayStart.toISOString()),
+      clientIds.length
+        ? adminClient.from("client_strategies").select("client_id, scripts_per_month").in("client_id", clientIds)
+        : Promise.resolve({ data: [] }),
+      clientIds.length
+        ? adminClient.from("scripts").select("client_id").in("client_id", clientIds).gte("created_at", monthStart)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Only items actually assigned to the caller. If we can't identify the
+    // caller at all, show the unassigned/all set rather than silently
+    // claiming an empty plate.
+    const allRevisions = (revisionsRes.data ?? []) as any[];
+    const mine = callerName
+      ? allRevisions.filter((r) => (r.assignee || "").toLowerCase().includes(callerName.toLowerCase()))
+      : allRevisions;
+    const revisions = mine.map((r) => ({
+      id: r.id,
+      title: r.reel_title || "Untitled",
+      client: idLookup[r.client_id] ?? null,
+      deadline: r.deadline ? String(r.deadline).slice(0, 10) : null,
+    }));
+
+    const outboundTarget = goalsRes.data?.outbound_daily_target ?? 50;
+    const sentToday = ((dayLogRes.data ?? []) as any[])
+      .reduce((s, r) => (r.stage === "initiated" ? s + (r.delta ?? 0) : s), 0);
+    const outboundRemaining = Math.max(0, outboundTarget - Math.max(0, sentToday));
+
+    const scriptsByClient: Record<string, number> = {};
+    for (const s of (scriptsRes.data ?? []) as any[]) {
+      scriptsByClient[s.client_id] = (scriptsByClient[s.client_id] ?? 0) + 1;
+    }
+    const scriptGaps = ((strategiesRes.data ?? []) as any[])
+      .map((s) => {
+        const quota = s.scripts_per_month ?? 0;
+        const done = scriptsByClient[s.client_id] ?? 0;
+        return { client: idLookup[s.client_id] ?? null, done, quota, missing: quota - done };
+      })
+      .filter((s) => s.client && s.missing > 0)
+      .sort((a, b) => b.missing - a.missing);
+
+    ctx.actions.push({
+      type: "briefing_surface",
+      revisions,
+      outbound: { sent: Math.max(0, sentToday), target: outboundTarget, remaining: outboundRemaining },
+      script_gaps: scriptGaps,
+    });
+
+    const summary = [
+      `Today's briefing for ${callerName || "you"}:`,
+      `- ${revisions.length} video(s) awaiting your revision${revisions.length ? ": " + revisions.map((r) => r.title).join(", ") : ""}`,
+      `- Outbound: ${Math.max(0, sentToday)}/${outboundTarget} sent, ${outboundRemaining} still to send today`,
+      scriptGaps.length
+        ? `- Scripts behind quota: ${scriptGaps.map((s) => `${s.client} (${s.done}/${s.quota})`).join(", ")}`
+        : "- Scripts: all clients on quota",
+      "",
+      "The animated briefing surface is already showing these on screen. Reply with ONE short spoken sentence summarizing the load — do not re-list the items.",
+    ].join("\n");
+
+    return { type: "tool_result", tool_use_id: block.id, content: summary };
   }
 
   if (block.name === "get_overdue_items") {
