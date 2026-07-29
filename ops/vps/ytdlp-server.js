@@ -709,6 +709,67 @@ function markIgAccountStale(file) {
   setTimeout(() => { igStaleAccounts.delete(file); console.log("[ig-rotate] Unstaled:", file.split("/").pop()); }, 30 * 60 * 1000);
 }
 
+// ── Shared authed IG fetch (used by /ig-search and /ig-profile-info) ─────────
+// Mirrors the fetcher inside scrapeInstagramProfile, including the one rule
+// that matters most: a transient "please wait a few minutes" reply carries
+// require_login:true but must NOT mark the account stale. Doing so once
+// dropped both live accounts from rotation and returned 0 results until the
+// rotation auto-reset.
+function igAuthedFetch(apiUrl, session) {
+  const { execFileSync } = require("child_process");
+  const args = [
+    "-s", "--max-time", "20",
+    "--socks5-hostname", "127.0.0.1:1080",
+    "-H", "User-Agent: Instagram 344.0.0.0.98 Android (33/13; 420dpi; 1080x2340; samsung; SM-G991B; o1s; exynos2100)",
+    "-H", "X-IG-App-ID: 936619743392459",
+    "-H", "X-CSRFToken: " + session.csrfToken,
+    "-H", "Cookie: " + session.cookieHeader,
+    apiUrl,
+  ];
+  try {
+    const raw = execFileSync("curl", args, { maxBuffer: 10 * 1024 * 1024, timeout: 25000 });
+    const parsed = JSON.parse(raw.toString());
+    if (parsed.message === "login_required" || parsed.message === "challenge_required" || parsed.require_login) {
+      if (/please wait a few minutes/i.test(parsed.message || "")) {
+        console.warn("[ig-search] Rate-limited (transient):", (session.file || "").split("/").pop());
+        return { ok: false, reason: "throttled" };
+      }
+      console.warn("[ig-search] Auth error:", parsed.message, "on", (session.file || "").split("/").pop());
+      if (session.file) markIgAccountStale(session.file);
+      return { ok: false, reason: "auth" };
+    }
+    return { ok: true, data: parsed };
+  } catch (e) {
+    console.error("[ig-search] fetch error:", (e.message || "").slice(0, 200));
+    return { ok: false, reason: "network" };
+  }
+}
+
+// Keyword -> Instagram accounts. Same topsearch_flat call /scrape-reels-search
+// already runs in production, lifted out so lead prospecting can use it too.
+function igTopSearch(query, limit, session) {
+  const r = igAuthedFetch(
+    "https://i.instagram.com/api/v1/fbsearch/topsearch_flat/?query=" +
+      encodeURIComponent(query) + "&search_surface=top_search_page",
+    session
+  );
+  if (!r.ok) return r;
+  const list = (r.data && r.data.list) || [];
+  const users = list
+    .filter((item) => item.user)
+    .map((item) => ({
+      username: item.user.username,
+      user_id: String(item.user.pk || item.user.pk_id || ""),
+      full_name: item.user.full_name || "",
+      follower_count: item.user.follower_count || 0,
+      profile_pic_url: item.user.profile_pic_url || null,
+      is_verified: !!item.user.is_verified,
+      is_private: !!item.user.is_private,
+    }))
+    .slice(0, limit);
+  return { ok: true, users };
+}
+
 // ── Session warming: periodically test IG sessions to detect issues early ─────
 function warmIgSessions() {
   const { execSync } = require("child_process");
@@ -3219,6 +3280,52 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+
+  // ── /ig-search — keyword → Instagram accounts (lead prospecting) ────────────
+  if (req.method === "POST" && req.url === "/ig-search") {
+    if (req.headers["x-api-key"] !== API_KEY) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      try {
+        const { query, limit = 15 } = JSON.parse(body || "{}");
+        if (!query || typeof query !== "string" || !query.trim()) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "query is required" }));
+          return;
+        }
+        const safeLim = Math.max(1, Math.min(Number(limit) || 15, 30));
+        const session = getNextIgCookies();
+        if (!session) {
+          res.writeHead(503, corsHeaders);
+          res.end(JSON.stringify({ error: "No IG cookie files available", code: "NO_IG_SESSIONS" }));
+          return;
+        }
+        console.log("[ig-search] query:", JSON.stringify(query.trim()), "limit:", safeLim);
+        const r = igTopSearch(query.trim(), safeLim, session);
+        if (!r.ok) {
+          res.writeHead(503, corsHeaders);
+          res.end(JSON.stringify({
+            error: "Instagram search unavailable (" + r.reason + ")",
+            code: r.reason === "auth" ? "SESSION_EXPIRED" : "IG_UNAVAILABLE",
+          }));
+          return;
+        }
+        console.log("[ig-search] returned", r.users.length, "accounts");
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ users: r.users }));
+      } catch (e) {
+        console.error("[ig-search] Error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
 
   // ── /scrape-reels-search — keyword search for Instagram Reels ───────────────
   if (req.method === "POST" && req.url === "/scrape-reels-search") {
