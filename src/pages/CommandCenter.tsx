@@ -166,13 +166,36 @@ function vlog(event: string, detail?: Record<string, unknown>) {
   console.log(`%c[voice ${(t / 1000).toFixed(2)}s] ${event}`, "color:#8FD0D5", detail ?? "");
 }
 
-function isLikelyOwnVoiceEcho(recognized: string, currentlyPlaying: string): boolean {
-  if (!currentlyPlaying) return false;
-  const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, "").trim();
-  const recWords = norm(recognized).split(/\s+/).filter((w) => w.length > 1);
-  if (recWords.length === 0) return false;
-  const playingNorm = ` ${norm(currentlyPlaying)} `;
-  const matching = recWords.filter((w) => playingNorm.includes(` ${w} `));
+/**
+ * Is what the mic just heard actually Robby's own voice coming back through
+ * the speakers, rather than the user interrupting?
+ *
+ * Confirmed cause of the long-running "voice cuts off after ~1s" bug: while
+ * Robby said "...For followers post reels...", the recognizer emitted the
+ * partial word "follow", and this function's earlier whole-word test
+ * (`" follow "` against `" followers "`) scored it 0/1 — a real interrupt —
+ * so the reply was cut 1.5s into a 5.3s clip.
+ *
+ * Two things make that impossible now:
+ *  - Substring, not whole-word: recognizers stream partial words as they
+ *    settle, so "follow" must count as a hit inside "followers".
+ *  - Compared against everything spoken THIS TURN, not just the chunk
+ *    playing right now. Recognition lags playback by a beat, so an echo of
+ *    the previous sentence routinely lands while the next one is already
+ *    playing — and between chunks the "currently playing" text is empty,
+ *    which used to mean "definitely not echo".
+ *
+ * Deliberately biased toward "this is echo": a missed barge-in costs a tap
+ * on the orb, while a false one cuts Robby mid-sentence — the exact failure
+ * being fixed here.
+ */
+function isLikelyOwnVoiceEcho(recognized: string, spokenThisTurn: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  const recWords = norm(recognized).split(" ").filter((w) => w.length > 1);
+  if (recWords.length === 0) return true; // nothing meaningful heard — don't cut
+  const spoken = norm(spokenThisTurn);
+  if (!spoken) return false;
+  const matching = recWords.filter((w) => spoken.includes(w));
   return matching.length / recWords.length >= 0.6;
 }
 
@@ -341,6 +364,12 @@ export default function CommandCenter() {
   // — lets startBargeIn's recognizer tell "the user started talking" apart
   // from "Robby's own voice bled into the mic" (see isLikelyOwnVoiceEcho).
   const currentlyPlayingTextRef = useRef("");
+  // Everything Robby has said during THIS reply. The echo check compares
+  // against this rather than only the chunk playing right now: recognition
+  // lags playback, so an echo of the previous sentence commonly arrives
+  // while the next one is already playing (and between chunks the
+  // "currently playing" text is empty). Reset per user turn.
+  const spokenThisTurnRef = useRef("");
   // Browsers block .play() calls that aren't tied closely enough to a real
   // user gesture (STT -> network -> SSE -> state update is far too many
   // async hops away from the original tap). Resuming an AudioContext
@@ -864,10 +893,10 @@ export default function CommandCenter() {
       // into the mic through speakers for the REST of a long reply, not
       // just its first instant — compare against what's actually playing
       // right now before treating this as a real interrupt.
-      const echo = isLikelyOwnVoiceEcho(last, currentlyPlayingTextRef.current);
+      const echo = isLikelyOwnVoiceEcho(last, spokenThisTurnRef.current);
       vlog(echo ? "barge-in heard: treated as OWN ECHO (ignored)" : "barge-in heard: treated as REAL USER SPEECH", {
         heard: last,
-        comparedAgainst: currentlyPlayingTextRef.current.slice(0, 70) || "(nothing playing)",
+        comparedAgainst: spokenThisTurnRef.current.slice(-120) || "(nothing spoken yet)",
       });
       if (echo) return;
       stopBargeIn();
@@ -1009,6 +1038,7 @@ export default function CommandCenter() {
         audio.src = url;
 
         currentlyPlayingTextRef.current = text;
+        spokenThisTurnRef.current += " " + text;
         const playStartedAt = performance.now();
         const playedFor = () => `${((performance.now() - playStartedAt) / 1000).toFixed(2)}s`;
         await new Promise<void>((resolve) => {
@@ -1116,6 +1146,7 @@ export default function CommandCenter() {
     speechBufferRef.current = "";
     speechQueueRef.current = [];
     spokeAnythingRef.current = false;
+    spokenThisTurnRef.current = "";
 
     const optimistic: MsgRow = {
       id: `tmp-${Date.now()}`,
