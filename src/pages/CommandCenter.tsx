@@ -147,6 +147,25 @@ function extractQuotedHook(text: string): { hook: string } | null {
 // mic heard against what's actually playing right now — if most of the
 // recognized words are already IN the currently-spoken text, it's an echo
 // of Robby's own voice, not the user actually talking over him.
+/**
+ * Voice-pipeline tracer. Two speculative fixes for "the voice cuts off after
+ * ~1s" (the dead-end-retry length gate, then the barge-in echo filter) each
+ * looked right from reading the code and each failed to resolve it — this
+ * session has no mic or speakers, so neither could be verified before
+ * shipping. Rather than guess a third time, every point that can stop or
+ * skip audio now announces itself, so ONE reproduction with the console
+ * open says exactly which path fires.
+ *
+ * Timestamps are relative to page load so gaps between events are readable
+ * at a glance. Remove once the cause is confirmed and fixed.
+ */
+const vlogT0 = typeof performance !== "undefined" ? performance.now() : 0;
+function vlog(event: string, detail?: Record<string, unknown>) {
+  const t = typeof performance !== "undefined" ? performance.now() - vlogT0 : 0;
+  // eslint-disable-next-line no-console
+  console.log(`%c[voice ${(t / 1000).toFixed(2)}s] ${event}`, "color:#8FD0D5", detail ?? "");
+}
+
 function isLikelyOwnVoiceEcho(recognized: string, currentlyPlaying: string): boolean {
   if (!currentlyPlaying) return false;
   const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, "").trim();
@@ -767,10 +786,16 @@ export default function CommandCenter() {
    * this the loop would hang forever instead of moving on. Racing that
    * await against speechAbortResolveRef unsticks it immediately.
    */
-  const interruptSpeech = useCallback(() => {
+  const interruptSpeech = useCallback((reason = "unspecified") => {
+    const audio = ttsAudioRef.current;
+    vlog("INTERRUPT (hard cut)", {
+      reason,
+      queued: speechQueueRef.current.length,
+      wasPlaying: !!audio && !audio.paused,
+      at: audio ? `${audio.currentTime.toFixed(2)}s / ${Number.isFinite(audio.duration) ? audio.duration.toFixed(2) : "?"}s` : "no audio",
+    });
     speechQueueRef.current = [];
     speechBufferRef.current = "";
-    const audio = ttsAudioRef.current;
     if (audio && !audio.paused) audio.pause();
     speechAbortResolveRef.current?.();
   }, []);
@@ -790,6 +815,10 @@ export default function CommandCenter() {
    * deliberately narrower, not a general replacement for it.
    */
   const discardUnspokenSpeech = useCallback(() => {
+    vlog("DISCARD unspoken (speech_reset)", {
+      droppedFromQueue: speechQueueRef.current.length,
+      droppedBuffer: speechBufferRef.current.slice(0, 60),
+    });
     speechQueueRef.current = [];
     speechBufferRef.current = "";
   }, []);
@@ -835,9 +864,14 @@ export default function CommandCenter() {
       // into the mic through speakers for the REST of a long reply, not
       // just its first instant — compare against what's actually playing
       // right now before treating this as a real interrupt.
-      if (isLikelyOwnVoiceEcho(last, currentlyPlayingTextRef.current)) return;
+      const echo = isLikelyOwnVoiceEcho(last, currentlyPlayingTextRef.current);
+      vlog(echo ? "barge-in heard: treated as OWN ECHO (ignored)" : "barge-in heard: treated as REAL USER SPEECH", {
+        heard: last,
+        comparedAgainst: currentlyPlayingTextRef.current.slice(0, 70) || "(nothing playing)",
+      });
+      if (echo) return;
       stopBargeIn();
-      interruptSpeech();
+      interruptSpeech("barge-in (mic heard speech while Robby was talking)");
       toggleVoiceRef.current(true);
     };
     rec.onerror = () => { bargeInRecRef.current = null; };
@@ -880,7 +914,7 @@ export default function CommandCenter() {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       stopBargeIn();
-      interruptSpeech();
+      interruptSpeech("user tapped the main orb while Robby was talking");
       if (voiceConversationActiveRef.current) toggleVoice(true);
       return;
     }
@@ -909,7 +943,7 @@ export default function CommandCenter() {
     const audio = ttsAudioRef.current;
     if (audio && !audio.paused && !audio.ended) {
       stopBargeIn();
-      interruptSpeech();
+      interruptSpeech("user tapped the mini orb while Robby was talking");
       toggleVoice(true);
       return;
     }
@@ -960,7 +994,10 @@ export default function CommandCenter() {
           },
           body: JSON.stringify({ text }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          vlog("TTS FETCH FAILED", { status: res.status, text: text.slice(0, 50) });
+          return;
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
 
@@ -972,26 +1009,40 @@ export default function CommandCenter() {
         audio.src = url;
 
         currentlyPlayingTextRef.current = text;
+        const playStartedAt = performance.now();
+        const playedFor = () => `${((performance.now() - playStartedAt) / 1000).toFixed(2)}s`;
         await new Promise<void>((resolve) => {
           audio.onended = () => {
+            vlog("audio ENDED naturally", { playedFor: playedFor(), clipLength: Number.isFinite(audio.duration) ? `${audio.duration.toFixed(2)}s` : "?" });
             stopBargeIn();
             currentlyPlayingTextRef.current = "";
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
           audio.onerror = () => {
+            vlog("audio ERROR", { playedFor: playedFor(), err: audio.error?.code });
             stopBargeIn();
             currentlyPlayingTextRef.current = "";
             if (ttsAudioUrlRef.current === url) { URL.revokeObjectURL(url); ttsAudioUrlRef.current = null; }
             resolve();
           };
+          // Anything that pauses this element without it having finished is
+          // the cut we're hunting — log it wherever it came from.
+          audio.onpause = () => {
+            if (audio.ended) return;
+            vlog("audio PAUSED before end  <-- THE CUT", {
+              playedFor: playedFor(),
+              at: `${audio.currentTime.toFixed(2)}s / ${Number.isFinite(audio.duration) ? audio.duration.toFixed(2) : "?"}s`,
+            });
+          };
           audio.play().then(() => {
+            vlog("audio PLAY started", { chars: text.length, text: text.slice(0, 70) });
             // Short grace delay before arming — skip the first instant of
             // his own speech (interrupting immediately would be jarring)
             // and let the audio pipeline stabilize first.
             setTimeout(startBargeIn, 500);
           }).catch((err) => {
-            console.warn("[ai] TTS playback blocked:", err);
+            vlog("audio PLAY BLOCKED by browser", { err: String(err) });
             currentlyPlayingTextRef.current = "";
             resolve();
           });
@@ -1018,12 +1069,14 @@ export default function CommandCenter() {
     (async () => {
       while (speechQueueRef.current.length > 0) {
         const chunk = speechQueueRef.current.shift()!;
+        vlog("queue -> speaking chunk", { chunk: chunk.slice(0, 70), stillQueued: speechQueueRef.current.length });
         await Promise.race([
           speakReply(chunk),
           new Promise<void>((resolve) => { speechAbortResolveRef.current = resolve; }),
         ]);
         speechAbortResolveRef.current = null;
       }
+      vlog("queue DRAINED (nothing left to say)");
       speechRunningRef.current = false;
     })();
   }, [speakReply]);
@@ -1168,10 +1221,10 @@ export default function CommandCenter() {
               speechBufferRef.current += event.text;
               const { chunks, remainder } = extractCompleteSentences(speechBufferRef.current);
               speechBufferRef.current = remainder;
-              for (const chunk of chunks) enqueueSpeech(chunk);
+              for (const chunk of chunks) { vlog("sentence ready -> queued", { chunk: chunk.slice(0, 70) }); enqueueSpeech(chunk); }
             }
           },
-          onSpeechReset: () => discardUnspokenSpeech(),
+          onSpeechReset: () => { vlog("server sent speech_reset (dead-end retry)"); discardUnspokenSpeech(); },
           onScene: (scene) => setCurrentScene(scene),
           onEmbeds: (event) => {
             const tid = activeThreadId ?? "__pending__";
@@ -1372,6 +1425,7 @@ export default function CommandCenter() {
         lastTurnWasVoiceRef.current = false;
         const tail = speechBufferRef.current.trim();
         speechBufferRef.current = "";
+        vlog("turn finished streaming", { leftoverTail: tail.slice(0, 70) || "(none)", queued: speechQueueRef.current.length, running: speechRunningRef.current });
         if (tail) enqueueSpeech(tail);
         const spokenReply = typeof data?.reply === "string" ? data.reply.trim() : "";
         if (!spokeAnythingRef.current && spokenReply) enqueueSpeech(spokenReply);
