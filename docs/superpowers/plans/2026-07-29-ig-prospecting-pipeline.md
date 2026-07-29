@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **`ytdlp-server.js` is VPS-only and NOT in git.** Always `scp` the live copy down before editing. The repo copy has drifted stale before. Deploy with `scp` + `pm2 restart ytdlp-server`.
+- **`ytdlp-server.js` now lives at `ops/vps/ytdlp-server.js`** (vendored 2026-07-29 in commit `cb5c2d97`, byte-identical to the then-live file). Edit the repo copy, deploy it with `scp` + `pm2 restart ytdlp-server`, and commit the same bytes you pushed. Before editing, `scp` the live copy down and diff it against the repo copy — another session or a direct hotfix may have moved it, and deploying a stale copy silently reverts whatever landed in between. Committing alone deploys nothing.
 - **Migrations are documentation copies.** Never run `db push`. SQL is applied to prod via the Management API; the file in `supabase/migrations/` records what was applied.
 - **Edge functions deploy manually:** `SUPABASE_ACCESS_TOKEN=$(grep SUPABASE_ACCESS_TOKEN .env.local | cut -d'=' -f2) npx -y supabase@latest functions deploy <name> --project-ref hxojqrilwhhrvloiwmfo`
 - **VPS:** `root@72.62.200.145`, password auth only, password in `deploy-to-vps.sh`. No `sshpass`; drive it with `expect`.
@@ -33,7 +33,7 @@
 | `src/lib/prospects/stageDeltas.test.ts` | Tests for the above, incl. monotone invariant |
 | `src/lib/prospects/linkBadge.ts` | Classify `external_url` into a display badge |
 | `src/lib/prospects/linkBadge.test.ts` | Tests for the above |
-| `ytdlp-server.js` (VPS) | Two new routes + two shared IG helpers |
+| `ops/vps/ytdlp-server.js` | Two new routes + two shared IG helpers (deploys to the VPS) |
 | `supabase/migrations/20260729_ig_prospects.sql` | `ig_prospect_runs`, `ig_prospects`, RLS, indexes |
 | `supabase/migrations/20260729_ig_prospect_enrich_cron.sql` | pg_cron schedule |
 | `supabase/functions/ig-prospect-search/index.ts` | Search → persist handles |
@@ -344,27 +344,30 @@ git commit -m "feat(prospects): classify bio links into qualification badges"
 ### Task 3: VPS `/ig-search` route
 
 **Files:**
-- Modify: `ytdlp-server.js` on the VPS (fetch live copy first)
-- Sync after deploy: no repo copy exists; this file is VPS-only
+- Modify: `ops/vps/ytdlp-server.js`
 
 **Interfaces:**
 - Produces: `POST /ig-search` → `{ users: [{ username, user_id, full_name, follower_count, profile_pic_url, is_verified, is_private }] }`
 - Produces (internal): `igAuthedFetch(apiUrl, session) -> { ok: true, data } | { ok: false, reason: "auth"|"throttled"|"network" }` and `igTopSearch(query, limit, session)`, both consumed by Task 4
 
-- [ ] **Step 1: Fetch the live server file**
+- [ ] **Step 1: Confirm the repo copy still matches the live file**
+
+The repo copy was vendored from production in `cb5c2d97`. Verify nothing has moved on the box since — editing a stale copy and deploying would silently revert whatever landed in between.
 
 ```bash
 cd /private/tmp/claude-501/-Users-admin-Projects-connectacreators/13a48a7e-19d7-4355-b67f-15e781ecddde/scratchpad
 cat > fetch.exp << 'EOF'
 #!/usr/bin/expect
 set timeout 120
-spawn scp -o StrictHostKeyChecking=no root@72.62.200.145:/var/www/ytdlp-server.js ./ytdlp-server.js
+spawn scp -o StrictHostKeyChecking=no root@72.62.200.145:/var/www/ytdlp-server.js ./live-check.js
 expect "password:" { send "Loqueveoloveo290802#\r" }
 expect eof
 EOF
 expect fetch.exp
-wc -l ytdlp-server.js   # expect ~3951
+diff live-check.js /Users/admin/Projects/connectacreators/ops/vps/ytdlp-server.js && echo "IN SYNC"
 ```
+
+Expected: `IN SYNC`. If the diff is non-empty, stop and report — the live file has diverged and the plan's line numbers may be wrong.
 
 - [ ] **Step 2: Add the shared IG helpers**
 
@@ -494,7 +497,7 @@ cd /private/tmp/claude-501/-Users-admin-Projects-connectacreators/13a48a7e-19d7-
 cat > push.exp << 'EOF'
 #!/usr/bin/expect
 set timeout 180
-spawn scp -o StrictHostKeyChecking=no ./ytdlp-server.js root@72.62.200.145:/var/www/ytdlp-server.js
+spawn scp -o StrictHostKeyChecking=no /Users/admin/Projects/connectacreators/ops/vps/ytdlp-server.js root@72.62.200.145:/var/www/ytdlp-server.js
 expect "password:" { send "Loqueveoloveo290802#\r" }
 expect eof
 spawn ssh -o StrictHostKeyChecking=no root@72.62.200.145 "pm2 restart ytdlp-server && sleep 3 && pm2 logs ytdlp-server --lines 15 --nostream"
@@ -528,16 +531,26 @@ Expected: `401`
 
 If the search returns `SESSION_EXPIRED`, the cookie pool is 2FA-locked — that is the known recurring failure, not a bug in this code. Recovery is a manual browser login plus cookie transplant into `/var/www/ig-account-<n>.json`.
 
-- [ ] **Step 6: Commit the plan checkpoint**
+- [ ] **Step 6: Commit**
 
-Nothing to commit — this file lives only on the VPS. Record completion by checking the boxes above.
+Commit the same bytes that were deployed.
+
+```bash
+git add ops/vps/ytdlp-server.js
+git commit -m "feat(vps): /ig-search route for lead prospecting
+
+Lifts the topsearch_flat call out of /scrape-reels-search into a shared
+helper so keyword-to-account search is addressable on its own. A transient
+'please wait a few minutes' reply must not mark an account stale -- doing
+that once dropped every live account from rotation."
+```
 
 ---
 
 ### Task 4: VPS `/ig-profile-info` route
 
 **Files:**
-- Modify: `ytdlp-server.js` on the VPS
+- Modify: `ops/vps/ytdlp-server.js`
 
 **Interfaces:**
 - Consumes: `igAuthedFetch` from Task 3
@@ -691,6 +704,21 @@ curl -s -m 120 -X POST http://72.62.200.145:3099/ig-profile-info \
 ```
 
 Expected: at most `10` — the extra two are sliced off.
+
+- [ ] **Step 5: Commit**
+
+Commit the same bytes that were deployed.
+
+```bash
+git add ops/vps/ytdlp-server.js
+git commit -m "feat(vps): /ig-profile-info batch enrichment route
+
+Paces profiles ~5s apart and aborts after two consecutive auth failures.
+getNextIgCookies() never returns null from staleness -- it clears the stale
+set and retries -- so a dead cookie pool is detected by consecutive
+failures, not by a null session. Registered as a heavy path: a full batch
+holds the route ~50s."
+```
 
 ---
 
@@ -1208,12 +1236,70 @@ from public.ig_prospects where username = 'zz_definitely_not_a_real_handle_9f3';
 
 Expected: `enrichment_status = 'failed'`, `enrichment_attempts = 3`. A fourth run must not pick it up again — confirm `claimed` excludes it.
 
-**Outage rollback** — point the function at an unreachable scraper by stopping the VPS route temporarily is too invasive; instead assert the logic directly. Insert a fresh pending row, note its `enrichment_attempts`, then run the function while the VPS is reachable but returns a 503 (achievable by confirming behavior in logs during any real `SESSION_EXPIRED` window). If no such window occurs during implementation, verify by reading the code path: `if (!p)` restores `c.enrichment_attempts`, so a row that got no answer ends the tick at the attempt count it started with.
+**Outage rollback** — force a real outage by stopping the scraper for ~30s. Viral Today's scraping is async and retried, so a gap this short is invisible to it, but this is the production scraper: bring it straight back up.
 
-Clean up the test row:
+Insert a fresh pending row and record its attempt count:
 
 ```sql
-delete from public.ig_prospects where username = 'zz_definitely_not_a_real_handle_9f3';
+insert into public.ig_prospects (username, user_id)
+values ('zz_rollback_probe_4c1', (select id from auth.users limit 1));
+select username, enrichment_attempts from public.ig_prospects where username = 'zz_rollback_probe_4c1';
+```
+
+Expected: `enrichment_attempts = 0`.
+
+Stop the scraper, run one enrich tick, restart it:
+
+```bash
+cd /private/tmp/claude-501/-Users-admin-Projects-connectacreators/13a48a7e-19d7-4355-b67f-15e781ecddde/scratchpad
+cat > outage.exp << 'EOF'
+#!/usr/bin/expect
+set timeout 120
+spawn ssh -o StrictHostKeyChecking=no root@72.62.200.145 "pm2 stop ytdlp-server"
+expect "password:" { send "Loqueveoloveo290802#\r" }
+expect eof
+EOF
+expect outage.exp
+
+curl -s -m 60 -X POST \
+  https://hxojqrilwhhrvloiwmfo.supabase.co/functions/v1/ig-prospect-enrich \
+  -H "Content-Type: application/json" \
+  -H "x-cron-secret: connectacreators-cron-2026" -d '{}'
+
+cat > restore.exp << 'EOF'
+#!/usr/bin/expect
+set timeout 120
+spawn ssh -o StrictHostKeyChecking=no root@72.62.200.145 "pm2 start ytdlp-server && sleep 3 && curl -s http://127.0.0.1:3099/health"
+expect "password:" { send "Loqueveoloveo290802#\r" }
+expect eof
+EOF
+expect restore.exp
+```
+
+Expected: the curl returns `rolled_back` equal to `claimed`, with `enriched: 0`. The restore prints `{"status":"ok",...}`.
+
+Then confirm the attempt was given back, not burned:
+
+```sql
+select username, enrichment_attempts, enrichment_status
+from public.ig_prospects where username = 'zz_rollback_probe_4c1';
+```
+
+Expected: `enrichment_attempts = 0` and still `pending` — an Instagram outage must not consume a row's three retries.
+
+**Confirm the scraper is fully healthy before continuing:**
+
+```bash
+curl -s http://72.62.200.145:3099/health
+```
+
+Expected: `{"status":"ok",...}`. Do not proceed until this returns.
+
+Clean up both test rows:
+
+```sql
+delete from public.ig_prospects
+where username in ('zz_definitely_not_a_real_handle_9f3', 'zz_rollback_probe_4c1');
 ```
 
 - [ ] **Step 5: Write the cron migration**
