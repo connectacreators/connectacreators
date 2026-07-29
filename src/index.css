@@ -1001,79 +1001,25 @@ All colors MUST be HSL for consistency and theming.
   scrollbar-color: hsl(var(--bone) / 0.60) transparent;
 }
 
-/* Editing Queue horizontal scrollbar — transparent with cyan outline */
-.eq-table-wrap ::-webkit-scrollbar {
-  height: 6px;
-}
-.eq-table-wrap ::-webkit-scrollbar-track {
-  background: transparent;
-}
-.eq-table-wrap ::-webkit-scrollbar-thumb {
-  background: transparent;
-  border: 1px solid hsl(var(--aqua) / 0.40);
-  border-radius: 10px;
-}
-.eq-table-wrap ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--aqua) / 0.15);
-  border-color: hsl(var(--aqua) / 0.65);
-}
-.eq-table-wrap .overflow-auto {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
-}
+/* ── Scrollbars: hidden everywhere, scrolling unaffected ──
+   These used to be drawn as an always-visible aqua outline (global, plus
+   copies for the editing-queue table and the canvas). It read as UI chrome
+   in the middle of otherwise boxless surfaces — most obviously in the /ai
+   chat, where a cyan bar sat down the side of the conversation.
 
-/* ── Global scrollbar — Aqua outline, no fill ── */
+   Same treatment .custom-scrollbar and .cd-scroll-fade-top already used, now
+   applied app-wide instead of per-component: nothing is painted, and wheel,
+   trackpad, keyboard and drag scrolling all behave exactly as before. Note
+   this also suppresses the OS-default bar (blue on macOS Chrome), which is
+   what the old rules existed to cover up in the first place. */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border: 1px solid hsl(var(--aqua) / 0.40);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--aqua) / 0.08);
-  border-color: hsl(var(--aqua) / 0.65);
+  width: 0;
+  height: 0;
+  display: none;
 }
 * {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
-}
-
-/* Canvas scrollbars — Aqua outline, no fill (AI panel + all nodes) */
-.canvas-ai-scroll::-webkit-scrollbar,
-.react-flow__node ::-webkit-scrollbar,
-.react-flow__panel ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.canvas-ai-scroll::-webkit-scrollbar-track,
-.react-flow__node ::-webkit-scrollbar-track,
-.react-flow__panel ::-webkit-scrollbar-track {
-  background: transparent;
-}
-.canvas-ai-scroll::-webkit-scrollbar-thumb,
-.react-flow__node ::-webkit-scrollbar-thumb,
-.react-flow__panel ::-webkit-scrollbar-thumb {
-  background: transparent;
-  border: 1px solid hsl(var(--aqua) / 0.40);
-  border-radius: 10px;
-}
-.canvas-ai-scroll::-webkit-scrollbar-thumb:hover,
-.react-flow__node ::-webkit-scrollbar-thumb:hover,
-.react-flow__panel ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--aqua) / 0.08);
-  border-color: hsl(var(--aqua) / 0.60);
-}
-.canvas-ai-scroll,
-.react-flow__node *,
-.react-flow__panel * {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--aqua) / 0.40) transparent;
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* IE / legacy Edge */
 }
 
 /* Landing page floating particles + noise */
