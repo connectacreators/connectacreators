@@ -367,7 +367,13 @@ export function MarkdownText({ text, tone = "light" }: { text: string; tone?: "l
     i++;
   }
   flushBullets();
-  return <div className="space-y-0.5">{nodes}</div>;
+  // overflow-wrap:anywhere for the same reason UserBubble sets it: a reply
+  // can echo back an API token, long URL or storage path — single unbroken
+  // "words" hundreds of characters long. Without an in-word break they
+  // widen the message past its container and put the chat into horizontal
+  // scroll. `anywhere` (not `break-word`) because only it also lowers the
+  // element's min-content width, which is what flex/grid parents measure.
+  return <div className="space-y-0.5" style={{ overflowWrap: "anywhere" }}>{nodes}</div>;
 }
 
 // ── Inline Script Preview Card ─────────────────────────────────────────────

@@ -122,6 +122,16 @@ function UserBubble({
         background: fullscreen ? "hsl(var(--bone) / 0.10)" : "hsl(var(--ink-on-cream) / 0.08)",
         border: fullscreen ? "1px solid hsl(var(--bone) / 0.12)" : "1px solid hsl(var(--ink-on-cream) / 0.10)",
         color: fullscreen ? "hsl(var(--cream))" : "hsl(var(--ink-on-cream))",
+        // Keep the user's own line breaks (pasted multi-line input reads as
+        // typed), and allow breaking INSIDE a word. Pasted API tokens, URLs
+        // and IDs are single unbroken words hundreds of characters long —
+        // without this they can't wrap, so the bubble blows past its
+        // max-width and drags the whole chat column into horizontal scroll.
+        whiteSpace: "pre-wrap",
+        // `anywhere`, not `break-word`: only `anywhere` also shrinks the
+        // element's min-content width, which is what a flex child needs in
+        // order to actually stay inside its max-w cap.
+        overflowWrap: "anywhere",
       }}
     >
       {text}
@@ -783,7 +793,11 @@ export function AssistantChat({
               )
             ) : (
               <div className="flex justify-end group/usermsg">
-                <div className="relative max-w-[85%]">
+                {/* min-w-0 lets this flex child actually shrink to its
+                    max-width — without it the default min-width:auto floors
+                    it at the content's intrinsic width and the cap is
+                    ignored for long unbroken strings. */}
+                <div className="relative max-w-[85%] min-w-0">
                   {msg._imagePreview && (
                     <img
                       src={msg._imagePreview}
