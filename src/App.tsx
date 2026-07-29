@@ -10,7 +10,6 @@ import { LeadNotificationProvider } from "@/contexts/LeadNotificationContext";
 import { OutOfCreditsProvider } from "@/contexts/OutOfCreditsContext";
 import OutOfCreditsModal from "@/components/OutOfCreditsModal";
 import { CompanionProvider } from "@/contexts/CompanionContext";
-import CompanionBubble from "@/components/CompanionBubble";
 import FloatingUploadProgress from "@/components/FloatingUploadProgress";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { Loader2 } from "lucide-react";
@@ -120,9 +119,13 @@ function PublicOnboardRedirect() {
   return <Navigate to={`/onboarding/${clientId}`} replace />;
 }
 
-// App-shell chrome (upload progress, out-of-credits, companion bubble). Hidden
-// on the client-facing onboarding form so a client filling it out sees a clean
+// App-shell chrome (upload progress, out-of-credits). Hidden on the
+// client-facing onboarding form so a client filling it out sees a clean
 // page — admins keep the chrome there for companion-assisted fill.
+// NOTE: CompanionBubble lives in DashboardLayout, not here — GlobalChrome
+// wraps every route including the public marketing pages (/, /1million,
+// etc.), and the companion bubble should only ever appear inside the
+// authenticated internal app.
 function GlobalChrome() {
   const location = useLocation();
   const { isAdmin } = useAuth();
@@ -133,7 +136,6 @@ function GlobalChrome() {
     <>
       <FloatingUploadProgress />
       <OutOfCreditsModal />
-      <CompanionBubble />
     </>
   );
 }

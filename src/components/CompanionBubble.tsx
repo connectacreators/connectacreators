@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { useCompanion } from "@/contexts/CompanionContext";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import CompanionDrawer from "./CompanionDrawer";
 import CommandOrb from "@/components/command-deck/CommandOrb";
 
@@ -33,6 +34,7 @@ export default function CompanionBubble() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const en = language === "en";
 
   // Keep the drawer mounted briefly after close so the slide-out animation
@@ -52,6 +54,9 @@ export default function CompanionBubble() {
   if (location.pathname === "/ai") return null;
   // User opted to hide the floating bubble via Settings. Re-enable from /settings.
   if (bubbleHidden) return null;
+  // Not built for small screens yet — it collides with the mobile bottom
+  // nav and page content instead of sitting in a clear corner.
+  if (isMobile) return null;
 
   return (
     <>

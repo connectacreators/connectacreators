@@ -7,6 +7,7 @@ import FloatingCredits from "@/components/FloatingCredits";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import NamingModal from "@/components/NamingModal";
 import StorageCapBanner from "@/components/StorageCapBanner";
+import CompanionBubble from "@/components/CompanionBubble";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardLayout() {
@@ -56,6 +57,7 @@ export default function DashboardLayout() {
       </div>
       {showChrome && <FloatingCredits />}
       {showChrome && <MobileBottomNav />}
+      {showChrome && <CompanionBubble />}
       <NamingModal />
     </div>
   );
