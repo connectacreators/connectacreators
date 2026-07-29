@@ -291,7 +291,7 @@ async function scrapeInstagramProfile(username, limit) {
         console.error("igApiFetch error (" + via + "):", e.message?.slice(0, 200));
         continue;
       }
-      if (parsed.message === "login_required" || parsed.message === "challenge_required" || parsed.require_login) {
+      if (isIgAuthFailure(parsed)) {
         // IG's rate-limit reply carries require_login:true too. A transient
         // "Please wait a few minutes" must NOT mark the account stale — doing
         // so dropped both live accounts from rotation and returned "0 videos".
@@ -709,6 +709,20 @@ function markIgAccountStale(file) {
   setTimeout(() => { igStaleAccounts.delete(file); console.log("[ig-rotate] Unstaled:", file.split("/").pop()); }, 30 * 60 * 1000);
 }
 
+// Every way Instagram tells us a session is no longer usable. `user_has_logged_out`
+// is what a 2FA-locked / remotely-signed-out account returns, and it was missing
+// from every call site: the reply parses as a normal 200, so a dead session
+// surfaced as an empty result set (or a per-row "not_found") while the account
+// stayed in rotation, poisoning every subsequent request. Callers must still
+// exempt the transient "please wait a few minutes" throttle, which arrives with
+// require_login:true but must NEVER mark an account stale.
+function isIgAuthFailure(parsed) {
+  if (!parsed) return false;
+  const m = parsed.message;
+  return m === "login_required" || m === "challenge_required" ||
+         m === "user_has_logged_out" || !!parsed.require_login;
+}
+
 // IG throttles usernameinfo/ (and web_profile_info) per acting account
 // (ds_user_id). Strip it for calls to that endpoint only — everything else
 // keeps the full authenticated jar. Shared with scrapeInstagramProfile's
@@ -718,39 +732,67 @@ function stripDsUserId(cookieHeader) {
 }
 
 // ── Shared authed IG fetch (used by /ig-search and /ig-profile-info) ─────────
-// Mirrors the fetcher inside scrapeInstagramProfile, including the one rule
-// that matters most: a transient "please wait a few minutes" reply carries
-// require_login:true but must NOT mark the account stale. Doing so once
-// dropped both live accounts from rotation and returned 0 results until the
-// rotation auto-reset.
+// Mirrors igApiFetch inside scrapeInstagramProfile, including the two rules
+// that matter most:
+//
+//  1. Primary egress is the WARP SOCKS proxy; when WARP's exit IP is throttled
+//     the SAME request is retried straight from the VPS IP. That fallback landed
+//     in igApiFetch with 84342929 (WARP exit 104.28.205.117 answered every
+//     request with the throttle message while the VPS IP returned full results
+//     on identical cookies, and the throttle is sticky). igAuthedFetch was
+//     written after that commit and never got it, so a throttled WARP made
+//     /ig-search and /ig-profile-info fail 100% while every other scraper path
+//     kept working.
+//  2. A transient "please wait a few minutes" reply carries require_login:true
+//     but must NOT mark the account stale. Doing so once dropped both live
+//     accounts from rotation and returned 0 results until the rotation
+//     auto-reset. A real auth failure (incl. user_has_logged_out) does mark it
+//     stale on first sight, so a dead session leaves rotation immediately.
 function igAuthedFetch(apiUrl, session) {
   const { execFileSync } = require("child_process");
-  const args = [
-    "-s", "--max-time", "20",
-    "--socks5-hostname", "127.0.0.1:1080",
-    "-H", "User-Agent: Instagram 344.0.0.0.98 Android (33/13; 420dpi; 1080x2340; samsung; SM-G991B; o1s; exynos2100)",
-    "-H", "X-IG-App-ID: 936619743392459",
-    "-H", "X-CSRFToken: " + session.csrfToken,
-    "-H", "Cookie: " + session.cookieHeader,
-    apiUrl,
-  ];
-  try {
-    const raw = execFileSync("curl", args, { maxBuffer: 10 * 1024 * 1024, timeout: 25000 });
-    const parsed = JSON.parse(raw.toString());
-    if (parsed.message === "login_required" || parsed.message === "challenge_required" || parsed.require_login) {
+  function buildArgs(useProxy) {
+    const args = ["-s", "--max-time", "20"];
+    if (useProxy) args.push("--socks5-hostname", "127.0.0.1:1080");
+    args.push(
+      "-H", "User-Agent: Instagram 344.0.0.0.98 Android (33/13; 420dpi; 1080x2340; samsung; SM-G991B; o1s; exynos2100)",
+      "-H", "X-IG-App-ID: 936619743392459",
+      "-H", "X-CSRFToken: " + session.csrfToken,
+      "-H", "Cookie: " + session.cookieHeader,
+      apiUrl,
+    );
+    return args;
+  }
+
+  const tag = (session.file || "").split("/").pop();
+  let throttledAnywhere = false;
+  for (const useProxy of [true, false]) {
+    const via = useProxy ? "WARP" : "direct";
+    let parsed;
+    try {
+      const raw = execFileSync("curl", buildArgs(useProxy), { maxBuffer: 10 * 1024 * 1024, timeout: 25000 });
+      parsed = JSON.parse(raw.toString());
+    } catch (e) {
+      console.error("[ig-authed] fetch error (" + via + "):", (e.message || "").slice(0, 200));
+      continue;
+    }
+    if (isIgAuthFailure(parsed)) {
       if (/please wait a few minutes/i.test(parsed.message || "")) {
-        console.warn("[ig-search] Rate-limited (transient):", (session.file || "").split("/").pop());
-        return { ok: false, reason: "throttled" };
+        throttledAnywhere = true;
+        console.warn("[ig-authed] Rate-limited via " + via + " (transient, not stale):", tag);
+        continue;
       }
-      console.warn("[ig-search] Auth error:", parsed.message, "on", (session.file || "").split("/").pop());
+      console.warn("[ig-authed] Auth error:", parsed.message, "on", tag);
       if (session.file) markIgAccountStale(session.file);
       return { ok: false, reason: "auth" };
     }
+    if (!useProxy) console.log("[ig-authed] Served via direct VPS IP (WARP throttled)");
     return { ok: true, data: parsed };
-  } catch (e) {
-    console.error("[ig-search] fetch error:", (e.message || "").slice(0, 200));
-    return { ok: false, reason: "network" };
   }
+  if (throttledAnywhere) {
+    console.warn("[ig-authed] Rate-limited on BOTH WARP and direct egress");
+    return { ok: false, reason: "throttled" };
+  }
+  return { ok: false, reason: "network" };
 }
 
 // Keyword -> Instagram accounts. Same topsearch_flat call /scrape-reels-search
@@ -763,17 +805,25 @@ function igTopSearch(query, limit, session) {
   );
   if (!r.ok) return r;
   const list = (r.data && r.data.list) || [];
+  // topsearch_flat omits follower_count for most hits. Report that as null, not
+  // 0 — the consumer stores it verbatim, and a 0 reads as "this account has no
+  // followers" in the UI and looks like real data that enrichment then "changes".
   const users = list
-    .filter((item) => item.user)
-    .map((item) => ({
-      username: item.user.username,
-      user_id: String(item.user.pk || item.user.pk_id || ""),
-      full_name: item.user.full_name || "",
-      follower_count: item.user.follower_count || 0,
-      profile_pic_url: item.user.profile_pic_url || null,
-      is_verified: !!item.user.is_verified,
-      is_private: !!item.user.is_private,
-    }))
+    .filter((item) => item.user && item.user.username)
+    .map((item) => {
+      const u = item.user;
+      const id = u.pk != null ? String(u.pk) : u.pk_id != null ? String(u.pk_id) : null;
+      return {
+        username: String(u.username),
+        user_id: id,
+        full_name: typeof u.full_name === "string" && u.full_name !== "" ? u.full_name : null,
+        follower_count: typeof u.follower_count === "number" && Number.isFinite(u.follower_count)
+          ? u.follower_count : null,
+        profile_pic_url: u.profile_pic_url || null,
+        is_verified: !!u.is_verified,
+        is_private: !!u.is_private,
+      };
+    })
     .slice(0, limit);
   return { ok: true, users };
 }
@@ -798,7 +848,9 @@ function warmIgSessions() {
       const parsed = JSON.parse(result);
       if (parsed.user) {
         console.log("[ig-warm]", file.split("/").pop(), "— session OK for", parsed.user.username);
-      } else if (parsed.message === "login_required" || parsed.message === "challenge_required") {
+      } else if (isIgAuthFailure(parsed) && !/please wait a few minutes/i.test(parsed.message || "")) {
+        // Includes user_has_logged_out, which the warmer used to ignore — a
+        // remotely-signed-out account stayed in rotation for hours.
         console.warn("[ig-warm]", file.split("/").pop(), "— SESSION EXPIRED:", parsed.message);
         markIgAccountStale(file);
       }
@@ -3314,7 +3366,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         console.log("[ig-search] query:", JSON.stringify(query.trim()), "limit:", safeLim);
-        const r = igTopSearch(query.trim(), safeLim, session);
+        // One retry across the rotation on a real auth failure: the failing
+        // account is already marked stale by igAuthedFetch, so the retry lands
+        // on a different session. Without this, the first search after a
+        // session dies returns SESSION_EXPIRED to the operator even though a
+        // healthy account was sitting right behind it in rotation.
+        let r = igTopSearch(query.trim(), safeLim, session);
+        if (!r.ok && r.reason === "auth") {
+          const alt = getNextIgCookies();
+          if (alt && alt.file !== session.file) {
+            console.warn("[ig-search] retrying with", (alt.file || "").split("/").pop());
+            r = igTopSearch(query.trim(), safeLim, alt);
+          }
+        }
         if (!r.ok) {
           res.writeHead(503, corsHeaders);
           res.end(JSON.stringify({
@@ -3398,21 +3462,30 @@ const server = http.createServer(async (req, res) => {
           const u = r.data && r.data.user;
           if (!u) { profiles[name] = { error: "not_found" }; continue; }
 
+          // null means "Instagram did not tell us", NOT "zero"/"empty". The
+          // previous `|| 0` / `|| ""` coalescing made a field IG omitted
+          // indistinguishable from a real 0, so an enrichment reply missing
+          // follower_count overwrote the good number /ig-search already
+          // captured with 0. The writer skips nulls for those columns.
+          const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+          const str = (v) => (typeof v === "string" && v !== "" ? v : null);
+          const id = u.pk != null ? String(u.pk) : u.pk_id != null ? String(u.pk_id) : null;
+
           profiles[name] = {
-            ig_user_id: String(u.pk || u.pk_id || ""),
-            full_name: u.full_name || "",
-            biography: u.biography || "",
-            external_url: u.external_url || null,
-            category: u.category || null,
-            is_business: !!u.is_business,
-            media_count: u.media_count || 0,
-            follower_count: u.follower_count || 0,
-            following_count: u.following_count || 0,
-            public_email: u.public_email || null,
-            public_phone: u.public_phone_number || null,
-            city_name: u.city_name || null,
-            is_private: !!u.is_private,
-            is_verified: !!u.is_verified,
+            ig_user_id: str(id),
+            full_name: str(u.full_name),
+            biography: str(u.biography),
+            external_url: str(u.external_url),
+            category: str(u.category),
+            is_business: typeof u.is_business === "boolean" ? u.is_business : null,
+            media_count: num(u.media_count),
+            follower_count: num(u.follower_count),
+            following_count: num(u.following_count),
+            public_email: str(u.public_email),
+            public_phone: str(u.public_phone_number),
+            city_name: str(u.city_name),
+            is_private: typeof u.is_private === "boolean" ? u.is_private : null,
+            is_verified: typeof u.is_verified === "boolean" ? u.is_verified : null,
           };
         }
 
