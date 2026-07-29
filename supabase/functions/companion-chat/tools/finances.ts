@@ -163,15 +163,23 @@ export async function handleFinanceTool(
   }
 
   if (block.name === "get_revenue_vs_goal") {
+    // Half-open [monthStart, nextMonthStart): finance_generate_recurring
+    // materializes future-dated income rows whenever /finances is browsed
+    // ahead, so an open-ended range reports months that haven't happened.
+    // is_ar rows are invoiced-but-unpaid and deleted_at rows are soft
+    // deletes — neither is collected revenue.
     const now = new Date();
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const ymd = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const monthStart = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+    const nextMonthStart = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 1));
 
     const [{ data: txns }, { data: clients }] = await Promise.all([
-      adminClient.from("finance_transactions").select("amount, category").eq("user_id", userId).eq("type", "income").gte("date", monthStart),
+      adminClient.from("finance_transactions").select("amount, category, is_ar").eq("user_id", userId).eq("type", "income").is("deleted_at", null).gte("date", monthStart).lt("date", nextMonthStart),
       adminClient.from("clients").select("id, name").eq("user_id", userId),
     ]);
 
-    const totalIncome = (txns ?? []).reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const totalIncome = (txns ?? []).filter((t: any) => !t.is_ar).reduce((s: number, t: any) => s + Number(t.amount), 0);
 
     const strategyRows = await Promise.all(
       (clients ?? []).map((c: any) =>

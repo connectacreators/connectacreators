@@ -36,6 +36,13 @@ export const EMPTY_COUNTS: Omit<OutboundRow, "platform" | "month"> = {
 };
 
 const tbl = () => (supabase as any).from("outbound_metrics");
+const dailyLogTbl = () => (supabase as any).from("outbound_daily_log");
+
+/** Month string ("2026-07") for today, in local time. */
+const thisMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
 
 /** One platform+month row with debounced autosave upsert. */
 export function useOutboundMonth(platform: string, month: string) {
@@ -85,10 +92,23 @@ export function useOutboundMonth(platform: string, month: string) {
     }, 600);
   }, [user, platform, month]);
 
+  // outbound_metrics is monthly-only, so a stepper change also writes a
+  // signed day-level row — that's the only record of WHEN a send happened,
+  // and it's what the Command Deck's "sent today" gauge reads. Only for the
+  // current month: editing a past month is backfill, not activity today.
   const update = useCallback((key: keyof typeof EMPTY_COUNTS, value: number) => {
-    setCounts((prev) => ({ ...prev, [key]: Math.max(0, Math.round(value) || 0) }));
+    const next = Math.max(0, Math.round(value) || 0);
+    const delta = next - (latest.current[key] ?? 0);
+    setCounts((prev) => ({ ...prev, [key]: next }));
     scheduleSave();
-  }, [scheduleSave]);
+    if (delta !== 0 && user && month === thisMonth()) {
+      dailyLogTbl()
+        .insert({ user_id: user.id, platform, stage: key, delta })
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.error("outbound day-log insert failed", error);
+        });
+    }
+  }, [scheduleSave, user, platform, month]);
 
   return { counts, update, loading, saving };
 }

@@ -35,8 +35,16 @@ export function useAgencyGoals(): AgencyGoals {
         return;
       }
 
+      // Half-open [monthStart, nextMonthStart) against a plain `date`
+      // column, matching useFinanceTransactions. The upper bound is not
+      // optional: finance_generate_recurring materializes future-dated
+      // income rows whenever /finances is browsed ahead, so an open-ended
+      // range sums months that haven't happened yet.
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const ymd = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const monthStart = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+      const nextMonthStart = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 1));
 
       // agency_goals is new (applied directly via the Management API, see
       // supabase/migrations/20260725_...) and isn't in the generated
@@ -54,7 +62,8 @@ export function useAgencyGoals(): AgencyGoals {
           .eq("user_id", userId)
           .eq("type", "income")
           .is("deleted_at", null)
-          .gte("date", monthStart),
+          .gte("date", monthStart)
+          .lt("date", nextMonthStart),
       ]);
       if (cancelled) return;
 

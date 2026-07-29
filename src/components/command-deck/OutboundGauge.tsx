@@ -12,7 +12,7 @@ const PACE_COLOR: Record<string, string> = {
 
 export default function OutboundGauge() {
   const { outboundDailyTarget } = useAgencyGoals();
-  const { loading, sentToday, byPlatform, logOutbound } = useOutboundDailyLog();
+  const { loading, sentToday, engagedToday, byPlatform, logOutbound } = useOutboundDailyLog();
   const pct = outboundPct(sentToday, outboundDailyTarget);
   const paceState = outboundPaceState(sentToday, outboundDailyTarget);
 
@@ -54,6 +54,10 @@ export default function OutboundGauge() {
                 boxShadow: "0 0 8px hsl(var(--aqua) / 0.3)",
               }}
             />
+          </div>
+          <div className="flex items-baseline gap-1.5 font-mono" style={{ fontSize: 9, letterSpacing: "0.06em" }}>
+            <span style={{ color: "hsl(var(--bone) / 0.56)" }}>{engagedToday}</span>
+            <span style={{ color: "hsl(var(--bone) / 0.3)" }}>engaged today</span>
           </div>
           <div className="flex gap-[9px] flex-wrap mt-0.5">
             {PLATFORMS.map((p) => (
