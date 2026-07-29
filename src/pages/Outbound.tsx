@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Loader2, Minus, Plus, Send,
@@ -12,6 +12,7 @@ import {
   useOutboundMonth, useOutboundYear, EMPTY_COUNTS,
 } from "@/hooks/useOutboundMetrics";
 import { TikTokIcon } from "@/lib/viral-card-utils";
+import { ProspectsTab } from "@/components/outbound/ProspectsTab";
 
 // Admin-only outbound DM funnel tracker, modeled on the "2026 INSTAGRAM DM
 // Metrics Tracker" spreadsheet, generalized per platform. Mobile-first:
@@ -39,7 +40,7 @@ const PLATFORMS: { key: string; label: string; icon: React.ElementType }[] = [
 // DM-native stage icons: crosshair = prospect targeted, double-check =
 // read receipt, paper plane = DM sent, speech = conversation, calendar
 // clock = link sent, calendar check = call on the books.
-const STAGE_ICON: Record<string, React.ElementType> = {
+export const STAGE_ICON: Record<string, React.ElementType> = {
   pre_initiated: Crosshair,
   message_seen: CheckCheck,
   initiated: Send,
@@ -65,9 +66,15 @@ const monthLabel = (month: string) => {
 export default function Outbound() {
   const { isAdmin, loading: authLoading } = useAuth();
   const [platform, setPlatform] = useState<string>("instagram");
-  const [view, setView] = useState<"month" | "annual">("month");
+  const [view, setView] = useState<"month" | "annual" | "prospects">("month");
   const [month, setMonth] = useState(currentMonth());
   const [year, setYear] = useState(new Date().getFullYear());
+
+  // Prospecting only sources Instagram, so leaving the tab open under another
+  // platform would show Instagram rows under a TikTok header.
+  useEffect(() => {
+    if (view === "prospects" && platform !== "instagram") setView("month");
+  }, [platform, view]);
 
   if (authLoading) {
     return (
@@ -94,6 +101,9 @@ export default function Outbound() {
             <Button variant={view === "annual" ? "cta" : "ghost"} size="sm" className="h-8 px-3 text-xs" onClick={() => setView("annual")}>
               Annual
             </Button>
+            <Button variant={view === "prospects" ? "cta" : "ghost"} size="sm" className="h-8 px-3 text-xs" onClick={() => setView("prospects")} disabled={platform !== "instagram"}>
+              Prospects
+            </Button>
           </div>
         </div>
 
@@ -119,7 +129,9 @@ export default function Outbound() {
           })}
         </div>
 
-        {view === "month" ? (
+        {view === "prospects" ? (
+          <ProspectsTab />
+        ) : view === "month" ? (
           <MonthView platform={platform} month={month} onShift={(d) => setMonth((m) => shiftMonth(m, d))} />
         ) : (
           <AnnualView platform={platform} year={year} onShift={(d) => setYear((y) => y + d)} />
