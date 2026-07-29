@@ -17,6 +17,11 @@ export function readCachedBranding(): UserBranding | null {
         fontPairing: parsed.fontPairing,
         logoUrl:     parsed.logoUrl ?? null,
         logoAlt:     parsed.logoAlt ?? null,
+        // Older cached payloads predate accent overrides.
+        accentOverrides:
+          parsed.accentOverrides && typeof parsed.accentOverrides === 'object'
+            ? parsed.accentOverrides
+            : {},
       };
     }
     return null;

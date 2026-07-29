@@ -8,6 +8,7 @@ import {
   type UserBranding,
   type PaletteId,
   type FontPairingId,
+  type AccentOverrides,
 } from '@/lib/branding/types';
 
 interface BrandingContextValue {
@@ -17,6 +18,7 @@ interface BrandingContextValue {
   setPalette: (id: PaletteId) => Promise<void>;
   setFontPairing: (id: FontPairingId) => Promise<void>;
   setLogo: (logoUrl: string | null, logoAlt?: string | null) => Promise<void>;
+  setAccentOverride: (token: keyof AccentOverrides, hsl: string | null) => Promise<void>;
   resetToDefault: () => Promise<void>;
 }
 
@@ -47,9 +49,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
     // Branding is available to every logged-in user — no plan/role gate.
     setIsLoading(true);
-    supabase
+    // accent_overrides was applied to prod by hand (see the 20260729
+    // migration) and isn't in the generated Supabase types yet — same drift
+    // class as agency_goals. Cast the table access, not the result.
+    (supabase as any)
       .from('user_branding')
-      .select('palette, font_pairing, logo_url, logo_alt')
+      .select('palette, font_pairing, logo_url, logo_alt, accent_overrides')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -67,6 +72,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
               fontPairing: data.font_pairing as FontPairingId,
               logoUrl:     data.logo_url ?? null,
               logoAlt:     data.logo_alt ?? null,
+              // jsonb comes back already parsed; guard anyway since a hand-
+              // edited row could hold a non-object.
+              accentOverrides:
+                data.accent_overrides && typeof data.accent_overrides === 'object'
+                  ? (data.accent_overrides as AccentOverrides)
+                  : {},
             }
           : EDITORIAL_DEFAULT;
         setBranding(next);
@@ -101,7 +112,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     setBranding(next);
     applyBranding(next);
     writeCachedBranding(next);
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('user_branding')
       .upsert({
         user_id:      user.id,
@@ -109,6 +120,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
         font_pairing: next.fontPairing,
         logo_url:     next.logoUrl,
         logo_alt:     next.logoAlt,
+        accent_overrides: next.accentOverrides ?? {},
       }, { onConflict: 'user_id' });
     if (error) {
       console.error('[branding] persist failed', error);
@@ -129,6 +141,16 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       persist({ ...branding, logoUrl, logoAlt }),
     [branding, persist]
   );
+  /** Set or clear one accent override. Passing null falls back to the preset. */
+  const setAccentOverride = useCallback(
+    (token: keyof AccentOverrides, hsl: string | null) => {
+      const next = { ...(branding.accentOverrides ?? {}) };
+      if (hsl) next[token] = hsl;
+      else delete next[token];
+      return persist({ ...branding, accentOverrides: next });
+    },
+    [branding, persist]
+  );
   const resetToDefault = useCallback(
     () => persist(EDITORIAL_DEFAULT),
     [persist]
@@ -142,9 +164,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       setPalette,
       setFontPairing,
       setLogo,
+      setAccentOverride,
       resetToDefault,
     }),
-    [branding, user, isLoading, setPalette, setFontPairing, setLogo, resetToDefault],
+    [branding, user, isLoading, setPalette, setFontPairing, setLogo, setAccentOverride, resetToDefault],
   );
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;

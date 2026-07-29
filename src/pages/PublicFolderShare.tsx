@@ -84,6 +84,9 @@ function applyShareBranding(branding: ShareBranding | null | undefined): void {
     fontPairing,
     logoUrl: branding?.logo_url ?? null,
     logoAlt: branding?.logo_alt ?? null,
+    // Public share pages render the owner's preset only — accent overrides
+    // aren't selected by this query and default to the palette.
+    accentOverrides: {},
   });
 }
 

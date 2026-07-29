@@ -20,11 +20,28 @@ export interface FontPairing {
   ui: string;
 }
 
+/**
+ * Per-token colour overrides layered on top of the chosen palette.
+ *
+ * Only the two accents are open. Structure and foreground tokens (ink,
+ * bone, cream, inkOnCream) stay preset-owned deliberately: they're what
+ * guarantee text stays readable against its surface, and handing those to a
+ * colour picker mostly produces unreadable UIs, not on-brand ones.
+ *
+ * Bare HSL triplets ("184 41% 70%") — the same shape every palette token
+ * uses — so `hsl(var(--aqua) / 0.3)` keeps working downstream.
+ */
+export interface AccentOverrides {
+  aqua?: string;
+  honey?: string;
+}
+
 export interface UserBranding {
   palette: PaletteId;
   fontPairing: FontPairingId;
   logoUrl: string | null;
   logoAlt: string | null;
+  accentOverrides: AccentOverrides;
 }
 
 export const EDITORIAL_DEFAULT: UserBranding = {
@@ -36,6 +53,7 @@ export const EDITORIAL_DEFAULT: UserBranding = {
   fontPairing: 'modern',
   logoUrl: null,
   logoAlt: null,
+  accentOverrides: {},
 };
 
 export const LOCAL_STORAGE_KEY = 'connecta_branding';

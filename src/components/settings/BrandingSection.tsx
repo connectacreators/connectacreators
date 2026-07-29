@@ -1,6 +1,7 @@
 import { useBranding } from '@/hooks/useBranding';
 import PalettePicker from './PalettePicker';
 import FontPicker from './FontPicker';
+import AccentPicker from './AccentPicker';
 import LogoUploader from './LogoUploader';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
@@ -36,6 +37,7 @@ export default function BrandingSection() {
       </div>
 
       <PalettePicker />
+      <AccentPicker />
       <FontPicker />
       <LogoUploader />
     </section>
