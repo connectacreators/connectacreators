@@ -317,7 +317,6 @@ async function scrapeInstagramProfile(username, limit) {
     // Step 1: Resolve username to user ID
     // IG throttles web_profile_info per acting account (ds_user_id). Strip it
     // for resolution only; clips/user below keeps the full authenticated jar.
-    const stripDsUser = (hdr) => hdr.split("; ").filter((c) => !c.startsWith("ds_user_id=")).join("; ");
     console.log("Resolving user ID for:", username);
     // Retry across the account rotation — a single stale/rate-limited account
     // otherwise turned a brand-new channel's first scrape into a silent
@@ -340,7 +339,7 @@ async function scrapeInstagramProfile(username, limit) {
         "https://i.instagram.com/api/v1/users/" + username + "/usernameinfo/",
         "GET",
         null,
-        stripDsUser(cookieHeader)
+        stripDsUserId(cookieHeader)
       );
       if (profileData?.user?.pk) break;
     }
@@ -708,6 +707,14 @@ function markIgAccountStale(file) {
   igStaleAccounts.add(file);
   // Auto-clear after 30 minutes
   setTimeout(() => { igStaleAccounts.delete(file); console.log("[ig-rotate] Unstaled:", file.split("/").pop()); }, 30 * 60 * 1000);
+}
+
+// IG throttles usernameinfo/ (and web_profile_info) per acting account
+// (ds_user_id). Strip it for calls to that endpoint only — everything else
+// keeps the full authenticated jar. Shared with scrapeInstagramProfile's
+// resolution step, which had this same one-liner inline.
+function stripDsUserId(cookieHeader) {
+  return cookieHeader.split("; ").filter((c) => !c.startsWith("ds_user_id=")).join("; ");
 }
 
 // ── Shared authed IG fetch (used by /ig-search and /ig-profile-info) ─────────
@@ -3365,9 +3372,13 @@ const server = http.createServer(async (req, res) => {
           if (!session) { sessionsExhausted = true; break; }
 
           const name = list[i];
+          // usernameinfo/ is throttled per acting account (ds_user_id) — see
+          // stripDsUserId above. Stripped only for this call site, not inside
+          // igAuthedFetch itself, so /ig-search's topsearch_flat call (which
+          // needs the full authenticated jar) is untouched.
           const r = igAuthedFetch(
             "https://i.instagram.com/api/v1/users/" + encodeURIComponent(name) + "/usernameinfo/",
-            session
+            { ...session, cookieHeader: stripDsUserId(session.cookieHeader) }
           );
 
           if (!r.ok) {
