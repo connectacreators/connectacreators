@@ -456,7 +456,7 @@ export default function LandingPageNew() {
       >
         <span style={{ marginRight: 6 }}>
           <Flame size={11} style={{ display: "inline-block", color: "var(--honey)", marginRight: 6, marginBottom: -1 }} />
-          <strong style={{ fontWeight: 700 }}>1 million views, guaranteed in 90 days.</strong>
+          <strong style={{ fontWeight: 700 }}>1 million views, guaranteed in 6 months.</strong>
         </span>
         We build the brands people can&apos;t stop watching.{" "}
         <Link to="/1million" style={{ color: "var(--bone)", fontWeight: 700, marginLeft: 4, textDecoration: "underline" }}>
@@ -477,7 +477,8 @@ export default function LandingPageNew() {
           backdropFilter: "blur(16px) saturate(1.4)",
           WebkitBackdropFilter: "blur(16px) saturate(1.4)",
           color: "var(--ink)",
-          borderRadius: 999,
+          borderRadius: mobileOpen ? 28 : 999,
+          overflow: "hidden",
           boxShadow:
             "0 16px 48px -16px rgba(0,0,0,0.55), 0 0 36px -10px rgba(143,208,213,0.20)",
         }}
@@ -1394,7 +1395,7 @@ export default function LandingPageNew() {
             Work with us <ArrowRight size={16} />
           </Link>
           <div style={{ marginTop: 18, fontSize: 12.5, color: "rgba(10,14,18,0.45)" }}>
-            1,000,000 views in 90 days, or your money back.
+            1,000,000 views in 6 months, or your money back.
           </div>
         </div>
       </section>
