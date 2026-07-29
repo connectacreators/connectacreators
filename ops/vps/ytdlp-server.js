@@ -662,7 +662,8 @@ let activeHeavy = 0;
 const MAX_HEAVY = 8; // max concurrent ffmpeg/yt-dlp/Puppeteer ops
 const HEAVY_PATHS = new Set([
   '/cobalt-proxy', '/ig-thumbnail', '/extract-audio',
-  '/analyze-video', '/download-video', '/scrape-profile', '/scrape-reels-search'
+  '/analyze-video', '/download-video', '/scrape-profile', '/scrape-reels-search',
+  '/ig-profile-info'
 ]);
 
 // ── Instagram account rotation ───────────────────────────────────────────────
@@ -3320,6 +3321,107 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ users: r.users }));
       } catch (e) {
         console.error("[ig-search] Error:", e.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // ── /ig-profile-info — batch profile enrichment for lead qualification ──────
+  if (req.method === "POST" && req.url === "/ig-profile-info") {
+    if (req.headers["x-api-key"] !== API_KEY) {
+      res.writeHead(401, corsHeaders);
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", async () => {
+      try {
+        const { usernames } = JSON.parse(body || "{}");
+        if (!Array.isArray(usernames) || usernames.length === 0) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ error: "usernames array is required" }));
+          return;
+        }
+        const list = usernames
+          .slice(0, 10)
+          .map((u) => String(u || "").replace(/^@/, "").trim())
+          .filter(Boolean);
+
+        const profiles = {};
+        let authFailures = 0;
+        let sessionsExhausted = false;
+
+        for (let i = 0; i < list.length; i++) {
+          // Pace the batch: ~4-6s between profiles. The cookie pool is the
+          // fragile resource here (all 6 accounts 2FA-locked at once on
+          // 2026-07-27), so this stays well under Viral Today's own load.
+          if (i > 0) {
+            await new Promise((r) => setTimeout(r, 4000 + Math.floor(Math.random() * 2000)));
+          }
+          const session = getNextIgCookies();
+          if (!session) { sessionsExhausted = true; break; }
+
+          const name = list[i];
+          const r = igAuthedFetch(
+            "https://i.instagram.com/api/v1/users/" + encodeURIComponent(name) + "/usernameinfo/",
+            session
+          );
+
+          if (!r.ok) {
+            if (r.reason === "auth") {
+              // getNextIgCookies() never returns null from staleness -- it
+              // clears the stale set and retries -- so exhaustion is detected
+              // by consecutive auth failures instead. Two in a row means the
+              // pool is down, not that one account rotated badly.
+              authFailures++;
+              if (authFailures >= 2) { sessionsExhausted = true; break; }
+            }
+            profiles[name] = { error: r.reason };
+            continue;
+          }
+          authFailures = 0;
+
+          const u = r.data && r.data.user;
+          if (!u) { profiles[name] = { error: "not_found" }; continue; }
+
+          profiles[name] = {
+            ig_user_id: String(u.pk || u.pk_id || ""),
+            full_name: u.full_name || "",
+            biography: u.biography || "",
+            external_url: u.external_url || null,
+            category: u.category || null,
+            is_business: !!u.is_business,
+            media_count: u.media_count || 0,
+            follower_count: u.follower_count || 0,
+            following_count: u.following_count || 0,
+            public_email: u.public_email || null,
+            public_phone: u.public_phone_number || null,
+            city_name: u.city_name || null,
+            is_private: !!u.is_private,
+            is_verified: !!u.is_verified,
+          };
+        }
+
+        const gotAny = Object.keys(profiles).some((k) => !profiles[k].error);
+        if (sessionsExhausted && !gotAny) {
+          res.writeHead(503, corsHeaders);
+          res.end(JSON.stringify({
+            error: "Instagram sessions exhausted",
+            code: "SESSION_EXPIRED",
+            profiles: {},
+            sessionsExhausted: true,
+          }));
+          return;
+        }
+        console.log("[ig-profile-info] enriched", Object.keys(profiles).length, "of", list.length,
+          sessionsExhausted ? "(sessions exhausted mid-batch)" : "");
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ profiles, sessionsExhausted }));
+      } catch (e) {
+        console.error("[ig-profile-info] Error:", e.message);
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: e.message }));
       }
