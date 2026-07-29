@@ -629,7 +629,7 @@ export default function Index() {
               margin: "0 auto 22px",
             }}
           >
-            We help professional-service experts generate <span className="accent-serif">1 million guaranteed views</span> in 90 days with our Organic Acquisition Funnel.
+            We help professional-service experts generate <span className="accent-serif">1 million guaranteed views</span> with our Organic Acquisition Funnel.
           </div>
 
           <div

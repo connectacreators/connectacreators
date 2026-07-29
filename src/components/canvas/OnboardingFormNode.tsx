@@ -46,7 +46,7 @@ const SECTIONS = [
       { key: "uniqueOffer", label: "Unique Offer" },
       { key: "uniqueValues", label: "Can Explain Well" },
       { key: "competition", label: "Competition" },
-      { key: "contrarianBeliefs", label: "Contrarian Beliefs" },
+      { key: "contrarianBeliefs", label: "Contrarian Takes" },
       { key: "story", label: "Story" },
     ],
   },

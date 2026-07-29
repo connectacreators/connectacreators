@@ -214,15 +214,18 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
               placeholder={`What makes ${you} different from competitors…`}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="contrarianBeliefs">
-              Contrarian beliefs {self ? "you" : "they"} hold vs other experts
+          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <Label htmlFor="contrarianBeliefs" className="flex flex-wrap items-center gap-2">
+              <span>Contrarian Takes — what {you} believe that other experts don't</span>
+              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                Essential
+              </span>
             </Label>
             <RichTextField
               id="contrarianBeliefs"
               value={formData.contrarianBeliefs}
               onChange={(html) => onChange("contrarianBeliefs", html)}
-              placeholder={`Where do ${you} disagree with others in ${your} space?`}
+              placeholder={`Where do ${you} disagree with others in ${your} space? These contrarian takes drive our best-performing content.`}
             />
           </div>
           <div className="space-y-2">

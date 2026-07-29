@@ -151,7 +151,7 @@ const NOT_FOR = [
 const FAQS = [
   {
     q: "What does the 1 million view guarantee actually mean?",
-    a: "If your content (organic + boosted) doesn't accumulate at least 1,000,000 views across Instagram, TikTok, and Facebook within 90 days of your first post going live, we keep working for free until you do. No refunds-fine-print games — just continued service.",
+    a: "If your content (organic + boosted) doesn't accumulate at least 1,000,000 views across Instagram, TikTok, and Facebook within 6 months of your first post going live, we keep working for free until you do. No refunds-fine-print games — just continued service.",
   },
   {
     q: "Do I need to speak Spanish too?",
@@ -964,7 +964,7 @@ export default function OneMillionGuarantee() {
             )}
           </div>
           <p className="hero-sub">
-            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 90 days. Or we give you 100% of your money back.
+            We script, film, edit, and post your social media in English <em>and</em> Spanish — and guarantee at least 1,000,000 views in your first 6 months. Or we give you 100% of your money back.
           </p>
           <div className="pillar-row">
             {PILLARS.map(({ icon: Icon, label }) => (
@@ -1014,10 +1014,10 @@ export default function OneMillionGuarantee() {
             The Guarantee
           </span>
           <h2 className="guarantee-headline">
-            1,000,000 views in 90 days — or we work for free until you get them.
+            1,000,000 views in 6 months — or we work for free until you get them.
           </h2>
           <p className="guarantee-body">
-            No fine print. If your content (organic + boosted) doesn't accumulate at least one million views across Instagram, TikTok, and Facebook within 90 days of your first post going live, we keep producing, posting, and running ads at no additional cost until you do.
+            No fine print. If your content (organic + boosted) doesn't accumulate at least one million views across Instagram, TikTok, and Facebook within 6 months of your first post going live, we keep producing, posting, and running ads at no additional cost until you do.
           </p>
           <div className="guarantee-pillars">
             <div className="guarantee-pillar">
