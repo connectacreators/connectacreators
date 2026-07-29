@@ -13,6 +13,7 @@ import { toast } from "sonner";
 // import { AssistantMemoryEditor } from "@/components/assistant";
 import { useCompanion } from "@/contexts/CompanionContext";
 import BrandingSection from "@/components/settings/BrandingSection";
+import CalendarFeedSection from "@/components/settings/CalendarFeedSection";
 
 export default function Settings() {
   const { language } = useLanguage();
@@ -345,6 +346,9 @@ export default function Settings() {
         {/* Assistant memories — disabled for now; component + table preserved
             for future reactivation. Uncomment to bring back. */}
         {/* <AssistantMemoryEditor /> */}
+
+        {/* Google Calendar iCal feed — only renders for admins */}
+        <CalendarFeedSection />
 
         {/* Branding — only renders for connecta_plus users */}
         <BrandingSection />

@@ -9,6 +9,7 @@
 import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 import { resolveClient } from "./types.ts";
+import { getManagedClients } from "../../_shared/managed-clients.ts";
 
 export const ANALYTICS_TOOLS: ToolDef[] = [
   {
@@ -388,11 +389,12 @@ Output ${numPosts} lines, nothing else.`;
   }
 
   if (block.name === "get_today_briefing") {
-    const { data: userClients } = await adminClient.from("clients").select("id, name").eq("user_id", userId);
-    const clientIds = (userClients ?? []).map((c: any) => c.id);
-    const idLookup: Record<string, string> = Object.fromEntries(
-      (userClients ?? []).map((c: any) => [c.id, c.name]),
-    );
+    // NOT clients.user_id — that column is the client's own login account,
+    // not the managing admin, so filtering on it returns a near-empty
+    // roster. See _shared/managed-clients.ts.
+    const managed = await getManagedClients(adminClient, userId);
+    const clientIds = managed.map((c) => c.id);
+    const idLookup: Record<string, string> = Object.fromEntries(managed.map((c) => [c.id, c.name]));
 
     // Match the caller against video_edits.assignee, which stores a display
     // name rather than a user_id — so "my revisions" means THIS person, not

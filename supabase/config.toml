@@ -241,3 +241,9 @@ verify_jwt = false
 # (happened 2026-07-16, ~3.5h outage).
 [functions.viral-analyze-queue]
 verify_jwt = false
+
+# Read-only iCal feed subscribed from Google Calendar. Google fetches from
+# its own servers with no session, so the ?token= query param is the only
+# credential — MUST stay verify_jwt = false or every poll 401s.
+[functions.calendar-feed]
+verify_jwt = false
