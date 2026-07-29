@@ -54,31 +54,58 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    // ── Recolor mode: re-classify EXISTING lines without re-splitting. ──
-    // Input: { mode: "recolor", lines: string[] }
-    // Output: { types: ("filming"|"actor"|"editor"|"text_on_screen")[] } index-aligned.
+    // ── Recolor mode: content-aware re-split + re-classify EXISTING blocks. ──
+    // Input: { mode: "recolor", blocks: string[] } — each block is the RAW,
+    // unsplit text of one existing content block (no client-side pre-split).
+    // Output: { blocks: [{ lines: [{ text, line_type }] }] }, one group per
+    // input block, in order.
+    //
+    // Previously the client pre-split each block into "sentences" via a
+    // deterministic regex (splitSentences.ts) BEFORE this ever saw it, then
+    // this only classified the type of each already-fixed piece. That regex
+    // only understands grammar (periods + capital letters) — it has no idea
+    // a sentence contains an embedded filming direction that should be its
+    // own line, or that two short clauses are one continuous voiceover beat
+    // that shouldn't be split just because there's a period between them.
+    // Now the model itself decides BOTH where a block should split into
+    // production-meaningful lines AND what each resulting line is — the
+    // whole point being it understands "this is dialogue" vs "this is a
+    // camera direction," not just punctuation.
+    //
+    // Splitting is the risky part (classification alone never touches the
+    // text), so every block's result is verified server-side: the returned
+    // lines must reconstruct the original block's text exactly (whitespace
+    // aside). A block that fails this check is NOT trusted to split — it's
+    // kept as a single unsplit line instead (same "when a cut is uncertain,
+    // do not cut" philosophy the old regex splitter used), reusing whatever
+    // line_type the model assigned to that block's first attempted line
+    // rather than discarding the classification too.
     if (body?.mode === "recolor") {
-      const lines = body.lines;
-      if (!Array.isArray(lines) || lines.length === 0 || !lines.every((l: unknown) => typeof l === "string")) {
-        return new Response(JSON.stringify({ error: "lines (string[]) is required" }), {
+      const blocks = body.blocks;
+      if (!Array.isArray(blocks) || blocks.length === 0 || !blocks.every((b: unknown) => typeof b === "string")) {
+        return new Response(JSON.stringify({ error: "blocks (string[]) is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const recolorSystem = `You are a script line classifier for short-form video production. You will receive the script's content lines as a numbered list. Classify EACH line into exactly one of four types:
+      const recolorSystem = `You are segmenting and classifying a short-form video script for production. You will receive the script's content as numbered BLOCKS of raw text — each block may already contain multiple sentences or thoughts run together.
+
+For EACH block, decide the natural line breaks. A "line" is ONE production beat: one continuous voiceover/dialogue thought, OR one filming instruction, OR one editor/post-production note — NOT necessarily one grammatical sentence. A sentence with an embedded camera direction should split into two lines (the spoken part and the direction); two short spoken clauses that are really one continuous thought should STAY as one line even if a period separates them.
+
+Then classify each resulting line into exactly one of four types:
 - "filming": on-set camera/filming instructions (angles, lighting, camera movement, locations, what to physically shoot)
 - "actor": dialogue or voiceover — the actual words the talent speaks on camera or in voiceover
 - "editor": post-production instructions (music, sound effects, B-roll inserts, transitions/effects added in editing, notes to the editor)
 - "text_on_screen": on-screen caption/overlay text shown to the viewer but NOT spoken — short punchy words or phrases meant to appear as text on the video
 
-Rules:
-- Return an array "types" with EXACTLY one entry per input line, in the SAME ORDER and the SAME COUNT as the input.
-- Do NOT add, merge, split, reorder, or skip any line.
-- If a line is spoken aloud by the talent, it is "actor" even if it is short.
-- Only use "text_on_screen" for text that appears on screen and is not spoken.`;
+ABSOLUTE RULE — verbatim text only: every line's "text" must be an exact, unbroken substring of its original block (leading/trailing whitespace may be trimmed, nothing else changed). Concatenating a block's lines back together (ignoring whitespace) must reproduce that block's original text exactly. Do NOT paraphrase, correct, add, or drop a single word — you are only choosing WHERE to cut and WHAT each piece is, never rewriting.
 
-      const numbered = lines.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n");
+- If a line is spoken aloud by the talent, it is "actor" even if it is short.
+- Only use "text_on_screen" for text that appears on screen and is not spoken.
+- A block that's already a single beat returns one line — do not split just to split.`;
+
+      const numbered = blocks.map((b: string, i: number) => `Block ${i + 1}:\n${b}`).join("\n\n");
 
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -94,31 +121,46 @@ Rules:
           messages: [
             {
               role: "user",
-              content: `Classify each of these ${lines.length} script lines. Return exactly ${lines.length} types in order:\n\n${numbered}`,
+              content: `Segment and classify these ${blocks.length} blocks. Return exactly ${blocks.length} block groups, in order, each containing that block's resulting lines:\n\n${numbered}`,
             },
           ],
           tools: [
             {
-              name: "recolor_lines",
-              description: "Return one line type per input line, index-aligned.",
+              name: "recolor_blocks",
+              description: "Return each block's resulting lines (verbatim text + type), index-aligned to the input blocks.",
               input_schema: {
                 type: "object",
                 properties: {
-                  types: {
+                  blocks: {
                     type: "array",
+                    description: `Exactly ${blocks.length} entries, one per input block, in order.`,
                     items: {
-                      type: "string",
-                      enum: ["filming", "actor", "editor", "text_on_screen"],
+                      type: "object",
+                      properties: {
+                        lines: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              text: { type: "string", description: "Verbatim substring of the original block." },
+                              line_type: { type: "string", enum: ["filming", "actor", "editor", "text_on_screen"] },
+                            },
+                            required: ["text", "line_type"],
+                            additionalProperties: false,
+                          },
+                        },
+                      },
+                      required: ["lines"],
+                      additionalProperties: false,
                     },
-                    description: `Exactly ${lines.length} entries, one per input line, in order.`,
                   },
                 },
-                required: ["types"],
+                required: ["blocks"],
                 additionalProperties: false,
               },
             },
           ],
-          tool_choice: { type: "tool", name: "recolor_lines" },
+          tool_choice: { type: "tool", name: "recolor_blocks" },
         }),
       });
 
@@ -138,12 +180,40 @@ Rules:
 
       const rdata = await resp.json();
       const rtool = (rdata.content || []).find((b: any) => b.type === "tool_use");
-      if (!rtool?.input?.types || !Array.isArray(rtool.input.types)) {
-        console.error("No recolor tool use:", JSON.stringify(rdata));
+      const resultBlocks = rtool?.input?.blocks;
+      if (!Array.isArray(resultBlocks) || resultBlocks.length !== blocks.length) {
+        console.error("No/mismatched recolor tool use:", JSON.stringify(rdata));
         throw new Error("AI did not return structured data");
       }
 
-      return new Response(JSON.stringify({ types: rtool.input.types }), {
+      const normalize = (s: string) => s.replace(/\s+/g, "");
+      const finalBlocks = resultBlocks.map((result: any, i: number) => {
+        const original = blocks[i] as string;
+        const candidateLines = Array.isArray(result?.lines) ? result.lines : [];
+        const reconstructed = candidateLines.map((l: any) => String(l?.text ?? "")).join("");
+        if (candidateLines.length > 0 && normalize(reconstructed) === normalize(original)) {
+          return {
+            lines: candidateLines.map((l: any) => ({
+              text: String(l.text).trim(),
+              line_type: l.line_type,
+            })),
+          };
+        }
+        // Verbatim check failed — don't trust the split for this block.
+        // Keep it as one unsplit line, but still use whatever type the
+        // model guessed for its first attempted piece rather than
+        // discarding classification along with the untrusted split.
+        const fallbackType = candidateLines[0]?.line_type;
+        const validTypes = new Set(["filming", "actor", "editor", "text_on_screen"]);
+        return {
+          lines: [{
+            text: original.trim(),
+            line_type: validTypes.has(fallbackType) ? fallbackType : "actor",
+          }],
+        };
+      });
+
+      return new Response(JSON.stringify({ blocks: finalBlocks }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

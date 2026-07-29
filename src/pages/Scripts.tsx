@@ -54,7 +54,6 @@ import { synthesizeBlocksFromLines, withUids, newBlockUid } from "@/lib/scriptBl
 import { buildBaseline, blockSignature } from "@/lib/scriptBlockDiff";
 import { mergeRemoteBlocks } from "@/lib/scriptRemoteMerge";
 import { useRealtimeScriptSync } from "@/hooks/useRealtimeScriptSync";
-import { splitSentences } from "@/lib/splitSentences";
 import { computeReorder } from "@/lib/reorderScripts";
 import { SCRIPT_FORMATS, getFormatLabel } from "@/lib/scriptFormats";
 import { getTargetLabel } from "@/lib/scriptTargets";
@@ -1802,57 +1801,75 @@ export default function Scripts() {
       toast.error(tr({ en: "AI categorization is available on Connecta+ only.", es: "La categorización con IA está disponible solo en Connecta+." }, language));
       return;
     }
-    // Expand multi-sentence content blocks into one block per sentence. Headings
-    // and empty blocks pass through untouched; split sub-lines drop rich_text.
-    const expanded: ScriptLine[] = [];
-    docBlocks.forEach((b) => {
-      const text = (b.text || "").trim();
-      if (b.block_kind === "heading" || !text) {
-        expanded.push(b);
-        return;
-      }
-      const segments = splitSentences(text);
-      if (segments.length <= 1) {
-        expanded.push(b);
-        return;
-      }
-      segments.forEach((seg) => {
-        expanded.push({ ...b, text: seg, rich_text: undefined, block_kind: "line", uid: newBlockUid() });
-      });
+    // Content blocks only — headings and empties pass through untouched.
+    // The RAW text goes to the AI as-is; it decides both where the natural
+    // production-line breaks are AND each resulting line's type, rather
+    // than a local regex pre-splitting on grammar alone (see
+    // categorize-script's "recolor" mode for why: a period doesn't always
+    // mean a new line, and a sentence can contain an embedded filming
+    // direction that should become its own line). section is never
+    // touched here — each resulting line inherits its original block's
+    // section unchanged.
+    const contentIdxs: number[] = [];
+    docBlocks.forEach((b, idx) => {
+      if (b.block_kind !== "heading" && (b.text || "").trim()) contentIdxs.push(idx);
     });
-    const didSplit = expanded.length > docBlocks.length;
-    // Index map: position in `expanded` -> AI type, for non-empty content lines only.
-    const lineIdxs: number[] = [];
-    expanded.forEach((b, idx) => {
-      if (b.block_kind !== "heading" && (b.text || "").trim()) lineIdxs.push(idx);
-    });
-    if (lineIdxs.length === 0) {
+    if (contentIdxs.length === 0) {
       toast.error(tr({ en: "Nothing to categorize yet.", es: "No hay nada que categorizar todavía." }, language));
       return;
     }
     setRecategorizing(true);
     try {
-      const lines = lineIdxs.map((idx) => (expanded[idx].text || "").trim());
+      const blocksToSend = contentIdxs.map((idx) => (docBlocks[idx].text || "").trim());
       const { data, error } = await supabase.functions.invoke("categorize-script", {
-        body: { mode: "recolor", lines },
+        body: { mode: "recolor", blocks: blocksToSend },
       });
       if (error) throw error;
-      const types: string[] | undefined = (data as any)?.types;
-      if (!Array.isArray(types) || types.length !== lines.length) {
+      const resultBlocks: Array<{ lines: Array<{ text: string; line_type: string }> }> | undefined = (data as any)?.blocks;
+      if (!Array.isArray(resultBlocks) || resultBlocks.length !== blocksToSend.length) {
         throw new Error("mismatch");
       }
-      const typeByIdx = new Map<number, string>();
-      lineIdxs.forEach((idx, pos) => typeByIdx.set(idx, types[pos]));
-      const merged = expanded.map((b, idx) =>
-        typeByIdx.has(idx) ? { ...b, line_type: typeByIdx.get(idx) as ScriptLine["line_type"] } : b
-      );
+
+      const resultByIdx = new Map<number, { lines: Array<{ text: string; line_type: string }> }>();
+      contentIdxs.forEach((idx, pos) => resultByIdx.set(idx, resultBlocks[pos]));
+
+      let didSplit = false;
+      let totalLines = 0;
+      const expanded: ScriptLine[] = [];
+      docBlocks.forEach((b, idx) => {
+        const result = resultByIdx.get(idx);
+        if (!result) {
+          expanded.push(b);
+          return;
+        }
+        totalLines += result.lines.length;
+        if (result.lines.length <= 1) {
+          // No split — keep this block's identity (uid/id), just update its
+          // type and canonical (trimmed) text.
+          const only = result.lines[0];
+          expanded.push({ ...b, text: only?.text ?? b.text, line_type: (only?.line_type as ScriptLine["line_type"]) ?? b.line_type });
+          return;
+        }
+        didSplit = true;
+        result.lines.forEach((line) => {
+          expanded.push({
+            ...b,
+            text: line.text,
+            line_type: line.line_type as ScriptLine["line_type"],
+            rich_text: undefined,
+            block_kind: "line",
+            uid: newBlockUid(),
+          });
+        });
+      });
+
       skipNextAutoSaveRef.current = true;
-      setDocBlocks(merged);
-      await saveScriptBlocks(viewingScriptId, merged);
+      setDocBlocks(expanded);
+      await saveScriptBlocks(viewingScriptId, expanded);
       const fresh = await getScriptLines(viewingScriptId);
       setParsedLines(fresh);
       toast.success(didSplit
-        ? tr({ en: `Split & re-categorized into ${lineIdxs.length} lines`, es: `Dividido y recategorizado en ${lineIdxs.length} líneas` }, language)
+        ? tr({ en: `Split & re-categorized into ${totalLines} lines`, es: `Dividido y recategorizado en ${totalLines} líneas` }, language)
         : tr({ en: "Lines re-categorized", es: "Líneas recategorizadas" }, language));
     } catch (e: any) {
       const msg = e?.message === "mismatch"
