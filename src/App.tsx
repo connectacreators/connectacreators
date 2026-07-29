@@ -36,6 +36,7 @@ const Videographers = lazy(() => import("./pages/Videographers"));
 const VideographerDetail = lazy(() => import("./pages/VideographerDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LeadTracker = lazy(() => import("./pages/LeadTracker"));
+const ClientLeads = lazy(() => import("./pages/ClientLeads"));
 const LeadCalendar = lazy(() => import("./pages/LeadCalendar"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Subscription = lazy(() => import("./pages/Subscription"));
@@ -214,6 +215,10 @@ const App = () => (
               <Route path="/videographers" element={<Videographers />} />
               <Route path="/videographers/:videographerId" element={<VideographerDetail />} />
               <Route path="/leads" element={<LeadTracker />} />
+              {/* A client's own leads — a purpose-built read-only view rather
+                  than the admin tracker with controls hidden. Staff hitting
+                  it are redirected to /leads. */}
+              <Route path="/my-leads" element={<ClientLeads />} />
               <Route path="/lead-calendar" element={<LeadCalendar />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/subscription" element={<Subscription />} />

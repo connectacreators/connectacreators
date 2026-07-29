@@ -261,7 +261,8 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
       { label: tr(t.dashboard.tools.contentCalendar.label, language), icon: Calendar, path: ownClientId ? `/clients/${ownClientId}/content-calendar` : "/content-calendar" },
       { type: 'group', label: L('Sales', 'Ventas') },
       { label: L("Public Calendar", "Calendario Público"), icon: Globe, path: ownClientId ? `/clients/${ownClientId}/booking-settings` : "/dashboard" },
-      { label: tr(t.dashboard.leadTracker, language), icon: Target, path: ownClientId ? `/clients/${ownClientId}/leads` : "/leads", tier: 'essential' },
+      // Clients get the purpose-built read-only view, not the admin tracker.
+      { label: tr(t.dashboard.leadTracker, language), icon: Target, path: "/my-leads", tier: 'essential' },
       { label: tr(t.dashboard.leadCalendar, language), icon: CalendarDays, path: ownClientId ? `/clients/${ownClientId}/lead-calendar` : "/lead-calendar" },
       { type: 'group', label: L('Resources', 'Recursos') },
       { label: "Viral Today", icon: Flame, path: "/viral-today", tier: 'essential' },
