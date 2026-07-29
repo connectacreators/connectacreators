@@ -1,5 +1,5 @@
 export type PaletteId = 'editorial' | 'slate' | 'forest' | 'plum' | 'crimson' | 'mono';
-export type FontPairingId = 'editorial' | 'modern' | 'classic' | 'bold';
+export type FontPairingId = 'editorial' | 'modern' | 'tech' | 'classic' | 'bold';
 
 export interface Palette {
   ink: string;

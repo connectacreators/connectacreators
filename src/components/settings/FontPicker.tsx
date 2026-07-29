@@ -4,7 +4,7 @@ import type { FontPairingId } from '@/lib/branding/types';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ORDER: FontPairingId[] = ['editorial', 'modern', 'classic', 'bold'];
+const ORDER: FontPairingId[] = ['editorial', 'modern', 'tech', 'classic', 'bold'];
 
 export default function FontPicker() {
   const { branding, setFontPairing } = useBranding();

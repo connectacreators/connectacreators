@@ -18,3 +18,10 @@ ALTER TABLE public.user_branding
 
 COMMENT ON COLUMN public.user_branding.accent_overrides IS
   'Optional per-token colour overrides layered on top of the chosen palette preset. Keys: aqua, honey. Values are bare HSL triplets ("184 41% 70%") so callers can append an alpha.';
+
+-- "Tech Modern" font pairing (Inter Tight display / Inter body) — matches the
+-- marketing site's type. The CHECK constraint has to know about it or the
+-- picker saves a value the DB rejects.
+ALTER TABLE public.user_branding DROP CONSTRAINT IF EXISTS user_branding_font_pairing_check;
+ALTER TABLE public.user_branding ADD CONSTRAINT user_branding_font_pairing_check
+  CHECK (font_pairing = ANY (ARRAY['editorial','modern','tech','classic','bold']));

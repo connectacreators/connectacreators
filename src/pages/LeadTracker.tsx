@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import PageTransition from "@/components/PageTransition";
+import "@/styles/surface-modern.css";
+import {
+  statusBadgeStyle, statusSolid, sourceBadgeStyle,
+  LEAD_CHART_SERIES, TREND_COLOR,
+} from "@/lib/leads/statusTokens";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/hooks/useClients";
@@ -79,18 +84,6 @@ type Lead = {
   notionUrl: string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
-  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[hsl(var(--honey))] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
-  "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
-  "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
-  "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
-  "Closed":              "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Won":                 "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Canceled":            "bg-red-500/15 text-red-400 border-red-500/30",
-};
-
 // A lead counts as "booked" when it has a booking slot (appointmentDate set) OR
 // when its status string matches either the canonical "Booked" or the legacy
 // Notion label "Appointment Booked". The appointmentDate signal is the reliable
@@ -115,15 +108,6 @@ const isCanceledStatus = (status?: string) => !!status && CANCELED_STATUSES.has(
 const isBookedLead = (lead: { leadStatus?: string; appointmentDate?: string; booked?: boolean }) => {
   if (isCanceledStatus(lead.leadStatus)) return false;
   return !!lead.appointmentDate || !!lead.booked || (!!lead.leadStatus && BOOKED_STATUSES.has(lead.leadStatus));
-};
-
-const SOURCE_COLORS: Record<string, string> = {
-  "Meta Ads": "bg-blue-500/15 text-blue-400",
-  "Google Ads": "bg-red-500/15 text-red-400",
-  Website: "bg-purple-500/15 text-purple-400",
-  Referral: "bg-emerald-500/15 text-emerald-400",
-  Organic: "bg-primary/15 text-primary",
-  Other: "bg-gray-500/15 text-gray-400",
 };
 
 const ALLOWED_STATUSES = ["New Lead", "Follow-up 1", "Follow-up 2", "Follow-up 3", "Booked", "Canceled"];
@@ -809,14 +793,14 @@ export default function LeadTracker() {
 
   return (
     <>
-    <PageTransition className="editorial-page flex-1 overflow-y-auto">
+    <PageTransition className="surface-modern flex-1 overflow-y-auto">
       <div className="container mx-auto px-4 md:px-7 py-7 max-w-6xl">
         {/* Page heading */}
         <div className="mb-7">
-          <h1 className="editorial-h text-[28px] md:text-[32px] mb-1">
+          <h1 className="sm-display text-[28px] md:text-[34px] mb-1">
             {language === "en" ? "Lead Tracker" : "Seguimiento de leads"}
           </h1>
-          <p className="text-sm" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }}>
+          <p className="text-sm sm-muted">
             {language === "en"
               ? "Track every inbound lead and the status of their booking."
               : "Sigue cada lead entrante y el estado de su reserva."}
@@ -860,21 +844,17 @@ export default function LeadTracker() {
             return (
               <div
                 key={i}
-                className="editorial-card relative p-5 flex flex-col gap-3 transition-shadow duration-200"
-                style={{
-                  boxShadow: "0 1px 0 hsl(var(--ink-on-cream) / 0.04)",
-                }}
+                className="sm-card sm-card-lift sm-rise relative p-5 flex flex-col gap-3"
+                style={{ "--sm-delay": `${i * 60}ms` } as React.CSSProperties}
               >
                 {/* Top row: label + icon */}
                 <div className="flex items-start justify-between">
-                  <p className="editorial-eyebrow" style={{ letterSpacing: "0.16em", fontSize: 10 }}>
-                    {card.label}
-                  </p>
+                  <p className="sm-eyebrow">{card.label}</p>
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "hsl(var(--ink-on-cream) / 0.05)", border: "1px solid hsl(var(--ink-on-cream) / 0.08)" }}
+                    style={{ background: "hsl(var(--aqua) / 0.10)", border: "1px solid hsl(var(--aqua) / 0.22)" }}
                   >
-                    <Icon className="w-3.5 h-3.5" style={{ color: "hsl(var(--ink-on-cream) / 0.55)" }} />
+                    <Icon className="w-3.5 h-3.5" style={{ color: "hsl(var(--aqua))" }} />
                   </div>
                 </div>
 
@@ -882,11 +862,11 @@ export default function LeadTracker() {
                 <p
                   className="leading-none"
                   style={{
-                    fontFamily: "var(--font-display, 'EB Garamond'), Georgia, serif",
-                    fontWeight: 500,
-                    fontSize: "clamp(30px, 4.5vw, 44px)",
-                    letterSpacing: "-0.015em",
-                    color: "hsl(var(--ink-on-cream))",
+                    fontFamily: "var(--font-display, 'Inter Tight'), sans-serif",
+                    fontWeight: 600,
+                    fontSize: "clamp(30px, 4.5vw, 42px)",
+                    letterSpacing: "-0.03em",
+                    color: "hsl(var(--bone))",
                   }}
                 >
                   {card.value}
@@ -896,16 +876,16 @@ export default function LeadTracker() {
                 <div className="flex items-center gap-1.5">
                   {card.delta !== null ? (
                     <>
-                      <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color: isPositive ? "#1f7a5a" : "#A85B1F" }} />
-                      <span className="text-[11px] font-semibold" style={{ color: isPositive ? "#1f7a5a" : "#A85B1F" }}>
+                      <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color: isPositive ? TREND_COLOR.up : TREND_COLOR.down }} />
+                      <span className="text-[11px] font-semibold" style={{ color: isPositive ? TREND_COLOR.up : TREND_COLOR.down }}>
                         {isPositive ? "+" : ""}{card.delta}%
                       </span>
-                      <span className="text-[11px]" style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}>
+                      <span className="text-[11px] sm-faint">
                         {card.deltaLabel}
                       </span>
                     </>
                   ) : (
-                    <span className="text-[11px]" style={{ color: "hsl(var(--ink-on-cream) / 0.45)" }}>
+                    <span className="text-[11px] sm-faint">
                       {card.deltaLabel}
                     </span>
                   )}
@@ -916,7 +896,7 @@ export default function LeadTracker() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white border border-[hsl(var(--ink-on-cream))] rounded-xl p-3 mb-8">
+        <div className="sm-card p-3 mb-8">
           <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:overflow-x-auto">
             {isStaff && (
               <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -1205,40 +1185,27 @@ export default function LeadTracker() {
               <div
                 key={lead.id}
                 onClick={() => openLeadDetail(lead)}
-                className="rounded-xl p-5 transition-all duration-200 cursor-pointer"
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid hsl(var(--ink-on-cream))",
-                  boxShadow: "2px 2px 0 hsl(var(--ink-on-cream))",
-                  color: "hsl(var(--ink-on-cream))",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "3px 3px 0 hsl(var(--ink-on-cream))"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "2px 2px 0 hsl(var(--ink-on-cream))"; }}
+                className="sm-row p-4 cursor-pointer"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {/* Name & badges */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-semibold text-foreground truncate">{lead.fullName || tr(t.leadTracker.noName, language)}</h3>
+                      <h3 className="font-semibold truncate" style={{ color: "hsl(var(--bone))" }}>{lead.fullName || tr(t.leadTracker.noName, language)}</h3>
                       {lead.leadStatus && (
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[canonicalizeStatus(lead.leadStatus)] || "bg-muted text-muted-foreground"}`}
-                        >
+                        <span className="sm-pill" style={statusBadgeStyle(lead.leadStatus)}>
+                          <span className="sm-pill-dot" />
                           {canonicalizeStatus(lead.leadStatus)}
-                        </Badge>
+                        </span>
                       )}
                       {lead.leadSource && (
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] px-1.5 py-0 ${SOURCE_COLORS[lead.leadSource] || ""}`}
-                        >
+                        <span className="sm-pill" style={sourceBadgeStyle}>
                           {lead.leadSource}
-                        </Badge>
+                        </span>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm-muted">
                       {lead.email && (
                         <span className="flex items-center gap-1">
                           <Mail className="w-3 h-3" />
@@ -1249,24 +1216,24 @@ export default function LeadTracker() {
                           leads only get a muted "created on" date so the green never
                           implies a booking that doesn't exist. */}
                       {isBookedLead(lead) && lead.appointmentDate ? (
-                        <span className="flex items-center gap-1 text-green-400 font-medium">
+                        <span className="flex items-center gap-1 font-medium" style={{ color: statusSolid("Booked") }}>
                           <Calendar className="w-3 h-3" />
                           📅 {parseLocalDate(lead.appointmentDate).toLocaleDateString("es-MX")}
                         </span>
                       ) : lead.createdDate ? (
-                        <span className="flex items-center gap-1 text-muted-foreground">
+                        <span className="flex items-center gap-1 sm-faint">
                           <Calendar className="w-3 h-3" />
                           {language === "es" ? "Creado" : "Created"} {new Date(lead.createdDate).toLocaleDateString("es-MX")}
                         </span>
                       ) : null}
                       {lead.campaignName && (
-                        <span className="text-primary/70">📢 {lead.campaignName}</span>
+                        <span className="sm-faint">{lead.campaignName}</span>
                       )}
                     </div>
 
                     {lead.notes && (
-                      <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
-                        💬 {lead.notes}
+                      <p className="text-xs sm-faint mt-1 line-clamp-1">
+                        {lead.notes}
                       </p>
                     )}
                   </div>
@@ -1331,7 +1298,7 @@ export default function LeadTracker() {
               return acc;
             }, {} as Record<string, number>);
             const pieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
-            const PIE_COLORS = ["hsl(var(--aqua))", "#10b981", "#f59e0b", "#a78bfa", "#f87171", "#fb923c"];
+            const PIE_COLORS = LEAD_CHART_SERIES;
 
             // Daily leads last 30 days
             const days = Array.from({ length: 30 }, (_, i) => {
@@ -1361,8 +1328,8 @@ export default function LeadTracker() {
                   <>
                     {/* Row 1: Status pie + Source pie */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
-                        <h3 className="text-sm font-semibold mb-4 text-foreground">Status Breakdown</h3>
+                      <div className="sm-card p-5">
+                        <h3 className="text-sm font-semibold mb-4">Status Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
                             <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
@@ -1372,8 +1339,8 @@ export default function LeadTracker() {
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
-                        <h3 className="text-sm font-semibold mb-4 text-foreground">Source Breakdown</h3>
+                      <div className="sm-card p-5">
+                        <h3 className="text-sm font-semibold mb-4">Source Breakdown</h3>
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
                             <Pie data={sourceData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
@@ -1386,17 +1353,17 @@ export default function LeadTracker() {
                     </div>
 
                     {/* Row 2: Leads over time line chart */}
-                    <div className="rounded-xl border border-[hsl(var(--ink-on-cream))] bg-white p-5">
-                      <h3 className="text-sm font-semibold mb-4 text-foreground">Leads — Last 30 Days</h3>
+                    <div className="sm-card p-5">
+                      <h3 className="text-sm font-semibold mb-4">Leads — Last 30 Days</h3>
                       <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={lineData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickLine={false} interval={4} />
-                          <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickLine={false} allowDecimals={false} />
-                          <Tooltip contentStyle={{ background: "rgba(15,15,15,0.9)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--bone) / 0.08)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--bone) / 0.45)" }} tickLine={false} interval={4} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--bone) / 0.45)" }} tickLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--graphite))", border: "1px solid hsl(var(--bone) / 0.12)", borderRadius: 12, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
                           <Line type="monotone" dataKey="leads" stroke="hsl(var(--aqua))" strokeWidth={2} dot={false} name="New Leads" />
-                          <Line type="monotone" dataKey="booked" stroke="#10b981" strokeWidth={2} dot={false} name="Booked" />
+                          <Line type="monotone" dataKey="booked" stroke={statusSolid("Won")} strokeWidth={2} dot={false} name="Booked" />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -1423,7 +1390,7 @@ export default function LeadTracker() {
 
       {/* Lead Detail Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 border border-primary/20 backdrop-blur-xl">
+        <DialogContent className="surface-modern-portal sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{tr(t.leadDetail.title, language)}</DialogTitle>
           </DialogHeader>
@@ -1625,7 +1592,7 @@ export default function LeadTracker() {
       </Dialog>
 
       <Dialog open={showAddLead} onOpenChange={setShowAddLead}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="surface-modern-portal sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Add New Lead" : "Agregar Nuevo Lead"}</DialogTitle>
           </DialogHeader>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { statusBadgeStyle, statusSolid, sourceBadgeStyle } from "@/lib/leads/statusTokens";
 import {
   DndContext,
   DragOverlay,
@@ -28,39 +29,6 @@ type Lead = {
   booked?: boolean;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  "New Lead":            "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
-  "Follow-up 1":         "bg-[rgba(132,204,22,0.15)] text-[hsl(var(--honey))] border-[rgba(132,204,22,0.30)]",
-  "Follow-up 2":         "bg-[hsl(var(--aqua) / 0.15)] text-[hsl(var(--aqua))] border-[hsl(var(--aqua) / 0.30)]",
-  "Follow-up 3":         "bg-pink-500/15 text-pink-400 border-pink-500/30",
-  "Booked":              "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
-  "Appointment Booked":  "bg-[rgba(245,158,11,0.15)] text-[#F59E0B] border-[rgba(245,158,11,0.30)]",
-  "Closed":              "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Won":                 "bg-[rgba(148,163,184,0.12)] text-[#94a3b8] border-[rgba(148,163,184,0.25)]",
-  "Canceled":            "bg-red-500/15 text-red-400 border-red-500/30",
-};
-
-const SOURCE_COLORS: Record<string, string> = {
-  "Meta Ads": "bg-blue-500/15 text-blue-400",
-  "Google Ads": "bg-red-500/15 text-red-400",
-  Website: "bg-purple-500/15 text-purple-400",
-  Referral: "bg-emerald-500/15 text-emerald-400",
-  Organic: "bg-primary/15 text-primary",
-  Other: "bg-gray-500/15 text-gray-400",
-};
-
-const COLUMN_ACCENT: Record<string, string> = {
-  "New Lead":            "border-t-[hsl(var(--aqua))]",
-  "Follow-up 1":         "border-t-[hsl(var(--honey))]",
-  "Follow-up 2":         "border-t-[hsl(var(--aqua))]",
-  "Follow-up 3":         "border-t-pink-400",
-  "Booked":              "border-t-[#F59E0B]",
-  "Appointment Booked":  "border-t-[#F59E0B]",
-  "Closed":              "border-t-[#94a3b8]",
-  "Won":                 "border-t-[#94a3b8]",
-  "Canceled":            "border-t-red-400",
-};
-
 function formatShortDate(iso: string, language: "en" | "es") {
   if (!iso) return "";
   const d = new Date(iso);
@@ -84,12 +52,11 @@ function LeadCard({
   onClick?: () => void;
   dragging?: boolean;
 }) {
-  const sourceClass = SOURCE_COLORS[lead.leadSource] || "bg-muted text-muted-foreground";
   const dateStr = formatShortDate(lead.createdDate, language);
   return (
     <div
       onClick={onClick}
-      className={`group relative rounded-lg border border-border/40 bg-card/80 backdrop-blur-sm p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all ${
+      className={`sm-row group relative p-3 cursor-grab active:cursor-grabbing ${
         dragging ? "opacity-50" : ""
       }`}
     >
@@ -101,7 +68,7 @@ function LeadCard({
       </h4>
       <div className="flex items-center gap-2 flex-wrap">
         {lead.leadSource && (
-          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${sourceClass}`}>
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0" style={sourceBadgeStyle}>
             {lead.leadSource}
           </Badge>
         )}
@@ -150,20 +117,27 @@ function KanbanColumn({
   onCardClick: (lead: Lead) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column:${status}` });
-  const badgeClass = STATUS_COLORS[status] || "bg-muted text-muted-foreground border-border";
-  const accentClass = COLUMN_ACCENT[status] || "border-t-border";
+  // Column accent and the status pill come from the same tone, so a column
+  // and the pills inside it can never disagree — they used to be separate maps.
+  const accent = statusSolid(status);
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col w-72 flex-shrink-0 rounded-xl border border-border/50 ${accentClass} border-t-2 bg-card/30 backdrop-blur-sm transition-colors ${
-        isOver ? "bg-primary/5 border-primary/40" : ""
-      }`}
+      className="flex flex-col w-72 flex-shrink-0 rounded-xl transition-colors"
+      style={{
+        borderTop: `2px solid ${accent}`,
+        border: `1px solid hsl(var(--bone) / ${isOver ? "0.22" : "0.08"})`,
+        borderTopWidth: 2,
+        borderTopColor: accent,
+        background: isOver ? "hsl(var(--aqua) / 0.06)" : "hsl(var(--bone) / 0.03)",
+      }}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40">
         <div className="flex items-center gap-2 min-w-0">
           <Badge
             variant="outline"
-            className={`text-[10px] px-1.5 py-0 truncate ${badgeClass}`}
+            className="text-[10px] px-1.5 py-0 truncate"
+            style={statusBadgeStyle(status)}
           >
             {status}
           </Badge>

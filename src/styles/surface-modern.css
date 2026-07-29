@@ -1,0 +1,200 @@
+/* =============================================================================
+   Modern surface — the app-side counterpart to landing.css
+   =============================================================================
+
+   The landing page's look (`.landing-editorial` in landing.css, despite the
+   name it's a tech-modern system) can't simply be reused inside the app: it
+   hardcodes its palette as hex — `--ink: #141414`, `--aqua: #8FD0D5` — which
+   is deliberate for marketing, where the brand is Connecta's and must never
+   shift, and exactly wrong for app surfaces a client is supposed to be able
+   to brand.
+
+   So this borrows the *shapes* and leaves the colours to the brand tokens:
+     · 20px card radii, 999px pills
+     · gradient-fill cards over flat white sticker cards
+     · lift-and-glow on hover instead of the ink offset shadow
+     · Inter Tight display / Inter body via --font-display / --font-body
+     · one accent, used sparingly, against a quiet neutral field
+
+   Every colour here resolves to a var() so a palette switch or an accent
+   override repaints it. Scoped to `.surface-modern` so it can be adopted one
+   page at a time without disturbing `.editorial-page`, which nine other
+   surfaces still use.
+   ========================================================================== */
+
+.surface-modern {
+  background: hsl(var(--ink));
+  color: hsl(var(--bone));
+  font-family: var(--font-body, Inter), 'Inter Fallback', -apple-system, sans-serif;
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Typography ---------- */
+.surface-modern h1,
+.surface-modern h2,
+.surface-modern h3,
+.surface-modern .sm-display {
+  font-family: var(--font-display, 'Inter Tight'), 'Inter Tight Fallback', sans-serif;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: hsl(var(--bone));
+}
+
+/* Quiet uppercase system label — the landing page's marginalia voice. */
+.surface-modern .sm-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: hsl(var(--bone) / 0.38);
+}
+
+.surface-modern .sm-muted { color: hsl(var(--bone) / 0.62); }
+.surface-modern .sm-faint { color: hsl(var(--bone) / 0.38); }
+
+/* ---------- Surfaces ----------
+   A near-flat gradient rather than a solid fill: it separates a card from
+   the page without a border, which is what keeps a dense list from reading
+   as a grid of boxes. */
+.surface-modern .sm-card {
+  background: linear-gradient(160deg, hsl(var(--bone) / 0.07), hsl(var(--bone) / 0.03));
+  border: 1px solid hsl(var(--bone) / 0.08);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.65);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.surface-modern .sm-card-lift:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--aqua) / 0.28);
+  box-shadow:
+    0 32px 72px -30px rgba(0, 0, 0, 0.75),
+    0 0 48px -18px hsl(var(--aqua) / 0.35);
+}
+
+/* Row: the list unit. Lighter than a card — a list of 200 leads shouldn't
+   be 200 floating panels. */
+.surface-modern .sm-row {
+  background: hsl(var(--bone) / 0.04);
+  border: 1px solid hsl(var(--bone) / 0.07);
+  border-radius: 14px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.surface-modern .sm-row:hover {
+  background: hsl(var(--bone) / 0.07);
+  border-color: hsl(var(--aqua) / 0.30);
+}
+
+/* ---------- Pills ---------- */
+.surface-modern .sm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.surface-modern .sm-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ---------- Buttons ---------- */
+.surface-modern .sm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body, Inter), 'Inter Fallback', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 160ms ease, color 160ms ease, box-shadow 200ms ease;
+}
+.surface-modern .sm-btn:hover { transform: translateY(-1px); }
+.surface-modern .sm-btn:active { transform: translateY(0); }
+
+.surface-modern .sm-btn-primary {
+  background: hsl(var(--aqua));
+  color: hsl(var(--ink));
+  box-shadow: 0 8px 24px -12px hsl(var(--aqua) / 0.7);
+}
+.surface-modern .sm-btn-primary:hover {
+  box-shadow: 0 12px 32px -12px hsl(var(--aqua) / 0.9);
+}
+
+.surface-modern .sm-btn-ghost {
+  background: hsl(var(--bone) / 0.05);
+  color: hsl(var(--bone) / 0.85);
+  border-color: hsl(var(--bone) / 0.12);
+}
+.surface-modern .sm-btn-ghost:hover {
+  background: hsl(var(--bone) / 0.09);
+  color: hsl(var(--bone));
+  border-color: hsl(var(--aqua) / 0.35);
+}
+
+/* ---------- Inputs ----------
+   Styled here rather than relying on the shadcn defaults so inputs inside
+   modals match: modals render through a portal to document.body, outside
+   this element, which is why the editorial page's overrides never reached
+   them. `.surface-modern-portal` is applied to the modal content itself. */
+.surface-modern input,
+.surface-modern textarea,
+.surface-modern select,
+.surface-modern-portal input,
+.surface-modern-portal textarea,
+.surface-modern-portal select {
+  color-scheme: dark;
+}
+
+.surface-modern-portal {
+  background: hsl(var(--graphite)) !important;
+  border: 1px solid hsl(var(--bone) / 0.10) !important;
+  border-radius: 20px !important;
+  color: hsl(var(--bone));
+  font-family: var(--font-body, Inter), 'Inter Fallback', sans-serif;
+}
+.surface-modern-portal h1,
+.surface-modern-portal h2,
+.surface-modern-portal h3 {
+  font-family: var(--font-display, 'Inter Tight'), 'Inter Tight Fallback', sans-serif;
+  letter-spacing: -0.02em;
+  color: hsl(var(--bone));
+}
+
+/* ---------- Entrance ----------
+   Same de-focus-into-place motion as the landing page, no spring overshoot.
+   Rows stagger via an inline --sm-delay so a list settles top-to-bottom. */
+@keyframes sm-rise {
+  from { transform: translateY(12px); opacity: 0; filter: blur(6px); }
+  to   { transform: translateY(0); opacity: 1; filter: blur(0); }
+}
+.surface-modern .sm-rise {
+  animation: sm-rise 0.5s cubic-bezier(0.16, 0.8, 0.24, 1) both;
+  animation-delay: var(--sm-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-modern .sm-rise { animation: none; }
+  .surface-modern .sm-card,
+  .surface-modern .sm-row,
+  .surface-modern .sm-btn { transition: none; }
+  .surface-modern .sm-card-lift:hover,
+  .surface-modern .sm-btn:hover { transform: none; }
+}

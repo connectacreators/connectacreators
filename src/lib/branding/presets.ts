@@ -74,6 +74,12 @@ export const FONT_PAIRINGS: Record<FontPairingId, FontPairing> = {
     body:    '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
     ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
+  // Matches the marketing site: tight grotesk display over Inter body.
+  tech: {
+    display: '"Inter Tight", "Inter Tight Fallback", -apple-system, sans-serif',
+    body:    '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    ui:      '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+  },
   classic: {
     display: '"EB Garamond", "EB Garamond Fallback", Georgia, serif',
     body:    '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
@@ -98,6 +104,7 @@ export const PALETTE_LABELS: Record<PaletteId, string> = {
 export const FONT_PAIRING_LABELS: Record<FontPairingId, string> = {
   editorial: 'Editorial',
   modern:    'Modern Sans',
+  tech:      'Tech Modern',
   classic:   'Classic',
   bold:      'Bold Display',
 };
