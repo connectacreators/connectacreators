@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Repeat, Loader2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { NewFinanceTransaction, FinanceCategory, RecurrenceInterval } from "@/hooks/useFinanceTransactions";
+import type { NewFinanceTransaction, FinanceCategory, RecurrenceInterval, RecurrenceScope } from "@/hooks/useFinanceTransactions";
+import { RecurrenceScopeDialog } from "@/components/finances/RecurrenceScopeDialog";
 
 const INCOME_CATEGORIES: FinanceCategory[] = ["SMMA", "Bi-Weekly Fee", "One-Time Project", "Other Income"];
 const EXPENSE_CATEGORIES: FinanceCategory[] = [
@@ -19,7 +20,13 @@ const EXPENSE_CATEGORIES: FinanceCategory[] = [
 type Props = {
   initial?: Partial<NewFinanceTransaction>;
   onCancel: () => void;
-  onSave: (tx: NewFinanceTransaction, recurrence?: { interval: RecurrenceInterval } | null) => void;
+  /** scope is set only when editing a row that belongs to a recurring
+   *  subscription AND a field the template owns actually changed. */
+  onSave: (
+    tx: NewFinanceTransaction,
+    recurrence?: { interval: RecurrenceInterval } | null,
+    scope?: RecurrenceScope,
+  ) => void;
   allowRecurring?: boolean; // default true — hidden in edit mode where recurrence lives on the template
 };
 
@@ -38,6 +45,8 @@ export function ManualEntryForm({ initial, onCancel, onSave, allowRecurring = tr
   // hides these — the template is edited separately.
   const [recurring, setRecurring] = useState<boolean>(false);
   const [interval, setInterval] = useState<RecurrenceInterval>("monthly");
+  // Open when a recurring edit needs "this month or all future months?"
+  const [scopeOpen, setScopeOpen] = useState(false);
 
   // Edit-mode recurrence management: if this row is linked to a recurring
   // template, load the template so we can edit/stop it.
@@ -111,21 +120,25 @@ export function ManualEntryForm({ initial, onCancel, onSave, allowRecurring = tr
 
   const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  async function handleSave() {
+  /** Fields the recurring template owns — changing any of them is what makes
+   *  "this month or all future months?" a real question. */
+  function templateOwnedFieldsChanged(): boolean {
+    if (!templateId) return false;
+    const amtChanged = Number(amount) !== Number(initial?.amount ?? NaN);
+    return (
+      amtChanged ||
+      (vendor || "") !== (initial?.vendor ?? "") ||
+      (client || "") !== (initial?.client ?? "") ||
+      category !== initial?.category ||
+      (description || "") !== (initial?.description ?? "") ||
+      (!!template && (tplInterval !== template.interval || tplDay !== template.day_of_month))
+    );
+  }
+
+  function buildTx(): NewFinanceTransaction | null {
     const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) return;
-    const deductible = category === "Food & Meals" ? amt * 0.5 : null;
-
-    // If editing a recurring instance and the template controls changed,
-    // persist the template edit first so future months pick up the change.
-    if (templateId && template && (
-      tplInterval !== template.interval || tplDay !== template.day_of_month
-    )) {
-      const ok = await saveTemplatePatch({ interval: tplInterval, day_of_month: tplDay });
-      if (!ok) return;
-    }
-
-    const tx: NewFinanceTransaction = {
+    if (!Number.isFinite(amt) || amt <= 0) return null;
+    return {
       type,
       amount: amt,
       vendor: vendor || null,
@@ -134,14 +147,37 @@ export function ManualEntryForm({ initial, onCancel, onSave, allowRecurring = tr
       description: description || null,
       date,
       is_ar: type === "income" ? isAr : false,
-      deductible_amount: deductible,
+      deductible_amount: category === "Food & Meals" ? amt * 0.5 : null,
       payment_method: null,
       raw_input: initial?.raw_input ?? null,
       attachment_url: null,
       recurring_subscription_id: initial?.recurring_subscription_id ?? null,
     };
-    const recurrence = allowRecurring && recurring ? { interval } : null;
-    onSave(tx, recurrence);
+  }
+
+  /** Commit once the scope is known (or immediately when it can't matter). */
+  async function commit(scope?: RecurrenceScope) {
+    const tx = buildTx();
+    if (!tx) return;
+
+    // interval/day live only on the template — there's nothing on the
+    // transaction row to carry them, so they're written here regardless of
+    // scope. ("This month only" can't change a schedule.)
+    if (templateId && template && (tplInterval !== template.interval || tplDay !== template.day_of_month)) {
+      const ok = await saveTemplatePatch({ interval: tplInterval, day_of_month: tplDay });
+      if (!ok) return;
+    }
+
+    onSave(tx, allowRecurring && recurring ? { interval } : null, scope);
+  }
+
+  async function handleSave() {
+    if (!buildTx()) return;
+    if (templateOwnedFieldsChanged()) {
+      setScopeOpen(true); // commit() runs once the user picks
+      return;
+    }
+    await commit();
   }
 
   return (
@@ -270,6 +306,24 @@ export function ManualEntryForm({ initial, onCancel, onSave, allowRecurring = tr
         <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
         <Button variant="cta" size="sm" onClick={handleSave} disabled={!amount}>Save</Button>
       </div>
+      <RecurrenceScopeDialog
+        open={scopeOpen}
+        mode="edit"
+        monthLabel={monthLabelOf(date)}
+        onCancel={() => setScopeOpen(false)}
+        onChoose={(scope) => { setScopeOpen(false); void commit(scope); }}
+      />
     </div>
   );
+}
+
+/** "2026-08-17" -> "August 2026" (UTC-parsed so it can't slip a day). */
+function monthLabelOf(isoDate: string): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  if (!y || !m) return "this month";
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }

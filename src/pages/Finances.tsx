@@ -49,7 +49,7 @@ export default function Finances() {
   const [incomeCatFilter, setIncomeCatFilter] = useState<FinanceCategory | null>(null);
   const [expenseCatFilter, setExpenseCatFilter] = useState<FinanceCategory | null>(null);
 
-  const { income, expenses, loading, createTransaction, updateTransaction, convertToRecurring, deleteTransaction, refresh } =
+  const { income, expenses, loading, createTransaction, updateTransaction, convertToRecurring, updateRecurringTemplate, deleteTransaction, refresh } =
     useFinanceTransactions(month);
 
   const filteredIncome = useMemo(
@@ -129,6 +129,9 @@ export default function Finances() {
       is_ar: Boolean(entry.is_ar),
       raw_input: raw ?? null,
       attachment_url: null,
+      // AI-parsed entries are one-offs; recurrence is opted into explicitly
+      // (the "Recurring subscription" toggle, or convert-to-recurring later).
+      recurring_subscription_id: null,
     };
     const created = await createTransaction(tx);
     if (created) {
@@ -339,6 +342,7 @@ export default function Finances() {
                   onUpdate={updateTransaction}
                   onConvertToRecurring={convertToRecurring}
                   onDelete={deleteTransaction}
+                  onUpdateRecurringTemplate={updateRecurringTemplate}
                 />
                 <TransactionList
                   title="Expenses"
@@ -347,6 +351,7 @@ export default function Finances() {
                   onUpdate={updateTransaction}
                   onConvertToRecurring={convertToRecurring}
                   onDelete={deleteTransaction}
+                  onUpdateRecurringTemplate={updateRecurringTemplate}
                 />
               </>
             )}

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Pencil, Trash2, ArrowDownRight, ArrowUpRight, CircleDollarSign, Utensils, Loader2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ManualEntryForm } from "@/components/finances/ManualEntryForm";
-import type { FinanceTransaction, NewFinanceTransaction, RecurrenceInterval } from "@/hooks/useFinanceTransactions";
+import type { FinanceTransaction, NewFinanceTransaction, RecurrenceInterval, RecurrenceScope, RecurringTemplatePatch } from "@/hooks/useFinanceTransactions";
+import { RecurrenceScopeDialog } from "@/components/finances/RecurrenceScopeDialog";
 
 type Props = {
   title: string;
@@ -10,12 +11,17 @@ type Props = {
   transactions: FinanceTransaction[];
   onUpdate: (id: string, patch: Partial<NewFinanceTransaction>) => Promise<FinanceTransaction | null>;
   onConvertToRecurring: (id: string, interval: RecurrenceInterval) => Promise<FinanceTransaction | null>;
-  onDelete: (id: string) => Promise<boolean>;
+  onDelete: (id: string, scope?: RecurrenceScope) => Promise<boolean>;
+  /** Propagates a recurring edit forward when the user picks "all future months". */
+  onUpdateRecurringTemplate: (templateId: string, patch: RecurringTemplatePatch) => Promise<boolean>;
 };
 
-export function TransactionList({ title, kind, transactions, onUpdate, onConvertToRecurring, onDelete }: Props) {
+export function TransactionList({ title, kind, transactions, onUpdate, onConvertToRecurring, onDelete, onUpdateRecurringTemplate }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // The recurring row awaiting a "just this month / all future" answer
+  // before it's deleted.
+  const [pendingDelete, setPendingDelete] = useState<FinanceTransaction | null>(null);
 
   const total = transactions.reduce((a, t) => a + t.amount, 0);
 
@@ -41,7 +47,21 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
                 initial={t}
                 allowRecurring={!t.recurring_subscription_id}
                 onCancel={() => setEditingId(null)}
-                onSave={async (patch, recurrence) => {
+                onSave={async (patch, recurrence, scope) => {
+                  // "All future months" rewrites the template first, so any
+                  // month generated from here on inherits the new values.
+                  // The current month's row is still updated below — it was
+                  // already materialised and the template can't reach it.
+                  if (scope === "future" && t.recurring_subscription_id) {
+                    const ok = await onUpdateRecurringTemplate(t.recurring_subscription_id, {
+                      amount: patch.amount,
+                      vendor: patch.vendor,
+                      client: patch.client,
+                      category: patch.category,
+                      description: patch.description,
+                    });
+                    if (!ok) return;
+                  }
                   const saved = await onUpdate(t.id, patch);
                   if (!saved) return;
                   if (recurrence && !t.recurring_subscription_id) {
@@ -56,6 +76,12 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
                 kind={kind}
                 onEdit={() => setEditingId(t.id)}
                 onDelete={async () => {
+                  // Recurring rows ask which months this applies to; one-offs
+                  // keep the plain confirm.
+                  if (t.recurring_subscription_id) {
+                    setPendingDelete(t);
+                    return;
+                  }
                   if (!confirm("Delete this entry? (Soft-delete — recoverable from DB if needed.)")) return;
                   setDeletingId(t.id);
                   await onDelete(t.id);
@@ -67,8 +93,33 @@ export function TransactionList({ title, kind, transactions, onUpdate, onConvert
           </div>
         ))}
       </div>
+      <RecurrenceScopeDialog
+        open={!!pendingDelete}
+        mode="delete"
+        monthLabel={pendingDelete ? monthLabelOf(pendingDelete.date) : ""}
+        onCancel={() => setPendingDelete(null)}
+        onChoose={async (scope) => {
+          const target = pendingDelete;
+          setPendingDelete(null);
+          if (!target) return;
+          setDeletingId(target.id);
+          await onDelete(target.id, scope);
+          setDeletingId(null);
+        }}
+      />
     </section>
   );
+}
+
+/** "2026-08-17" -> "August 2026" (UTC-parsed so it can't slip a day). */
+function monthLabelOf(isoDate: string): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  if (!y || !m) return "this month";
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 function Heading({ kind, total, children }: { kind: "income" | "expense"; total?: number; children: React.ReactNode }) {

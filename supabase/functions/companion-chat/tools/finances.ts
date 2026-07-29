@@ -3,6 +3,12 @@ import type { ToolContext, ToolDef, ToolResult } from "./types.ts";
 import { logAnthropicUsage } from "../../_shared/log-anthropic-usage.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
+// Declared before FINANCE_TOOLS because a tool description interpolates
+// them — a `const` below would still be in the temporal dead zone when this
+// module-level array literal is evaluated.
+const INCOME_CATEGORIES = ["SMMA", "Bi-Weekly Fee", "One-Time Project", "Other Income"];
+const EXPENSE_CATEGORIES = ["Subscriptions", "Ad Spend", "Travel", "Food & Meals", "Contractors", "Software", "Payroll", "Other"];
+
 export const FINANCE_TOOLS: ToolDef[] = [
   {
     name: "get_finances",
@@ -37,10 +43,53 @@ export const FINANCE_TOOLS: ToolDef[] = [
       required: [],
     },
   },
+  {
+    name: "list_recurring_subscriptions",
+    description:
+      "List recurring income and expense subscriptions — the monthly/annual TEMPLATES that auto-generate a transaction every period (retainers, software, payroll), not the individual charges. Use for 'what am I paying monthly?', 'what are my retainers?', 'what recurring revenue do we have?', and ALWAYS before update_recurring_subscription or cancel_recurring_subscription so you have the right subscription_id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        type: { type: "string", description: "Filter to 'income' or 'expense'. Omit for both." },
+        include_ended: { type: "boolean", description: "Include already-cancelled subscriptions (default false)." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "update_recurring_subscription",
+    description:
+      "Change a recurring subscription going forward — e.g. 'raise Dr Calvin's retainer to 4500', 'move the Gusto charge to the 15th'. Edits the TEMPLATE, so every month generated from now on uses the new values. Get subscription_id from list_recurring_subscriptions first. IMPORTANT: by default this does NOT touch months already generated (including the current one) — pass also_update_current_month:true when the user means the change starts this month, which is usually what 'change it to X' means for a retainer. State clearly in your reply which months are affected.",
+    input_schema: {
+      type: "object",
+      properties: {
+        subscription_id: { type: "string", description: "From list_recurring_subscriptions." },
+        amount: { type: "number", description: "New recurring amount." },
+        vendor: { type: "string", description: "New vendor name." },
+        client: { type: "string", description: "New client name." },
+        category: { type: "string", description: `One of: ${[...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].join(", ")}` },
+        description: { type: "string", description: "New description." },
+        day_of_month: { type: "number", description: "Day it charges, 1–31." },
+        interval: { type: "string", description: "'monthly' or 'annual'." },
+        also_update_current_month: { type: "boolean", description: "Also rewrite this month's already-generated transaction (default false)." },
+      },
+      required: ["subscription_id"],
+    },
+  },
+  {
+    name: "cancel_recurring_subscription",
+    description:
+      "Stop a recurring subscription so it stops generating charges — 'cancel Zapier', 'Dr Calvin churned, stop the retainer'. Also clears already-generated transactions from the stop month onward, so future months don't keep showing it. Get subscription_id from list_recurring_subscriptions first. This is NOT how you delete a single month's charge — for that use the Finances page; cancelling ends the whole subscription.",
+    input_schema: {
+      type: "object",
+      properties: {
+        subscription_id: { type: "string", description: "From list_recurring_subscriptions." },
+        from_month: { type: "string", description: "YYYY-MM to stop from, inclusive (default: current month)." },
+      },
+      required: ["subscription_id"],
+    },
+  },
 ];
-
-const INCOME_CATEGORIES = ["SMMA", "Bi-Weekly Fee", "One-Time Project", "Other Income"];
-const EXPENSE_CATEGORIES = ["Subscriptions", "Ad Spend", "Travel", "Food & Meals", "Contractors", "Software", "Payroll", "Other"];
 
 async function callHaikuForParsing(raw: string, today: string, adminClient?: SupabaseClient, userId?: string): Promise<{ amount: number; type: "income" | "expense"; category: string; description: string } | null> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -160,6 +209,176 @@ export async function handleFinanceTool(
 
     actions.push({ type: "refresh_data", scope: "finances" });
     return { type: "tool_result", tool_use_id: block.id, content: `Logged: ${parsed.type === "income" ? "+" : "-"}$${parsed.amount} (${parsed.category}) — ${parsed.description}` };
+  }
+
+  if (block.name === "list_recurring_subscriptions") {
+    const { type, include_ended = false } = block.input as { type?: string; include_ended?: boolean };
+    let q = adminClient
+      .from("finance_recurring_subscriptions")
+      .select("id, type, vendor, client, category, description, amount, interval, day_of_month, start_month, end_month")
+      .eq("user_id", userId);
+    if (type === "income" || type === "expense") q = q.eq("type", type);
+    if (!include_ended) q = q.is("end_month", null);
+    const { data, error } = await q.order("amount", { ascending: false });
+    if (error) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Couldn't read subscriptions: ${error.message}` };
+    }
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No recurring subscriptions found." };
+    }
+    const lines = rows.map((r) => {
+      const who = r.client || r.vendor || "(unnamed)";
+      const ended = r.end_month ? ` [ENDED after ${r.end_month}]` : "";
+      return `${r.id} · ${r.type} · ${who} · $${Number(r.amount).toLocaleString()} ${r.interval} on day ${r.day_of_month} · ${r.category} · since ${r.start_month}${ended}`;
+    });
+    const monthlyIncome = rows
+      .filter((r) => r.type === "income" && r.interval === "monthly" && !r.end_month)
+      .reduce((s, r) => s + Number(r.amount), 0);
+    const monthlyExpense = rows
+      .filter((r) => r.type === "expense" && r.interval === "monthly" && !r.end_month)
+      .reduce((s, r) => s + Number(r.amount), 0);
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Recurring subscriptions (id · type · who · amount · schedule · category):\n${lines.join("\n")}\n\nActive monthly recurring income: $${monthlyIncome.toLocaleString()}; monthly recurring expense: $${monthlyExpense.toLocaleString()}.`,
+    };
+  }
+
+  if (block.name === "update_recurring_subscription") {
+    const {
+      subscription_id, amount, vendor, client, category, description,
+      day_of_month, interval, also_update_current_month = false,
+    } = block.input as Record<string, any>;
+
+    const { data: sub } = await adminClient
+      .from("finance_recurring_subscriptions")
+      .select("id, type, vendor, client, amount, category, interval, day_of_month")
+      .eq("id", subscription_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!sub) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No such recurring subscription (check list_recurring_subscriptions for valid ids)." };
+    }
+
+    const allCats = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES];
+    if (category && !allCats.includes(category)) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid category "${category}". Use one of: ${allCats.join(", ")}` };
+    }
+    if (interval && interval !== "monthly" && interval !== "annual") {
+      return { type: "tool_result", tool_use_id: block.id, content: `Invalid interval "${interval}" — use 'monthly' or 'annual'.` };
+    }
+    if (day_of_month !== undefined && (day_of_month < 1 || day_of_month > 31)) {
+      return { type: "tool_result", tool_use_id: block.id, content: "day_of_month must be between 1 and 31." };
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (amount !== undefined) patch.amount = amount;
+    if (vendor !== undefined) patch.vendor = vendor;
+    if (client !== undefined) patch.client = client;
+    if (description !== undefined) patch.description = description;
+    if (day_of_month !== undefined) patch.day_of_month = day_of_month;
+    if (interval !== undefined) patch.interval = interval;
+    if (category !== undefined) {
+      patch.category = category;
+      patch.deductible_ratio = category === "Food & Meals" ? 0.5 : null;
+    }
+    if (Object.keys(patch).length === 0) {
+      return { type: "tool_result", tool_use_id: block.id, content: "Nothing to change — pass at least one field." };
+    }
+
+    const { error: updErr } = await adminClient
+      .from("finance_recurring_subscriptions")
+      .update(patch)
+      .eq("id", subscription_id);
+    if (updErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Couldn't update subscription: ${updErr.message}` };
+    }
+
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    let currentMonthNote = `Future months only — ${month}'s already-generated charge is unchanged.`;
+    if (also_update_current_month) {
+      // Only fields that live on the transaction row; day_of_month/interval
+      // are schedule settings with no per-transaction equivalent.
+      const txPatch: Record<string, unknown> = {};
+      if (amount !== undefined) {
+        txPatch.amount = amount;
+        txPatch.deductible_amount = (category ?? sub.category) === "Food & Meals" ? Number(amount) * 0.5 : null;
+      }
+      if (vendor !== undefined) txPatch.vendor = vendor;
+      if (client !== undefined) txPatch.client = client;
+      if (category !== undefined) txPatch.category = category;
+      if (description !== undefined) txPatch.description = description;
+      if (Object.keys(txPatch).length > 0) {
+        const { error: txErr } = await adminClient
+          .from("finance_transactions")
+          .update(txPatch)
+          .eq("recurring_subscription_id", subscription_id)
+          .is("deleted_at", null)
+          .gte("date", `${month}-01`);
+        currentMonthNote = txErr
+          ? `Template updated, but ${month}'s charge could not be: ${txErr.message}`
+          : `Applied to ${month} onward.`;
+      }
+    }
+
+    actions.push({ type: "refresh_data", scope: "finances" });
+    const who = client ?? sub.client ?? vendor ?? sub.vendor ?? "subscription";
+    const amountNote = amount !== undefined ? ` to $${Number(amount).toLocaleString()}` : "";
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: `Updated recurring ${sub.type} for ${who}${amountNote}. ${currentMonthNote}`,
+    };
+  }
+
+  if (block.name === "cancel_recurring_subscription") {
+    const { subscription_id, from_month } = block.input as { subscription_id: string; from_month?: string };
+    const { data: sub } = await adminClient
+      .from("finance_recurring_subscriptions")
+      .select("id, type, vendor, client, amount")
+      .eq("id", subscription_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!sub) {
+      return { type: "tool_result", tool_use_id: block.id, content: "No such recurring subscription (check list_recurring_subscriptions for valid ids)." };
+    }
+
+    const now = new Date();
+    const stopFrom = from_month && /^\d{4}-\d{2}$/.test(from_month)
+      ? from_month
+      : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    // end_month is INCLUSIVE in finance_generate_recurring, so stopping at
+    // stopFrom means ending the month before it.
+    const [sy, sm] = stopFrom.split("-").map(Number);
+    const py = sm === 1 ? sy - 1 : sy;
+    const pm = sm === 1 ? 12 : sm - 1;
+    const endMonth = `${py}-${String(pm).padStart(2, "0")}`;
+
+    const { error: endErr } = await adminClient
+      .from("finance_recurring_subscriptions")
+      .update({ end_month: endMonth })
+      .eq("id", subscription_id);
+    if (endErr) {
+      return { type: "tool_result", tool_use_id: block.id, content: `Couldn't cancel: ${endErr.message}` };
+    }
+    const { error: cleanErr } = await adminClient
+      .from("finance_transactions")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("recurring_subscription_id", subscription_id)
+      .is("deleted_at", null)
+      .gte("date", `${stopFrom}-01`);
+
+    actions.push({ type: "refresh_data", scope: "finances" });
+    const who = sub.client || sub.vendor || "subscription";
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: cleanErr
+        ? `Cancelled ${who} from ${stopFrom}, but couldn't clear already-generated charges: ${cleanErr.message}`
+        : `Cancelled the recurring ${sub.type} for ${who} — no charges from ${stopFrom} onward, and any already-generated ones from that month were removed.`,
+    };
   }
 
   if (block.name === "get_revenue_vs_goal") {
