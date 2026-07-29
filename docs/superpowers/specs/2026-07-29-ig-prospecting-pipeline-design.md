@@ -119,8 +119,13 @@ Pacing: **4–6s randomized gap between profiles** inside the batch. A batch of
   previously dropped both live accounts from rotation.
 - Route all traffic through the WARP proxy (`--socks5-hostname 127.0.0.1:1080`)
   with the existing Android user-agent and `X-IG-App-ID: 936619743392459`.
-- When every account is stale, return `503` with a clear reason rather than
-  silently returning empty results.
+- When sessions are exhausted, return `503` with a clear reason rather than
+  silently returning empty results. Note `getNextIgCookies()` never returns
+  null from staleness — when all accounts are stale it clears the stale set and
+  retries — so exhaustion is detected by counting **consecutive auth failures
+  within a batch** (abort at 2), not by a null session.
+- Add `/ig-profile-info` to `HEAVY_PATHS` (a 10-profile batch occupies the
+  route ~50s). Leave `/ig-search` light — it is a single sub-second call.
 
 ---
 
