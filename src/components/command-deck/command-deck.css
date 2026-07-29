@@ -168,6 +168,15 @@
   50% { opacity: 0.3; }
 }
 
+/* Suggestion chips default to a dimmed resting state and brighten on
+   :hover — on touch devices hover never fires, so without this they'd
+   stay dim forever instead of just until first interaction. */
+@media (hover: none) {
+  .cd-suggestion-chips {
+    opacity: 1 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cd-scan {
     animation: none;

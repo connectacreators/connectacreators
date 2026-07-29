@@ -67,7 +67,10 @@ export default function CommandDeckLayout({
         </div>
       </div>
 
-      <div className={focusMode ? "cd-defocused" : ""}>
+      {/* Roll call is desktop HUD detail like the header badges above — on
+          mobile the orb keeps the space instead (it self-sizes to whatever
+          room its column has, so hiding this just lets it grow). */}
+      <div className={`hidden lg:block${focusMode ? " cd-defocused" : ""}`}>
         <RollCallBar displayName={displayName} companionName={companionName} listening={listening} />
       </div>
     </div>

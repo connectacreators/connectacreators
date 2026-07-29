@@ -1849,9 +1849,13 @@ export default function CommandCenter() {
                       />
                     </div>
 
-                    {/* Suggestion chips below the textbox — boxless, dimmed until hovered. */}
+                    {/* Suggestion chips below the textbox — boxless, dimmed until
+                        hovered. Hover never fires on touch, so cd-suggestion-chips
+                        (command-deck.css) forces full opacity under
+                        `@media (hover: none)` — otherwise these stay stuck dim
+                        forever on mobile. */}
                     <div
-                      className="flex flex-wrap gap-2 mt-3 justify-center"
+                      className="cd-suggestion-chips flex flex-wrap gap-2 mt-3 justify-center"
                       style={{ opacity: 0.55, transition: "opacity 0.4s var(--ease, ease)" }}
                       onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.55"; }}
