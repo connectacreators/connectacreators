@@ -18,7 +18,7 @@ import {
   FileText, LogOut, Settings, Target, CalendarDays,
   Home, ChevronLeft, ChevronRight, MessageSquare, Plus, Search, CreditCard, Users, Video, Archive, Clapperboard, BookOpen,
   Calendar, Flame, UserCheck, Zap, ChevronDown, Check, UserCircle, Bot, Clock, DollarSign, Globe, ScrollText, Layers, BarChart3,
-  Film, TrendingUp, ClipboardList, Send, Newspaper,
+  Film, TrendingUp, ClipboardList, Send, Newspaper, Plug,
 } from "lucide-react";
 import { IS_VIDEO_EDITOR_ENABLED } from "@/lib/videoEditor/featureGate";
 
@@ -163,6 +163,7 @@ export default function DashboardSidebar({ sidebarOpen, setSidebarOpen, currentP
           { type: 'group', label: selectedClientName } as NavGroup,
           { label: L("Strategy", "Estrategia"), icon: TrendingUp, path: `/clients/${selectedClientId}/strategy`, tier: 'essential' } as NavItem,
           { label: "Onboarding", icon: ClipboardList, path: `/onboarding/${selectedClientId}` } as NavItem,
+          { label: L("Integrations", "Integraciones"), icon: Plug, path: `/clients/${selectedClientId}/integrations` } as NavItem,
         ] : []),
         { type: 'group', label: L('Create', 'Crear') },
         { label: tr(t.dashboard.scripts, language), icon: FileText, path: contentIdeasPath, tier: 'essential' },

@@ -26,6 +26,7 @@ import { logAnthropicUsage } from "../_shared/log-anthropic-usage.ts";
 // columns and enforce_assistant_memory_cap's parameter signature both still
 // match this code exactly (zero schema drift) via the Management API.
 import { MEMORY_TOOLS, handleMemoryTool, loadMemoriesForPrompt } from "./tools/memories.ts";
+import { META_ADS_TOOLS, handleMetaAdsTool } from "./tools/meta-ads.ts";
 import { resolveClient, getAccessibleClientIds } from "./tools/types.ts";
 import {
   runAnalyzeMyProfile,
@@ -641,6 +642,8 @@ const TOOLS = [
   ...PLAN_TOOLS,
   // Memory subsystem — see import comment above.
   ...MEMORY_TOOLS,
+  // Meta Ads (Facebook Ads) reporting and setup
+  ...META_ADS_TOOLS,
 ];
 
 // ── Static system prologue (cached) ──────────────────────────────────────
@@ -3185,7 +3188,8 @@ NOTE: Script-build requests are intercepted before reaching you. You don't need 
           await handleResearchTool(block, moduleCtx) ??
           await handleAnalyticsTool(block, moduleCtx) ??
           await handlePlanTool(block, moduleCtx) ??
-          await handleMemoryTool(block, moduleCtx);
+          await handleMemoryTool(block, moduleCtx) ??
+          await handleMetaAdsTool(block, moduleCtx);
         if (moduleResult) toolResults.push(moduleResult);
 
         // Fallback: ensure every tool_use_id has a matching tool_result, otherwise

@@ -81,6 +81,7 @@ const CommandCenterPreview = lazy(() => import("./pages/CommandCenterPreview"));
 const PublicContract = lazy(() => import("./pages/PublicContract"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const SocialAccounts = lazy(() => import("./pages/SocialAccounts"));
+const ClientIntegrations = lazy(() => import("./pages/ClientIntegrations"));
 const ThankYou = lazy(() => import("./pages/ThankYou"));
 
 const queryClient = new QueryClient();
@@ -237,6 +238,7 @@ const App = () => (
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/clients/:clientId/contracts" element={<ContractsPage />} />
               <Route path="/clients/:clientId/social-accounts" element={<SocialAccounts />} />
+              <Route path="/clients/:clientId/integrations" element={<ClientIntegrations />} />
               <Route path="/clients/:clientId/strategy" element={<ClientStrategy />} />
             </Route>
 
