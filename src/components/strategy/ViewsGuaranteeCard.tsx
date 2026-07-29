@@ -32,13 +32,15 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
   const [draftStart, setDraftStart] = useState("");
   const [draftDuration, setDraftDuration] = useState<string>(String(durationMonths ?? ""));
 
-  // "Goal hit" celebration — ripple + badge spring-in + number pulse, fired
-  // once on the real false→true transition (never on mount/page-load, since
+  // "Goal hit" celebration — badge spring-in + number pulse, fired once on
+  // the real false→true transition (never on mount/page-load, since
   // byPlatform starts null → total=0 → hit=false, so the first real fetch
   // could just be re-confirming a goal already hit in a prior session).
-  const cardRef = useRef<HTMLDivElement>(null);
+  // The expanding ripple ring this used to draw was removed: the card is
+  // not a positioned ancestor, so the absolutely-positioned ring resolved
+  // against a far-up container and swept across the whole page instead of
+  // staying in the card.
   const [celebrate, setCelebrate] = useState(false);
-  const [rippleScale, setRippleScale] = useState(12);
   const prevHitRef = useRef<boolean | null>(null);
   const hasLoadedOnceRef = useRef(false);
 
@@ -112,9 +114,6 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
     prevHitRef.current = hit;
     if (!justHit) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const rect = cardRef.current?.getBoundingClientRect();
-    const targetPx = rect ? Math.max(240, Math.max(rect.width, rect.height) * 1.2) : 480;
-    setRippleScale(targetPx / 40);
     setCelebrate(true);
     const t = setTimeout(() => setCelebrate(false), 2000);
     return () => clearTimeout(t);
@@ -137,39 +136,21 @@ export function ViewsGuaranteeCard({ linked, en, viewsGoal, startedAt, durationM
   };
 
   return (
-    <div ref={cardRef} className="glass-card rounded-xl p-5" style={{ border: `1px solid ${color}33` }}>
+    <div className="glass-card rounded-xl p-5" style={{ border: `1px solid ${color}33` }}>
       {celebrate && (
-        <>
-          <style>{`
-            @keyframes vg-ripple {
-              from { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
-              to   { transform: translate(-50%, -50%) scale(var(--vg-ripple-scale, 12)); opacity: 0; }
-            }
-            @keyframes vg-badge-pop {
-              from { opacity: 0; transform: scale(0.6); }
-              to   { opacity: 1; transform: scale(1); }
-            }
-            @keyframes vg-number-pulse {
-              0%, 100% { transform: scale(1); text-shadow: 0 0 0 hsl(var(--honey) / 0); }
-              50%      { transform: scale(1.04); text-shadow: 0 0 18px hsl(var(--honey) / 0.55); }
-            }
-            @media (prefers-reduced-motion: reduce) {
-              .vg-ripple, .vg-badge-pop, .vg-number-pulse { animation: none !important; }
-            }
-          `}</style>
-          <span
-            className="vg-ripple pointer-events-none absolute left-1/2 top-1/2 rounded-full"
-            style={{
-              width: 40,
-              height: 40,
-              border: "1.5px solid hsl(var(--honey))",
-              opacity: 0.9,
-              zIndex: 5,
-              animation: "vg-ripple 1.1s cubic-bezier(0.22,1,0.36,1) forwards",
-              "--vg-ripple-scale": rippleScale,
-            } as React.CSSProperties}
-          />
-        </>
+        <style>{`
+          @keyframes vg-badge-pop {
+            from { opacity: 0; transform: scale(0.6); }
+            to   { opacity: 1; transform: scale(1); }
+          }
+          @keyframes vg-number-pulse {
+            0%, 100% { transform: scale(1); text-shadow: 0 0 0 hsl(var(--honey) / 0); }
+            50%      { transform: scale(1.04); text-shadow: 0 0 18px hsl(var(--honey) / 0.55); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .vg-badge-pop, .vg-number-pulse { animation: none !important; }
+          }
+        `}</style>
       )}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] font-bold tracking-[1px] uppercase" style={{ color }}>
