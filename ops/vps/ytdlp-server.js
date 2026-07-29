@@ -254,48 +254,61 @@ async function scrapeInstagramProfile(username, limit) {
   let igCookieFile = igAccount.file;
 
   // Helper: fetch IG API via curl + WARP proxy
+  // IG API fetch. Primary egress is the WARP SOCKS proxy; if WARP's exit IP is
+  // rate-limited ("Please wait a few minutes"), retry the same request straight
+  // from the VPS IP. Verified 2026-07-29: WARP exit 104.28.205.117 answered
+  // every request with the throttle message while the VPS IP returned full
+  // results using the identical cookies, so a throttled WARP alone was zeroing
+  // every Instagram scrape. Falls back per-request and self-heals when WARP
+  // recovers; a genuine auth error still marks the account stale on first sight.
   function igApiFetch(apiUrl, method, postData, cookieOverride) {
-    const args = [
-      "-s", "--max-time", "20",
-      "--socks5-hostname", "127.0.0.1:1080",
-      "-H", "User-Agent: Instagram 344.0.0.0.98 Android (33/13; 420dpi; 1080x2340; samsung; SM-G991B; o1s; exynos2100)",
-      "-H", "X-IG-App-ID: 936619743392459",
-      "-H", "X-CSRFToken: " + csrfToken,
-      "-H", "Cookie: " + (cookieOverride || cookieHeader),
-    ];
-    if (method === "POST") {
-      args.push("-X", "POST");
-      args.push("-H", "Content-Type: application/x-www-form-urlencoded");
-      if (postData) args.push("-d", postData);
+    function buildArgs(useProxy) {
+      const args = ["-s", "--max-time", "20"];
+      if (useProxy) args.push("--socks5-hostname", "127.0.0.1:1080");
+      args.push(
+        "-H", "User-Agent: Instagram 344.0.0.0.98 Android (33/13; 420dpi; 1080x2340; samsung; SM-G991B; o1s; exynos2100)",
+        "-H", "X-IG-App-ID: 936619743392459",
+        "-H", "X-CSRFToken: " + csrfToken,
+        "-H", "Cookie: " + (cookieOverride || cookieHeader)
+      );
+      if (method === "POST") {
+        args.push("-X", "POST");
+        args.push("-H", "Content-Type: application/x-www-form-urlencoded");
+        if (postData) args.push("-d", postData);
+      }
+      args.push(apiUrl);
+      return args;
     }
-    args.push(apiUrl);
-    
-    try {
-      const result = execFileSync("curl", args, { maxBuffer: 10 * 1024 * 1024, timeout: 25000 });
-      const parsed = JSON.parse(result.toString());
-      // Auto-detect auth errors (login_required, challenge_required)
+
+    let throttledAnywhere = false;
+    for (const useProxy of [true, false]) {
+      const via = useProxy ? "WARP" : "direct";
+      let parsed;
+      try {
+        const result = execFileSync("curl", buildArgs(useProxy), { maxBuffer: 10 * 1024 * 1024, timeout: 25000 });
+        parsed = JSON.parse(result.toString());
+      } catch (e) {
+        console.error("igApiFetch error (" + via + "):", e.message?.slice(0, 200));
+        continue;
+      }
       if (parsed.message === "login_required" || parsed.message === "challenge_required" || parsed.require_login) {
         // IG's rate-limit reply carries require_login:true too. A transient
-        // "Please wait a few minutes" must NOT mark the account stale —
-        // doing so dropped both live accounts from rotation and returned
-        // "0 videos" until the rotation auto-reset (the re-scrape "fix").
-        const throttled = /please wait a few minutes/i.test(parsed.message || "");
-        if (throttled) {
-          console.warn("[ig] Rate-limited (transient, not stale):", igCookieFile?.split("/").pop());
-          return null;
+        // "Please wait a few minutes" must NOT mark the account stale — doing
+        // so dropped both live accounts from rotation and returned "0 videos".
+        if (/please wait a few minutes/i.test(parsed.message || "")) {
+          throttledAnywhere = true;
+          console.warn("[ig] Rate-limited via " + via + " (transient, not stale):", igCookieFile?.split("/").pop());
+          continue;
         }
         console.warn("[ig] Auth error:", parsed.message, "on", igCookieFile?.split("/").pop());
         if (typeof markIgAccountStale === "function" && igCookieFile) markIgAccountStale(igCookieFile);
-        // (ig-login-burner auto-refresh removed 2026-07-18: headless login
-        // dead-ends at reCAPTCHA and the sync call stalled scrapes 60s.
-        // Recovery is manual cookie transplant; rotation handles the rest.)
         return null;
       }
+      if (!useProxy) console.log("[ig] Served via direct VPS IP (WARP throttled)");
       return parsed;
-    } catch (e) {
-      console.error("igApiFetch error:", e.message?.slice(0, 200));
-      return null;
     }
+    if (throttledAnywhere) console.warn("[ig] Rate-limited on BOTH WARP and direct egress");
+    return null;
   }
 
   const results = [];
@@ -436,8 +449,18 @@ async function scrapeInstagramProfile(username, limit) {
     }
 
     console.log("Final:", results.length, "posts for @" + username);
-    const profilePic = profileData?.data?.user?.profile_pic_url_hd || profileData?.data?.user?.profile_pic_url || null;
-    return { posts: results.slice(0, safeLim), profilePicUrl: profilePic, followers: profileData?.data?.user?.edge_followed_by?.count || null };
+    // profileData comes from i.instagram.com/api/v1/users/<name>/usernameinfo/
+    // — the MOBILE private API, whose shape is {user:{pk, follower_count,
+    // profile_pic_url, profile_pic_url_hd}}. This block previously read
+    // profileData.data.user.edge_followed_by.count, which is the WEB api shape
+    // and never exists on this response, so profilePicUrl/followers came back
+    // null on every Instagram scrape no matter how well it went — leaving IG
+    // channels with no avatar and no follower_count. Web shape kept as a
+    // fallback in case the resolve endpoint is ever switched back.
+    const igUser = profileData?.user || profileData?.data?.user || null;
+    const profilePic = igUser?.profile_pic_url_hd || igUser?.profile_pic_url || null;
+    const igFollowers = igUser?.follower_count ?? igUser?.edge_followed_by?.count ?? null;
+    return { posts: results.slice(0, safeLim), profilePicUrl: profilePic, followers: igFollowers };
   } catch (err) {
     console.error("Instagram scrape error:", err.message);
     return { posts: results, profilePicUrl: null };

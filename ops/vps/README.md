@@ -48,3 +48,40 @@ Instagram routes depend on real account sessions in `/var/www/ig-account-*.json`
 which periodically 2FA-lock and need a manual browser login plus cookie
 transplant to recover. A `SESSION_EXPIRED` response means that has happened
 again — it is not a bug in the calling code.
+
+## Triaging "Instagram returns 0 posts"
+
+Dead cookies are the usual cause but not the only one. Check egress **before**
+touching sessions — on 2026-07-29 a throttled WARP exit IP produced a total
+Instagram outage while the cookies were perfectly valid.
+
+`igApiFetch` sends IG traffic through the WARP SOCKS proxy at
+`127.0.0.1:1080` and now falls back to the VPS's own IP when WARP answers
+with a rate-limit. Two helpers make the distinction visible:
+
+```bash
+# Do these cookies authenticate at all, and can they read someone else's media?
+ssh root@72.62.200.145 'cd /var/www && node ig-verify.js /var/www/ig-account-1.json'
+
+# WARP vs direct, and which headers matter, for one account
+ssh root@72.62.200.145 'cd /var/www && node ig-headermatrix.js /var/www/ig-account-1.json nasa'
+```
+
+Three traps worth knowing, all hit during that incident:
+
+- **`require_login: true` also rides along on the rate-limit reply.** Reading it
+  alone as "logged out" sends you chasing cookies when the IP is the problem.
+  The tell is `"Please wait a few minutes before you try again."` — transient,
+  and it must never mark an account stale.
+- **`warp-cli disconnect && connect` does not change the exit IP.** It came back
+  as the same address. Falling back to the direct IP is the working escape.
+- **Authenticating is not the same as being able to read.** Of three freshly
+  exported accounts, all three returned their own follower counts while only one
+  could read another profile's media. Validate a candidate with a real profile
+  read before counting it as rotation capacity.
+
+Headless re-login is not a recovery path: it accepts the emailed code and then
+dead-ends at `/auth_platform/recaptcha/`. The session cookie minted at that point
+looks valid and returns **empty bodies instead of `login_required`**, so it
+silently poisons the rotation pool. Never treat "has a `sessionid`" as logged in
+— reject any URL still under `/auth_platform/`.
