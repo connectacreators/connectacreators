@@ -197,6 +197,24 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="targetClient">
+              What is {Your}{" "}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help underline decoration-dotted underline-offset-2">ICP</span>
+                </TooltipTrigger>
+                <TooltipContent>Ideal Client Profile</TooltipContent>
+              </Tooltip>
+              ?
+            </Label>
+            <RichTextField
+              id="targetClient"
+              value={formData.targetClient}
+              onChange={(html) => onChange("targetClient", html)}
+              placeholder={`Describe ${your} ideal customer…`}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="uniqueValues">5 Teachings or Values {Subj}'re Really Good at Explaining</Label>
             <RichTextField
               id="uniqueValues"
@@ -214,12 +232,9 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
               placeholder={`What makes ${you} different from competitors…`}
             />
           </div>
-          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <Label htmlFor="contrarianBeliefs" className="flex flex-wrap items-center gap-2">
-              <span>Contrarian Takes — what {you} believe that other experts don't</span>
-              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                Essential
-              </span>
+          <div className="space-y-2">
+            <Label htmlFor="contrarianBeliefs">
+              Contrarian Takes — what {you} believe that other experts don't
             </Label>
             <RichTextField
               id="contrarianBeliefs"
@@ -244,24 +259,6 @@ export default function OnboardingFormBody({ formData, onChange, perspective }: 
       <div className="border-t border-border/50 pt-8 md:pt-12">
         <SectionHeader n={5}>Market &amp; Goals</SectionHeader>
         <div className="space-y-5 md:space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="targetClient">
-              What is {Your}{" "}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help underline decoration-dotted underline-offset-2">ICP</span>
-                </TooltipTrigger>
-                <TooltipContent>Ideal Client Profile</TooltipContent>
-              </Tooltip>
-              ?
-            </Label>
-            <RichTextField
-              id="targetClient"
-              value={formData.targetClient}
-              onChange={(html) => onChange("targetClient", html)}
-              placeholder={`Describe ${your} ideal customer…`}
-            />
-          </div>
           <div className="space-y-2">
             <Label htmlFor="callLink">Link to {Your} Call/Calendar</Label>
             <Input

@@ -44,6 +44,7 @@ const SECTIONS = [
     title: "Brand & Messaging",
     fields: [
       { key: "uniqueOffer", label: "Unique Offer" },
+      { key: "targetClient", label: "ICP" },
       { key: "uniqueValues", label: "Can Explain Well" },
       { key: "competition", label: "Competition" },
       { key: "contrarianBeliefs", label: "Contrarian Takes" },
@@ -53,7 +54,6 @@ const SECTIONS = [
   {
     title: "Market & Goals",
     fields: [
-      { key: "targetClient", label: "ICP" },
       { key: "top3Profiles", label: "Top Profiles" },
       { key: "callLink", label: "Call Link" },
       { key: "additionalNotes", label: "Notes" },

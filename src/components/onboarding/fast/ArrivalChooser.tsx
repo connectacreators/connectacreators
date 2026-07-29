@@ -1,4 +1,4 @@
-import { Mic, Keyboard, ArrowRight, Sparkles } from "lucide-react";
+import { Mic, Keyboard, ArrowRight, ClipboardList } from "lucide-react";
 
 interface ArrivalChooserProps {
   clientName?: string;
@@ -13,7 +13,7 @@ export default function ArrivalChooser({ clientName, onChoose }: ArrivalChooserP
   return (
     <div className="mx-auto flex min-h-[100svh] max-w-md flex-col justify-center px-5 py-10">
       <div className="mb-8 text-center">
-        <Sparkles className="mx-auto mb-4 h-7 w-7 text-primary" />
+        <ClipboardList className="mx-auto mb-4 h-7 w-7 text-primary" strokeWidth={1.75} />
         <h1 className="text-2xl font-bold text-foreground">
           {clientName ? `Welcome, ${clientName}!` : "Let's set up your brand"}
         </h1>

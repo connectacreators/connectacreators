@@ -44,16 +44,16 @@ export function exportOnboardingPdf(data: OnboardingData, opts?: { name?: string
       title: "Brand & Messaging",
       rows: [
         ["Unique offer", stripHtml(data.uniqueOffer)],
+        ["ICP (ideal client profile)", stripHtml(data.targetClient)],
         ["Can explain really well", stripHtml(data.uniqueValues)],
         ["Differentiator", stripHtml(data.competition)],
-        ["Contrarian beliefs", stripHtml(data.contrarianBeliefs)],
+        ["Contrarian takes", stripHtml(data.contrarianBeliefs)],
         ["Story", stripHtml(data.story)],
       ],
     },
     {
       title: "Market & Goals",
       rows: [
-        ["Target client", stripHtml(data.targetClient)],
         ["Profiles to emulate", profilesToText(data.top3Profiles, ", ")],
         ["Call / calendar link", data.callLink],
         ["Additional notes", stripHtml(data.additionalNotes)],

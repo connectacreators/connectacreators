@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Share2, Copy, Check, Loader2, UserPlus, KeyRound, Sparkles } from "lucide-react";
+import { Share2, Copy, Check, Loader2, UserPlus, KeyRound, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -134,7 +134,7 @@ export default function OnboardingSharePanel({
       <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5">
         <div>
           <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <Bot className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
             AI live coaching
           </p>
           <p className="text-xs text-muted-foreground">

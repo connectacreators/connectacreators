@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Sparkles, Loader2, Lock, FileDown } from "lucide-react";
+import { ArrowLeft, ClipboardList, Loader2, Lock, FileDown, Mic } from "lucide-react";
 import { useNavigate, useParams, Navigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -322,7 +322,7 @@ const Onboarding = () => {
             </button>
           )}
           <div className="mb-2 flex items-center gap-3">
-            <Sparkles className="h-6 w-6 text-primary" />
+            <ClipboardList className="h-6 w-6 text-primary" strokeWidth={1.75} />
             <h1 className="bg-clip-text text-2xl font-bold text-transparent gradient-hero md:text-3xl">
               {self
                 ? clientName
@@ -338,7 +338,8 @@ const Onboarding = () => {
             onClick={() => setUiMode("fast")}
             className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
           >
-            🎙️ {isAdmin ? "Preview voice mode" : "Prefer talking? Switch to voice mode"}
+            <Mic className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {isAdmin ? "Preview voice mode" : "Prefer talking? Switch to voice mode"}
           </button>
         </div>
 
