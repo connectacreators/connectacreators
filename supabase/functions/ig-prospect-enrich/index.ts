@@ -28,10 +28,13 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Claim: read candidates, then bump attempts. Bumping BEFORE the scrape is
-  // what stops two overlapping cron ticks from processing the same row — the
-  // second tick's filter (attempts < MAX) plus the changed value means it
-  // selects a different set.
+  // Claim: read candidates, then bump attempts with a compare-and-swap. The
+  // UPDATE's .eq("enrichment_attempts", c.enrichment_attempts) only succeeds
+  // if the row's attempts count still matches what we just read — if another
+  // overlapping tick already bumped it between our SELECT and our UPDATE,
+  // this UPDATE affects zero rows and we skip it. This closes the race for
+  // every attempt (not just the final 2->3 one, where the plain `< MAX`
+  // filter alone happens to already exclude a concurrently-bumped row).
   const { data: candidates, error: selErr } = await supabase
     .from("ig_prospects")
     .select("id, username, enrichment_attempts")
@@ -45,14 +48,23 @@ serve(async (req) => {
     return json({ claimed: 0, enriched: 0, failed: 0, rolled_back: 0, sessions_exhausted: false });
   }
 
+  const claimed: typeof candidates = [];
   for (const c of candidates) {
-    await supabase
+    const { data, error } = await supabase
       .from("ig_prospects")
       .update({ enrichment_attempts: c.enrichment_attempts + 1 })
-      .eq("id", c.id);
+      .eq("id", c.id)
+      .eq("enrichment_attempts", c.enrichment_attempts) // CAS: only if unchanged since our SELECT
+      .select("id");
+    if (!error && data && data.length > 0) claimed.push(c);
+    // else: another tick already claimed this row between our SELECT and UPDATE — skip it.
   }
 
-  const usernames = candidates.map((c) => c.username);
+  if (claimed.length === 0) {
+    return json({ claimed: 0, enriched: 0, failed: 0, rolled_back: 0, sessions_exhausted: false });
+  }
+
+  const usernames = claimed.map((c) => c.username);
   let profiles: Record<string, Record<string, unknown>> = {};
   let sessionsExhausted = false;
 
@@ -77,7 +89,7 @@ serve(async (req) => {
 
   let enriched = 0, failed = 0, rolledBack = 0;
 
-  for (const c of candidates) {
+  for (const c of claimed) {
     const p = profiles[c.username];
 
     // No answer at all (batch aborted, scraper unreachable, sessions down):
@@ -130,10 +142,10 @@ serve(async (req) => {
     enriched++;
   }
 
-  console.log(`[ig-prospect-enrich] claimed=${candidates.length} enriched=${enriched} failed=${failed} rolled_back=${rolledBack} exhausted=${sessionsExhausted}`);
+  console.log(`[ig-prospect-enrich] claimed=${claimed.length} enriched=${enriched} failed=${failed} rolled_back=${rolledBack} exhausted=${sessionsExhausted}`);
 
   return json({
-    claimed: candidates.length,
+    claimed: claimed.length,
     enriched,
     failed,
     rolled_back: rolledBack,
