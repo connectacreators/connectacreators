@@ -247,3 +247,15 @@ verify_jwt = false
 # credential — MUST stay verify_jwt = false or every poll 401s.
 [functions.calendar-feed]
 verify_jwt = false
+
+# IG prospect enrichment drip. pg_cron calls this every minute with
+# x-cron-secret only and no Authorization header, so the gateway JWT check
+# MUST stay off — a deploy that re-enables it 401s every tick and the whole
+# pending queue silently stops enriching, with no error surface anywhere.
+[functions.ig-prospect-enrich]
+verify_jwt = false
+
+# Validates the caller's JWT in-code via supabase.auth.getUser(), then relies
+# on RLS (is_admin) for its writes — same pattern as the other admin functions.
+[functions.ig-prospect-search]
+verify_jwt = false

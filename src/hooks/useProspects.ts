@@ -31,7 +31,6 @@ export interface IgProspect {
 }
 
 const tbl = () => (supabase as any).from("ig_prospects");
-const metricsTbl = () => (supabase as any).from("outbound_metrics");
 const dailyLogTbl = () => (supabase as any).from("outbound_daily_log");
 
 const PLATFORM = "instagram";
@@ -63,37 +62,36 @@ async function applyFunnelDeltas(
   if (deltas.length === 0) return;
   const month = thisMonth();
 
-  const { data: existing } = await metricsTbl()
-    .select("*")
-    .eq("user_id", userId)
-    .eq("platform", PLATFORM)
-    .eq("month", month)
-    .maybeSingle();
+  // Sum per counter first: one transition can touch a counter once, but callers
+  // may bundle, and the RPC takes one value per column.
+  const payload: Record<string, number> = {};
+  for (const d of deltas) payload[d.stage] = (payload[d.stage] ?? 0) + d.delta;
 
-  const row: Record<string, unknown> = {
-    user_id: userId, platform: PLATFORM, month,
-    pre_initiated: existing?.pre_initiated ?? 0,
-    message_seen: existing?.message_seen ?? 0,
-    initiated: existing?.initiated ?? 0,
-    engaged: existing?.engaged ?? 0,
-    calendly_sent: existing?.calendly_sent ?? 0,
-    booked: existing?.booked ?? 0,
-    follows: existing?.follows ?? 0,
-    follow_backs: existing?.follow_backs ?? 0,
-    updated_at: new Date().toISOString(),
-  };
-  for (const d of deltas) {
-    // The table has `>= 0` checks on every counter; clamp so a correction can
-    // never push a rollup negative and reject the whole upsert.
-    row[d.stage] = Math.max(0, (row[d.stage] as number) + d.delta);
+  // Atomic server-side increment. This deliberately does NOT read the current
+  // counters into the client: the previous read-modify-write lost data two ways
+  // -- a failed read looked like an empty month and zeroed all eight counters,
+  // and two quick clicks both read the same value and both wrote value+1. The
+  // RPC clamps at 0 in SQL to satisfy the table's `>= 0` CHECKs.
+  const { error } = await (supabase as any).rpc("apply_outbound_deltas", {
+    p_platform: PLATFORM,
+    p_month: month,
+    p_deltas: payload,
+  });
+  if (error) {
+    toast.error(`Couldn't update funnel: ${error.message}`);
+    return;
   }
 
-  const { error } = await metricsTbl().upsert(row, { onConflict: "user_id,platform,month" });
-  if (error) { toast.error(`Couldn't update funnel: ${error.message}`); return; }
-
-  await dailyLogTbl().insert(
+  // Day-level audit trail. Surfaced on failure rather than swallowed: if this
+  // silently no-ops, the monthly rollup and the day log drift apart and the
+  // /outbound Monthly view stops agreeing with the daily gauges.
+  const { error: logError } = await dailyLogTbl().insert(
     deltas.map((d) => ({ user_id: userId, platform: PLATFORM, stage: d.stage, delta: d.delta })),
   );
+  if (logError) {
+    console.error("[useProspects] day-log insert failed", logError);
+    toast.error("Funnel updated, but the daily log didn't record it");
+  }
 }
 
 export function useProspects() {
